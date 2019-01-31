@@ -24,6 +24,7 @@ PROJECT="$1"
 ROBOT_NAME="$2"
 ROBOT_ROLE="${3:-}"
 ROBOT_TYPE="${4:-}"
+APP_MANAGEMENT=${APP_MANAGEMENT:-true}
 # Full reference to the setup-robot image
 IMAGE_REFERENCE="${5:-DEFAULT_IMAGE_REFERENCE}"
 
@@ -72,4 +73,4 @@ fi
 kubectl --context=kubernetes-admin@kubernetes run setup-robot --restart=Never -i --rm \
   --image=${IMAGE_REFERENCE} --env="ACCESS_TOKEN=${ACCESS_TOKEN}" -- --project ${PROJECT} \
   --robot-name ${ROBOT_NAME} --robot-role "${ROBOT_ROLE}" \
-  --robot-type "${ROBOT_TYPE}"
+  --robot-type "${ROBOT_TYPE}" --app-management="${APP_MANAGEMENT}"
