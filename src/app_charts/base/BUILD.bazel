@@ -5,6 +5,7 @@ core_app_chart(
     extra_templates = [
         ":cloud/monitoring-crd.yaml",
         ":cloud/registry-crd.yaml",
+        ":cloud/apps-crd.yaml",
     ],
     files = [
         "//third_party/fluentd_gcp_addon",

@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "app.go",
+        "approllout.go",
+        "chartassignment.go",
+        "expansion_generated.go",
+    ],
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/listers/apps/v1alpha1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
+        "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
+        "@io_k8s_apimachinery//pkg/labels:go_default_library",
+        "@io_k8s_client_go//tools/cache:go_default_library",
+    ],
+)

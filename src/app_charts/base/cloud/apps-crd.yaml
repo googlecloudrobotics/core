@@ -1,0 +1,223 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: apps.apps.cloudrobotics.com
+  annotations:
+    cr-syncer.cloudrobotics.com/spec-source: cloud
+spec:
+  group: apps.cloudrobotics.com
+  version: v1alpha1
+  names:
+    kind: Apps
+    plural: apps
+    singular: app
+  scope: Cluster
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          type: object
+          properties:
+            repository:
+              type: string
+            version:
+              type: string
+            components:
+              type: object
+              properties:
+                cloud:
+                  type: object
+                  properties:
+                    chart:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        inline:
+                          type: string
+                robots:
+                  type: object
+                  properties:
+                    chart:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        inline:
+                          type: string
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: approllouts.apps.cloudrobotics.com
+  annotations:
+    cr-syncer.cloudrobotics.com/spec-source: cloud
+spec:
+  group: apps.cloudrobotics.com
+  version: v1alpha1
+  names:
+    kind: AppRollout
+    plural: approllouts
+    singular: approllout
+  scope: Cluster
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          type: object
+          required:
+          - appName
+          properties:
+            appName:
+              type: string
+            cloud:
+              type: object
+              properties:
+                values:
+                  type: object
+            robots:
+              type: array
+              items:
+                type: object
+                properties:
+                  values:
+                    type: object
+                  version:
+                    type: string
+                  selector:
+                    type: object
+                    properties:
+                      any:
+                        type: boolean
+                      matchLabels:
+                        type: object
+                      matchExpressions:
+                        type: array
+                        items:
+                          required:
+                          - key
+                          - operator
+                          properties:
+                            key:
+                              type: string
+                            operator:
+                              type: string
+                            values:
+                              items:
+                                type: string
+        status:
+          type: object
+          properties:
+            observedGeneration:
+              type: integer
+            cloud:
+              type: object
+              required:
+              - assignments
+              - updatedAssignments
+              properties:
+                assignments:
+                  type: integer
+                updatedAssignment:
+                  type: integer
+            robots:
+              type: object
+              required:
+              - assignments
+              - updatedAssignments
+              properties:
+                assignments:
+                  type: integer
+                updatedAssignment:
+                  type: integer
+            conditions:
+              type: array
+              items:
+                type: object
+                properties:
+                  lastUpdateTime:
+                    type: date
+                    format: date-time
+                  lastTransitionTime:
+                    type: date
+                    format: date-time
+                  status:
+                    type: string
+                  type:
+                    type: string
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: chartassignments.apps.cloudrobotics.com
+  annotations:
+    cr-syncer.cloudrobotics.com/spec-source: cloud
+spec:
+  group: apps.cloudrobotics.com
+  version: v1alpha1
+  names:
+    kind: ChartAssignment
+    plural: chartassignments
+    singular: chartassignment
+  scope: Cluster
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          type: object
+          required:
+          - clusterName
+          - namespaceName
+          - chart
+          properties:
+            clusterName:
+              type: string
+            namespaceName:
+              type: string
+            chart:
+              type: object
+              properties:
+                repository:
+                  type: string
+                name:
+                  type: string
+                version:
+                  type: string
+                inline:
+                  type: string
+                values:
+                  type: object
+        status:
+          type: object
+          required:
+          - observedGeneration
+          properties:
+            observedGeneration:
+              type: integer
+            conditions:
+              type: array
+              items:
+                type: object
+                properties:
+                  lastUpdateTime:
+                    type: date
+                    format: date-time
+                  lastTransitionTime:
+                    type: date
+                    format: date-time
+                  status:
+                    type: string
+                  type:
+                    type: string
+            phase:
+              type: string
+            desiredRevision:
+              type: integer
+            deployedRevision:
+              type: integer
+            rollbackRevision:
+              type: integer
