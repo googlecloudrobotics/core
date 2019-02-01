@@ -28,7 +28,7 @@ TERRAFORM_VERSION=0.11.7
 TERRAFORM_DIR="${DIR}/src/bootstrap/cloud/terraform"
 TERRAFORM_APPLY_FLAGS=${TERRAFORM_APPLY_FLAGS:- -auto-approve}
 
-APP_MANAGEMENT=${APP_MANAGEMENT:-true}
+APP_MANAGEMENT=${APP_MANAGEMENT:-false}
 
 
 # utility functions
