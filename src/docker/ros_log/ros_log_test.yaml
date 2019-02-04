@@ -1,0 +1,8 @@
+schemaVersion: "2.0.0"
+
+commandTests:
+
+# Check that ros_log can be invoked without failing.
+  - name: "ros_log --help"
+    command: "python"
+    args: ["/app/src/docker/ros_log/ros_log.binary", "--help"]

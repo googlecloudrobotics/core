@@ -1,0 +1,29 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+# http relay api
+
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+proto_library(
+    name = "http_over_rpc_proto",
+    srcs = ["http_over_rpc.proto"],
+)
+
+go_proto_library(
+    name = "http_over_rpc_proto_go",
+    importpath = "src/proto/http-relay",
+    proto = ":relay_proto",
+)
+
+proto_library(
+    name = "relay_proto",
+    srcs = ["http_over_rpc.proto"],
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":http_over_rpc_proto_go"],
+    importpath = "src/proto/http-relay",
+)

@@ -1,0 +1,4 @@
+[pep8]
+aggressive=2
+indent-size=2
+max-line-length=80

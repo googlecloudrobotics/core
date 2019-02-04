@@ -1,0 +1,14 @@
+domain: "example.com"
+ingress_ip: ""
+project: "my-gcp-project"
+region: "us-north1-a"
+deploy_environment: "GCP"
+owner_email: "info@example.com"
+
+# Setting app_management to "false" will remove layer 2 (robot/cloud-master, etc).
+app_management: "true"
+
+oauth2_proxy:
+  cookie_secret: ""
+  client_id: ""
+  client_secret: ""

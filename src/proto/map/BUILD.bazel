@@ -1,0 +1,70 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+# registry service
+package(default_visibility = ["//visibility:public"])
+
+load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
+load("@cloud_robotics//bazel/build_rules:proto_descriptor.bzl", "proto_descriptor")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+load("@grpc_ecosystem_grpc_gateway//protoc-gen-swagger:defs.bzl", "protoc_gen_swagger")
+
+# map api
+
+proto_library(
+    name = "map_proto",
+    srcs = ["map.proto"],
+    deps = [
+        "//src/proto/common:common_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@go_googleapis//google/api:annotations_proto",
+        "@grpc_ecosystem_grpc_gateway//protoc-gen-swagger/options:options_proto",
+    ],
+)
+
+proto_descriptor(
+    name = "proto_descriptor",
+    out = "proto_descriptor.pb",
+    proto_library = ":map_proto",
+)
+
+# language bindings
+
+java_proto_library(
+    name = "map_proto_java",
+    deps = [":map_proto"],
+)
+
+java_grpc_library(
+    name = "map_proto_grpc",
+    srcs = [":map_proto"],
+    deps = [":map_proto_java"],
+)
+
+# open-api spec
+
+# TODO(ferstl): Find a way to make use of the "grpc_api_configuration" parameter. We used to expand
+# map.yaml and pass it into "grpc_api_configuration" here. However, for now, we omit this since it
+# currently does not have an effect on the produced output ("map.swagger.json").
+protoc_gen_swagger(
+    name = "swagger",
+    proto = ":map_proto",
+)
+
+go_proto_library(
+    name = "map_go_proto",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "src/proto/map",
+    proto = ":map_proto",
+    deps = [
+        "//src/proto/common:go_default_library",
+        "@go_googleapis//google/api:annotations_go_proto",
+        "@grpc_ecosystem_grpc_gateway//protoc-gen-swagger/options:go_default_library",
+    ],
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":map_go_proto"],
+    importpath = "src/proto/map",
+)

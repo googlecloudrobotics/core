@@ -1,0 +1,10 @@
+# https://github.com/coreos/prometheus-operator/blob/master/LICENSE
+# Apache license
+licenses(["notice"])
+
+# TODO(b/118419020): replace copies by upstream versions
+
+exports_files(
+    glob(["*.tgz"]),
+    visibility = ["//visibility:public"],
+)

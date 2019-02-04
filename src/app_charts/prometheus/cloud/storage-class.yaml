@@ -1,0 +1,11 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ssd
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+provisioner: kubernetes.io/gce-pd
+parameters:
+  type: pd-ssd
+# TODO(fabxc): add `allowStorageExpansion: true` once we can assume a Kubernetes
+# version >=1.11 (https://kubernetes.io/blog/2018/07/12/resizing-persistent-volumes-using-kubernetes/).

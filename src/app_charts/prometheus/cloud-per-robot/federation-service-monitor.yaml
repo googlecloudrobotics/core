@@ -1,0 +1,37 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-federation-{{ .Values.robot.name }}
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+  - port: http
+    path: /client/{{ .Values.robot.name }}/federate
+    params:
+      'match[]':
+      - '{namespace="default",job!~"apiserver|kube-state|prometheus"}'
+    honorLabels: true
+  targetLabels:
+  - robot
+  selector:
+    matchLabels:
+      app: prometheus-federation
+      robot: "{{ .Values.robot.name }}"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-federation-{{ .Values.robot.name }}
+  labels:
+    app: prometheus-federation
+    robot: "{{ .Values.robot.name }}"
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: prometheus-relay-server
+  type: ClusterIP

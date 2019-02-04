@@ -1,0 +1,44 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("//:config.bzl", "CLOUD_ROBOTICS_CONTAINER_REGISTRY")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "images.go",
+        "main.go",
+    ],
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/setup-dev",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/go/pkg/kubeutils:go_default_library",
+        "//src/go/pkg/robotauth:go_default_library",
+        "//src/go/pkg/setup:go_default_library",
+        "//src/go/pkg/setup/util:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
+        "@io_k8s_client_go//dynamic:go_default_library",
+        "@io_k8s_client_go//plugin/pkg/client/auth/gcp:go_default_library",
+        "@io_k8s_client_go//tools/clientcmd:go_default_library",
+        "@io_k8s_client_go//tools/clientcmd/api:go_default_library",
+        "@org_golang_x_oauth2//:go_default_library",
+        "@org_golang_x_oauth2//google:go_default_library",
+    ],
+)
+
+genrule(
+    name = "images_go",
+    srcs = ["//src/docker/ros_adapter:ros_adapter.digest"],
+    outs = ["images.go"],
+    cmd = """
+cat <<EOF > $@
+package main
+
+const rosAdapterImage = "{}/ros-adapter@$$(cat $<)";
+EOF
+""".format(CLOUD_ROBOTICS_CONTAINER_REGISTRY),
+)
+
+go_binary(
+    name = "setup-dev",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

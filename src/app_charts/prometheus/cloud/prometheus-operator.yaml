@@ -1,0 +1,6 @@
+# A subchart would be much simpler than the Rube-Goldberg machine of expanding
+# a Helm chart, putting it into a file, and then doing replacements on the files.
+# However, the subchart approach has a number of problems:
+#  - You can't override .Release.Name or the namespace in subcharts.
+#  - You can't use templating for subchart parameters because they're in values.yaml.
+{{ .Files.Get "files/prometheus-operator.yaml" | replace "${CLOUD_ROBOTICS_DOMAIN}" .Values.domain | replace "${GCP_PROJECT_ID}" .Values.project | replace "HELM-NAMESPACE" .Release.Namespace }}

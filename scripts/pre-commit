@@ -1,0 +1,140 @@
+#!/bin/bash
+# git hook to ensure code style
+# ln -sf ../../scripts/pre-commit .git/hooks/
+
+result=0
+
+
+function files_matching {
+  # The diff-filter lists all but deleted files. The `echo` puts the output on
+  # one line for easier copy-pasting.
+  echo $(git diff --name-only --staged --diff-filter=ACMRTUXB | grep -E "$1")
+}
+
+go_files=$(files_matching "\.go$")
+
+if [ -n "$go_files" ]; then
+  # meh, gofmt does not set an exit code
+  # TODO(rodrigoq): this will break if the filenames have spaces
+  diff=$(gofmt -d -e $go_files)
+  if [ -n "$diff" ]; then
+    echo "$diff"
+    files_to_fix=$(gofmt -l $go_files)
+    echo "To fix, run: gofmt -w $files_to_fix"
+    result=1
+  fi
+fi
+
+py_files=$(files_matching "\.py$")
+
+if [ -n "$py_files" ]; then
+  which >/dev/null autopep8 || (echo "Please install autopep8"; exit 1)
+  # TODO(rodrigoq): this will break if the filenames have spaces
+  diff=$(autopep8 -d $py_files)
+  if [ -n "$diff" ]; then
+    echo "$diff"
+    echo "To fix, run: autopep8 -i $py_files"
+    result=1
+  fi
+fi
+
+build_files=$(git diff --name-only --staged --diff-filter=ACMRTUXB \
+  | grep -E "BUILD|WORKSPACE|[.]bzl" \
+  | grep -v "maven_dependencies.bzl" \
+  | grep -v "third_party/java")
+
+if [ -n "$build_files" ]; then
+  which >/dev/null buildifier || (echo "Please install buildifier"; exit 1)
+  diff=$(buildifier -d $build_files)
+  if [ -n "$diff" ]; then
+    echo "$diff"
+    echo "To fix, run: buildifier" \
+      $(echo $(buildifier -mode=check $build_files | cut -d' ' -f1))
+    result=1
+  fi
+fi
+
+# Run Gazelle if a Go or BUILD file changes. This is a heuristic, but hopefully
+# covers most cases where it is needed.
+if [ -n "$go_files" -o -n "$build_files" ]; then
+  diff=$(bazel run :gazelle -- -mode=diff 2>/dev/null)
+  if [ -n "$diff" ]; then
+    echo "$diff"
+    echo "To fix:"
+    echo "  bazel run :gazelle"
+    result=1
+  fi
+fi
+
+
+# Check for labels added by the unhelpful buildozer command from Bazel:
+# https://github.com/bazelbuild/bazel/issues/4584
+if [ -n "$build_files" ]; then
+  illegal_jar_label="@\w*//jar"
+  if grep -q "$illegal_jar_label" $build_files; then
+    echo "Illegal JAR references found:"
+    grep -H "$illegal_jar_label" $build_files
+    echo "To fix, please replace them with references to //third_party/java."
+    echo "This ensures that Bazel is aware of the transitive dependencies."
+    echo "For example, instead of:"
+    echo "  @com_google_guava_guava//jar"
+    echo "  @com_google_http_client_google_http_client//jar"
+    echo "Please use:"
+    echo "  //third_party/java/com/google/guava"
+    echo "  //third_party/java/com/google/http_client:google_http_client"
+    result=1
+  fi
+fi
+
+
+java_files=$(echo $(files_matching "\.java$"))
+if [ -n "$java_files" ]; then
+  which >/dev/null google-java-format || (echo "Please install google-java-format"; exit 1)
+  diff=$(diff -u <(cat $java_files) <(google-java-format $java_files))
+  if [ -n "$diff" ]; then
+    echo "$diff"
+    echo "To fix, run:"
+    echo "    google-java-format -i $java_files"
+    result=1
+  fi
+fi
+
+ts_files=$(files_matching "\.ts$")
+
+if [ -n "$ts_files" ]; then
+  which >/dev/null clang-format || (echo "Please install clang-format"; exit 1)
+  diff=$(diff -u <(cat $ts_files) <(clang-format $ts_files))
+  if [ -n "$diff" ]; then
+    echo "$diff"
+    echo "To fix, run: clang-format -i $ts_files"
+    result=1
+  fi
+fi
+
+cpp_files=$(files_matching "\.(h|cc)$")
+
+if [ -n "$cpp_files" ]; then
+  which >/dev/null clang-format || (echo "Please install clang-format"; exit 1)
+  diff=$(diff -u <(cat $cpp_files) <(clang-format -style=google $cpp_files))
+  if [ -n "$diff" ]; then
+    echo "$diff"
+    echo "To fix, run: clang-format -style=google -i $cpp_files"
+    result=1
+  fi
+fi
+
+tf_files=$(files_matching "\.tf$")
+
+if [ -n "$tf_files" ]; then
+  tf_dirs=$(for f in $(git ls-files *.tf); do dirname $f; done | sort | uniq)
+  for tf_dir in $tf_dirs; do
+    diff=$($HOME/.cache/cloud-robotics/terraform fmt -write=false $tf_dir)
+    if [ -n "$diff" ]; then
+      echo "$diff" | grep "$tf_dir"
+      echo "To fix, run: $HOME/.cache/cloud-robotics/terraform fmt $tf_dir"
+      result=1
+    fi
+  done
+fi
+
+exit $result

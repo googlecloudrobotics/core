@@ -1,0 +1,69 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: ros-adapter-{{ .Values.robot.name }}
+spec:
+  replicas: 1
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        id: "{{ .Values.robot.name }}"
+        app: ros-adapter
+    spec:
+      containers:
+      - args:
+        - robot
+        env:
+        - name: GOOGLE_CLOUD_PROJECT
+          value: {{ .Values.project }}
+        - name: CLOUD_ROBOTICS_DOMAIN
+          value: {{ .Values.domain }}
+        - name: ROBOT_NAME
+          value: "{{ .Values.robot.name }}"
+        - name: ROS_MASTER_URI
+          value: http://ros-master.default.svc.cluster.local:11311
+        - name: ROS_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "200Mi"
+          limits:
+            cpu: "400m"
+            memory: "400Mi"
+        image: {{ .Values.images.ros_adapter }}
+        name: ros-adapter
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ros-adapter
+  labels:
+    # This is used by the ServiceMonitor.
+    app: ros-adapter
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: ros-adapter
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ros-adapter
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+  - port: http
+  selector:
+    matchLabels:
+      app: ros-adapter

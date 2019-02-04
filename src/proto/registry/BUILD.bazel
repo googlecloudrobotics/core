@@ -1,0 +1,50 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+# registry service
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+load("@grpc_ecosystem_grpc_gateway//protoc-gen-swagger:defs.bzl", "protoc_gen_swagger")
+
+# registry api
+
+proto_library(
+    name = "registry_proto",
+    srcs = ["registry.proto"],
+    deps = [
+        "@com_google_protobuf//:timestamp_proto",
+        "@go_googleapis//google/api:annotations_proto",
+        "@grpc_ecosystem_grpc_gateway//protoc-gen-swagger/options:options_proto",
+    ],
+)
+
+# language bindings
+
+java_proto_library(
+    name = "registry_proto_java",
+    deps = [":registry_proto"],
+)
+
+go_proto_library(
+    name = "registry_proto_go",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "src/proto/registry",
+    proto = ":registry_proto",
+    deps = [
+        "@go_googleapis//google/api:annotations_go_proto",
+        "@grpc_ecosystem_grpc_gateway//protoc-gen-swagger/options:go_default_library",
+    ],
+)
+
+# open-api spec
+
+protoc_gen_swagger(
+    name = "swagger",
+    proto = ":registry_proto",
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":registry_proto_go"],
+    importpath = "src/proto/registry",
+)

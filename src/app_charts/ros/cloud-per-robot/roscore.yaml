@@ -1,0 +1,45 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: roscore-cloud-{{ .Values.robot.name }}
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: roscore-cloud-{{ .Values.robot.name }}
+        id: "{{ .Values.robot.name }}"
+    spec:
+      hostname: roscore-cloud-{{ .Values.robot.name }}
+      containers:
+      - env:
+        - name: ROSOUT_DISABLE_FILE_LOGGING
+          value: "True"
+        - name: ROS_MASTER_URI
+          value: "http://127.0.0.1:11311"
+        - name: ROS_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: "status.podIP"
+{{ if eq .Values.app.sim_suffix "-sim" }}
+        image: {{ .Values.images.roscore_sim }}
+{{ else }}
+        image: {{ .Values.images.roscore }}
+{{ end }}
+        name: roscore
+        ports:
+        - containerPort: 11311
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: roscore-cloud-{{ .Values.robot.name }}
+spec:
+  clusterIP: None
+  ports:
+  - name: roscore
+    port: 11311
+  selector:
+    app: roscore-cloud-{{ .Values.robot.name }}
+  type: ClusterIP
+

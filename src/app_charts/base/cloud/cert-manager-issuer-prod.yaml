@@ -1,0 +1,13 @@
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: letsencrypt-prod
+  namespace: default
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: "{{ .Values.owner_email }}"
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    # We can't use dns01 since we don't control the dns-zone that endpoints uses.
+    http01: {}

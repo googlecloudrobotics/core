@@ -1,0 +1,90 @@
+package(default_visibility = ["//visibility:public"])
+
+# These Dagger modules are useful for external builds that don't want to depend on grpc-java.
+java_library(
+    name = "dagger_modules",
+    srcs = [
+        "Clock.java",
+        "ClockModule.java",
+        "ExecutorModule.java",
+        "KubernetesModule.java",
+        "SystemClock.java",
+    ],
+    deps = [
+        "//src/java:dagger_with_compiler",
+        "//third_party/java/io/fabric8:kubernetes_client",
+        "//third_party/java/io/fabric8:kubernetes_model",
+        "//third_party/java/javax/inject:javax_inject",
+    ],
+)
+
+java_library(
+    name = "framework",
+    srcs = [
+        "Clock.java",
+        "ClockModule.java",
+        "DatastoreModule.java",
+        "ExecutorModule.java",
+        "FrameworkModule.java",
+        "HttpService.java",
+        "KubernetesModule.java",
+        "ModularServer.java",
+        "OverviewHandler.java",
+        "StorageModule.java",
+        "SystemClock.java",
+        "configuration/ConfigurationModule.java",
+        "configuration/ConfigurationReportingHandler.java",
+        "configuration/ConfigurationService.java",
+        "configuration/ConfigurationServiceForProto.java",
+        "configuration/MessageUtils.java",
+        "grpc/AuthenticationContext.java",
+        "grpc/AuthenticationContextClientInterceptor.java",
+        "grpc/AuthenticationContextServerInterceptor.java",
+        "grpc/ChannelModule.java",
+        "grpc/GrpcModule.java",
+        "grpc/GrpcService.java",
+        "healthreporting/HealthReportingHandler.java",
+        "healthreporting/HealthReportingModule.java",
+        "readinessreporting/ReadinessReportingHandler.java",
+        "readinessreporting/ReadinessReportingModule.java",
+        "stats/SystemStatsHandler.java",
+        "stats/SystemStatsModule.java",
+    ],
+    deps = [
+        "//src/java:dagger_with_compiler",
+        "//src/proto/framework:config_proto_java",
+        "//third_party/java/com/fasterxml/jackson/core:jackson_annotations",
+        "//third_party/java/com/fasterxml/jackson/core:jackson_core",
+        "//third_party/java/com/fasterxml/jackson/core:jackson_databind",
+        "//third_party/java/com/google/cloud:google_cloud_core",
+        "//third_party/java/com/google/cloud:google_cloud_datastore",
+        "//third_party/java/com/google/cloud:google_cloud_storage",
+        "//third_party/java/com/google/flogger",
+        "//third_party/java/com/google/guava",
+        "//third_party/java/io/fabric8:kubernetes_client",
+        "//third_party/java/io/fabric8:kubernetes_model",
+        "//third_party/java/io/grpc:grpc_netty",
+        "//third_party/java/io/grpc:grpc_services",
+        "//third_party/java/javax/inject:javax_inject",
+        "@com_google_protobuf//:protobuf_java",
+        "@io_grpc_grpc_java//context",
+        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_java//stub",
+    ],
+)
+
+java_library(
+    name = "framework_testing",
+    testonly = True,
+    srcs = [
+        "DatastoreTestRule.java",
+        "HttpServerTestRule.java",
+    ],
+    deps = [
+        "//third_party/java/com/google/cloud:google_cloud_core",
+        "//third_party/java/com/google/cloud:google_cloud_datastore",
+        "//third_party/java/com/google/cloud:google_cloud_nio",
+        "//third_party/java/com/google/flogger",
+        "//third_party/java/junit",
+    ],
+)

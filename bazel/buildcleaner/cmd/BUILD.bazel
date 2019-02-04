@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "fixWorkspace.go",
+        "getLicenses.go",
+        "root.go",
+        "workspace.go",
+    ],
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/bazel/buildcleaner/cmd",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_bazelbuild_buildtools//build:go_default_library",
+        "@com_github_bazelbuild_buildtools//wspace:go_default_library",
+        "@com_github_ryanuber_go_license//:go_default_library",
+        "@com_github_spf13_cobra//:go_default_library",
+    ],
+)

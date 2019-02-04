@@ -1,0 +1,30 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+# transform proto defines
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+proto_library(
+    name = "common_proto",
+    srcs = ["transform.proto"],
+)
+
+# language bindings
+
+java_proto_library(
+    name = "transform_proto_java",
+    deps = [":common_proto"],
+)
+
+go_proto_library(
+    name = "transform_proto_go",
+    importpath = "src/proto/common",
+    proto = ":common_proto",
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":transform_proto_go"],
+    importpath = "src/proto/common",
+)

@@ -1,0 +1,25 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "go_default_test",
+    size = "large",
+    timeout = "long",
+    srcs = [
+        "k8s_integration_test.go",
+        "robot_integration_test.go",
+    ],
+    tags = ["external"],
+    deps = [
+        "//src/go/pkg/kubeutils:go_default_library",
+        "//src/go/pkg/utils:go_default_library",
+        "@com_google_cloud_go//pubsub:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
+        "@io_k8s_client_go//dynamic:go_default_library",
+        "@io_k8s_client_go//kubernetes:go_default_library",
+        "@io_k8s_client_go//plugin/pkg/client/auth/gcp:go_default_library",
+        "@org_golang_google_api//iterator:go_default_library",
+        "@org_golang_x_net//context:go_default_library",
+    ],
+)

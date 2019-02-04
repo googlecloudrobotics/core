@@ -1,0 +1,25 @@
+# As Cartographer images need to be build with optimizations enabled, we build
+# the whole tree optimized by default. If you want to build a sub-tree in a
+# different configuration you can specify `-c fastbuild` or `-c dbg` on the
+# command line.
+build -c opt
+
+# Print output when tests fail. No idea why this isn't the default.
+test --test_output=errors
+# Don't run integration tests and tests that need docker by default
+test --test_tag_filters="-external,-requires-docker"
+
+# Workaround https://github.com/bazelbuild/bazel/issues/3236
+build --sandbox_tmpfs_path=/tmp
+
+# Workaround https://github.com/bazelbuild/bazel/issues/6136
+startup --host_jvm_args=-XX:+UnlockDiagnosticVMOptions --host_jvm_args=-XX:-InlineUnsafeOps
+
+# This uses fixed values of PATH, LD_LIBRARY_PATH and TMPDIR. It allows cache
+# hits between CLI and IntelliJ builds, and will also be useful if we switch to
+# a shared cache.
+build --experimental_strict_action_env
+
+# This enforces use of the newer rules, as the older native rules will be
+# disabled in a future version of Bazel.
+build --incompatible_remove_native_http_archive --incompatible_remove_native_git_repository

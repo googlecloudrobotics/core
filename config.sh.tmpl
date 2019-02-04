@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+### Required settings ###
+
+# Project ID of your Cloud Robotics GCP project. This project can be created
+# for you as part of the Terraform setup, or it can be created and configured
+# manually, then imported with `deploy.sh set-project` or `terraform import`.
+GCP_PROJECT_ID=my-project
+
+# GCP region and zone where resources should be created.
+GCP_REGION=europe-west1
+GCP_ZONE=europe-west1-c
+
+# Billing account ID for your GCP project.
+GCP_BILLING_ACCOUNT=012345-678901-234567
+
+### Optional settings ###
+
+# A Google Group that should be a co-owner of the created GCP project.
+#CLOUD_ROBOTICS_SHARED_OWNER_GROUP=my-group@google.com
+
+# If you want to store your Terraform state in a GCS bucket, give a bucket name
+# and a subdirectory of the bucket here. See
+# https://www.terraform.io/docs/backends/types/gcs.html for docs.
+#TERRAFORM_GCS_BUCKET="my-gcs-bucket"
+#TERRAFORM_GCS_PREFIX="my/sub/directory"
+
+# Symmetric cookie encryption key for the oauth2-proxy. Generate with:
+# python -c 'import os,base64; print base64.urlsafe_b64encode(os.urandom(16))'
+#CLOUD_ROBOTICS_COOKIE_SECRET=A_CyACoujODhfn2yDMy5tw==
+
+# Oauth2 client ID and client secret from
+# https://console.cloud.google.com/apis/credentials. If you leave these empty,
+# you won't be able to log in with a browser (but CLI access will work fine).
+#CLOUD_ROBOTICS_OAUTH2_CLIENT_ID=....apps.googleusercontent.com
+#CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET=...

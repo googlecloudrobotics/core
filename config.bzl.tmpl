@@ -1,0 +1,7 @@
+# This is the Docker registry that all Cloud Robotics images will be deployed
+# to. Bazel needs to know its location because it compiles the location into
+# Helm charts.
+CLOUD_ROBOTICS_CONTAINER_REGISTRY = "gcr.io/my-project"
+
+# This is the Docker tag that all uploaded images are tagged with.
+DOCKER_TAG = "latest"

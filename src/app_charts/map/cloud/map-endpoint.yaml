@@ -1,0 +1,48 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: map-endpoint
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: map-endpoint
+    spec:
+      containers:
+      - name: esp
+        image: gcr.io/endpoints-release/endpoints-runtime:1.21
+        args: [
+          "-p", "8080",
+          "-P", "8081",
+          "-a", "grpc://127.0.0.1:50051",
+          "-s", "map.endpoints.{{ .Values.project }}.cloud.goog",
+          "--rollout_strategy", "managed",
+          "--cors_preset", "basic",
+          "--cors_allow_headers", "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+        ]
+        ports:
+        - containerPort: 8080
+        - containerPort: 8081
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8090
+          initialDelaySeconds: 15
+      - name: map-endpoint
+        image: {{ .Values.images.map_endpoint }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9090
+          initialDelaySeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /readiness
+            port: 9090
+          initialDelaySeconds: 15
+        env:
+        - name: GOOGLE_CLOUD_PROJECT
+          value: {{ .Values.project }}
+        - name: CLOUD_ROBOTICS_DOMAIN
+          value: {{ .Values.domain }}

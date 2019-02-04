@@ -1,0 +1,42 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "broker.go",
+        "main.go",
+    ],
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/http-relay-server",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/proto/http-relay:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    size = "small",
+    srcs = [
+        "broker_test.go",
+        "main_test.go",
+    ],
+    embed = [":go_default_library"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/proto/http-relay:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
+    ],
+)
+
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+
+go_image(
+    name = "http-relay-server",
+    base = "@cc_image_base//image",
+    embed = [":go_default_library"],
+)

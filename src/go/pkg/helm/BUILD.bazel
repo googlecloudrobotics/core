@@ -1,0 +1,40 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["helm.go"],
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/pkg/helm",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/proto/registry:go_default_library",
+        "@com_github_golang_protobuf//jsonpb:go_default_library_gen",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@in_gopkg_yaml_v2//:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
+        "@io_k8s_apimachinery//pkg/watch:go_default_library",
+        "@io_k8s_client_go//dynamic:go_default_library",
+        "@io_k8s_client_go//tools/cache:go_default_library",
+        "@io_k8s_helm//pkg/strvals:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    size = "small",
+    srcs = ["helm_test.go"],
+    embed = [":go_default_library"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/proto/registry:go_default_library",
+        "@com_github_onsi_gomega//:go_default_library",
+        "@com_github_onsi_gomega//gstruct:go_default_library",
+        "@in_gopkg_yaml_v2//:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime:go_default_library",
+        "@io_k8s_client_go//dynamic:go_default_library",
+        "@io_k8s_client_go//dynamic/fake:go_default_library",
+    ],
+)

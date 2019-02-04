@@ -1,0 +1,26 @@
+load("//bazel/internal:core_app_chart.bzl", "core_app_chart")
+load("//bazel:app.bzl", "app")
+
+core_app_chart(
+    name = "ros-demo-robot",
+)
+
+core_app_chart(
+    name = "ros-demo-cloud-per-robot",
+    images = {"ros-demo-server": "//src/python/ros_demo:server"},
+)
+
+core_app_chart(
+    name = "ros-demo-cloud",
+    files = [":roscon-demo-dashboard.json"],
+)
+
+app(
+    name = "ros-demo",
+    charts = [
+        ":ros-demo-cloud",
+        ":ros-demo-cloud-per-robot",
+        ":ros-demo-robot",
+    ],
+    visibility = ["//visibility:public"],
+)

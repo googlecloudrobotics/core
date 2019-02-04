@@ -1,0 +1,43 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@bazel_gomock//:gomock.bzl", "gomock")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["setupcommon.go"],
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/pkg/setup",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/go/pkg/robotauth:go_default_library",
+        "//src/go/pkg/setup/util:go_default_library",
+        "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
+        "@io_k8s_client_go//dynamic:go_default_library",
+        "@io_k8s_client_go//plugin/pkg/client/auth/gcp:go_default_library",
+        "@org_golang_x_crypto//ssh/terminal:go_default_library",
+    ],
+)
+
+gomock(
+    name = "mock_factory",
+    out = "mock_factory_test.go",
+    interfaces = ["Factory"],
+    library = "//src/go/pkg/setup/util:go_default_library",
+    package = "setup",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    size = "small",
+    srcs = [
+        "connect_test.go",
+        "mock_factory_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//src/go/pkg/setup/util:go_default_library",  # keep
+        "@com_github_golang_mock//gomock:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
+    ],
+)

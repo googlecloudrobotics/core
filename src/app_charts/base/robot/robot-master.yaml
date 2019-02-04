@@ -1,0 +1,28 @@
+{{ if eq .Values.app_management "true" }}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: robot-master
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: robot-master
+    spec:
+      containers:
+      - args:
+        - "--params=\
+          domain={{ .Values.domain }},\
+          project={{ .Values.project }},\
+          deploy_environment={{ .Values.deploy_environment }}"
+        # Kubernetes namespace name like "default".
+        - --namespace={{ .Release.Namespace }}
+        env:
+        - name: GOOGLE_CLOUD_PROJECT
+          value: {{ .Values.project }}
+        - name: ROBOT_NAME
+          value: "{{ .Values.robot.name }}"
+        image: {{ .Values.images.robot_master }}
+        name: robot-master
+{{ end }}

@@ -1,0 +1,18 @@
+package(default_visibility = ["//visibility:public"])
+
+load(":ros_py_test.bzl", "ros_py_test")
+
+exports_files(glob([
+    "*.tpl",
+    "ros_py_test.bzl",
+]))
+
+ros_py_test(
+    name = "example_rostest",
+    size = "small",
+    srcs = ["example_rostest.py"],
+    deps = [
+        "@com_github_ros_ros_comm//:rospy",
+        "@com_github_ros_ros_comm//:rostest_lib",
+    ],
+)

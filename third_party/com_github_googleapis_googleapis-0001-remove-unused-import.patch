@@ -1,0 +1,24 @@
+From 6bb760547d5addd73bf4e13fdbee0b47d647a1f8 Mon Sep 17 00:00:00 2001
+From: Rodrigo Queiro <rodrigoq@google.com>
+Date: Thu, 8 Nov 2018 12:38:27 +0100
+Subject: [PATCH] Remove unused import
+
+---
+ google/api/billing.proto | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/google/api/billing.proto b/google/api/billing.proto
+index 5df74a096..84c2777a8 100644
+--- a/google/api/billing.proto
++++ b/google/api/billing.proto
+@@ -18,7 +18,6 @@ syntax = "proto3";
+ package google.api;
+ 
+ import "google/api/annotations.proto";
+-import "google/api/metric.proto";
+ 
+ option go_package = "google.golang.org/genproto/googleapis/api/serviceconfig;serviceconfig";
+ option java_multiple_files = true;
+-- 
+2.19.1.930.g4563a0d9d0-goog
+

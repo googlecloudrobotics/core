@@ -1,0 +1,7 @@
+pymongo==3.6.0
+defusedxml==0.5.0
+netifaces==0.10.6
+Pillow==4.3.0
+PyYAML==3.12
+Twisted==17.9.0
+google-auth==1.4.1

@@ -1,0 +1,33 @@
+load("//bazel/internal:core_app_chart.bzl", "core_app_chart")
+
+core_app_chart(
+    name = "base-robot",
+    extra_templates = [
+        ":cloud/monitoring-crd.yaml",
+        ":cloud/registry-crd.yaml",
+    ],
+    files = [
+        "//third_party/fluentd_gcp_addon",
+    ],
+    images = {
+        "cr-syncer": "//src/go/cmd/cr-syncer",
+        "gcr-credential-refresher": "//src/go/cmd/gcr-credential-refresher",
+        "metadata-server": "//src/go/cmd/metadata-server",
+        "robot-master": "//src/go/cmd/robot-master",
+    },
+    values = "values-robot.yaml",
+    visibility = ["//visibility:public"],
+)
+
+core_app_chart(
+    name = "base-cloud",
+    extra_templates = [
+        "@com_github_kubernetes_sigs_application//:app_crd",
+    ],
+    images = {
+        "cloud-master": "//src/go/cmd/cloud-master",
+        "token-vendor": "//src/java/com/cloudrobotics/tokenvendor:token_vendor",
+    },
+    values = "values-cloud.yaml",
+    visibility = ["//visibility:public"],
+)

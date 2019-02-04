@@ -1,0 +1,5 @@
+{{ if eq .Values.robot_authentication "true" }}
+{{ .Files.Get "files/fluentd-gcp-configmap.yaml" }}
+---
+{{ .Files.Get "files/fluentd-gcp-ds.yaml" }}
+{{ end }}

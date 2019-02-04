@@ -1,0 +1,3 @@
+domain: "example.com"
+project: "my-gcp-project"
+deploy_environment: "GCP"

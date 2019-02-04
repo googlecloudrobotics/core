@@ -1,0 +1,24 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/gcr-credential-refresher",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/go/pkg/gcr:go_default_library",
+        "//src/go/pkg/robotauth:go_default_library",
+        "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
+        "@io_k8s_client_go//kubernetes:go_default_library",
+        "@io_k8s_client_go//rest:go_default_library",
+    ],
+)
+
+go_image(
+    name = "gcr-credential-refresher",
+    base = "@cc_image_base//image",
+    embed = [":go_default_library"],
+)

@@ -1,0 +1,16 @@
+swagger: "2.0"
+info:
+  version: "1.0.0"
+  title: Cloud Robotics APIs
+  description: Example of the bare minimum Swagger spec
+host: www.endpoints.${GCP_PROJECT_ID}.cloud.goog
+x-google-endpoints:
+    - name: "www.endpoints.${GCP_PROJECT_ID}.cloud.goog"
+      target: "${INGRESS_IP}"
+paths:
+  /:
+    get:
+      operationId: getAll
+      responses:
+        "200":
+          description:  OK

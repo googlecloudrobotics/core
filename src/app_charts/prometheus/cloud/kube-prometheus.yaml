@@ -1,0 +1,1 @@
+{{ .Files.Get "files/kube-prometheus.yaml" | replace "${CLOUD_ROBOTICS_DOMAIN}" .Values.domain | replace "${GCP_PROJECT_ID}" .Values.project | replace "HELM-NAMESPACE" .Release.Namespace | replace "monitoring.coreos.com/v1alpha1" "monitoring.coreos.com/v1" }}

@@ -1,0 +1,101 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: oauth2-proxy
+    spec:
+      containers:
+      - name: oauth2-proxy
+        args:
+        - --provider=google
+        - --email-domain=*
+        - --upstream=http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/
+        - --upstream=https://{{ .Values.domain }}/
+        - --http-address=0.0.0.0:80
+        - --pass-access-token
+        - --pass-host-header
+        - "--scope=https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email"
+        env:
+        - name: OAUTH2_PROXY_CLIENT_ID
+          value: {{ .Values.oauth2_proxy.client_id }}
+        - name: OAUTH2_PROXY_CLIENT_SECRET
+          value: {{ .Values.oauth2_proxy.client_secret }}
+        - name: OAUTH2_PROXY_COOKIE_SECRET
+          value: {{ .Values.oauth2_proxy.cookie_secret }}
+        image: docker.io/a5huynh/oauth2_proxy:2.2.1
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: oauth2-proxy
+  type: ClusterIP
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: oauth2-proxy
+  annotations:
+    # TODO(daschmidt): Revisit CORS configuration for production.
+    # In this configuration, cross-origin requests from all origins are accepted, which allows us to
+    # access the API from frontend servers running on dev machines.
+    # We do not see an additional security risk because
+    # - all requests require a valid auth token to get past the auth-url on /apis and
+    # - the API server does not differentiate which location/IP address requests are coming from, so
+    #   an attacker has nothing to gain by performing requests from someone else's browser.
+    # More info: https://code.google.com/archive/p/html5security/wikis/CrossOriginRequestSecurity.wiki
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "false"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    # End of CORS config.
+    nginx.ingress.kubernetes.io/rewrite-target: "/apis"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"  # seconds
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+  - hosts:
+    - {{ .Values.domain }}
+    secretName: tls
+  rules:
+  - host: {{ .Values.domain }}
+    http:
+      paths:
+      - path: /web-apis
+        backend:
+          serviceName: oauth2-proxy
+          servicePort: http
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: oauth2-proxy-interactive
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+  - hosts:
+    - {{ .Values.domain }}
+    secretName: tls
+  rules:
+  - host: {{ .Values.domain }}
+    http:
+      paths:
+      - path: "/oauth2"
+        backend:
+          serviceName: oauth2-proxy
+          servicePort: http

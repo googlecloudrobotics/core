@@ -1,0 +1,113 @@
+// Copyright 2019 The Google Cloud Robotics Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package cloudrobotics.mission.v1alpha1;
+
+option go_package = "src/proto";
+
+option java_multiple_files = true;
+option java_package = "com.cloudrobotics.mission.v1alpha1";
+option java_outer_classname = "MissionProto";
+
+import "google/protobuf/timestamp.proto";
+
+message ChargeAction {
+  string charger_name = 1;
+  // Only perform the charge action if battery level is lower than this
+  // threshold, otherwise do nothing.
+  uint32 threshold_battery_percent = 2;
+  // If actually performing the charge action, charge until this level is
+  // reached.
+  uint32 target_battery_percent = 3;
+}
+
+message MoveAction {
+  // String id of target position as created in MiR's web frontend.
+  string target_name = 1;
+}
+
+message GetTrolleyAction {
+  // Name of dock to get trolley from, eg "1". This should correspond to
+  // the name of the mission created by ROEQ's Create_docking_station.exe, eg
+  // "ROEQ_Get cart 1".
+  string dock_name = 1;
+}
+
+message ReturnTrolleyAction {
+  // Name of dock to return trolley to, eg "1". This should correspond to
+  // the name of the mission created by ROEQ's Create_docking_station.exe, eg
+  // "ROEQ_Return cart 1".
+  string dock_name = 1;
+}
+
+message Action {
+  oneof action {
+    ChargeAction charge = 1;
+    MoveAction move_to_named_position = 2;
+    GetTrolleyAction get_trolley = 3;
+    ReturnTrolleyAction return_trolley = 4;
+  }
+}
+
+message MissionSpec {
+  repeated Action actions = 1;
+  float time_out_sec = 2;
+}
+
+// Information about the currently executed action within a mission
+message ActiveAction {
+  enum Status {
+    // Used if no other specific status applies.
+    DEFAULT = 0;
+    // Robot is currently docking.
+    DOCKING = 1;
+    // Mission duration exceeded MissionSpec.time_out_sec. Can only be set if
+    // MissionStatus.status is FAILED.
+    TIMEOUT = 6;
+  }
+
+  // The index of the currently executed action
+  uint32 index = 1;
+
+  // A detailed status of the currently executed action
+  Status status = 2;
+}
+
+message MissionStatus {
+  // The various states of the mission execution.
+  enum Status {
+    // initial state
+    CREATED = 0;
+    // mission has been validated on
+    ACCEPTED = 1;
+    // active state (processing)
+    RUNNING = 2;
+    // terminal states
+    SUCCEEDED = 3;
+    CANCELED = 4;
+    FAILED = 5;
+  }
+  // Overall status of the mission
+  Status status = 1;
+
+  google.protobuf.Timestamp time_of_actuation = 6;
+
+  ActiveAction active_action = 5;
+
+  string message = 3;
+  // Links the goal to the entry in the MiR's mission queue.
+  int64 queue_entry_id = 4;
+}

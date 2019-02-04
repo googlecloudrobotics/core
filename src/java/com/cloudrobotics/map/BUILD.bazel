@@ -1,0 +1,85 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_docker//java:image.bzl", "java_image")
+
+java_library(
+    name = "map_service",
+    srcs = [
+        "MapService.java",
+    ],
+    deps = [
+        "//src/java:dagger_with_compiler",
+        "//src/proto/common:transform_proto_java",
+        "//src/proto/map:map_proto_grpc",
+        "//src/proto/map:map_proto_java",
+        "//third_party/java/com/google/cloud:google_cloud_core",
+        "//third_party/java/com/google/cloud:google_cloud_core_http",
+        "//third_party/java/com/google/cloud:google_cloud_datastore",
+        "//third_party/java/com/google/flogger",
+        "//third_party/java/io/grpc:grpc_netty",
+        "//third_party/java/io/grpc:grpc_services",
+        "@com_google_protobuf//:protobuf_java",
+        "@io_grpc_grpc_java//context",
+        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_java//stub",
+    ],
+)
+
+java_image(
+    name = "map_endpoint",
+    srcs = [
+        "MapModule.java",
+        "MapServer.java",
+    ],
+    base = "//src/java:java_base",
+    jvm_flags = ["-Djava.util.logging.config.file=/app/logger.properties"],
+    main_class = "com.cloudrobotics.map.MapServer",
+    runtime_deps = [
+        "//third_party/java/com/google/flogger:flogger_system_backend",
+    ],
+    # https://github.com/bazelbuild/rules_docker/issues/284
+    # we're using another container_image to work around it
+    # data = ["logger.properties"],
+    deps = [
+        ":map_service",
+        "//src/java:dagger_with_compiler",
+        "//src/java/com/cloudrobotics/framework",
+        "//third_party/java/com/google/cloud:google_cloud_core",
+        "//third_party/java/com/google/cloud:google_cloud_datastore",
+        "//third_party/java/com/google/flogger",
+        "//third_party/java/io/grpc:grpc_netty",
+        "//third_party/java/io/grpc:grpc_services",
+        "//third_party/java/javax/inject:javax_inject",
+        "//third_party/java/org/slf4j:slf4j_simple",
+        "@io_grpc_grpc_java//context",
+        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_java//stub",
+    ],
+)
+
+java_test(
+    name = "MapServiceTest",
+    srcs = [
+        "MapServiceTest.java",
+    ],
+    flaky = True,  # b/79712791
+    test_class = "com.cloudrobotics.map.MapServiceTest",
+    runtime_deps = [
+        "//third_party/java/com/google/flogger:flogger_system_backend",
+    ],
+    deps = [
+        ":map_service",
+        "//src/java/com/cloudrobotics/framework:framework_testing",
+        "//src/proto/common:transform_proto_java",
+        "//src/proto/map:map_proto_grpc",
+        "//src/proto/map:map_proto_java",
+        "//third_party/java/com/google/cloud:google_cloud_datastore",
+        "//third_party/java/com/google/flogger",
+        "//third_party/java/junit",
+        "//third_party/java/org/hamcrest:hamcrest_all",
+        "//third_party/java/org/threeten:threetenbp",
+        "@com_google_protobuf//:protobuf_java",
+        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_java//testing",
+    ],
+)

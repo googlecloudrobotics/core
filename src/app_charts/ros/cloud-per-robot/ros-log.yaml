@@ -1,0 +1,30 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ros-log-{{ .Values.robot.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      id: "{{ .Values.robot.name }}"
+      app: ros-log
+  template:
+    metadata:
+      labels:
+        id: "{{ .Values.robot.name }}"
+        app: ros-log
+    spec:
+      containers:
+      - env:
+        - name: GOOGLE_CLOUD_PROJECT
+          value: {{ .Values.project }}
+        - name: ROS_MASTER_URI
+          value: http://roscore-cloud-{{ .Values.robot.name }}.default.svc.cluster.local:11311
+        - name: ROS_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: "status.podIP"
+        - name: ROBOT_NAME
+          value: "{{ .Values.robot.name }}"
+        image: {{ .Values.images.ros_log }}
+        name: ros-log

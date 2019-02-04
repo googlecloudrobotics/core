@@ -1,0 +1,43 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "main.go",
+        "master.go",
+        "status.go",
+    ],
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/cloud-master",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/go/pkg/helm:go_default_library",
+        "//src/proto/registry:go_default_library",
+        "@com_google_cloud_go//pubsub:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
+        "@io_k8s_client_go//dynamic:go_default_library",
+        "@io_k8s_client_go//rest:go_default_library",
+        "@org_golang_google_api//iterator:go_default_library",
+    ],
+)
+
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+
+container_image(
+    name = "helm_image",
+    base = "@cc_image_base//image",
+    files = [
+        "@kubernetes_helm//:helm",
+    ],
+)
+
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+
+go_image(
+    name = "cloud-master",
+    base = ":helm_image",
+    embed = [":go_default_library"],
+)

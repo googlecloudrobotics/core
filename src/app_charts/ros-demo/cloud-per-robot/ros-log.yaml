@@ -1,0 +1,60 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ros-demo-server-{{ .Values.robot.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      id: "{{ .Values.robot.name }}"
+      app: ros-demo-server
+  template:
+    metadata:
+      labels:
+        id: "{{ .Values.robot.name }}"
+        app: ros-demo-server
+    spec:
+      containers:
+      - env:
+        - name: ROS_MASTER_URI
+          value: http://roscore-cloud-{{ .Values.robot.name }}.default.svc.cluster.local:11311
+        - name: ROS_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: "status.podIP"
+        - name: ROBOT_NAME
+          value: "{{ .Values.robot.name }}"
+        image: {{ .Values.images.ros_demo_server }}
+        name: ros-demo-server
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ros-demo-server-{{ .Values.robot.name }}
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+  - port: http
+  selector:
+    matchLabels:
+      app: ros-demo-server-{{ .Values.robot.name }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ros-demo-server-{{ .Values.robot.name }}
+  labels:
+    # This is used by the ServiceMonitor.
+    app: ros-demo-server-{{ .Values.robot.name }}
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: ros-demo-server
+    id: "{{ .Values.robot.name }}"
+  type: ClusterIP
+

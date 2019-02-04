@@ -1,0 +1,8 @@
+domain: "example.com"
+project: "my-gcp-project"
+
+robot:
+  name: null
+
+app:
+  sim_suffix: ""

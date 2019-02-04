@@ -1,0 +1,22 @@
+exports_files([
+    "proto_descriptor.bzl",
+    "rosmsg.bzl",
+    "CustomResource.java.template",
+])
+
+config_setting(
+    name = "optimized",
+    values = {"compilation_mode": "opt"},
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "assert_optimized_cartographer",
+    outs = ["dummy.txt"],
+    cmd = select({
+        ":optimized": "echo > $@",
+        "//conditions:default": """echo 'ERROR: Cartographer must be built with \
+`-c opt` or it will not produce results for real-time SLAM.' 1>&2; false""",
+    }),
+    visibility = ["//visibility:public"],
+)

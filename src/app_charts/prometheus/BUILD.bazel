@@ -1,0 +1,74 @@
+load("//bazel/build_rules:helm_template.bzl", "helm_template")
+load("//bazel/internal:core_app_chart.bzl", "core_app_chart")
+load("//bazel:app.bzl", "app")
+
+helm_template(
+    name = "kube-prometheus",
+    chart = "//third_party/prometheus-operator:kube-prometheus-0.0.105.tgz",
+    namespace = "HELM-NAMESPACE",
+    release_name = "kube-prometheus",
+    values = ":kube-prometheus.values.yaml",
+)
+
+helm_template(
+    name = "prometheus-chart",
+    chart = "//third_party/prometheus-operator:prometheus-0.0.51.tgz",
+    namespace = "HELM-NAMESPACE",
+    release_name = "kube-prometheus",
+    values = ":prometheus.values.yaml",
+)
+
+helm_template(
+    name = "prometheus-operator",
+    chart = "//third_party/prometheus-operator:prometheus-operator-0.0.29.tgz",
+    namespace = "HELM-NAMESPACE",
+    release_name = "prometheus-operator",
+    values = ":prometheus-operator.values.yaml",
+)
+
+helm_template(
+    name = "prometheus-node-exporter",
+    chart = "@prometheus_node_exporter_chart//file",
+    namespace = "HELM-NAMESPACE",
+    release_name = "prometheus-node-exporter",
+    values = ":prometheus-node-exporter.values.yaml",
+)
+
+core_app_chart(
+    name = "prometheus-cloud",
+    files = [
+        ":kube-prometheus",
+        ":prometheus-operator",
+    ],
+    images = {
+        "grafana-operator": "//src/go/cmd/grafana-operator",
+        "http-relay-server": "//src/go/cmd/http-relay-server",
+    },
+)
+
+core_app_chart(
+    name = "prometheus-robot",
+    extra_templates = [
+        ":cloud/prometheus-operator.yaml",
+    ],
+    files = [
+        ":prometheus-chart",
+        ":prometheus-node-exporter",
+        ":prometheus-operator",
+    ],
+    images = {"http-relay-client": "//src/go/cmd/http-relay-client"},
+)
+
+core_app_chart(
+    name = "prometheus-cloud-per-robot",
+)
+
+app(
+    name = "prometheus",
+    charts = [
+        ":prometheus-cloud",
+        ":prometheus-cloud-per-robot",
+        ":prometheus-robot",
+    ],
+    visibility = ["//visibility:public"],
+)

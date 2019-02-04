@@ -1,0 +1,5 @@
+.terraform
+config.auto.tfvars
+terraform.tfvars
+backend.tf
+terraform.tfstate.*.backup

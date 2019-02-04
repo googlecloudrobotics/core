@@ -1,0 +1,21 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: cr-syncer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cr-syncer
+    spec:
+      containers:
+      - args:
+        - -remote-server
+        - {{ .Values.domain }}
+        - --robot-name
+        - "{{ .Values.robot.name }}"
+        - -alsologtostderr
+        - --verbose=false
+        image: {{ .Values.images.cr_syncer }}
+        name: cr-syncer

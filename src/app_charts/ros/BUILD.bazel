@@ -1,0 +1,35 @@
+load("//bazel/internal:core_app_chart.bzl", "core_app_chart")
+load("//bazel:app.bzl", "app")
+
+core_app_chart(
+    name = "ros-robot",
+    images = {"ros-adapter": "//src/docker/ros_adapter:ros_adapter"},
+)
+
+core_app_chart(
+    name = "ros-cloud-per-robot",
+    images = {
+        "ros-adapter": "//src/docker/ros_adapter:ros_adapter",
+        "ros-log": "//src/docker/ros_log",
+        "ros-websocket": "//src/docker/ros_websocket",
+        "roscore": "//src/docker/ros:roscore",
+        "roscore-sim": "//src/docker/ros:roscore_sim",
+    },
+    values = "values.yaml",
+)
+
+core_app_chart(
+    name = "ros-cloud",
+    files = [":dashboard.json"],
+    images = {"cloud-tunnel": "//src/go/cmd/cloud-tunnel"},
+)
+
+app(
+    name = "ros",
+    charts = [
+        ":ros-cloud",
+        ":ros-cloud-per-robot",
+        ":ros-robot",
+    ],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,48 @@
+{{ if eq .Values.robot_authentication "true" }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: metadata-server
+spec:
+  selector:
+    matchLabels:
+      name: metadata-server
+  template:
+    metadata:
+      labels:
+        name: metadata-server
+    spec:
+      hostNetwork: true
+      volumes:
+      - name: robot-id
+        secret:
+          secretName: robot-auth
+          items:
+          - key: json
+            path: robot-id.json
+      # Mounting /etc/ssl is necessary if ca-certificates is not installed in the container image.
+      - name: ssl
+        hostPath:
+          path: /etc/ssl
+      containers:
+      - name: metadata-server
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN"]
+        image: {{ .Values.images.metadata_server }}
+        args:
+        - --port
+        - "8080"
+        - --robot_id_file
+        - /credentials/robot-id.json
+        - --source_cidr
+        - "192.168.9.0/24"
+        env:
+        - name: BIND_IP
+          value: "127.0.0.1"
+        volumeMounts:
+        - mountPath: /credentials
+          name: robot-id
+        - mountPath: /etc/ssl
+          name: ssl
+{{ end }}

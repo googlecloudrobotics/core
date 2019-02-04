@@ -1,0 +1,10 @@
+load("//bazel/internal:core_app_chart.bzl", "core_app_chart")
+
+core_app_chart(
+    name = "platform-apps-cloud",
+    extra_templates = [
+        "//src/app_charts:app_resources",
+    ],
+    values = "values.yaml",
+    visibility = ["//visibility:public"],
+)

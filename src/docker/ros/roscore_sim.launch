@@ -1,0 +1,3 @@
+<launch>
+  <param name="/use_sim_time" value="True" />
+</launch>

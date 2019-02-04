@@ -1,0 +1,4 @@
+name: ${name}
+version: ${version}
+# Linter expects an icon.
+icon: https://google.com/icon.png

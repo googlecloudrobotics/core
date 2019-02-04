@@ -1,0 +1,46 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+# mission service
+
+package(default_visibility = ["//visibility:public"])
+
+# move api
+
+proto_library(
+    name = "mission_proto",
+    srcs = ["mission.proto"],
+    deps = [
+        "//src/proto/common:common_proto",
+        "@com_github_googleapis_googleapis//google/api:api_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:field_mask_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@grpc_ecosystem_grpc_gateway//protoc-gen-swagger/options:options_proto",
+    ],
+)
+
+# language bindings
+
+java_proto_library(
+    name = "mission_proto_java",
+    deps = [":mission_proto"],
+)
+
+proto_library(
+    name = "proto_proto",
+    srcs = ["mission.proto"],
+    deps = ["@com_google_protobuf//:timestamp_proto"],
+)
+
+go_proto_library(
+    name = "proto_go_proto",
+    importpath = "src/proto",
+    proto = ":proto_proto",
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":proto_go_proto"],
+    importpath = "src/proto",
+)

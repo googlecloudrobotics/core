@@ -1,0 +1,75 @@
+#!/bin/bash
+#
+# Copyright 2019 The Google Cloud Robotics Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This script is a convenience wrapper for starting the setup-robot container, i.e., for doing
+# "kubectl run ... --image=...setup-robot...".
+
+set -e
+set -o pipefail
+
+PROJECT="$1"
+ROBOT_NAME="$2"
+ROBOT_ROLE="${3:-}"
+ROBOT_TYPE="${4:-}"
+# Full reference to the setup-robot image
+IMAGE_REFERENCE="${5:-DEFAULT_IMAGE_REFERENCE}"
+
+if [[ -n "$ACCESS_TOKEN_FILE" ]]; then
+  ACCESS_TOKEN=$(cat ${ACCESS_TOKEN_FILE})
+fi
+
+# ROBOT_ROLE and ROBOT_TYPE are optional: If not passed, the robot CR is assumed
+# to be already created.
+if [[ -z "$PROJECT" ]] || [[ -z "$ROBOT_NAME" ]] || \
+   [[ -z "$IMAGE_REFERENCE" ]] ; then
+  echo "Usage: $0 <project-id> <robot-name> <robot-role> <robot-type> [<setup-robot-image>]" >&2
+  exit 1
+fi
+
+if [[ -z "$ACCESS_TOKEN" ]]; then
+  echo "Generate access token with gcloud:"
+  echo "    gcloud auth application-default print-access-token --project ${PROJECT}"
+  echo "Enter access token:"
+  read ACCESS_TOKEN
+fi
+
+# Extract registry and digest from IMAGE_REFERENCE. E.g.:
+# IMAGE_REFERENCE = "eu.gcr.io/my-project/setup-robot@sha256:07...5465244d"
+# REGISTRY = "eu.gcr.io"
+# IMAGE_DIGEST = "sha256:07...5465244d"
+REGISTRY=${IMAGE_REFERENCE%%/*}
+IMAGE_DIGEST=${IMAGE_REFERENCE##*@}
+
+# TODO(daschmidt): Remove the login dance when the setup-robot image is available from a public registry.
+if ! docker images --digests | grep ${IMAGE_DIGEST} > /dev/null; then
+
+  echo "Image not locally available, must be pulled from ${REGISTRY}"
+
+  echo ${ACCESS_TOKEN} | docker login -u oauth2accesstoken --password-stdin https://${REGISTRY}
+
+  if ! docker pull ${IMAGE_REFERENCE}; then
+    docker logout https://${REGISTRY}
+    exit 1
+  fi
+  docker logout https://${REGISTRY}
+
+fi
+
+# Explicitly specify the context to not run this against the cloud cluster.
+kubectl --context=kubernetes-admin@kubernetes run setup-robot --restart=Never -i --rm \
+  --image=${IMAGE_REFERENCE} --env="ACCESS_TOKEN=${ACCESS_TOKEN}" -- --project ${PROJECT} \
+  --robot-name ${ROBOT_NAME} --robot-role "${ROBOT_ROLE}" \
+  --robot-type "${ROBOT_TYPE}"

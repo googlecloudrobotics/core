@@ -1,0 +1,49 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "coredns.go",
+        "main.go",
+    ],
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/metadata-server",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/go/pkg/robotauth:go_default_library",
+        "@com_github_fsnotify_fsnotify//:go_default_library",
+        "@io_k8s_api//core/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_client_go//kubernetes:go_default_library",
+        "@io_k8s_client_go//rest:go_default_library",
+        "@org_golang_google_api//cloudresourcemanager/v1:go_default_library",
+        "@org_golang_x_oauth2//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    size = "small",
+    srcs = [
+        "coredns_test.go",
+        "main_test.go",
+    ],
+    embed = [":go_default_library"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "@io_k8s_api//core/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_client_go//kubernetes:go_default_library",
+        "@io_k8s_client_go//kubernetes/fake:go_default_library",
+        "@org_golang_x_oauth2//:go_default_library",
+    ],
+)
+
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+
+go_image(
+    name = "metadata-server",
+    base = "@iptables_base//image",
+    embed = [":go_default_library"],
+)

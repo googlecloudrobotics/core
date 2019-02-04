@@ -1,0 +1,45 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "main.go",
+        "pubsub.go",
+    ],
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/cloud-tunnel",
+    visibility = ["//visibility:private"],
+    deps = [
+        "@com_google_cloud_go//trace:go_default_library",
+        "@go_googleapis//google/pubsub/v1:pubsub_go_proto",
+        "@io_bazel_rules_go//proto/wkt:empty_go_proto",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_x_net//context:go_default_library",
+    ],
+)
+
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+
+go_image(
+    name = "cloud-tunnel",
+    base = "@cc_image_base//image",
+    embed = [":go_default_library"],
+)
+
+go_test(
+    name = "go_default_test",
+    size = "small",
+    srcs = [
+        "main_test.go",
+        "pubsub_test.go",
+    ],
+    embed = [":go_default_library"],
+    flaky = True,  # b/79728115
+    deps = [
+        "@go_googleapis//google/pubsub/v1:pubsub_go_proto",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+    ],
+)

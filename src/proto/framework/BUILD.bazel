@@ -1,0 +1,26 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+package(default_visibility = ["//visibility:public"])
+
+proto_library(
+    name = "cloudrobotics_config_v1alpha1_proto",
+    srcs = ["config.proto"],
+)
+
+java_proto_library(
+    name = "config_proto_java",
+    deps = [":cloudrobotics_config_v1alpha1_proto"],
+)
+
+go_proto_library(
+    name = "cloudrobotics_config_v1alpha1_go_proto",
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/src/proto/framework",
+    proto = ":cloudrobotics_config_v1alpha1_proto",
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":cloudrobotics_config_v1alpha1_go_proto"],
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/src/proto/framework",
+)

@@ -1,0 +1,3 @@
+exports_files([
+    "core_app_chart.bzl",
+])

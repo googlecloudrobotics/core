@@ -1,0 +1,34 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ros-adapter-cloud-{{ .Values.robot.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      id: "{{ .Values.robot.name }}"
+      app: ros-adapter-cloud
+  template:
+    metadata:
+      labels:
+        id: "{{ .Values.robot.name }}"
+        app: ros-adapter-cloud
+    spec:
+      containers:
+      - args:
+        - cloud
+        env:
+        - name: GOOGLE_CLOUD_PROJECT
+          value: {{ .Values.project }}
+        - name: ROS_MASTER_URI
+          value: http://roscore-cloud-{{ .Values.robot.name }}.default.svc.cluster.local:11311
+        - name: ROS_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: "status.podIP"
+        - name: ROBOT_NAME
+          value: "{{ .Values.robot.name }}"
+        - name: CLOUD_ROBOTICS_DOMAIN
+          value: "{{ .Values.domain }}"
+        image: {{ .Values.images.ros_adapter }}
+        name: ros-adapter

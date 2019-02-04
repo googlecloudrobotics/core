@@ -1,0 +1,60 @@
+load("//:config.bzl", "CLOUD_ROBOTICS_CONTAINER_REGISTRY", "DOCKER_TAG")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+load("@io_bazel_rules_docker//container:container.bzl", "container_push", "container_image")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/setup-robot",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/go/pkg/gcr:go_default_library",
+        "//src/go/pkg/kubeutils:go_default_library",
+        "//src/go/pkg/robotauth:go_default_library",
+        "//src/go/pkg/setup:go_default_library",
+        "@io_k8s_api//core/v1:go_default_library",
+        "@io_k8s_api//rbac/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
+        "@io_k8s_client_go//dynamic:go_default_library",
+        "@io_k8s_client_go//kubernetes:go_default_library",
+        "@io_k8s_client_go//rest:go_default_library",
+        "@org_golang_x_oauth2//:go_default_library",
+    ],
+)
+
+container_image(
+    name = "base_image_with_files",
+    base = "@cc_image_base//image",
+    directory = "/setup-robot-files",
+    files = [
+        "//src/app_charts/base:base-robot",
+        "@kubernetes_helm//:helm",
+    ],
+)
+
+go_image(
+    name = "setup-robot-image",
+    base = ":base_image_with_files",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+container_push(
+    name = "setup-robot.push",
+    format = "Docker",
+    image = ":setup-robot-image",
+    registry = CLOUD_ROBOTICS_CONTAINER_REGISTRY,
+    repository = "setup-robot",
+    tag = DOCKER_TAG,
+)
+
+# Ignore this auto-generated target. Gazelle doesn't get that we don't need it.
+go_binary(
+    name = "unused",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:private"],
+)

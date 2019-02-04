@@ -1,0 +1,24 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_docker//contrib:test.bzl", "container_test")
+load("@io_bazel_rules_docker//python:image.bzl", "py_image")
+
+py_image(
+    name = "ros_log",
+    srcs = [
+        "main.py",
+    ],
+    base = "//src/docker:python27",
+    main = "main.py",
+    deps = [
+        "//src/python/ros_log",
+        "//src/python/rosenv",
+    ],
+)
+
+container_test(
+    name = "ros_log_test",
+    configs = ["ros_log_test.yaml"],
+    image = ":ros_log",
+    tags = ["requires-docker"],
+)

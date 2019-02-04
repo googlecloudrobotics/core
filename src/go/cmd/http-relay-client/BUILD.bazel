@@ -1,0 +1,38 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/http-relay-client",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/proto/http-relay:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@org_golang_x_net//context:go_default_library",
+        "@org_golang_x_oauth2//google:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    size = "small",
+    srcs = ["main_test.go"],
+    embed = [":go_default_library"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/proto/http-relay:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_onsi_gomega//:go_default_library",
+        "@github_com_h2non_gock//:go_default_library",
+    ],
+)
+
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+
+go_image(
+    name = "http-relay-client",
+    base = "@cc_image_base//image",
+    embed = [":go_default_library"],
+)

@@ -1,0 +1,47 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+load("@io_bazel_rules_docker//python:image.bzl", "py_image")
+
+# Add du(1), /bin/sh and /usr/bin/env to the image.
+# du(1) is used on startup to see the disk usage due to logs (which will be
+# zero in containers).
+# /bin/sh is required to run shell scripts:
+#   https://github.com/bazelbuild/bazel/issues/4048
+# /usr/bin/env is required to run py_binaries:
+#   https://github.com/bazelbuild/rules_docker/issues/209
+# For the symlinks to work, //src/docker:python27 should be based on the debug
+# image, since it includes busybox.
+container_image(
+    name = "base",
+    base = "//src/docker:python27",
+    directory = "/usr/bin",
+    files = [":du"],
+    symlinks = {
+        "/bin/sh": "/busybox/sh",
+        "/usr/bin/env": "/busybox/env",
+    },
+)
+
+py_image(
+    name = "roscore",
+    srcs = ["roscore.py"],
+    base = ":base",
+    main = "roscore.py",
+    deps = [
+        "//src/python/rosenv",
+        "@com_github_ros_ros_comm//:roslaunch",
+    ],
+)
+
+py_image(
+    name = "roscore_sim",
+    srcs = ["roscore_sim.py"],
+    base = ":base",
+    data = ["roscore_sim.launch"],
+    main = "roscore_sim.py",
+    deps = [
+        "//src/python/rosenv",
+        "@com_github_ros_ros_comm//:roslaunch",
+    ],
+)
