@@ -44,6 +44,8 @@ function include_config {
 }
 
 function robot_bootstrap {
+  include_config
+
   bazel build //src/bootstrap/robot:all
   bazel run //src/go/cmd/setup-robot:setup-robot.push
   bazel run //src/app_charts/base:base-robot.push
@@ -56,6 +58,8 @@ function robot_bootstrap {
 }
 
 function check_project_resources {
+  include_config
+
   # TODO(rodrigoq): if cleanup-services.sh is adjusted to allow specifying the
   # project, adjust this message too.
   echo "Project resource status:"
@@ -64,6 +68,8 @@ function check_project_resources {
 }
 
 function clear_iot_devices {
+  include_config
+
   local iot_registry_name="$1"
   local devices=$(gcloud beta iot devices list \
     --project "${GCP_PROJECT_ID}" \
@@ -100,6 +106,7 @@ function terraform_exec {
 }
 
 function terraform_init {
+  include_config
   terraform_install
 
   IMAGE_PROJECT_ID="$(echo ${CLOUD_ROBOTICS_CONTAINER_REGISTRY} | sed -n -e 's:^.*gcr.io/::p')"
@@ -146,6 +153,7 @@ EOF
 }
 
 function terraform_apply {
+  include_config
   terraform_init
 
   # Workaround for https://github.com/terraform-providers/terraform-provider-google/issues/2118
@@ -178,6 +186,8 @@ function terraform_delete {
 
 
 function cluster_auth {
+  include_config
+
   gcloud container clusters get-credentials "${PROJECT_NAME}" \
     --zone ${GCP_ZONE} \
     --project ${GCP_PROJECT_ID} \
@@ -190,6 +200,8 @@ function helm_init {
 }
 
 function helm_charts {
+  include_config
+
   bazel build "@kubernetes_helm//:helm" \
       //src/app_charts/base:base-cloud \
       //src/app_charts/platform-apps:platform-apps-cloud \
