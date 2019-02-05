@@ -34,7 +34,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -55,17 +54,12 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/helm/pkg/strvals"
-)
-
-var (
-	namespace = flag.String("namespace", "default", "Namespace that the generated Helm charts are installed into")
-	params    = flag.String("params", "", "Helm configuration parameters formatted as name=value,topname.subname=value")
 )
 
 type Helm struct {
 	lastPushChecksum map[string][]byte
 	helmBinary       string
+	helmParams       map[string]interface{}
 	releaseName      string
 	roleStore        cache.Store
 	appStore         cache.Store
@@ -123,7 +117,7 @@ func buildSharedInformer(client dynamic.ResourceInterface, trigger chan<- struct
 	return informer
 }
 
-func NewHelm(k8s dynamic.Interface) (*Helm, error) {
+func NewHelm(k8s dynamic.Interface, params map[string]interface{}) (*Helm, error) {
 	roleGVR := schema.GroupVersionResource{Group: "registry.cloudrobotics.com", Version: "v1alpha1", Resource: "roles"}
 	appGVR := schema.GroupVersionResource{Group: "registry.cloudrobotics.com", Version: "v1alpha1", Resource: "apps"}
 	roleClient := k8s.Resource(roleGVR).Namespace("default")
@@ -138,6 +132,7 @@ func NewHelm(k8s dynamic.Interface) (*Helm, error) {
 	return &Helm{
 		lastPushChecksum: make(map[string][]byte),
 		helmBinary:       "/helm",
+		helmParams:       params,
 		roleStore:        roleInformer.GetStore(),
 		appStore:         appInformer.GetStore(),
 		trigger:          trigger,
@@ -151,7 +146,7 @@ func NewHelm(k8s dynamic.Interface) (*Helm, error) {
 // the Kubernetes cluster.
 // Using the synthetic chart solves the problem of tracking apps that need to be
 // installed and uninstalling apps that should not be.
-func (h *Helm) InstallApps(ctx context.Context, releaseName string, target pb.InstallationTarget, robots []unstructured.Unstructured) error {
+func (h *Helm) InstallApps(ctx context.Context, releaseName, namespace string, target pb.InstallationTarget, robots []unstructured.Unstructured) error {
 	var mc *masterChart
 	var err error
 	if target == pb.InstallationTarget_CLOUD {
@@ -190,7 +185,7 @@ func (h *Helm) InstallApps(ctx context.Context, releaseName string, target pb.In
 	}
 	// TODO(b/116459365): double the default timeout as a workaround
 	args := []string{
-		"upgrade", "--install", "--force", "--namespace", *namespace, "--timeout", "600",
+		"upgrade", "--install", "--force", "--namespace", namespace, "--timeout", "600",
 		releaseName,
 		chartDir,
 	}
@@ -362,11 +357,6 @@ func (h *Helm) buildPerRobotChart(robots []unstructured.Unstructured, target pb.
 		inlineCharts: make(map[string][]byte),
 	}
 
-	helmParams, err := strvals.Parse(*params)
-	if err != nil {
-		return nil, fmt.Errorf("bad helm params: %v", err)
-	}
-
 	for _, r := range robots {
 		spec, ok := r.Object["spec"].(map[string]interface{})
 		if !ok {
@@ -411,7 +401,7 @@ func (h *Helm) buildPerRobotChart(robots []unstructured.Unstructured, target pb.
 				if err := yaml.Unmarshal([]byte(appSetting.Values), &roleValues); err != nil {
 					return nil, fmt.Errorf("unable to parse values in role %s: %v", roleName, err)
 				}
-				result.values[alias] = merge(merge(merge(helmParams, baseValues), appValues), roleValues)
+				result.values[alias] = merge(merge(merge(h.helmParams, baseValues), appValues), roleValues)
 				result.requirements.Dependencies = append(result.requirements.Dependencies, dependency{
 					Name:    chart.Name,
 					Version: chart.Version,
@@ -434,11 +424,6 @@ func (h *Helm) buildCloudChart() (*masterChart, error) {
 		inlineCharts: make(map[string][]byte),
 	}
 
-	helmParams, err := strvals.Parse(*params)
-	if err != nil {
-		return nil, fmt.Errorf("bad helm params: %v", err)
-	}
-
 	for _, appObj := range h.appStore.List() {
 		app := appObj.(*unstructured.Unstructured)
 		alias := app.GetName()
@@ -451,7 +436,7 @@ func (h *Helm) buildCloudChart() (*masterChart, error) {
 				continue
 			}
 			log.Printf("Installing cloud chart %s (%s) for app %s", chart.Name, chart.Version, alias)
-			result.values[alias] = merge(helmParams, map[string]interface{}{})
+			result.values[alias] = merge(h.helmParams, map[string]interface{}{})
 			if err := yaml.Unmarshal([]byte(chart.Values), result.values[alias]); err != nil {
 				return nil, fmt.Errorf("unable to parse values in app %s: %v", alias, err)
 			}

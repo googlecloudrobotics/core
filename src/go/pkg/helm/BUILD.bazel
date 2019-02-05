@@ -17,7 +17,6 @@ go_library(
         "@io_k8s_apimachinery//pkg/watch:go_default_library",
         "@io_k8s_client_go//dynamic:go_default_library",
         "@io_k8s_client_go//tools/cache:go_default_library",
-        "@io_k8s_helm//pkg/strvals:go_default_library",
     ],
 )
 

@@ -1,0 +1,50 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["controller.go"],
+    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
+        "@io_k8s_api//admissionregistration/v1beta1:go_default_library",
+        "@io_k8s_api//core/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
+        "@io_k8s_apimachinery//pkg/api/validation:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/serializer:go_default_library",
+        "@io_k8s_helm//pkg/chartutil:go_default_library",
+        "@io_k8s_helm//pkg/downloader:go_default_library",
+        "@io_k8s_helm//pkg/getter:go_default_library",
+        "@io_k8s_helm//pkg/helm:go_default_library",
+        "@io_k8s_helm//pkg/helm/helmpath:go_default_library",
+        "@io_k8s_helm//pkg/proto/hapi/release:go_default_library",
+        "@io_k8s_helm//pkg/renderutil:go_default_library",
+        "@io_k8s_helm//pkg/repo:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/client:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/controller:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/handler:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/manager:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/reconcile:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/source:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/webhook:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/webhook/admission:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/webhook/admission/builder:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/webhook/admission/types:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    size = "small",
+    srcs = ["controller_test.go"],
+    embed = [":go_default_library"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
+        "@io_k8s_helm//pkg/chartutil:go_default_library",
+        "@io_k8s_helm//pkg/helm:go_default_library",
+        "@io_k8s_sigs_yaml//:go_default_library",
+    ],
+)

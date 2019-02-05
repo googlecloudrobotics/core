@@ -16,8 +16,10 @@ spec:
           domain={{ .Values.domain }},\
           project={{ .Values.project }},\
           deploy_environment={{ .Values.deploy_environment }}"
-        # Kubernetes namespace name like "default".
-        - --namespace={{ .Release.Namespace }}
+        - "--enable-app-v2"
+        - "--namespace={{ .Release.Namespace }}"
+        - "--labels=app=robot-master"
+        - "--webhook-port=9876"
         env:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}
@@ -25,4 +27,19 @@ spec:
           value: "{{ .Values.robot.name }}"
         image: {{ .Values.images.robot_master }}
         name: robot-master
+        volumeMounts:
+        - mountPath: /home
+          name: home
+      initContainers:
+      # Run `helm init` to create client-side directories in $HOME/.helm which
+      # some client library functionality expects to exist.
+      - name: helm
+        image: {{ .Values.images.robot_master }}
+        command: ['/helm', 'init', '--client-only']
+        volumeMounts:
+        - mountPath: /home
+          name: home
+      volumes:
+      - name: home
+        emptyDir: {}
 {{ end }}

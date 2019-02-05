@@ -211,25 +211,25 @@ go_repository(
 
 go_repository(
     name = "com_github_go_openapi_jsonpointer",
-    commit = "3a0015ad55fa9873f41605d3e8f28cd279c32ab2",
+    commit = "ef5f0afec364d3b9396b7b77b43dbe26bf1f8004",
     importpath = "github.com/go-openapi/jsonpointer",
 )
 
 go_repository(
     name = "com_github_go_openapi_jsonreference",
-    commit = "3fb327e6747da3043567ee86abd02bb6376b6be2",
+    commit = "8483a886a90412cd6858df4ea3483dce9c8e35a3",
     importpath = "github.com/go-openapi/jsonreference",
 )
 
 go_repository(
     name = "com_github_go_openapi_spec",
-    commit = "ac0b6b8f99a45e327038d5a3daa810cbf6e6806c",
+    commit = "5b6cdde3200976e3ecceb2868706ee39b6aff3e4",
     importpath = "github.com/go-openapi/spec",
 )
 
 go_repository(
     name = "com_github_go_openapi_swag",
-    commit = "2b0bd4f193d011c203529df626a65d63cb8a79e8",
+    commit = "1d29f06aebd59ccdf11ae04aa0334ded96e2d909",
     importpath = "github.com/go-openapi/swag",
 )
 
@@ -289,7 +289,7 @@ go_repository(
 
 go_repository(
     name = "com_github_mailru_easyjson",
-    commit = "3fdea8d05856a0c8df22ed4bc71b3219245e4485",
+    commit = "60711f1a8329503b04e1c88535f419d0bb440bff",
     importpath = "github.com/mailru/easyjson",
 )
 
@@ -598,7 +598,7 @@ go_repository(
 
 go_repository(
     name = "io_k8s_helm",
-    commit = "2e55dbe1fdb5fdb96b75ff144a339489417b146b",
+    commit = "eecf22f77df5f65c823aacd2dbd30ae6c65f186e",
     importpath = "k8s.io/helm",
 )
 
@@ -618,6 +618,241 @@ go_repository(
     name = "io_k8s_sigs_yaml",
     commit = "fd68e9863619f6ec2fdd8625fe1f02e7c877e480",
     importpath = "sigs.k8s.io/yaml",
+)
+
+go_repository(
+    name = "com_github_appscode_jsonpatch",
+    commit = "7c0e3b262f30165a8ec3d0b4c6059fd92703bfb2",
+    importpath = "github.com/appscode/jsonpatch",
+)
+
+go_repository(
+    name = "com_github_go_logr_logr",
+    commit = "9fb12b3b21c5415d16ac18dc5cd42c1cfdd40c4e",
+    importpath = "github.com/go-logr/logr",
+)
+
+go_repository(
+    name = "com_github_go_logr_zapr",
+    commit = "7536572e8d55209135cd5e7ccf7fce43dca217ab",
+    importpath = "github.com/go-logr/zapr",
+)
+
+go_repository(
+    name = "com_github_golang_groupcache",
+    commit = "5b532d6fd5efaf7fa130d4e859a2fde0fc3a9e1b",
+    importpath = "github.com/golang/groupcache",
+)
+
+go_repository(
+    name = "com_github_google_uuid",
+    commit = "9b3b1e0f5f99ae461456d768e7d301a7acdaa2d8",
+    importpath = "github.com/google/uuid",
+)
+
+go_repository(
+    name = "com_github_pborman_uuid",
+    commit = "adf5a7427709b9deb95d29d3fa8a2bf9cfd388f1",
+    importpath = "github.com/pborman/uuid",
+)
+
+go_repository(
+    name = "io_k8s_sigs_controller_runtime",
+    build_extra_args = ["-exclude=vendor"],
+    commit = "12d98582e72927b6cd0123e2b4e819f9341ce62c",
+    importpath = "sigs.k8s.io/controller-runtime",
+)
+
+go_repository(
+    name = "org_uber_go_atomic",
+    commit = "1ea20fb1cbb1cc08cbd0d913a96dead89aa18289",
+    importpath = "go.uber.org/atomic",
+)
+
+go_repository(
+    name = "org_uber_go_multierr",
+    commit = "3c4937480c32f4c13a875a1829af76c98ca3d40a",
+    importpath = "go.uber.org/multierr",
+)
+
+go_repository(
+    name = "org_uber_go_zap",
+    commit = "ff33455a0e382e8a81d14dd7c922020b6b5e7982",
+    importpath = "go.uber.org/zap",
+)
+
+go_repository(
+    name = "com_github_aokoli_goutils",
+    commit = "41ac8693c5c10a92ea1ff5ac3a7f95646f6123b0",
+    importpath = "github.com/aokoli/goutils",
+)
+
+go_repository(
+    name = "com_github_burntsushi_toml",
+    commit = "3012a1dbe2e4bd1391d42b32f0577cb7bbc7f005",
+    importpath = "github.com/BurntSushi/toml",
+)
+
+go_repository(
+    name = "com_github_gobwas_glob",
+    commit = "5ccd90ef52e1e632236f7326478d4faa74f99438",
+    importpath = "github.com/gobwas/glob",
+)
+
+go_repository(
+    name = "com_github_huandu_xstrings",
+    commit = "f02667b379e2fb5916c3cda2cf31e0eb885d79f8",
+    importpath = "github.com/huandu/xstrings",
+)
+
+go_repository(
+    name = "com_github_masterminds_semver",
+    commit = "c7af12943936e8c39859482e61f0574c2fd7fc75",
+    importpath = "github.com/Masterminds/semver",
+)
+
+go_repository(
+    name = "com_github_masterminds_sprig",
+    commit = "544a9b1d90f323f6509491b389714fbbd126bee3",
+    importpath = "github.com/Masterminds/sprig",
+)
+
+go_repository(
+    name = "com_github_azure_go_ansiterm",
+    commit = "d6e3b3328b783f23731bc4d058875b0371ff8109",
+    importpath = "github.com/Azure/go-ansiterm",
+)
+
+go_repository(
+    name = "com_github_chai2010_gettext_go",
+    commit = "bf70f2a70fb1b1f36d90d671a72795984eab0fcb",
+    importpath = "github.com/chai2010/gettext-go",
+)
+
+go_repository(
+    name = "com_github_docker_distribution",
+    commit = "2461543d988979529609e8cb6fca9ca190dc48da",
+    importpath = "github.com/docker/distribution",
+)
+
+go_repository(
+    name = "com_github_docker_docker",
+    commit = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363",
+    importpath = "github.com/docker/docker",
+)
+
+go_repository(
+    name = "com_github_docker_go_connections",
+    commit = "7395e3f8aa162843a74ed6d48e79627d9792ac55",
+    importpath = "github.com/docker/go-connections",
+)
+
+go_repository(
+    name = "com_github_docker_go_units",
+    commit = "47565b4f722fb6ceae66b95f853feed578a4a51c",
+    importpath = "github.com/docker/go-units",
+)
+
+go_repository(
+    name = "com_github_docker_spdystream",
+    commit = "6480d4af844c189cf5dd913db24ddd339d3a4f85",
+    importpath = "github.com/docker/spdystream",
+)
+
+go_repository(
+    name = "com_github_exponent_io_jsonpath",
+    commit = "d6023ce2651d8eafb5c75bb0c7167536102ec9f5",
+    importpath = "github.com/exponent-io/jsonpath",
+)
+
+go_repository(
+    name = "com_github_fatih_camelcase",
+    commit = "44e46d280b43ec1531bb25252440e34f1b800b65",
+    importpath = "github.com/fatih/camelcase",
+)
+
+go_repository(
+    name = "com_github_konsorten_go_windows_terminal_sequences",
+    commit = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242",
+    importpath = "github.com/konsorten/go-windows-terminal-sequences",
+)
+
+go_repository(
+    name = "com_github_makenowjust_heredoc",
+    commit = "e9091a26100e9cfb2b6a8f470085bfa541931a91",
+    importpath = "github.com/MakeNowJust/heredoc",
+)
+
+go_repository(
+    name = "com_github_mitchellh_go_wordwrap",
+    commit = "9e67c67572bc5dd02aef930e2b0ae3c02a4b5a5c",
+    importpath = "github.com/mitchellh/go-wordwrap",
+)
+
+go_repository(
+    name = "com_github_opencontainers_go_digest",
+    commit = "279bed98673dd5bef374d3b6e4b09e2af76183bf",
+    importpath = "github.com/opencontainers/go-digest",
+)
+
+go_repository(
+    name = "com_github_russross_blackfriday",
+    commit = "d3b5b032dc8e8927d31a5071b56e14c89f045135",
+    importpath = "github.com/russross/blackfriday",
+)
+
+go_repository(
+    name = "com_github_shurcool_sanitized_anchor_name",
+    commit = "7bfe4c7ecddb3666a94b053b422cdd8f5aaa3615",
+    importpath = "github.com/shurcooL/sanitized_anchor_name",
+)
+
+go_repository(
+    name = "com_github_sirupsen_logrus",
+    commit = "e1e72e9de974bd926e5c56f83753fba2df402ce5",
+    importpath = "github.com/Sirupsen/logrus",
+)
+
+go_repository(
+    name = "in_gopkg_square_go_jose_v2",
+    commit = "e94fb177d3668d35ab39c61cbb2f311550557e83",
+    importpath = "gopkg.in/square/go-jose.v2",
+)
+
+go_repository(
+    name = "io_k8s_apiserver",
+    commit = "d50e9ac5404fc1ac6d053e85740360e8295c0865",
+    importpath = "k8s.io/apiserver",
+)
+
+go_repository(
+    name = "io_k8s_kubernetes",
+    commit = "65ecaf0671341311ce6aea0edab46ee69f65d59e",
+    importpath = "k8s.io/kubernetes",
+)
+
+go_repository(
+    name = "io_k8s_utils",
+    commit = "4ae6e769426ee1a06523eb30fcb69c0a01f03772",
+    importpath = "k8s.io/utils",
+)
+
+go_repository(
+    name = "ml_vbom_util",
+    commit = "efcd4e0f97874370259c7d93e12aad57911dea81",
+    importpath = "vbom.ml/util",
+)
+
+go_repository(
+    name = "com_github_cyphar_filepath_securejoin",
+    commit = "a261ee33d7a517f054effbf451841abaafe3e0fd",
+    importpath = "github.com/cyphar/filepath-securejoin",
+)
+
+go_repository(
+    name = "com_github_pkg_errors",
+    commit = "ba968bfe8b2f7e042a574c888954fccecfa385b4",
+    importpath = "github.com/pkg/errors",
 )
 
 http_archive(

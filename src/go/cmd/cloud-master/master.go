@@ -37,13 +37,13 @@ type cloudMaster struct {
 	k8sClient dynamic.Interface
 }
 
-func newCloudMaster(kubernetesConfig *rest.Config) (*cloudMaster, error) {
+func newCloudMaster(kubernetesConfig *rest.Config, params map[string]interface{}) (*cloudMaster, error) {
 	k8sClient, err := dynamic.NewForConfig(kubernetesConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Kubernetes client: %v", err)
 	}
 
-	h, err := helm.NewHelm(k8sClient)
+	h, err := helm.NewHelm(k8sClient, params)
 	if err != nil {
 		return nil, err
 	}
@@ -57,11 +57,11 @@ func (m *cloudMaster) spin(ctx context.Context) error {
 		return fmt.Errorf("failed to list robots: %v", err)
 	}
 
-	if err := m.h.InstallApps(ctx, "cloud-robots", pb.InstallationTarget_CLOUD_PER_ROBOT, robots); err != nil {
+	if err := m.h.InstallApps(ctx, "cloud-robots", "default", pb.InstallationTarget_CLOUD_PER_ROBOT, robots); err != nil {
 		return fmt.Errorf("failed to install cloud-per-robot chart: %v", err)
 	}
 
-	if err := m.h.InstallApps(ctx, "cloud-apps", pb.InstallationTarget_CLOUD, robots); err != nil {
+	if err := m.h.InstallApps(ctx, "cloud-apps", "default", pb.InstallationTarget_CLOUD, robots); err != nil {
 		return fmt.Errorf("failed to install cloud-apps chart: %v", err)
 	}
 

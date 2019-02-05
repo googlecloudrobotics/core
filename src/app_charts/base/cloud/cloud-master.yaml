@@ -18,8 +18,28 @@ spec:
           project={{ .Values.project }},\
           deploy_environment={{ .Values.deploy_environment }},\
           oauth2_proxy.client_id={{ .Values.oauth2_proxy.client_id }}"
+        - "--enable-app-v2"
+        - "--cluster=cloud"
+        - "--namespace={{ .Release.Namespace }}"
+        - "--labels=app=cloud-master"
+        - "--webhook-port=9876"
         image: {{ .Values.images.cloud_master }}
         env:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}
+        volumeMounts:
+        - mountPath: /home
+          name: home
+      initContainers:
+      # Run `helm init` to create client-side directories in $HOME/.helm which
+      # some client library functionality expects to exist.
+      - name: helm
+        image: {{ .Values.images.cloud_master }}
+        command: ['/helm', 'init', '--client-only']
+        volumeMounts:
+        - mountPath: /home
+          name: home
+      volumes:
+      - name: home
+        emptyDir: {}
 {{ end }}

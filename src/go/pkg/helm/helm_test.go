@@ -55,7 +55,7 @@ func fakeKubernetesClientWithCustomResources(customResources ...*unstructured.Un
 func newHelmWithCustomResources(t *testing.T, customResources ...*unstructured.Unstructured) *Helm {
 	client := fakeKubernetesClientWithCustomResources(customResources...)
 
-	helm, err := NewHelm(client)
+	helm, err := NewHelm(client, nil)
 	if err != nil {
 		t.Errorf("NewHelm failed: %v", err)
 	}
@@ -124,7 +124,6 @@ func TestMerge(t *testing.T) {
 }
 
 func TestBuildPerRobotChart(t *testing.T) {
-	*params = "project=foo-project,domain=https://cloudrobotics.com"
 	g := NewGomegaWithT(t)
 
 	wantRequirements := requirements{
@@ -166,6 +165,10 @@ robot-terminator-app-freight:
     type: Freight
 `
 	helm := newHelmWithDefaults(t)
+	helm.helmParams = map[string]interface{}{
+		"project": "foo-project",
+		"domain":  "https://cloudrobotics.com",
+	}
 
 	got, err := helm.buildPerRobotChart(robots, pb.InstallationTarget_ROBOT)
 	if err != nil {
@@ -209,7 +212,6 @@ func TestBuildPerRobotChartSkipsNonExistingAppIfReferencedInRole(t *testing.T) {
 }
 
 func TestCloudMasterChart(t *testing.T) {
-	*params = "project=foo-project,domain=https://cloudrobotics.com"
 	g := NewGomegaWithT(t)
 
 	want := &masterChart{
@@ -231,6 +233,10 @@ func TestCloudMasterChart(t *testing.T) {
 		},
 	}
 	helm := newHelmWithDefaults(t)
+	helm.helmParams = map[string]interface{}{
+		"project": "foo-project",
+		"domain":  "https://cloudrobotics.com",
+	}
 
 	got, err := helm.buildCloudChart()
 	if err != nil {
@@ -315,7 +321,7 @@ func TestSuccessfulRobotInstall(t *testing.T) {
 	helm := newHelmWithDefaults(t)
 	helm.helmBinary = "/bin/true"
 
-	if err := helm.InstallApps(ctx, "foobar", pb.InstallationTarget_ROBOT, robots); err != nil {
+	if err := helm.InstallApps(ctx, "foobar", "default", pb.InstallationTarget_ROBOT, robots); err != nil {
 		t.Errorf("helm failed: %v", err)
 	}
 }
@@ -325,7 +331,7 @@ func TestSuccessfulCloudInstall(t *testing.T) {
 	helm := newHelmWithDefaults(t)
 	helm.helmBinary = "/bin/true"
 
-	if err := helm.InstallApps(ctx, "foobar", pb.InstallationTarget_CLOUD, robots); err != nil {
+	if err := helm.InstallApps(ctx, "foobar", "default", pb.InstallationTarget_CLOUD, robots); err != nil {
 		t.Errorf("helm failed: %v", err)
 	}
 }
@@ -340,14 +346,14 @@ func TestElideCopy(t *testing.T) {
 	helm := newHelmWithDefaults(t)
 	helm.helmBinary = "/bin/true"
 
-	if err := helm.InstallApps(ctx, "foobar", pb.InstallationTarget_ROBOT, robots); err != nil {
+	if err := helm.InstallApps(ctx, "foobar", "default", pb.InstallationTarget_ROBOT, robots); err != nil {
 		t.Errorf("InstallApps failed in first try: %v", err)
 	}
 
 	helm.helmBinary = "/bin/false"
 	// The only way for this call to succeed is to exit before /bin/false
 	// is actually called.
-	if err := helm.InstallApps(ctx, "foobar", pb.InstallationTarget_ROBOT, robots); err != nil {
+	if err := helm.InstallApps(ctx, "foobar", "default", pb.InstallationTarget_ROBOT, robots); err != nil {
 		t.Errorf("InstallApps failed in second try: %v", err)
 	}
 }
