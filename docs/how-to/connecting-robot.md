@@ -52,7 +52,7 @@ The installation script installs and configures:
     mkdir -p ~/cloud-robotics-core
     cd ~/cloud-robotics-core
     curl https://storage.googleapis.com/[PROJECT_ID]-robot/setup_robot.sh >setup_robot.sh
-    ./setup_robot.sh [PROJECT_ID] my-robot my-robot-role my-robot-type
+    bash setup_robot.sh [PROJECT_ID] my-robot my-robot-role my-robot-type
     ```
 
     Replace `[PROJECT_ID]` with your GCP project ID. When prompted for an access token, provide the authentication token you generated earlier.
