@@ -130,9 +130,11 @@ spec:
         spec:
           type: object
           required: ['type', 'role']
-          maxProperties: 2
+          maxProperties: 3
           properties:
             type:
               type: string
             role:
+              type: string
+            project:
               type: string

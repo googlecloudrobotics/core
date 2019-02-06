@@ -117,6 +117,7 @@ message AppStatus {
 message RobotSpec {
   string type = 1;
   string role = 2;
+  string project = 3;
 }
 
 enum InstallStatus {

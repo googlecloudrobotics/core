@@ -233,8 +233,9 @@ func createOrUpdateRobot(tokenSource oauth2.TokenSource) error {
 			robot.SetName(*robotName)
 			robot.SetLabels(map[string]string{"cloudrobotics.com/robot-name": *robotName})
 			robot.Object["spec"] = map[string]string{
-				"role": *robotRole,
-				"type": *robotType,
+				"role":    *robotRole,
+				"type":    *robotType,
+				"project": *project,
 			}
 			robot.Object["status"] = make(map[string]interface{})
 			_, err := robotClient.Create(robot, metav1.CreateOptions{})
@@ -249,6 +250,7 @@ func createOrUpdateRobot(tokenSource oauth2.TokenSource) error {
 	}
 	spec["role"] = *robotRole
 	spec["type"] = *robotType
+	spec["project"] = *project
 	_, err = robotClient.Update(robot, metav1.UpdateOptions{})
 	return err
 }
