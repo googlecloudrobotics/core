@@ -203,7 +203,8 @@ func checkResourceVersionAnnotation(target, source *unstructured.Unstructured) {
 	return
 }
 
-// tryCopyStatus updates the status of upstream resources to match the downstream cluster.
+// tryCopyStatus updates the status and finalizers of upstream resources to match
+// the downstream cluster.
 func tryCopyStatus(target dynamic.ResourceInterface, subtree string, source *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	// TODO(swolter): A local cache would avoid spurious loads of the remote resources.
 	o, err := target.Get(source.GetName(), metav1.GetOptions{})
@@ -217,6 +218,12 @@ func tryCopyStatus(target dynamic.ResourceInterface, subtree string, source *uns
 	}
 	if subtree == "" {
 		o.Object["status"] = source.Object["status"]
+		// Synchronize finalizers so the spec source cluster can block deletion
+		// until the controlling cluster has completed potential cleanup operations.
+		// This is only done for CRs which don't have status subtrees. Those
+		// have controllers in multiple clusters and finalizers cannot be reliably
+		// synchronized between them.
+		o.SetFinalizers(source.GetFinalizers())
 	} else if source.Object["status"] != nil {
 		sourceMap, ok := source.Object["status"].(map[string]interface{})
 		if !ok {

@@ -186,6 +186,55 @@ func TestCopyStatusHandlesDeletedTarget(t *testing.T) {
 	}
 }
 
+func TestCopyStatus(t *testing.T) {
+	defer gock.Off()
+
+	existing := unstructured.Unstructured{}
+	existing.SetAPIVersion("example.com/v3")
+	existing.SetKind("Goal")
+	existing.SetName("foo")
+	existing.SetFinalizers([]string{"fin1.example.org"})
+	existing.Object["status"] = map[string]interface{}{
+		"a": "1",
+	}
+	existingJSON, _ := existing.MarshalJSON()
+
+	source := existing.DeepCopy()
+	source.SetResourceVersion("1")
+	source.SetFinalizers([]string{"fin2.example.org"})
+	source.Object["status"] = map[string]interface{}{
+		"a": "2",
+	}
+
+	target := existing.DeepCopy()
+	target.SetAnnotations(map[string]string{
+		"cr-syncer.cloudrobotics.com/remote-resource-version": "1",
+	})
+	target.SetFinalizers([]string{"fin2.example.org"})
+	target.Object["status"] = map[string]interface{}{
+		"a": "2",
+	}
+	targetJSON, _ := target.MarshalJSON()
+
+	gock.New("http://remote-server/").
+		Get("/apis/example.com/v3/namespaces/default/goals/foo").
+		Reply(200).
+		BodyString(string(existingJSON))
+	gock.New("http://remote-server/").
+		Put("/apis/example.com/v3/namespaces/default/goals/foo").
+		BodyString(string(targetJSON)).
+		Reply(200).
+		BodyString(string(targetJSON))
+
+	_, err := tryCopyStatus(FakeClient(), "", source)
+	if err != nil {
+		t.Errorf("tryCopyStatus had unexpected error: %v", err)
+	}
+	if !gock.IsDone() {
+		t.Errorf("%d mocks still pending:", len(gock.Pending()))
+	}
+}
+
 func TestCopyStatusSubtree(t *testing.T) {
 	defer gock.Off()
 
@@ -193,21 +242,26 @@ func TestCopyStatusSubtree(t *testing.T) {
 	existing.SetAPIVersion("example.com/v3")
 	existing.SetKind("Goal")
 	existing.SetName("foo")
+	existing.SetFinalizers([]string{"fin1.example.org"})
 	existing.Object["status"] = map[string]interface{}{
 		"robot": "CREATED",
 		"cloud": "RUNNING",
 	}
 	existingJSON, _ := existing.MarshalJSON()
+
 	source := existing.DeepCopy()
 	source.SetResourceVersion("1")
+	source.SetFinalizers([]string{"fin2.example.org"})
 	source.Object["status"] = map[string]interface{}{
 		"robot": "RUNNING",
 		"cloud": "CREATED",
 	}
+
 	target := existing.DeepCopy()
 	target.SetAnnotations(map[string]string{
 		"cr-syncer.cloudrobotics.com/remote-resource-version": "1",
 	})
+	target.SetFinalizers([]string{"fin1.example.org"})
 	target.Object["status"] = map[string]interface{}{
 		"robot": "RUNNING",
 		"cloud": "RUNNING",
