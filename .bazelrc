@@ -19,7 +19,3 @@ startup --host_jvm_args=-XX:+UnlockDiagnosticVMOptions --host_jvm_args=-XX:-Inli
 # hits between CLI and IntelliJ builds, and will also be useful if we switch to
 # a shared cache.
 build --experimental_strict_action_env
-
-# This enforces use of the newer rules, as the older native rules will be
-# disabled in a future version of Bazel.
-build --incompatible_remove_native_http_archive --incompatible_remove_native_git_repository
