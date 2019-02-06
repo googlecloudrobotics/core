@@ -19,7 +19,7 @@ package internalinterfaces
 import (
 	time "time"
 
-	versioned "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/versioned"
+	versioned "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	cache "k8s.io/client-go/tools/cache"

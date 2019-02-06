@@ -8,7 +8,7 @@ go_library(
         "broker.go",
         "main.go",
     ],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/http-relay-server",
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server",
     visibility = ["//visibility:private"],
     deps = [
         "//src/proto/http-relay:go_default_library",

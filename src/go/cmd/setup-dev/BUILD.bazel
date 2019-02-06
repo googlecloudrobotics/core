@@ -7,7 +7,7 @@ go_library(
         "images.go",
         "main.go",
     ],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/setup-dev",
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/setup-dev",
     visibility = ["//visibility:public"],
     deps = [
         "//src/go/pkg/kubeutils:go_default_library",

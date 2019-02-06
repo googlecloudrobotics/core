@@ -6,7 +6,7 @@ load("@io_bazel_rules_docker//container:container.bzl", "container_push", "conta
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/setup-robot",
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/setup-robot",
     visibility = ["//visibility:private"],
     deps = [
         "//src/go/pkg/gcr:go_default_library",

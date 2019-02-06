@@ -3,6 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["utils.go"],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/pkg/utils",
+    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/utils",
     visibility = ["//visibility:public"],
 )

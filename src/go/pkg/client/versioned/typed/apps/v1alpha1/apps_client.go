@@ -17,8 +17,8 @@
 package v1alpha1
 
 import (
-	v1alpha1 "cloud-robotics.googlesource.com/cloud-robotics/pkg/apis/apps/v1alpha1"
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/client/versioned/scheme"
+	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	"github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/scheme"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
 )

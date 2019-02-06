@@ -26,7 +26,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/kubeutils"
+	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/jwt"
 	corev1 "k8s.io/api/core/v1"

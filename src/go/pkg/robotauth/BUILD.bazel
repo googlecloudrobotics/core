@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["robotauth.go"],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/pkg/robotauth",
+    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/robotauth",
     visibility = ["//visibility:public"],
     deps = [
         "//src/go/pkg/kubeutils:go_default_library",

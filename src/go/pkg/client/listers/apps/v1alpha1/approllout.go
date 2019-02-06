@@ -17,7 +17,7 @@
 package v1alpha1
 
 import (
-	v1alpha1 "cloud-robotics.googlesource.com/cloud-robotics/pkg/apis/apps/v1alpha1"
+	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"

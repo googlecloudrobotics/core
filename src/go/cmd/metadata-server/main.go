@@ -35,8 +35,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/robotauth"
 	"github.com/fsnotify/fsnotify"
+	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"golang.org/x/oauth2"
 	cloudresourcemanager "google.golang.org/api/cloudresourcemanager/v1"
 )

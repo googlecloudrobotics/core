@@ -5,7 +5,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["update_gcr_credentials.go"],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/pkg/gcr",
+    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/gcr",
     deps = [
         "//src/go/pkg/kubeutils:go_default_library",
         "//src/go/pkg/robotauth:go_default_library",

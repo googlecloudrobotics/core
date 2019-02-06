@@ -17,8 +17,8 @@ package main
 import (
 	"log"
 
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/gcr"
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/robotauth"
+	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
+	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"

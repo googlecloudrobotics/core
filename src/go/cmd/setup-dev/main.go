@@ -26,10 +26,10 @@ import (
 	"regexp"
 	"time"
 
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/kubeutils"
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/robotauth"
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/setup"
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/setup/util"
+	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
+	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
+	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
+	"github.com/googlecloudrobotics/core/src/go/pkg/setup/util"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"

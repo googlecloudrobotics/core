@@ -9,7 +9,7 @@ go_library(
         "master.go",
         "status.go",
     ],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/cloud-master",
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/cloud-master",
     visibility = ["//visibility:private"],
     deps = [
         "//src/go/pkg/helm:go_default_library",

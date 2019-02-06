@@ -25,10 +25,10 @@ import (
 	"strconv"
 	"strings"
 
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/gcr"
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/kubeutils"
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/robotauth"
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/setup"
+	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
+	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
+	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
+	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
 
 	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"

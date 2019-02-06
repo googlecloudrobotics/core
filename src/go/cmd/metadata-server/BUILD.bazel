@@ -8,7 +8,7 @@ go_library(
         "coredns.go",
         "main.go",
     ],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/metadata-server",
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/metadata-server",
     visibility = ["//visibility:private"],
     deps = [
         "//src/go/pkg/robotauth:go_default_library",

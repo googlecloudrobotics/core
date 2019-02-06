@@ -6,7 +6,7 @@ go_library(
         "factory.go",
         "generic.go",
     ],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/informers",
+    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/client/informers",
     visibility = ["//visibility:public"],
     deps = [
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",

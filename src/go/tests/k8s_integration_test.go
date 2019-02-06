@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/kubeutils"
+	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"

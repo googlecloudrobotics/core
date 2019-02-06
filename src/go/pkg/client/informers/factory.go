@@ -21,9 +21,9 @@ import (
 	sync "sync"
 	time "time"
 
-	apps "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/informers/apps"
-	internalinterfaces "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/informers/internalinterfaces"
-	versioned "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/versioned"
+	apps "github.com/googlecloudrobotics/core/src/go/pkg/client/informers/apps"
+	internalinterfaces "github.com/googlecloudrobotics/core/src/go/pkg/client/informers/internalinterfaces"
+	versioned "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

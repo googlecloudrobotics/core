@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["helm.go"],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/pkg/helm",
+    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/helm",
     visibility = ["//visibility:public"],
     deps = [
         "//src/proto/registry:go_default_library",

@@ -26,8 +26,8 @@ import (
 	"os"
 	"strings"
 
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/robotauth"
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/setup/util"
+	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
+	"github.com/googlecloudrobotics/core/src/go/pkg/setup/util"
 
 	"golang.org/x/crypto/ssh/terminal"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

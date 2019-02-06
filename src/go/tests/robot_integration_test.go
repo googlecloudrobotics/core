@@ -20,14 +20,14 @@ import (
 	"testing"
 	"time"
 
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/utils"
 	"cloud.google.com/go/pubsub"
+	"github.com/googlecloudrobotics/core/src/go/pkg/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/kubeutils"
+	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"

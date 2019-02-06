@@ -8,7 +8,7 @@ go_library(
         "main.go",
         "syncer.go",
     ],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/cr-syncer",
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/cr-syncer",
     visibility = ["//visibility:private"],
     deps = [
         "@com_github_motemen_go_loghttp//:go_default_library",

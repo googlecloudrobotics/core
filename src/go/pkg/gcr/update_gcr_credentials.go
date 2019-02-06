@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"log"
 
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/kubeutils"
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/robotauth"
+	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
+	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"

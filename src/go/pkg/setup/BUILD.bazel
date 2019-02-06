@@ -4,7 +4,7 @@ load("@bazel_gomock//:gomock.bzl", "gomock")
 go_library(
     name = "go_default_library",
     srcs = ["setupcommon.go"],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/pkg/setup",
+    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/setup",
     visibility = ["//visibility:public"],
     deps = [
         "//src/go/pkg/robotauth:go_default_library",

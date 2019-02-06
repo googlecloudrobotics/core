@@ -19,7 +19,7 @@ package informers
 import (
 	"fmt"
 
-	v1alpha1 "cloud-robotics.googlesource.com/cloud-robotics/pkg/apis/apps/v1alpha1"
+	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )

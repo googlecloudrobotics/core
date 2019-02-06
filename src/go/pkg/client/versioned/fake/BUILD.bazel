@@ -7,7 +7,7 @@ go_library(
         "doc.go",
         "register.go",
     ],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/versioned/fake",
+    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/fake",
     visibility = ["//visibility:public"],
     deps = [
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",

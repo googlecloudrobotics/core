@@ -17,9 +17,9 @@
 package fake
 
 import (
-	clientset "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/versioned"
-	appsv1alpha1 "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/versioned/typed/apps/v1alpha1"
-	fakeappsv1alpha1 "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/versioned/typed/apps/v1alpha1/fake"
+	clientset "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
+	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/typed/apps/v1alpha1"
+	fakeappsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/typed/apps/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

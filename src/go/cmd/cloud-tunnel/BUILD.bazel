@@ -8,7 +8,7 @@ go_library(
         "main.go",
         "pubsub.go",
     ],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/cloud-tunnel",
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/cloud-tunnel",
     visibility = ["//visibility:private"],
     deps = [
         "@com_google_cloud_go//trace:go_default_library",

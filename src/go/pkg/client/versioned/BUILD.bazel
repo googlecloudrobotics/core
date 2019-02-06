@@ -6,7 +6,7 @@ go_library(
         "clientset.go",
         "doc.go",
     ],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/versioned",
+    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned",
     visibility = ["//visibility:public"],
     deps = [
         "//src/go/pkg/client/versioned/typed/apps/v1alpha1:go_default_library",

@@ -19,8 +19,8 @@ package v1alpha1
 import (
 	"time"
 
-	v1alpha1 "cloud-robotics.googlesource.com/cloud-robotics/pkg/apis/apps/v1alpha1"
-	scheme "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/versioned/scheme"
+	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	scheme "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

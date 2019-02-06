@@ -17,7 +17,7 @@
 package v1alpha1
 
 import (
-	internalinterfaces "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/informers/internalinterfaces"
+	internalinterfaces "github.com/googlecloudrobotics/core/src/go/pkg/client/informers/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.

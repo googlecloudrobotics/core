@@ -10,7 +10,7 @@ go_library(
         "doc.go",
         "generated_expansion.go",
     ],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/versioned/typed/apps/v1alpha1",
+    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/typed/apps/v1alpha1",
     visibility = ["//visibility:public"],
     deps = [
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",

@@ -6,6 +6,6 @@ go_library(
         "factory.go",
         "fake.go",
     ],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/pkg/setup/util",
+    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/setup/util",
     visibility = ["//visibility:public"],
 )

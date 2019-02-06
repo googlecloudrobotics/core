@@ -8,7 +8,7 @@ go_library(
         "alertmanager.go",
         "main.go",
     ],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/grafana-operator",
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/grafana-operator",
     visibility = ["//visibility:private"],
     deps = [
         "@com_github_ghodss_yaml//:go_default_library",

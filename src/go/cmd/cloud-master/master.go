@@ -24,7 +24,7 @@ import (
 
 	pb "src/proto/registry"
 
-	"cloud-robotics.googlesource.com/cloud-robotics/pkg/helm"
+	"github.com/googlecloudrobotics/core/src/go/pkg/helm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"

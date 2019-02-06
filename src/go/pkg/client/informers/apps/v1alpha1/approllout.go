@@ -19,10 +19,10 @@ package v1alpha1
 import (
 	time "time"
 
-	appsv1alpha1 "cloud-robotics.googlesource.com/cloud-robotics/pkg/apis/apps/v1alpha1"
-	internalinterfaces "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/informers/internalinterfaces"
-	v1alpha1 "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/listers/apps/v1alpha1"
-	versioned "cloud-robotics.googlesource.com/cloud-robotics/pkg/client/versioned"
+	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	internalinterfaces "github.com/googlecloudrobotics/core/src/go/pkg/client/informers/internalinterfaces"
+	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/listers/apps/v1alpha1"
+	versioned "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"

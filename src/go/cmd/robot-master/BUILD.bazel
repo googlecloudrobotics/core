@@ -5,7 +5,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/cmd/robot-master",
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/robot-master",
     visibility = ["//visibility:private"],
     deps = [
         "//src/go/pkg/helm:go_default_library",
