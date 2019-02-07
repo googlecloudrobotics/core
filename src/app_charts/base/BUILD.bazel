@@ -32,3 +32,13 @@ core_app_chart(
     values = "values-cloud.yaml",
     visibility = ["//visibility:public"],
 )
+
+sh_test(
+    name = "app_management_test",
+    srcs = ["app_management_test.sh"],
+    data = [
+        ":base-cloud",
+        ":base-robot",
+        "@kubernetes_helm//:helm",
+    ],
+)
