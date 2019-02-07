@@ -74,6 +74,8 @@ message ActiveAction {
     DEFAULT = 0;
     // Robot is currently docking.
     DOCKING = 1;
+    // Robot is moving.
+    MOVING = 2;
     // Mission duration exceeded MissionSpec.time_out_sec. Can only be set if
     // MissionStatus.status is FAILED.
     TIMEOUT = 6;
