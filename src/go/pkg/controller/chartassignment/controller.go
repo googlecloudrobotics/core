@@ -1,4 +1,5 @@
 // Copyright 2019 The Google Cloud Robotics Authors
+
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,7 +32,7 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -63,7 +64,7 @@ const DefaultTillerHost = "tiller-deploy.kube-system.svc:44134"
 // to the manager and server.
 // Handled ChartAssignments are filtered by the provided cluster. The given values
 // are merged into all charts' default values before deployment.
-func Add(mgr manager.Manager, srv *webhook.Server, cluster, tillerHost string, values chartutil.Values) error {
+func Add(mgr manager.Manager, cluster, tillerHost string, values chartutil.Values) error {
 	if tillerHost == "" {
 		tillerHost = DefaultTillerHost
 	}
@@ -83,22 +84,6 @@ func Add(mgr manager.Manager, srv *webhook.Server, cluster, tillerHost string, v
 		&handler.EnqueueRequestForObject{},
 	)
 	if err != nil {
-		return err
-	}
-
-	validationWebhook, err := builder.NewWebhookBuilder().
-		Name("validating.k8s.io").
-		Validating().
-		Operations(admissionregistration.Create, admissionregistration.Update).
-		FailurePolicy(admissionregistration.Fail).
-		WithManager(mgr).
-		ForType(&apps.ChartAssignment{}).
-		Handlers(newChartAssignmentValidator(mgr.GetScheme())).
-		Build()
-	if err != nil {
-		return err
-	}
-	if err := srv.Register(validationWebhook); err != nil {
 		return err
 	}
 	return nil
@@ -126,7 +111,7 @@ func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 	if as.Spec.ClusterName != r.cluster {
 		return reconcile.Result{}, nil
 	}
-	if errors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) {
 		// Assignment was already deleted. We did all required cleanup
 		// when remvoing the finalizer. Thus, there's nothing to do.
 		return reconcile.Result{}, nil
@@ -203,10 +188,10 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 	var ns core.Namespace
 	err := r.kube.Get(ctx, kclient.ObjectKey{Name: as.Spec.NamespaceName}, &ns)
 
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return reconcile.Result{}, fmt.Errorf("getting Namespace %q failed: %s", as.Spec.NamespaceName, err)
 	}
-	createNamespace := errors.IsNotFound(err)
+	createNamespace := k8serrors.IsNotFound(err)
 	ns.Name = as.Spec.NamespaceName
 
 	// Add ourselves to the owners if we aren't already.
@@ -615,6 +600,19 @@ func chartPhase(c release.Status_Code) apps.ChartAssignmentPhase {
 	default:
 		return apps.ChartAssignmentPhaseUnknown
 	}
+}
+
+// NewValidationWebhook returns a new webhook that validates ChartAssignments.
+func NewValidationWebhook(mgr manager.Manager) (webhook.Webhook, error) {
+	return builder.NewWebhookBuilder().
+		Name("chartassignments.apps.cloudrobotics.com").
+		Validating().
+		Operations(admissionregistration.Create, admissionregistration.Update).
+		FailurePolicy(admissionregistration.Fail).
+		WithManager(mgr).
+		ForType(&apps.ChartAssignment{}).
+		Handlers(newChartAssignmentValidator(mgr.GetScheme())).
+		Build()
 }
 
 // chartAssignmentValidator implements a validation webhook.

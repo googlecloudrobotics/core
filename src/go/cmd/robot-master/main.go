@@ -175,9 +175,18 @@ func setupAppV2(cfg *rest.Config, cluster string, params map[string]interface{})
 	if err != nil {
 		return errors.Wrap(err, "create webhook server")
 	}
-	if err := chartassignment.Add(mgr, srv, cluster, *tillerHost, chartutil.Values(params)); err != nil {
+	if err := chartassignment.Add(mgr, cluster, *tillerHost, chartutil.Values(params)); err != nil {
 		return errors.Wrap(err, "add ChartAssignment controller")
 	}
+
+	chartassignmentValidation, err := chartassignment.NewValidationWebhook(mgr)
+	if err != nil {
+		return errors.Wrap(err, "create ChartAssignment validation webhook")
+	}
+	if err := srv.Register(chartassignmentValidation); err != nil {
+		return errors.Wrap(err, "register webhooks")
+	}
+
 	go func() {
 		if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
 			log.Fatal(errors.Wrap(err, "start controller manager"))
