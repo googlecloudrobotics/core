@@ -1,0 +1,33 @@
+licenses(["notice"])
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+proto_library(
+    name = "meta_proto",
+    srcs = ["generated.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//third_party/kubernetes_proto/runtime:runtime_proto",
+        "//third_party/kubernetes_proto/schema:schema_proto",
+    ],
+)
+
+go_proto_library(
+    name = "meta_go_proto",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "k8s.io/apimachinery/pkg/apis/meta/v1",
+    proto = ":meta_proto",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//third_party/kubernetes_proto/runtime:go_default_library",
+        "//third_party/kubernetes_proto/schema:go_default_library",
+    ],
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":meta_go_proto"],
+    importpath = "k8s.io/apimachinery/pkg/apis/meta/v1",
+    visibility = ["//visibility:public"],
+)

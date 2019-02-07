@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package cloudrobotics.hello_world.v1alpha1;
+
+message HelloWorldSpec {
+  bool shouldHello = 1;
+}
+
+message HelloWorldStatus {
+  bool didHello = 1;
+}

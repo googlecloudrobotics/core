@@ -1,0 +1,21 @@
+java_binary(
+    name = "hello-world-client",
+    srcs = [
+        "Main.java",
+    ],
+    data = [
+        "//src/java:logger.properties",
+    ],
+    jvm_flags = ["-Djava.util.logging.config.file=src/java/logger.properties"],
+    main_class = "com.cloudrobotics.hello_world_client.Main",
+    deps = [
+        "//src/proto/hello-world:cloudrobotics_hello_world_v1alpha1_proto_java",
+        "//src/proto/hello-world:cloudrobotics_hello_world_v1alpha1_proto_java_grpc",
+        "//third_party/java/io/grpc:grpc_netty",
+        "//third_party/java/io/grpc:grpc_services",
+        "@com_google_protobuf//:protobuf_java",
+        "@io_grpc_grpc_java//context",
+        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_java//stub",
+    ],
+)
