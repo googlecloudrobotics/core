@@ -84,14 +84,14 @@ type AppRolloutSpec struct {
 }
 
 type AppRolloutSpecCloud struct {
-	Values runtime.Object `json:"values,omitempty"`
+	Values ConfigValues `json:"values,omitempty"`
 }
 
 type AppRolloutSpecRobot struct {
 	Selector *RobotSelector `json:"selector,omitempty"`
 
-	Values  runtime.Object `json:"values,omitempty"`
-	Version string         `json:"version,omitempty"`
+	Values  ConfigValues `json:"values,omitempty"`
+	Version string       `json:"version,omitempty"`
 }
 
 type RobotSelector struct {

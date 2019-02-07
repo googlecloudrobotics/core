@@ -1134,6 +1134,7 @@
     "github.com/motemen/go-loghttp",
     "github.com/onsi/gomega",
     "github.com/onsi/gomega/gstruct",
+    "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "golang.org/x/crypto/ssh/terminal",
@@ -1163,10 +1164,7 @@
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer",
     "k8s.io/apimachinery/pkg/types",
-    "k8s.io/apimachinery/pkg/util/runtime",
     "k8s.io/apimachinery/pkg/watch",
-    "k8s.io/client-go/discovery",
-    "k8s.io/client-go/discovery/fake",
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
@@ -1180,7 +1178,6 @@
     "k8s.io/client-go/tools/cache",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
-    "k8s.io/client-go/util/flowcontrol",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/helm/pkg/chartutil",
     "k8s.io/helm/pkg/downloader",
@@ -1204,6 +1201,7 @@
     "sigs.k8s.io/controller-runtime/pkg/webhook/admission",
     "sigs.k8s.io/controller-runtime/pkg/webhook/admission/builder",
     "sigs.k8s.io/controller-runtime/pkg/webhook/admission/types",
+    "sigs.k8s.io/yaml",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

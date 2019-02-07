@@ -27,7 +27,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export GOPATH=${DIR}/../.gopath
 # We create the shadow repo one dir up because the dep tool falsely tries to
 # truncate the GOPATH we provide after the first /go/ dir it sees.
-SHADOW_REPO="${DIR}/../.gopath/src/cloud-robotics.googlesource.com/cloud-robotics"
+SHADOW_REPO="${DIR}/../.gopath/src/github.com/googlecloudrobotics/core/src/go"
 DEP="${GOPATH}/bin/dep"
 
 if ! type ${DEP} >/dev/null; then
