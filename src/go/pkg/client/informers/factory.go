@@ -23,6 +23,7 @@ import (
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/client/informers/apps"
 	internalinterfaces "github.com/googlecloudrobotics/core/src/go/pkg/client/informers/internalinterfaces"
+	registry "github.com/googlecloudrobotics/core/src/go/pkg/client/informers/registry"
 	versioned "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -171,8 +172,13 @@ type SharedInformerFactory interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
 	Apps() apps.Interface
+	Registry() registry.Interface
 }
 
 func (f *sharedInformerFactory) Apps() apps.Interface {
 	return apps.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Registry() registry.Interface {
+	return registry.New(f, f.namespace, f.tweakListOptions)
 }

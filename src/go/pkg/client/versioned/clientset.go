@@ -18,6 +18,7 @@ package versioned
 
 import (
 	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/typed/apps/v1alpha1"
+	registryv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/typed/registry/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -28,13 +29,17 @@ type Interface interface {
 	AppsV1alpha1() appsv1alpha1.AppsV1alpha1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Apps() appsv1alpha1.AppsV1alpha1Interface
+	RegistryV1alpha1() registryv1alpha1.RegistryV1alpha1Interface
+	// Deprecated: please explicitly pick a version if possible.
+	Registry() registryv1alpha1.RegistryV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	appsV1alpha1 *appsv1alpha1.AppsV1alpha1Client
+	appsV1alpha1     *appsv1alpha1.AppsV1alpha1Client
+	registryV1alpha1 *registryv1alpha1.RegistryV1alpha1Client
 }
 
 // AppsV1alpha1 retrieves the AppsV1alpha1Client
@@ -46,6 +51,17 @@ func (c *Clientset) AppsV1alpha1() appsv1alpha1.AppsV1alpha1Interface {
 // Please explicitly pick a version.
 func (c *Clientset) Apps() appsv1alpha1.AppsV1alpha1Interface {
 	return c.appsV1alpha1
+}
+
+// RegistryV1alpha1 retrieves the RegistryV1alpha1Client
+func (c *Clientset) RegistryV1alpha1() registryv1alpha1.RegistryV1alpha1Interface {
+	return c.registryV1alpha1
+}
+
+// Deprecated: Registry retrieves the default version of RegistryClient.
+// Please explicitly pick a version.
+func (c *Clientset) Registry() registryv1alpha1.RegistryV1alpha1Interface {
+	return c.registryV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -68,6 +84,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.registryV1alpha1, err = registryv1alpha1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -81,6 +101,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.appsV1alpha1 = appsv1alpha1.NewForConfigOrDie(c)
+	cs.registryV1alpha1 = registryv1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -90,6 +111,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.appsV1alpha1 = appsv1alpha1.New(c)
+	cs.registryV1alpha1 = registryv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

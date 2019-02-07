@@ -11,9 +11,12 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
+        "//src/go/pkg/apis/registry/v1alpha1:go_default_library",
         "//src/go/pkg/client/versioned:go_default_library",
         "//src/go/pkg/client/versioned/typed/apps/v1alpha1:go_default_library",
         "//src/go/pkg/client/versioned/typed/apps/v1alpha1/fake:go_default_library",
+        "//src/go/pkg/client/versioned/typed/registry/v1alpha1:go_default_library",
+        "//src/go/pkg/client/versioned/typed/registry/v1alpha1/fake:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",

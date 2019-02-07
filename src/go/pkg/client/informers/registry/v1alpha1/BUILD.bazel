@@ -3,21 +3,19 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "factory.go",
-        "generic.go",
+        "interface.go",
+        "robot.go",
     ],
-    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/client/informers",
+    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/client/informers/registry/v1alpha1",
     visibility = ["//visibility:public"],
     deps = [
-        "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
         "//src/go/pkg/apis/registry/v1alpha1:go_default_library",
-        "//src/go/pkg/client/informers/apps:go_default_library",
         "//src/go/pkg/client/informers/internalinterfaces:go_default_library",
-        "//src/go/pkg/client/informers/registry:go_default_library",
+        "//src/go/pkg/client/listers/registry/v1alpha1:go_default_library",
         "//src/go/pkg/client/versioned:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",
-        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
+        "@io_k8s_apimachinery//pkg/watch:go_default_library",
         "@io_k8s_client_go//tools/cache:go_default_library",
     ],
 )

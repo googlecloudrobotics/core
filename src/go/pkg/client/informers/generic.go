@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	registryv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -57,6 +58,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Apps().V1alpha1().AppRollouts().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("chartassignments"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Apps().V1alpha1().ChartAssignments().Informer()}, nil
+
+		// Group=registry.cloudrobotics.com, Version=v1alpha1
+	case registryv1alpha1.SchemeGroupVersion.WithResource("robots"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Registry().V1alpha1().Robots().Informer()}, nil
 
 	}
 

@@ -20,6 +20,8 @@ import (
 	clientset "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
 	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/typed/apps/v1alpha1"
 	fakeappsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/typed/apps/v1alpha1/fake"
+	registryv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/typed/registry/v1alpha1"
+	fakeregistryv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/typed/registry/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -77,4 +79,14 @@ func (c *Clientset) AppsV1alpha1() appsv1alpha1.AppsV1alpha1Interface {
 // Apps retrieves the AppsV1alpha1Client
 func (c *Clientset) Apps() appsv1alpha1.AppsV1alpha1Interface {
 	return &fakeappsv1alpha1.FakeAppsV1alpha1{Fake: &c.Fake}
+}
+
+// RegistryV1alpha1 retrieves the RegistryV1alpha1Client
+func (c *Clientset) RegistryV1alpha1() registryv1alpha1.RegistryV1alpha1Interface {
+	return &fakeregistryv1alpha1.FakeRegistryV1alpha1{Fake: &c.Fake}
+}
+
+// Registry retrieves the RegistryV1alpha1Client
+func (c *Clientset) Registry() registryv1alpha1.RegistryV1alpha1Interface {
+	return &fakeregistryv1alpha1.FakeRegistryV1alpha1{Fake: &c.Fake}
 }
