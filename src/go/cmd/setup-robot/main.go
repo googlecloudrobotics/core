@@ -45,6 +45,7 @@ import (
 var (
 	domain              = flag.String("domain", "", "Domain for the Cloud Robotics project (default: www.endpoints.<project>.cloud.goog)")
 	project             = flag.String("project", "", "Project ID for the Google Cloud Platform")
+	projectNumber       = flag.Uint64("project-number", 0, "Project Number for the Google Cloud Platform")
 	robotName           = flag.String("robot-name", "", "Robot name")
 	robotRole           = flag.String("robot-role", "", "Robot role. Optional if the robot is already registered.")
 	robotType           = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
@@ -192,6 +193,7 @@ func installChartOrDie(name string, chartPath string) {
 	vars := helmValuesStringFromMap(map[string]string{
 		"domain":               *domain,
 		"project":              *project,
+		"project_number":       strconv.FormatUint(*projectNumber, 10),
 		"app_management":       strconv.FormatBool(*appManagement),
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
 		"robot.name":           *robotName,

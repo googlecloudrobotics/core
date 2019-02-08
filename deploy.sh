@@ -202,6 +202,9 @@ function helm_init {
 function helm_charts {
   include_config
 
+  local GCP_PROJECT_NUMBER=$( gcloud projects describe ${GCP_PROJECT_ID} | \
+    sed -n -e "s/^projectNumber:\s*'\([0-9]*\)'$/\1/p" )
+
   bazel build "@kubernetes_helm//:helm" \
       //src/app_charts/base:base-cloud \
       //src/app_charts/platform-apps:platform-apps-cloud \
@@ -230,6 +233,7 @@ function helm_charts {
     --set-string domain=${PROJECT_DOMAIN}
     --set-string ingress_ip=${INGRESS_IP}
     --set-string project=${GCP_PROJECT_ID}
+    --set-string project_number=${GCP_PROJECT_NUMBER}
     --set-string region=${GCP_REGION}
     --set-string owner_email=${PROJECT_OWNER_EMAIL}
     --set-string app_management=${APP_MANAGEMENT}

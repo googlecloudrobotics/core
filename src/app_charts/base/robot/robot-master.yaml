@@ -15,6 +15,7 @@ spec:
         - "--params=\
           domain={{ .Values.domain }},\
           project={{ .Values.project }},\
+          project_number={{ .Values.project_number }},\
           deploy_environment={{ .Values.deploy_environment }}"
         - "--enable-app-v2"
         - "--namespace={{ .Release.Namespace }}"

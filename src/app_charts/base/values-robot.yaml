@@ -1,5 +1,6 @@
 domain: "example.com"
 project: "my-gcp-project"
+project_number: 0
 deploy_environment: "GCP"
 
 # Setting app_management to "false" will remove layer 2 (robot/cloud-master, etc).

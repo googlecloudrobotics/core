@@ -1,6 +1,7 @@
 domain: "example.com"
 ingress_ip: ""
 project: "my-gcp-project"
+project_number: 0
 region: "us-north1-a"
 deploy_environment: "GCP"
 owner_email: "info@example.com"

@@ -40,6 +40,9 @@ function create {
   local ROBOT_TYPE="${3:-mir-100}"
   local GKE_SIM_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${ROBOT_NAME}"
 
+  local GCP_PROJECT_NUMBER=$( gcloud projects describe  ${GCP_PROJECT_ID} | \
+    sed -n -e "s/^projectNumber:\s*'\([0-9]*\)'$/\1/p" )
+
   # Create cloud cluster for robot simulation and restore original kubectl context
   gcloud >/dev/null 2>&1 container clusters describe "${ROBOT_NAME}" \
     --zone=${GCP_ZONE} --project=${GCP_PROJECT_ID} || \
@@ -62,7 +65,7 @@ function create {
   kubectl --context "${GKE_SIM_CONTEXT}" run --attach --rm --restart=Never \
     setup-robot --image=${IMAGE_REFERENCE} \
     --env="ACCESS_TOKEN=${ACCESS_TOKEN}" -- \
-    --domain ${PROJECT_DOMAIN} --project ${GCP_PROJECT_ID} \
+    --domain ${PROJECT_DOMAIN} --project ${GCP_PROJECT_ID} --project-number ${GCP_PROJECT_NUMBER} \
     --robot-name ${ROBOT_NAME} --robot-role "${ROBOT_ROLE}" \
     --robot-type "${ROBOT_TYPE}" --robot-authentication=false \
     --app-management="${APP_MANAGEMENT}"
