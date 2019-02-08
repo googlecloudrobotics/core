@@ -16,17 +16,20 @@ package approllout
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	"github.com/pkg/errors"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/helm/pkg/chartutil"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -84,6 +87,108 @@ func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconcile.Result, error) {
 	log.Printf("Reconcile AppRollout %q", ar.Name)
 	return reconcile.Result{}, nil
+}
+
+// newCloudChartAssignment generates a new ChartAssignment for the cloud cluster
+// from an app, it's rollout, a set of base configuration values,
+// and a list of robots matched by the rollout.
+func newCloudChartAssignment(
+	app *apps.App,
+	rollout *apps.AppRollout,
+	values chartutil.Values,
+	robots ...*registry.Robot,
+) *apps.ChartAssignment {
+	ca := newBaseChartAssignment(app, rollout, &app.Spec.Components.Cloud)
+
+	ca.Name = chartAssignmentName(rollout.Name, compTypeCloud, "")
+	ca.Spec.ClusterName = "cloud"
+
+	// Generate robot values list that's injected into the cloud chart.
+	var robotValuesList []robotValues
+	for _, r := range robots {
+		robotValuesList = append(robotValuesList, robotValues{
+			Name: r.Name,
+		})
+	}
+	vals := chartutil.Values{}
+	vals.MergeInto(values)
+	vals.MergeInto(chartutil.Values(rollout.Spec.Cloud.Values))
+	vals.MergeInto(chartutil.Values{"robots": robotValuesList})
+
+	ca.Spec.Chart.Values = apps.ConfigValues(vals)
+
+	return ca
+}
+
+// newRobotChartAssignment generates a new ChartAssignment for a robot cluster
+// from an app, its rollout, and a set of base configuration values.
+func newRobotChartAssignment(
+	robot *registry.Robot,
+	app *apps.App,
+	rollout *apps.AppRollout,
+	spec *apps.AppRolloutSpecRobot,
+	values chartutil.Values,
+) *apps.ChartAssignment {
+	ca := newBaseChartAssignment(app, rollout, &app.Spec.Components.Robot)
+
+	ca.Name = chartAssignmentName(rollout.Name, compTypeRobot, robot.Name)
+	ca.Spec.ClusterName = robot.Name
+	if spec.Version != "" {
+		ca.Spec.Chart.Version = spec.Version
+	}
+
+	vals := chartutil.Values{}
+	vals.MergeInto(values)
+	vals.MergeInto(chartutil.Values(spec.Values))
+
+	ca.Spec.Chart.Values = apps.ConfigValues(vals)
+
+	return ca
+}
+
+// newChartAssignments returns a new ChartAssignments that's initialized with
+// all values that are fixed for the app, its rollout, and component.
+func newBaseChartAssignment(app *apps.App, rollout *apps.AppRollout, comp *apps.AppComponent) *apps.ChartAssignment {
+	var ca apps.ChartAssignment
+
+	ca.Labels = rollout.Labels
+	ca.Annotations = rollout.Annotations
+	ca.Spec.NamespaceName = appNamespaceName(rollout.Name)
+
+	if comp.Name != "" {
+		ca.Spec.Chart = apps.AssignedChart{
+			Repository: app.Spec.Repository,
+			Version:    app.Spec.Version,
+			Name:       comp.Name,
+		}
+	}
+	ca.Spec.Chart.Inline = comp.Inline
+
+	return &ca
+}
+
+func appNamespaceName(rollout string) string {
+	return fmt.Sprintf("app-%s", rollout)
+}
+
+type componentType string
+
+const (
+	compTypeRobot componentType = "robot"
+	compTypeCloud               = "cloud"
+)
+
+func chartAssignmentName(rollout string, typ componentType, robot string) string {
+	if robot != "" {
+		return fmt.Sprintf("%s-%s.%s", rollout, typ, robot)
+	}
+	return fmt.Sprintf("%s-%s", rollout, typ)
+}
+
+// robotValues is the struct that is passed into the cloud chart configuration
+// for each robot matched by a rollout.
+type robotValues struct {
+	Name string `json:"name"`
 }
 
 // NewValidationWebhook returns a new webhook that validates AppRollouts.
