@@ -178,9 +178,11 @@ func setupAppV2(cfg *rest.Config, cluster string, params map[string]interface{})
 	if err := chartassignment.Add(mgr, srv, cluster, *tillerHost, chartutil.Values(params)); err != nil {
 		return errors.Wrap(err, "add ChartAssignment controller")
 	}
-	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
-		return errors.Wrap(err, "start controller manager")
-	}
+	go func() {
+		if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+			log.Fatal(errors.Wrap(err, "start controller manager"))
+		}
+	}()
 	return nil
 }
 
