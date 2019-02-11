@@ -202,8 +202,7 @@ function helm_init {
 function helm_charts {
   include_config
 
-  local GCP_PROJECT_NUMBER=$( gcloud projects describe ${GCP_PROJECT_ID} | \
-    sed -n -e "s/^projectNumber:\s*'\([0-9]*\)'$/\1/p" )
+  local GCP_PROJECT_NUMBER=$( gcloud projects describe ${GCP_PROJECT_ID} --format='value(projectNumber)' )
 
   bazel build "@kubernetes_helm//:helm" \
       //src/app_charts/base:base-cloud \
