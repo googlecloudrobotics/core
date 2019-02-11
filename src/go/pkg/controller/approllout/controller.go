@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
@@ -27,6 +28,8 @@ import (
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/helm/pkg/chartutil"
@@ -87,6 +90,60 @@ func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconcile.Result, error) {
 	log.Printf("Reconcile AppRollout %q", ar.Name)
 	return reconcile.Result{}, nil
+}
+
+type errRobotSelectorOverlap string
+
+func (r errRobotSelectorOverlap) Error() string {
+	return fmt.Sprintf("robot %q was selected multiple times", r)
+}
+
+// generateChartAssignments returns a list of all cloud and robot ChartAssignments
+// for the given app, its rollout, and set of robots.
+func generateChartAssignments(
+	app *apps.App,
+	rollout *apps.AppRollout,
+	allRobots []*registry.Robot,
+	baseValues chartutil.Values,
+) ([]*apps.ChartAssignment, error) {
+	var (
+		cas   []*apps.ChartAssignment
+		comps = app.Spec.Components
+		// Robots that matched selectors for the rollout and which will be
+		// passed to the cloud chart.
+		selectedRobots = map[string]*registry.Robot{}
+	)
+	for _, rcomp := range rollout.Spec.Robots {
+		robots, err := matchingRobots(allRobots, rcomp.Selector)
+		if err != nil {
+			return nil, errors.Wrap(err, "select robots")
+		}
+		for _, r := range robots {
+			// No robot must be selected multiple times.
+			if _, ok := selectedRobots[r.Name]; ok {
+				return nil, errRobotSelectorOverlap(r.Name)
+			}
+			selectedRobots[r.Name] = r
+
+			cas = append(cas, newRobotChartAssignment(r, app, rollout, &rcomp, baseValues))
+		}
+	}
+	if comps.Cloud.Name != "" || comps.Cloud.Inline != "" {
+		// Turn robot map into a sorted slice so we produce deterministic outputs.
+		// (Go randomizes map iteration.)
+		robots := make([]*registry.Robot, 0, len(selectedRobots))
+		for _, r := range selectedRobots {
+			robots = append(robots, r)
+		}
+		sort.Slice(robots, func(i, j int) bool {
+			return robots[i].Name < robots[j].Name
+		})
+		cas = append(cas, newCloudChartAssignment(app, rollout, baseValues, robots...))
+	}
+	sort.Slice(cas, func(i, j int) bool {
+		return cas[i].Name < cas[j].Name
+	})
+	return cas, nil
 }
 
 // newCloudChartAssignment generates a new ChartAssignment for the cloud cluster
@@ -165,6 +222,25 @@ func newBaseChartAssignment(app *apps.App, rollout *apps.AppRollout, comp *apps.
 	ca.Spec.Chart.Inline = comp.Inline
 
 	return &ca
+}
+
+// matchingRopbots returns the subset of robots that pass the given robot selector.
+// It returns an error if the selector is invalid.
+func matchingRobots(robots []*registry.Robot, sel *apps.RobotSelector) ([]*registry.Robot, error) {
+	if sel.Any {
+		return robots, nil
+	}
+	selector, err := meta.LabelSelectorAsSelector(&sel.LabelSelector)
+	if err != nil {
+		return nil, err
+	}
+	var res []*registry.Robot
+	for _, r := range robots {
+		if selector.Matches(labels.Set(r.Labels)) {
+			res = append(res, r)
+		}
+	}
+	return res, nil
 }
 
 func appNamespaceName(rollout string) string {

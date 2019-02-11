@@ -40,6 +40,18 @@ func unmarshalYAML(t *testing.T, v interface{}, s string) {
 	}
 }
 
+func verifyChartAssignment(t *testing.T, want, got *apps.ChartAssignment) {
+	t.Helper()
+	// Compare serialized YAML for easier diff detection and to avoid complicated
+	// comparisons for map[string]interface{} values.
+	wantStr := marshalYAML(t, want)
+	gotStr := marshalYAML(t, got)
+
+	if wantStr != gotStr {
+		t.Fatalf("expected ChartAssignment: \n%s\ngot:\n%s\n", wantStr, gotStr)
+	}
+}
+
 func TestNewRobotChartAssignment(t *testing.T) {
 	var app apps.App
 	unmarshalYAML(t, &app, `
@@ -104,14 +116,7 @@ spec:
 	`)
 
 	result := newRobotChartAssignment(&robot, &app, &rollout, &rollout.Spec.Robots[0], baseValues)
-	// Compare serialized YAML for easier diff detection and to avoid complicated
-	// comparisons for map[string]interface{} values.
-	expectedStr := marshalYAML(t, expected)
-	resultStr := marshalYAML(t, result)
-
-	if expectedStr != resultStr {
-		t.Fatalf("expected ChartAssignment: \n%s\ngot:\n%s\n", expectedStr, resultStr)
-	}
+	verifyChartAssignment(t, &expected, result)
 }
 
 func TestNewCloudChartAssignment(t *testing.T) {
@@ -183,13 +188,164 @@ spec:
 	`)
 
 	result := newCloudChartAssignment(&app, &rollout, baseValues, &robot1, &robot2)
-	// Compare serialized YAML for easier diff detection and to avoid complicated
-	// comparisons for map[string]interface{} values.
-	expectedStr := marshalYAML(t, expected)
-	resultStr := marshalYAML(t, result)
+	verifyChartAssignment(t, &expected, result)
+}
 
-	if expectedStr != resultStr {
-		t.Fatalf("expected ChartAssignment: \n%s\ngot:\n%s\n", expectedStr, resultStr)
+func TestGenerateChartAssignments(t *testing.T) {
+	var app apps.App
+	unmarshalYAML(t, &app, `
+metadata:
+  name: foo
+spec:
+  components:
+    cloud:
+      inline: inline-cloud
+    robots:
+      inline: inline-robot
+	`)
+
+	var robot1, robot2, robot3 registry.Robot
+	allRobots := []*registry.Robot{&robot1, &robot2, &robot3}
+
+	unmarshalYAML(t, &robot1, `
+metadata:
+  name: robot1
+	`)
+	unmarshalYAML(t, &robot2, `
+metadata:
+  name: robot2
+  labels:
+    a: b
+	`)
+	unmarshalYAML(t, &robot3, `
+metadata:
+  name: robot3
+  labels:
+    a: c
+	`)
+
+	baseValues := chartutil.Values{
+		"foo2": "bar2",
+	}
+
+	// Rollout with two selectors that select robot1 and robot3 respectively.
+	// robot2 is not matched at all.
+	var rollout apps.AppRollout
+	unmarshalYAML(t, &rollout, `
+metadata:
+  name: foo-rollout
+spec:
+  appName: foo
+  cloud:
+    values:
+      robots: should_be_overwritten
+      foo1: bar1
+  robots:
+  # robot1
+  - selector:
+      matchExpressions:
+      - {key: a, operator: DoesNotExist}
+  # robot3
+  - selector:
+      matchLabels:
+        a: c
+    values:
+      robot: robot3
+	`)
+
+	var expected [3]apps.ChartAssignment
+	unmarshalYAML(t, &expected[0], `
+metadata:
+  name: foo-rollout-cloud
+spec:
+  clusterName: cloud
+  namespaceName: app-foo-rollout
+  chart:
+    inline: inline-cloud
+    values:
+      foo1: bar1
+      foo2: bar2
+      robots:
+      - name: robot1
+      - name: robot3
+	`)
+	unmarshalYAML(t, &expected[1], `
+metadata:
+  name: foo-rollout-robot.robot1
+spec:
+  clusterName: robot1
+  namespaceName: app-foo-rollout
+  chart:
+    values:
+      foo2: bar2
+      `)
+	unmarshalYAML(t, &expected[2], `
+metadata:
+  name: foo-rollout-robot.robot3
+spec:
+  clusterName: robot3
+  namespaceName: app-foo-rollout
+  chart:
+    values:
+      foo2: bar2
+      robot: robot3
+      `)
+
+	cas, err := generateChartAssignments(&app, &rollout, allRobots, baseValues)
+	if err != nil {
+		t.Fatalf("Generate failed: %s", err)
+	}
+	if len(cas) != len(expected) {
+		t.Errorf("Expected %d ChartAssignments, got %d", len(expected), len(cas))
+	}
+	for i, ca := range cas {
+		verifyChartAssignment(t, &expected[i], ca)
+	}
+}
+
+func TestGenerateChartAssignments_selectorOverlap(t *testing.T) {
+	var app apps.App
+	unmarshalYAML(t, &app, `
+metadata:
+  name: foo
+spec:
+  components:
+    robots:
+      inline: inline-robot
+	`)
+
+	var robot1, robot2 registry.Robot
+	allRobots := []*registry.Robot{&robot1, &robot2}
+
+	unmarshalYAML(t, &robot1, `
+metadata:
+  name: robot1
+	`)
+	unmarshalYAML(t, &robot2, `
+metadata:
+  name: robot2
+  labels:
+    a: b
+	`)
+
+	// Rollout with two selectors that match the same robot.
+	var rollout apps.AppRollout
+	unmarshalYAML(t, &rollout, `
+metadata:
+  name: foo-rollout
+spec:
+  appName: foo
+  robots:
+  - selector:
+      any: true
+  - selector:
+      matchLabels:
+        a: b
+	`)
+
+	_, err := generateChartAssignments(&app, &rollout, allRobots, nil)
+	if exp := errRobotSelectorOverlap("robot2"); err != exp {
+		t.Fatalf("expected error %q but got %q", exp, err)
 	}
 }
 
