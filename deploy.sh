@@ -256,15 +256,12 @@ function set-project {
     || die "ERROR: failed to get billing account for ${project_id}. Please check that billing is enabled."
 
   # Create config files based on templates.
-  cat "${DIR}/config.bzl.tmpl" \
-    | sed "s/my-project/${project_id}/" \
-    > "${DIR}/config.bzl"
+  sed "s/my-project/${project_id}/" "${DIR}/config.bzl.tmpl" > "${DIR}/config.bzl"
   echo "Created config.bzl for ${project_id}."
 
-  cat "${DIR}/config.sh.tmpl" \
-    | sed -e "s/my-project/${project_id}/" \
+  sed -e "s/my-project/${project_id}/" \
       -e "s/012345-678901-234567/${billing_account}/" \
-    > "${DIR}/config.sh"
+      "${DIR}/config.sh.tmpl"  > "${DIR}/config.sh"
   echo "Created config.sh for ${project_id}."
 
   # Load the newly created config and import the project into the Terraform
