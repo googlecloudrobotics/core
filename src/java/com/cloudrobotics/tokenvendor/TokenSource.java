@@ -69,7 +69,7 @@ class TokenSource {
     Instant now = clock.instant();
     TokenResponse result = new TokenResponse();
     result.setFactory(jsonFactory);
-    result.setTokenType("bearer");
+    result.setTokenType("Bearer");
     result.setAccessToken(response.getAccessToken());
     result.setExpiresInSeconds(Duration.between(now, expirationTime).getSeconds());
     result.setScope(String.join(" ", configuration.scopes));

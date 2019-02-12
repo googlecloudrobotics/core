@@ -117,7 +117,7 @@ public class TokenSourceTest {
     // Check against a golden string to make sure that the JSON is good.
     TokenResponse token = tokenSource.getAccessToken();
     assertEquals(
-        "{\"access_token\":\"foo\",\"expires_in\":3600,\"scope\":\"email http://example.com\",\"token_type\":\"bearer\"}",
+        "{\"access_token\":\"foo\",\"expires_in\":3600,\"scope\":\"email http://example.com\",\"token_type\":\"Bearer\"}",
         token.toString());
   }
 }
