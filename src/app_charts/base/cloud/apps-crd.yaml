@@ -148,6 +148,22 @@ spec:
     plural: chartassignments
     singular: chartassignment
   scope: Cluster
+  additionalPrinterColumns:
+  - JSONPath: .status.phase
+    name: Phase
+    type: string
+  - JSONPath: .status.deployedRevision
+    name: Deployed
+    type: integer
+  - JSONPath: .status.desiredRevision
+    name: Desired
+    type: integer
+  - JSONPath: .metadata.rollbackRevision
+    name: Rollback
+    type: integer
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   subresources:
     status: {}
   validation:
