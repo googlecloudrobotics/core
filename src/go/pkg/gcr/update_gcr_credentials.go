@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*
+Library for updating the token used to pull images from GCR in the surrounding cluster.
+*/
 package gcr
 
 import (
@@ -53,6 +56,8 @@ func dockercfgJSON(token string) []byte {
 	return b
 }
 
+// UpdateGcrCredentials authenticates to the cloud cluster using the auth config given and updates
+// the credentials used to pull images from GCR.
 func UpdateGcrCredentials(k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) error {
 	ctx := context.Background()
 	tokenSource := auth.CreateRobotTokenSource(ctx)
