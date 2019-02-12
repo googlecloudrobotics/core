@@ -19,11 +19,13 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
@@ -54,8 +56,9 @@ var (
 )
 
 const (
-	filesDir = "/setup-robot-files"
-	helmPath = filesDir + "/helm"
+	filesDir      = "/setup-robot-files"
+	helmPath      = filesDir + "/helm"
+	numDNSRetries = 6
 )
 
 func parseFlags() {
@@ -70,6 +73,29 @@ func parseFlags() {
 	if *domain == "" {
 		*domain = fmt.Sprintf("www.endpoints.%s.cloud.goog", *project)
 	}
+}
+
+// Since this might be the first interaction with the cluster, manually resolve the
+// domain name with retries to give a better error in the case of failure.
+func waitForDNS() error {
+	log.Printf("DNS lookup for %q", *domain)
+	delay := time.Second
+	for i := 0; i < numDNSRetries; i++ {
+		ips, err := net.LookupIP(*domain)
+		if err == nil {
+			// Check that the results contain an ipv4 addr. Initially, coredns may only
+			// return ipv6 addresses in which case helm will fail.
+			for _, ip := range ips {
+				if ip.To4() != nil {
+					return nil
+				}
+			}
+		}
+		log.Printf("... Retry dns for %q", *domain)
+		time.Sleep(delay)
+		delay += delay
+	}
+	return fmt.Errorf("DNS lookup for %q failed", *domain)
 }
 
 func main() {
@@ -96,6 +122,10 @@ func main() {
 	k8sLocalClientSet, err := kubernetes.NewForConfig(localConfig)
 	if err != nil {
 		log.Fatal("Failed to create kubernetes client set: ", err)
+	}
+
+	if err := waitForDNS(); err != nil {
+		log.Fatalf("Failed to resolve cloud cluster: %s. Please retry in 5 minutes.", err)
 	}
 
 	if *robotAuthentication {
