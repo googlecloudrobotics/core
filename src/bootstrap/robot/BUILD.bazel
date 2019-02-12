@@ -1,5 +1,7 @@
 load("//:config.bzl", "CLOUD_ROBOTICS_CONTAINER_REGISTRY")
 
+exports_files(["install_k8s_on_robot.sh"])
+
 native.genrule(
     name = "setup-robot-sh",
     srcs = [
@@ -15,4 +17,5 @@ native.genrule(
         "IMAGE_REFERENCE=\"" + CLOUD_ROBOTICS_CONTAINER_REGISTRY + "/setup-robot@$$DIGEST\"",
         "sed \"s|DEFAULT_IMAGE_REFERENCE|$$IMAGE_REFERENCE|g\" $$SETUP_ROBOT_TEMPL > $$SETUP_ROBOT_OUT",
     ]),
+    visibility = ["//visibility:public"],
 )

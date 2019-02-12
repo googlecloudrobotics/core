@@ -1,0 +1,81 @@
+load("//:config.bzl", "CLOUD_ROBOTICS_CONTAINER_REGISTRY")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+native.genrule(
+    name = "setup-cloud-sh",
+    srcs = [
+        "setup_cloud.sh.templ",
+    ],
+    outs = ["setup_cloud.sh"],
+    cmd = "\n".join([
+        "SETUP_CLOUD_OUT=$@",
+        "SETUP_CLOUD_TEMPL=$(location setup_cloud.sh.templ)",
+        "REGISTRY=\"" + CLOUD_ROBOTICS_CONTAINER_REGISTRY + "\"",
+        "IMAGE_PROJECT_ID_REFERENCE=\"$${REGISTRY#*/}\"",
+        "sed \"s|IMAGE_PROJECT_ID_REFERENCE|$$IMAGE_PROJECT_ID_REFERENCE|g\" $$SETUP_CLOUD_TEMPL > $$SETUP_CLOUD_OUT",
+    ]),
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "bazel-bin",
+    srcs = [
+        "//src/proto/map:proto_descriptor",
+    ],
+    mode = "755",
+    package_dir = "/bazel-bin",
+    strip_prefix = "/",
+)
+
+pkg_tar(
+    name = "bazel-genfiles",
+    srcs = [
+        "//src/app_charts/base:base-cloud",
+        "//src/app_charts/platform-apps:platform-apps-cloud",
+    ],
+    mode = "644",
+    package_dir = "/bazel-genfiles",
+    strip_prefix = "/",
+)
+
+pkg_tar(
+    name = "scripts",
+    srcs = [
+        "//src/bootstrap/robot:install_k8s_on_robot.sh",
+        "//src/bootstrap/robot:setup-robot-sh",
+    ],
+    mode = "755",
+    strip_prefix = "/",
+)
+
+pkg_tar(
+    name = "files",
+    srcs = [
+        "//:config.sh.tmpl",
+        "//src/bootstrap/cloud/terraform",
+    ],
+    mode = "644",
+    strip_prefix = "/",
+)
+
+pkg_tar(
+    name = "external_tools",
+    srcs = [
+        "@hashicorp_terraform//:terraform",
+        "@kubernetes_helm//:helm",
+    ],
+    mode = "755",
+    package_dir = "/bin",
+)
+
+pkg_tar(
+    name = "dist",
+    extension = "tar.gz",
+    deps = [
+        ":bazel-bin",
+        ":bazel-genfiles",
+        ":external_tools",
+        ":files",
+        ":scripts",
+    ],
+)

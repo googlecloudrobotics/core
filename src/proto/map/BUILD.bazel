@@ -10,6 +10,8 @@ load("@grpc_ecosystem_grpc_gateway//protoc-gen-swagger:defs.bzl", "protoc_gen_sw
 
 # map api
 
+exports_files(["map.yaml"])
+
 proto_library(
     name = "map_proto",
     srcs = ["map.proto"],

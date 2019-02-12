@@ -3,6 +3,8 @@
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files(["config.sh.tmpl"])
+
 load("@bazel_gazelle//:def.bzl", "gazelle")
 
 # Gazelle uses this to build importpath attributes.
