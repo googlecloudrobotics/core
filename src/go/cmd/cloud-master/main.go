@@ -26,6 +26,7 @@ import (
 	"time"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/controller/approllout"
 	"github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment"
 	"github.com/pkg/errors"
@@ -151,6 +152,7 @@ func setupAppV2(cfg *rest.Config, params map[string]interface{}) error {
 	sc := runtime.NewScheme()
 	scheme.AddToScheme(sc)
 	apps.AddToScheme(sc)
+	registry.AddToScheme(sc)
 
 	mgr, err := manager.New(cfg, manager.Options{Scheme: sc})
 	if err != nil {
@@ -176,7 +178,7 @@ func setupAppV2(cfg *rest.Config, params map[string]interface{}) error {
 	if err := chartassignment.Add(mgr, *cluster, *tillerHost, chartutil.Values(params)); err != nil {
 		return errors.Wrap(err, "add ChartAssignment controller")
 	}
-	if err := approllout.Add(mgr); err != nil {
+	if err := approllout.Add(mgr, nil); err != nil {
 		return errors.Wrap(err, "add AppRollout controller")
 	}
 

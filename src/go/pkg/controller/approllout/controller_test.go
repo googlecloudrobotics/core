@@ -97,9 +97,10 @@ metadata:
 	var expected apps.ChartAssignment
 	unmarshalYAML(t, &expected, `
 metadata:
-  name: foo-rollout-robot.robot1
+  name: foo-rollout-robot-robot1
   labels:
     lkey1: lval1
+    cloudrobotics.com/robot-name: robot1
   annotations:
     akey1: aval1
 spec:
@@ -204,20 +205,19 @@ spec:
       inline: inline-robot
 	`)
 
-	var robot1, robot2, robot3 registry.Robot
-	allRobots := []*registry.Robot{&robot1, &robot2, &robot3}
+	var robots [3]registry.Robot
 
-	unmarshalYAML(t, &robot1, `
+	unmarshalYAML(t, &robots[0], `
 metadata:
   name: robot1
 	`)
-	unmarshalYAML(t, &robot2, `
+	unmarshalYAML(t, &robots[1], `
 metadata:
   name: robot2
   labels:
     a: b
 	`)
-	unmarshalYAML(t, &robot3, `
+	unmarshalYAML(t, &robots[2], `
 metadata:
   name: robot3
   labels:
@@ -271,7 +271,9 @@ spec:
 	`)
 	unmarshalYAML(t, &expected[1], `
 metadata:
-  name: foo-rollout-robot.robot1
+  name: foo-rollout-robot-robot1
+  labels:
+    cloudrobotics.com/robot-name: robot1
 spec:
   clusterName: robot1
   namespaceName: app-foo-rollout
@@ -281,7 +283,9 @@ spec:
       `)
 	unmarshalYAML(t, &expected[2], `
 metadata:
-  name: foo-rollout-robot.robot3
+  name: foo-rollout-robot-robot3
+  labels:
+    cloudrobotics.com/robot-name: robot3
 spec:
   clusterName: robot3
   namespaceName: app-foo-rollout
@@ -291,7 +295,7 @@ spec:
       robot: robot3
       `)
 
-	cas, err := generateChartAssignments(&app, &rollout, allRobots, baseValues)
+	cas, err := generateChartAssignments(&app, &rollout, robots[:], baseValues)
 	if err != nil {
 		t.Fatalf("Generate failed: %s", err)
 	}
@@ -314,14 +318,12 @@ spec:
       inline: inline-robot
 	`)
 
-	var robot1, robot2 registry.Robot
-	allRobots := []*registry.Robot{&robot1, &robot2}
-
-	unmarshalYAML(t, &robot1, `
+	var robots [2]registry.Robot
+	unmarshalYAML(t, &robots[0], `
 metadata:
   name: robot1
 	`)
-	unmarshalYAML(t, &robot2, `
+	unmarshalYAML(t, &robots[1], `
 metadata:
   name: robot2
   labels:
@@ -343,7 +345,7 @@ spec:
         a: b
 	`)
 
-	_, err := generateChartAssignments(&app, &rollout, allRobots, nil)
+	_, err := generateChartAssignments(&app, &rollout, robots[:], nil)
 	if exp := errRobotSelectorOverlap("robot2"); err != exp {
 		t.Fatalf("expected error %q but got %q", exp, err)
 	}

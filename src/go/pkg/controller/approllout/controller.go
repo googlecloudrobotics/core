@@ -27,8 +27,9 @@ import (
 	"github.com/pkg/errors"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/validation"
-	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -45,17 +46,29 @@ import (
 	admissiontypes "sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
+const (
+	ownerFieldIndex = "metadata.ownerReferences.uid"
+	labelRobotName  = "cloudrobotics.com/robot-name"
+)
+
 // Add adds a controller for the AppRollout resource type
 // to the manager and server.
-func Add(mgr manager.Manager) error {
+func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 	c, err := controller.New("approllout", mgr, controller.Options{
 		Reconciler: &Reconciler{
-			kube: mgr.GetClient(),
+			kube:       mgr.GetClient(),
+			baseValues: baseValues,
 		},
 	})
 	if err != nil {
 		return errors.Wrap(err, "create controller")
 	}
+
+	err = mgr.GetCache().IndexField(&apps.ChartAssignment{}, ownerFieldIndex, indexOwnerReferences)
+	if err != nil {
+		return errors.Wrap(err, "add field indexer")
+	}
+
 	err = c.Watch(
 		&source.Kind{Type: &apps.AppRollout{}},
 		&handler.EnqueueRequestForObject{},
@@ -69,7 +82,8 @@ func Add(mgr manager.Manager) error {
 // Reconciler provides an idempotent function that brings the cluster into a
 // state consistent with the specification of an AppRollout.
 type Reconciler struct {
-	kube kclient.Client
+	kube       kclient.Client
+	baseValues chartutil.Values
 }
 
 func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) {
@@ -89,6 +103,79 @@ func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 
 func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconcile.Result, error) {
 	log.Printf("Reconcile AppRollout %q", ar.Name)
+
+	// Apply spec.
+	var (
+		app    apps.App
+		curCAs apps.ChartAssignmentList
+		robots registry.RobotList
+	)
+	err := r.kube.Get(ctx, kclient.ObjectKey{Name: ar.Spec.AppName}, &app)
+	if err != nil {
+		// TODO(freinartz): set status condition if it's a not-found error
+		// since it is actionable for the user.
+		return reconcile.Result{}, errors.Wrapf(err, "get app %q", ar.Spec.AppName)
+	}
+	err = r.kube.List(ctx, kclient.MatchingField(ownerFieldIndex, string(ar.UID)), &curCAs)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "list ChartAssignments for owner UID %s", ar.UID)
+	}
+	// NOTE(freinartz): consider pushing this down to generateChartAssignments
+	// and passing the robot selectors directly to the client.
+	if err := r.kube.List(ctx, nil, &robots); err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "list all Robots")
+	}
+
+	wantCAs, err := generateChartAssignments(&app, ar, robots.Items, r.baseValues)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "generate ChartAssignments")
+	}
+
+	// ChartAssignments that are no longer wanted. We pre-populate it with
+	// all existing CAs and remove those that we want to keep
+	dropCAs := map[string]apps.ChartAssignment{}
+
+	for _, ca := range curCAs.Items {
+		dropCAs[ca.Name] = ca
+	}
+	// Create or update ChartAssignments. Only update ChartAssignments if the rollout's
+	// spec has been updated.
+	for _, ca := range wantCAs {
+		_true := true
+		setOwnerReference(&ca.ObjectMeta, metav1.OwnerReference{
+			APIVersion:         ar.APIVersion,
+			Kind:               ar.Kind,
+			Name:               ar.Name,
+			UID:                ar.UID,
+			BlockOwnerDeletion: &_true,
+			Controller:         &_true,
+		})
+		prev, exists := dropCAs[ca.Name]
+		if !exists {
+			if err := r.kube.Create(ctx, ca); err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "create ChartAssignment %q", ca.Name)
+			}
+		} else if ar.Generation > ar.Status.ObservedGeneration {
+			ca.ResourceVersion = prev.ResourceVersion
+			if err := r.kube.Update(ctx, ca); err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "update ChartAssignment %q", ca.Name)
+			}
+		}
+		// Remove CA from set that should be deleted.
+		delete(dropCAs, ca.Name)
+	}
+	// Delete obsolete assignments.
+	for _, ca := range dropCAs {
+		if err := r.kube.Delete(ctx, &ca); err != nil {
+			return reconcile.Result{}, errors.Wrapf(err, "delete ChartAssignment %q", ca.Name)
+		}
+	}
+	// Update status.
+	ar.Status.ObservedGeneration = ar.Generation
+	// TODO(freinartz): update remaining status section.
+	if err := r.kube.Status().Update(ctx, ar); err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "update status")
+	}
 	return reconcile.Result{}, nil
 }
 
@@ -103,7 +190,7 @@ func (r errRobotSelectorOverlap) Error() string {
 func generateChartAssignments(
 	app *apps.App,
 	rollout *apps.AppRollout,
-	allRobots []*registry.Robot,
+	allRobots []registry.Robot,
 	baseValues chartutil.Values,
 ) ([]*apps.ChartAssignment, error) {
 	var (
@@ -123,9 +210,9 @@ func generateChartAssignments(
 			if _, ok := selectedRobots[r.Name]; ok {
 				return nil, errRobotSelectorOverlap(r.Name)
 			}
-			selectedRobots[r.Name] = r
+			selectedRobots[r.Name] = &r
 
-			cas = append(cas, newRobotChartAssignment(r, app, rollout, &rcomp, baseValues))
+			cas = append(cas, newRobotChartAssignment(&r, app, rollout, &rcomp, baseValues))
 		}
 	}
 	if comps.Cloud.Name != "" || comps.Cloud.Inline != "" {
@@ -189,6 +276,8 @@ func newRobotChartAssignment(
 	ca := newBaseChartAssignment(app, rollout, &app.Spec.Components.Robot)
 
 	ca.Name = chartAssignmentName(rollout.Name, compTypeRobot, robot.Name)
+	setLabel(&ca.ObjectMeta, labelRobotName, robot.Name)
+
 	ca.Spec.ClusterName = robot.Name
 	if spec.Version != "" {
 		ca.Spec.Chart.Version = spec.Version
@@ -226,15 +315,15 @@ func newBaseChartAssignment(app *apps.App, rollout *apps.AppRollout, comp *apps.
 
 // matchingRopbots returns the subset of robots that pass the given robot selector.
 // It returns an error if the selector is invalid.
-func matchingRobots(robots []*registry.Robot, sel *apps.RobotSelector) ([]*registry.Robot, error) {
+func matchingRobots(robots []registry.Robot, sel *apps.RobotSelector) ([]registry.Robot, error) {
 	if sel.Any {
 		return robots, nil
 	}
-	selector, err := meta.LabelSelectorAsSelector(&sel.LabelSelector)
+	selector, err := metav1.LabelSelectorAsSelector(&sel.LabelSelector)
 	if err != nil {
 		return nil, err
 	}
-	var res []*registry.Robot
+	var res []registry.Robot
 	for _, r := range robots {
 		if selector.Matches(labels.Set(r.Labels)) {
 			res = append(res, r)
@@ -256,7 +345,7 @@ const (
 
 func chartAssignmentName(rollout string, typ componentType, robot string) string {
 	if robot != "" {
-		return fmt.Sprintf("%s-%s.%s", rollout, typ, robot)
+		return fmt.Sprintf("%s-%s-%s", rollout, typ, robot)
 	}
 	return fmt.Sprintf("%s-%s", rollout, typ)
 }
@@ -265,6 +354,38 @@ func chartAssignmentName(rollout string, typ componentType, robot string) string
 // for each robot matched by a rollout.
 type robotValues struct {
 	Name string `json:"name"`
+}
+
+func setLabel(o *metav1.ObjectMeta, k, v string) {
+	if o.Labels == nil {
+		o.Labels = map[string]string{}
+	}
+	o.Labels[k] = v
+}
+
+// setOwnerReference adds or updates an owner reference. Existing references
+// are detected based on the UID field.
+func setOwnerReference(om *metav1.ObjectMeta, ref metav1.OwnerReference) {
+	for i, or := range om.OwnerReferences {
+		if ref.UID == or.UID {
+			om.OwnerReferences[i] = ref
+			return
+		}
+	}
+	om.OwnerReferences = append(om.OwnerReferences, ref)
+}
+
+// indexOwnerReferences indexes resources by the UIDs of their owner references.
+func indexOwnerReferences(o runtime.Object) (vs []string) {
+	accessor, err := meta.Accessor(o)
+	if err != nil {
+		log.Printf("Creating accessor failed: %s", err)
+		return nil
+	}
+	for _, or := range accessor.GetOwnerReferences() {
+		vs = append(vs, string(or.UID))
+	}
+	return vs
 }
 
 // NewValidationWebhook returns a new webhook that validates AppRollouts.
