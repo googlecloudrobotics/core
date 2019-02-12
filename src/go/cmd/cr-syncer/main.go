@@ -110,9 +110,10 @@ func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
 	}, nil
 }
 
-// tryCreateOrReplaceSpec ensures that the downstream object matches the source in metadata and spec.
+// syncMetaAndSpec ensures that the downstream object matches the source in metadata and spec.
 // It keeps the downstream status, if there is any.
-func createOrReplaceSpec(target dynamic.ResourceInterface, source *unstructured.Unstructured) error {
+// If the upstream object is pending deletion, the deletion is propagated downstream.
+func syncMetaAndSpec(target dynamic.ResourceInterface, source *unstructured.Unstructured) error {
 	o, err := target.Get(source.GetName(), metav1.GetOptions{})
 	if err != nil {
 		status, isStatus := err.(*errors.StatusError)
@@ -152,6 +153,24 @@ func createOrReplaceSpec(target dynamic.ResourceInterface, source *unstructured.
 	_, err = target.Update(o, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("Update failed: %v", err)
+	}
+	// Propagate in-progress deletion downstream in case upstream final deletion
+	// depends on downstream cleanup to complete.
+	// Since the deletion timestamp field is immutable, we've to do this via
+	// an explicit delete call.
+	if source.GetDeletionTimestamp() == nil {
+		return nil
+	}
+	if o.GetDeletionTimestamp() != nil {
+		return nil // Already deleted.
+	}
+	if err := target.Delete(o.GetName(), nil); err != nil {
+		status, ok := err.(*errors.StatusError)
+		if ok && status.ErrStatus.Code == http.StatusNotFound {
+			log.Printf("Resource already deleted: %s", o.GetName())
+			return nil
+		}
+		return fmt.Errorf("delete failed: %s", err)
 	}
 	return nil
 }
@@ -203,9 +222,11 @@ func checkResourceVersionAnnotation(target, source *unstructured.Unstructured) {
 	return
 }
 
-// tryCopyStatus updates the status and finalizers of upstream resources to match
+// syncStatus updates the status and finalizers of upstream resources to match
 // the downstream cluster.
-func tryCopyStatus(target dynamic.ResourceInterface, subtree string, source *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+// isSubresource indicates whether the status section is defined as a subresource
+// in the CRD.
+func syncStatus(target dynamic.ResourceInterface, subtree string, source *unstructured.Unstructured, isSubresource bool) (*unstructured.Unstructured, error) {
 	// TODO(swolter): A local cache would avoid spurious loads of the remote resources.
 	o, err := target.Get(source.GetName(), metav1.GetOptions{})
 	if err != nil {
@@ -244,6 +265,23 @@ func tryCopyStatus(target dynamic.ResourceInterface, subtree string, source *uns
 	}
 	setAnnotation(o, annotationResourceVersion, source.GetResourceVersion())
 
+	// We need to make a dedicated UpdateStatus call if the status is defined
+	// as an explicit subresource of the CRD.
+	// We need a full update below in any case to propagate finalizer removal
+	// and the revision annotation.
+	// This reduces the atomicity of our status propagation by necessity. However,
+	// not declaring status a subresource will disable generation tracking by the
+	// API server, which we need to verify that a resource has been processed
+	// by its controller.
+	if isSubresource {
+		// Status must not be null/nil.
+		if o.Object["status"] == nil {
+			o.Object["status"] = struct{}{}
+		}
+		if _, err := target.UpdateStatus(o, metav1.UpdateOptions{}); err != nil {
+			return nil, fmt.Errorf("Status update failed: %v", err)
+		}
+	}
 	// TODO(swolter): We could elide the Update if no updates happened. Checking
 	// for equality is hard, though, and inBytes vs outBytes comparisons don't
 	// work. DeepEqual might work.

@@ -54,7 +54,7 @@ func FakeClient() dynamic.ResourceInterface {
 	return client.Resource(gvr).Namespace("default")
 }
 
-func TestCreateOrReplaceSpec_create(t *testing.T) {
+func TestSyncMetaAndSpec_create(t *testing.T) {
 	defer gock.Off()
 
 	foo := unstructured.Unstructured{}
@@ -86,16 +86,16 @@ func TestCreateOrReplaceSpec_create(t *testing.T) {
 		Reply(200).
 		BodyString(string(targetJSON))
 
-	err := createOrReplaceSpec(FakeClient(), &foo)
+	err := syncMetaAndSpec(FakeClient(), &foo)
 	if err != nil {
-		t.Errorf("createOrReplaceSpec failed: %v", err)
+		t.Errorf("syncMetaAndSpec failed: %v", err)
 	}
 	if !gock.IsDone() {
 		t.Errorf("%d mocks still pending:", len(gock.Pending()))
 	}
 }
 
-func TestCreateOrReplaceSpec_update(t *testing.T) {
+func TestSyncMetaAndSpec_update(t *testing.T) {
 	defer gock.Off()
 
 	foo := unstructured.Unstructured{}
@@ -139,16 +139,68 @@ func TestCreateOrReplaceSpec_update(t *testing.T) {
 		Reply(200).
 		BodyString(string(mergedJSON))
 
-	err := createOrReplaceSpec(FakeClient(), &foo)
+	err := syncMetaAndSpec(FakeClient(), &foo)
 	if err != nil {
-		t.Errorf("createOrReplaceSpec failed: %v", err)
+		t.Errorf("syncMetaAndSpec failed: %v", err)
 	}
 	if !gock.IsDone() {
 		t.Errorf("%d mocks still pending:", len(gock.Pending()))
 	}
 }
 
-func TestCreateOrReplaceSpec_handlesGetError(t *testing.T) {
+func TestSyncMetaAndSpec_delete(t *testing.T) {
+	defer gock.Off()
+
+	foo := unstructured.Unstructured{}
+	foo.SetAPIVersion("example.com/v3")
+	foo.SetKind("Goal")
+	foo.SetName("foo")
+	foo.SetAnnotations(map[string]string{
+		annotationResourceVersion: "1",
+	})
+	foo.SetResourceVersion("1")
+	foo.Object["spec"] = map[string]interface{}{"aSpec": "a"}
+	foo.Object["status"] = map[string]interface{}{"aStatus": "a"}
+
+	existing := foo.DeepCopy()
+	existing.SetResourceVersion("3")
+	existingJSON, _ := existing.MarshalJSON()
+
+	merged := foo.DeepCopy()
+	merged.SetResourceVersion("3")
+	// Resource version is removed when copying the spec to avoid an infinite loop of edits.
+	// The owned-by-remote annotation is added by the syncer.
+	merged.SetAnnotations(map[string]string{
+		annotationOwnedByUpstream: "true",
+	})
+	mergedJSON, _ := merged.MarshalJSON()
+
+	now := metav1.Now()
+	foo.SetDeletionTimestamp(&now)
+
+	gock.New("http://remote-server/").
+		Get("/apis/example.com/v3/namespaces/default/goals").
+		Reply(200).
+		BodyString(string(existingJSON))
+	gock.New("http://remote-server/").
+		Put("/apis/example.com/v3/namespaces/default/goals/foo").
+		BodyString(string(mergedJSON)).
+		Reply(200).
+		BodyString(string(mergedJSON))
+	gock.New("http://remote-server/").
+		Delete("/apis/example.com/v3/namespaces/default/goals/foo").
+		Reply(200)
+
+	err := syncMetaAndSpec(FakeClient(), &foo)
+	if err != nil {
+		t.Errorf("syncMetaAndSpec failed: %v", err)
+	}
+	if !gock.IsDone() {
+		t.Errorf("%d mocks still pending:", len(gock.Pending()))
+	}
+}
+
+func TestSyncMetaAndSpec_handlesGetError(t *testing.T) {
 	defer gock.Off()
 
 	foo := unstructured.Unstructured{}
@@ -158,16 +210,16 @@ func TestCreateOrReplaceSpec_handlesGetError(t *testing.T) {
 		Get("/apis/example.com/v3/namespaces/default/goals").
 		Reply(500)
 
-	err := createOrReplaceSpec(FakeClient(), &foo)
+	err := syncMetaAndSpec(FakeClient(), &foo)
 	if err == nil {
-		t.Errorf("createOrReplaceSpec succeeded unexpectedly")
+		t.Errorf("syncMetaAndSpec succeeded unexpectedly")
 	}
 	if !gock.IsDone() {
 		t.Errorf("%d mocks still pending:", len(gock.Pending()))
 	}
 }
 
-func TestCopyStatusHandlesDeletedTarget(t *testing.T) {
+func TestSyncStatusHandlesDeletedTarget(t *testing.T) {
 	defer gock.Off()
 
 	foo := unstructured.Unstructured{}
@@ -177,16 +229,16 @@ func TestCopyStatusHandlesDeletedTarget(t *testing.T) {
 		Get("/apis/example.com/v3/namespaces/default/goals/foo").
 		Reply(404)
 
-	_, err := tryCopyStatus(FakeClient(), "", &foo)
+	_, err := syncStatus(FakeClient(), "", &foo, false)
 	if err != nil {
-		t.Errorf("tryCopySpec had unexpected error: %v", err)
+		t.Errorf("syncStatus had unexpected error: %v", err)
 	}
 	if !gock.IsDone() {
 		t.Errorf("%d mocks still pending:", len(gock.Pending()))
 	}
 }
 
-func TestCopyStatus(t *testing.T) {
+func TestSyncStatus(t *testing.T) {
 	defer gock.Off()
 
 	existing := unstructured.Unstructured{}
@@ -226,16 +278,16 @@ func TestCopyStatus(t *testing.T) {
 		Reply(200).
 		BodyString(string(targetJSON))
 
-	_, err := tryCopyStatus(FakeClient(), "", source)
+	_, err := syncStatus(FakeClient(), "", source, false)
 	if err != nil {
-		t.Errorf("tryCopyStatus had unexpected error: %v", err)
+		t.Errorf("syncStatus had unexpected error: %v", err)
 	}
 	if !gock.IsDone() {
 		t.Errorf("%d mocks still pending:", len(gock.Pending()))
 	}
 }
 
-func TestCopyStatusSubtree(t *testing.T) {
+func TestSyncStatusSubtree(t *testing.T) {
 	defer gock.Off()
 
 	existing := unstructured.Unstructured{}
@@ -278,9 +330,9 @@ func TestCopyStatusSubtree(t *testing.T) {
 		Reply(200).
 		BodyString(string(targetJSON))
 
-	_, err := tryCopyStatus(FakeClient(), "robot", source)
+	_, err := syncStatus(FakeClient(), "robot", source, false)
 	if err != nil {
-		t.Errorf("tryCopyStatus had unexpected error: %v", err)
+		t.Errorf("syncStatus had unexpected error: %v", err)
 	}
 	if !gock.IsDone() {
 		t.Errorf("%d mocks still pending:", len(gock.Pending()))

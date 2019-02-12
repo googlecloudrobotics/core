@@ -265,8 +265,9 @@ func (s *crSyncer) copyStatus(key string) error {
 		return nil
 	}
 	source := obj.(*unstructured.Unstructured)
+	isSubresource := s.crd.Spec.Subresources != nil && s.crd.Spec.Subresources.Status != nil
 
-	updated, err := tryCopyStatus(s.upstream, s.subtree, source)
+	updated, err := syncStatus(s.upstream, s.subtree, source, isSubresource)
 	if err != nil {
 		return fmt.Errorf("failed to update %s %s from downstream@v%s: %s",
 			source.GetKind(), source.GetName(), source.GetResourceVersion(), err)
@@ -305,7 +306,7 @@ func (s *crSyncer) copySpec(key string) error {
 	}
 	source := obj.(*unstructured.Unstructured)
 
-	if err := createOrReplaceSpec(s.downstream, source); err != nil {
+	if err := syncMetaAndSpec(s.downstream, source); err != nil {
 		return fmt.Errorf("failed to update downstream spec for %s %s@v%s: %s",
 			source.GetKind(), source.GetName(), source.GetResourceVersion(), err)
 	}
