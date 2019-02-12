@@ -131,10 +131,6 @@ EOF
     rm -f "${TERRAFORM_DIR}/backend.tf"
   fi
 
-  # TODO(ensonic): we created this symlink before and apparently terraform fails when the symlink is
-  # there but not pointing anywhere
-  rm -f ${TERRAFORM_DIR}/config.auto.tfvars || true
-
   terraform_exec init -upgrade -reconfigure \
     || die "terraform init failed"
 }
@@ -145,14 +141,6 @@ function terraform_apply {
 
   # Workaround for https://github.com/terraform-providers/terraform-provider-google/issues/2118
   terraform_exec import google_app_engine_application.app ${GCP_PROJECT_ID} 2>/dev/null || true
-  # TODO(swolter): Temporary hack to import entries created by external-dns, delete 2019-01-31
-  if [[ -n "${CLOUD_ROBOTICS_DOMAIN:-}" ]]; then
-    terraform_exec import google_dns_record_set.www-entry "external-dns/${CLOUD_ROBOTICS_DOMAIN}./A" \
-      2>/dev/null || true
-  fi
-  # TODO(swolter): Temporary hack to remove DNS delegation from TF management, delete 2019-01-31
-  terraform_exec state rm google_dns_record_set.dns-delegation-entry \
-    2>/dev/null || true
 
   # google_endpoints_service references built file (see endpoints.tf)
   bazel build //src/proto/map:proto_descriptor
