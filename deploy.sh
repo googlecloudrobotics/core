@@ -216,6 +216,9 @@ function helm_charts {
   # Transitionary helper:
   # Delete the obsolete robot-cluster app. It has been merged back into base.
   ${HELM} delete --purge robot-cluster-cloud 2>/dev/null || true
+  # Delete the old cloud-base release, since an immutable field changed in
+  # 1d3dfc8.
+  ${HELM} delete --purge cloud-base 2>/dev/null || true
 
   INGRESS_IP=$(cd "${TERRAFORM_DIR}" && ${TERRAFORM} output ingress-ip)
 
