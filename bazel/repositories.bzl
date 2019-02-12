@@ -561,6 +561,17 @@ cc_library(
         ],
     )
 
+    # Binary build of the terraform infrastructure management tool
+    _maybe(
+        http_archive,
+        name = "hashicorp_terraform",
+        build_file = "@cloud_robotics//third_party:terraform.BUILD",
+        sha256 = "6b8ce67647a59b2a3f70199c304abca0ddec0e49fd060944c26f666298e23418",
+        urls = [
+            "https://releases.hashicorp.com/terraform/0.11.7/terraform_0.11.7_linux_amd64.zip",
+        ],
+    )
+
     # Rules for building and handling Docker images with Bazel and define base image
     # for Java docker containers.
     _maybe(

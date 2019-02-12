@@ -23,8 +23,6 @@ set -o pipefail -o errexit
 
 PROJECT_NAME="cloud-robotics"
 
-TERRAFORM="$HOME/.cache/cloud-robotics/terraform"
-TERRAFORM_VERSION=0.11.7
 TERRAFORM_DIR="${DIR}/src/bootstrap/cloud/terraform"
 TERRAFORM_APPLY_FLAGS=${TERRAFORM_APPLY_FLAGS:- -auto-approve}
 
@@ -41,6 +39,7 @@ function include_config {
   KUBE_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"
 
   HELM="${DIR}/bazel-out/../../../external/kubernetes_helm/helm --kube-context ${KUBE_CONTEXT}"
+  TERRAFORM="${DIR}/bazel-out/../../../external/hashicorp_terraform/terraform"
 }
 
 function robot_bootstrap {
@@ -89,25 +88,13 @@ function clear_iot_devices {
   fi
 }
 
-function terraform_install {
-  local installed_version=$("${TERRAFORM}" version 2>/dev/null | head -n 1)
-  if [[ ! "${installed_version}" =~ v${TERRAFORM_VERSION}$ ]]; then
-    echo "Downloading terraform v${TERRAFORM_VERSION}..."
-    local bin_dir=$(dirname "${TERRAFORM}")
-    mkdir -p "${bin_dir}"
-    curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
-      | funzip > "${TERRAFORM}"
-    chmod +x "${TERRAFORM}"
-  fi
-}
-
 function terraform_exec {
   ( cd "${TERRAFORM_DIR}" && ${TERRAFORM} "$@" )
 }
 
 function terraform_init {
   include_config
-  terraform_install
+  bazel build "@hashicorp_terraform//:terraform"
 
   IMAGE_PROJECT_ID="$(echo ${CLOUD_ROBOTICS_CONTAINER_REGISTRY} | sed -n -e 's:^.*gcr.io/::p')"
 
@@ -220,7 +207,7 @@ function helm_charts {
   # 1d3dfc8.
   ${HELM} delete --purge cloud-base 2>/dev/null || true
 
-  INGRESS_IP=$(cd "${TERRAFORM_DIR}" && ${TERRAFORM} output ingress-ip)
+  INGRESS_IP=$(terraform_exec output ingress-ip)
 
   ${HELM} repo update
   # TODO(ensonic): we'd like to use this as part of 'base-cloud', but have no means of
