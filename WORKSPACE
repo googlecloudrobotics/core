@@ -276,6 +276,12 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_jhump_protoreflect",
+    commit = "d0f5a643a7920db0ccead732682f4053fbc32834",
+    importpath = "github.com/jhump/protoreflect",
+)
+
+go_repository(
     name = "com_github_imdario_mergo",
     commit = "9316a62528ac99aaecb4e47eadd6dc8aa6533d58",
     importpath = "github.com/imdario/mergo",
