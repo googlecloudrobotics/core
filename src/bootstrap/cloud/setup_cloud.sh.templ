@@ -158,7 +158,7 @@ function cluster_auth {
 function helm_charts {
   include_config
 
-  local GCP_PROJECT_NUMBER=$( gcloud projects describe ${GCP_PROJECT_ID} --format='value(projectNumber)' )
+  local GCP_PROJECT_NUMBER=$(terraform_exec output project-number)
   local INGRESS_IP=$(terraform_exec output ingress-ip)
 
   ${HELM} init --history-max=10 --upgrade --force-upgrade --wait
