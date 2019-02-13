@@ -102,7 +102,7 @@ class CloudIotPublicKeyRepository implements PublicKeyPublisher, PublicKeyReposi
 
     logger.atInfo().log(
         "Successfully updated public key for device %s to Cloud IoT Registry (new key: %s)",
-        deviceId.value());
+        deviceId.value(), publicKeyPem.value());
   }
 
   private void createDevice(DeviceId deviceId, PublicKeyPem publicKeyPem) throws IOException {
@@ -117,7 +117,7 @@ class CloudIotPublicKeyRepository implements PublicKeyPublisher, PublicKeyReposi
 
     logger.atInfo().log(
         "Successfully published public key for device %s to Cloud IoT Registry (new key: %s)",
-        deviceId.value());
+        deviceId.value(), publicKeyPem.value());
   }
 
   private static Device deviceWithIdAndPublicKey(DeviceId deviceId, PublicKeyPem publicKeyPem) {
