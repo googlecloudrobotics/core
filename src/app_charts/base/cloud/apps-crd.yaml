@@ -58,6 +58,16 @@ spec:
   scope: Cluster
   subresources:
     status: {}
+  additionalPrinterColumns:
+  - JSONPath: .status.assignments
+    name: Assignments
+    type: integer
+  - JSONPath: .status.updatedAssignments
+    name: Updated
+    type: integer
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   validation:
     openAPIV3Schema:
       properties:
@@ -103,20 +113,10 @@ spec:
           properties:
             observedGeneration:
               type: integer
-            cloud:
-              type: object
-              properties:
-                assignments:
-                  type: integer
-                updatedAssignment:
-                  type: integer
-            robots:
-              type: object
-              properties:
-                assignments:
-                  type: integer
-                updatedAssignment:
-                  type: integer
+            assignments:
+              type: integer
+            updatedAssignment:
+              type: integer
             conditions:
               type: array
               items:

@@ -87,11 +87,8 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 	if err != nil {
 		return errors.Wrap(err, "watch AppRollouts")
 	}
-	// We only react to delete events for ChartAssignments. Creations and updates
-	// are generally performed by ourselves, thus there's nothing to reconcile.
-	// CAs created by other means are not relevant to us. Updates
-	// to CAs we own are most likely due to active debugging, which we don't
-	// want to disrupt by overwriting it immediately.
+	// We don't trigger on ChartAssignment creations since it was either ourselves
+	// or a CA we don't care about anyway.
 	ownerHandler := &handler.EnqueueRequestForOwner{
 		OwnerType:    &apps.AppRollout{},
 		IsController: true,
@@ -100,6 +97,7 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 		&source.Kind{Type: &apps.ChartAssignment{}},
 		&handler.Funcs{
 			DeleteFunc: ownerHandler.Delete,
+			UpdateFunc: ownerHandler.Update,
 		},
 	)
 	if err != nil {
@@ -280,8 +278,17 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 		log.Printf("Deleted ChartAssignment %q", ca.Name)
 	}
 	// Update status.
-	ar.Status.ObservedGeneration = ar.Generation
-	// TODO(freinartz): update remaining status section.
+	status := apps.AppRolloutStatus{
+		ObservedGeneration: ar.Generation,
+		Assignments:        int64(len(wantCAs)),
+	}
+	for _, ca := range curCAs.Items {
+		if ca.Status.DeployedRevision == ca.Status.DesiredRevision {
+			status.UpdatedAssignments += 1
+		}
+	}
+	ar.Status = status
+
 	if err := r.kube.Status().Update(ctx, ar); err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "update status")
 	}

@@ -101,15 +101,10 @@ type RobotSelector struct {
 }
 
 type AppRolloutStatus struct {
-	ObservedGeneration int64                      `json:"observedGeneration,omitempty"`
-	Conditions         []AppRolloutCondition      `json:"conditions,omitempty"`
-	Cloud              AppRolloutAssignmentStatus `json:"cloud,omitempty"`
-	Robots             AppRolloutAssignmentStatus `json:"robots,omitempty"`
-}
-
-type AppRolloutAssignmentStatus struct {
-	Assignments        int64 `json:"assignments,omitempty"`
-	UpdatedAssignments int64 `json:"updatedAssignments,omitempty"`
+	ObservedGeneration int64                 `json:"observedGeneration,omitempty"`
+	Conditions         []AppRolloutCondition `json:"conditions,omitempty"`
+	Assignments        int64                 `json:"assignments"`
+	UpdatedAssignments int64                 `json:"updatedAssignments"`
 }
 
 type AppRolloutCondition struct {
