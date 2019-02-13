@@ -173,9 +173,11 @@ function helm_charts {
   # Transitionary helper:
   # Delete the obsolete robot-cluster app. It has been merged back into base.
   ${HELM} delete --purge robot-cluster-cloud 2>/dev/null || true
-  # Delete the old cloud-base release, since an immutable field changed in
-  # 1d3dfc8.
-  ${HELM} delete --purge cloud-base 2>/dev/null || true
+  if ${HELM} get cloud-base | grep -q "kind: Apps"; then
+    # Delete the old cloud-base release, since an immutable field changed in
+    # 1d3dfc8.
+    ${HELM} delete --purge cloud-base 2>/dev/null || true
+  fi
 
   ${HELM} repo update
   # TODO(ensonic): we'd like to use this as part of 'base-cloud', but have no means of
