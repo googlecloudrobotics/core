@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 load("@cloud_robotics//bazel/build_rules:proto_descriptor.bzl", "proto_descriptor")
 load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
 load("//bazel:proto_crd.bzl", "proto_crd")
+load("@grpc_ecosystem_grpc_gateway//protoc-gen-swagger:defs.bzl", "protoc_gen_swagger")
 
 proto_descriptor(
     name = "proto_descriptor",
@@ -10,11 +11,17 @@ proto_descriptor(
     proto_library = ":cloudrobotics_hello_world_v1alpha1_proto",
 )
 
+protoc_gen_swagger(
+    name = "swagger",
+    proto = ":cloudrobotics_hello_world_v1alpha1_proto",
+)
+
 proto_crd(
     name = "proto_crd",
     descriptor = ":proto_descriptor",
     group = "hello-world.cloudrobotics.com",
     message = "cloudrobotics.hello_world.v1alpha1.HelloWorld",
+    openapi_spec = ":swagger",
 )
 
 proto_library(
@@ -24,9 +31,7 @@ proto_library(
         "spec.proto",
     ],
     visibility = ["//visibility:public"],
-    deps = [
-        "//third_party/kubernetes_proto/meta:meta_proto",
-    ],
+    deps = ["//third_party/kubernetes_proto/meta:meta_proto"],
 )
 
 # language bindings

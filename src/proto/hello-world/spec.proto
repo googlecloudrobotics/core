@@ -2,8 +2,24 @@ syntax = "proto3";
 
 package cloudrobotics.hello_world.v1alpha1;
 
+message Recipient {
+  string name = 1;
+}
+
 message HelloWorldSpec {
+  enum HelloStyle {
+    UNKNOWN = 0;
+    FRIENDLY = 1;
+    RESERVED = 2;
+  }
+
   bool shouldHello = 1;
+  int32 hellosGiven = 2;
+  HelloStyle helloStyle = 3;
+  Recipient primary = 4;
+  repeated Recipient secondary = 5;
+  string greeting = 6;
+  bytes additional_greeting = 7;
 }
 
 message HelloWorldStatus {

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -10,19 +11,95 @@ import (
 	"os"
 	"strings"
 
+	"github.com/go-openapi/spec"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	k8sjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 )
 
 var (
 	protoDescriptorFile = flag.String("proto_descriptor_file", "",
 		"Filename with a binary FileDescriptorSet")
 	message    = flag.String("message", "", "Fully qualified proto message of the CRD")
+	swagger    = flag.String("openapi_spec_file", "", "Swagger doc for the generated API")
 	plural     = flag.String("plural", "", "Plural form of the message")
 	group      = flag.String("group", "", "Kubernetes API group")
 	namespaced = flag.Bool("namespaced", true, "Generated CR should be namespaced")
 	output     = flag.String("output", "", "Output file")
 )
+
+func deleteDefaults(input *map[string]interface{}) {
+	delete(*input, "default")
+	for _, value := range *input {
+		if m, ok := value.(map[string]interface{}); ok {
+			deleteDefaults(&m)
+		}
+	}
+}
+
+func hasReferences(input map[string]interface{}) bool {
+	if _, ok := input["$ref"]; ok {
+		return true
+	}
+	for _, value := range input {
+		if m, ok := value.(map[string]interface{}); ok {
+			if hasReferences(m) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func createValidation(swaggerFile string, version string, kind string) (*apiextensions.CustomResourceValidation, error) {
+	swaggerJson, err := ioutil.ReadFile(swaggerFile)
+	if err != nil {
+		return nil, err
+	}
+
+	swagger := spec.Swagger{}
+	if err := swagger.UnmarshalJSON(swaggerJson); err != nil {
+		return nil, err
+	}
+
+	result := &apiextensions.CustomResourceValidation{
+		OpenAPIV3Schema: &apiextensions.JSONSchemaProps{
+			Properties: make(map[string]apiextensions.JSONSchemaProps),
+		},
+	}
+	for _, field := range []string{"Spec", "Status"} {
+		msg := fmt.Sprintf("%s%s%s", version, kind, field)
+		schema, ok := swagger.SwaggerProps.Definitions[msg]
+		if !ok {
+			return nil, fmt.Errorf("Expected definition for %s in %s", msg, swaggerFile)
+		}
+		if err := spec.ExpandSchema(&schema, swagger.SwaggerProps, nil); err != nil {
+			return nil, err
+		}
+		b, err := json.Marshal(schema)
+		if err != nil {
+			return nil, err
+		}
+		unstructured := make(map[string]interface{})
+		if err := json.Unmarshal(b, &unstructured); err != nil {
+			return nil, err
+		}
+		deleteDefaults(&unstructured)
+		if hasReferences(unstructured) {
+			return nil, fmt.Errorf("Kubernetes API server's validation does not support self-referencing protos")
+		}
+		b, err = json.Marshal(unstructured)
+		if err != nil {
+			return nil, err
+		}
+		props := apiextensions.JSONSchemaProps{}
+		if err := json.Unmarshal(b, &props); err != nil {
+			return nil, err
+		}
+		result.OpenAPIV3Schema.Properties[strings.ToLower(field)] = props
+	}
+
+	return result, nil
+}
 
 func main() {
 	flag.Parse()
@@ -43,6 +120,11 @@ func main() {
 		log.Fatalf("Unable to read proto descriptor file %s: %v", *protoDescriptorFile, err)
 	}
 
+	validation, err := createValidation(*swagger, version, kind)
+	if err != nil {
+		log.Fatalf("Unable to convert Swagger definition to validation: %v", err)
+	}
+
 	crd := apiextensions.CustomResourceDefinition{}
 	crd.TypeMeta.APIVersion = apiextensions.SchemeGroupVersion.String()
 	crd.TypeMeta.Kind = "CustomResourceDefinition"
@@ -57,11 +139,12 @@ func main() {
 		Storage: true,
 		Served:  true,
 	}}
+	crd.Spec.Validation = validation
 	crd.Status.Conditions = []apiextensions.CustomResourceDefinitionCondition{}
 	crd.Status.StoredVersions = []string{version}
 
 	buf := new(bytes.Buffer)
-	serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, nil, nil)
+	serializer := k8sjson.NewYAMLSerializer(k8sjson.DefaultMetaFactory, nil, nil)
 	if err := serializer.Encode(&crd, buf); err != nil {
 		log.Fatalf("Unable to serialize CRD: %v", err)
 	}
