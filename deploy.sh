@@ -23,6 +23,7 @@ set -o pipefail -o errexit
 
 PROJECT_NAME="cloud-robotics"
 
+TERRAFORM="${DIR}/bazel-out/../../../external/hashicorp_terraform/terraform"
 TERRAFORM_DIR="${DIR}/src/bootstrap/cloud/terraform"
 TERRAFORM_APPLY_FLAGS=${TERRAFORM_APPLY_FLAGS:- -auto-approve}
 
@@ -38,7 +39,6 @@ function include_config {
   KUBE_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"
 
   HELM="${DIR}/bazel-out/../../../external/kubernetes_helm/helm --kube-context ${KUBE_CONTEXT}"
-  TERRAFORM="${DIR}/bazel-out/../../../external/hashicorp_terraform/terraform"
 }
 
 function robot_bootstrap {
