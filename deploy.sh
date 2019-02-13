@@ -162,15 +162,11 @@ function cluster_auth {
     || die "create: failed to get cluster credentials"
 }
 
-function helm_init {
-  bazel build "@kubernetes_helm//:helm"
-  ${HELM} init --history-max=10 --upgrade --force-upgrade --wait
-}
-
 function helm_charts {
   include_config
 
   local GCP_PROJECT_NUMBER=$( gcloud projects describe ${GCP_PROJECT_ID} --format='value(projectNumber)' )
+  local INGRESS_IP=$(terraform_exec output ingress-ip)
 
   bazel build "@kubernetes_helm//:helm" \
       //src/app_charts/base:base-cloud \
@@ -181,14 +177,14 @@ function helm_charts {
   # build.
   ${DIR}/bazel-bin/src/app_charts/push
 
+  ${HELM} init --history-max=10 --upgrade --force-upgrade --wait
+
   # Transitionary helper:
   # Delete the obsolete robot-cluster app. It has been merged back into base.
   ${HELM} delete --purge robot-cluster-cloud 2>/dev/null || true
   # Delete the old cloud-base release, since an immutable field changed in
   # 1d3dfc8.
   ${HELM} delete --purge cloud-base 2>/dev/null || true
-
-  INGRESS_IP=$(terraform_exec output ingress-ip)
 
   ${HELM} repo update
   # TODO(ensonic): we'd like to use this as part of 'base-cloud', but have no means of
@@ -275,7 +271,6 @@ function create {
   # sure `setup-robot.push` is the first container push to avoid a GCR bug with
   # parallel pushes on newly created projects.
   robot_bootstrap
-  helm_init
   helm_charts
   check_project_resources
 }
