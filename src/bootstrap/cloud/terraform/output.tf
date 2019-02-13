@@ -3,5 +3,5 @@ output "ingress-ip" {
 }
 
 output "project-number" {
-  value = "${google_project.project.number}"
+  value = "${data.google_project.project.number}"
 }

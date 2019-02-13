@@ -1,7 +1,7 @@
 resource "google_service_account" "robot-service" {
   account_id   = "robot-service"
   display_name = "robot-service"
-  project      = "${google_project.project.project_id}"
+  project      = "${data.google_project.project.project_id}"
 }
 
 data "google_iam_policy" "robot-service" {
@@ -12,7 +12,7 @@ data "google_iam_policy" "robot-service" {
     role = "roles/iam.serviceAccountTokenCreator"
 
     members = [
-      "serviceAccount:${google_project.project.number}-compute@developer.gserviceaccount.com",
+      "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com",
     ]
   }
 
@@ -20,7 +20,7 @@ data "google_iam_policy" "robot-service" {
     role = "roles/iam.serviceAccountUser"
 
     members = [
-      "serviceAccount:${google_project.project.number}-compute@developer.gserviceaccount.com",
+      "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com",
 
       # This seemingly nonsensical binding is necessary for the robot auth
       # path in the K8s relay, which has to work with GCP auth tokens.
@@ -30,7 +30,7 @@ data "google_iam_policy" "robot-service" {
 }
 
 resource "google_project_iam_member" "robot-service-storage" {
-  project = "${google_project.project.project_id}"
+  project = "${data.google_project.project.project_id}"
   role    = "roles/storage.admin"
   member  = "serviceAccount:${google_service_account.robot-service.email}"
 }
@@ -41,7 +41,7 @@ resource "google_project_iam_member" "robot-service-container-access" {
   project = "${var.private_image_repositories[count.index]}"
   count   = "${length(var.private_image_repositories)}"
   role    = "roles/storage.objectViewer"
-  member  = "serviceAccount:${google_project.project.number}-compute@developer.gserviceaccount.com"
+  member  = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
 }
 
 resource "google_project_iam_member" "robot-service-account-container-access" {
@@ -52,25 +52,25 @@ resource "google_project_iam_member" "robot-service-account-container-access" {
 }
 
 resource "google_project_iam_member" "robot-service-datastore" {
-  project = "${google_project.project.project_id}"
+  project = "${data.google_project.project.project_id}"
   role    = "roles/datastore.user"
   member  = "serviceAccount:${google_service_account.robot-service.email}"
 }
 
 resource "google_project_iam_member" "robot-service-monitoring" {
-  project = "${google_project.project.project_id}"
+  project = "${data.google_project.project.project_id}"
   role    = "roles/monitoring.metricWriter"
   member  = "serviceAccount:${google_service_account.robot-service.email}"
 }
 
 resource "google_project_iam_member" "robot-service-logging" {
-  project = "${google_project.project.project_id}"
+  project = "${data.google_project.project.project_id}"
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${google_service_account.robot-service.email}"
 }
 
 resource "google_project_iam_member" "robot-service-kubernetes" {
-  project = "${google_project.project.project_id}"
+  project = "${data.google_project.project.project_id}"
 
   # TODO(swolter): This permission is very wide. Use custom IAM roles or RBAC
   # to restrict it.
@@ -87,7 +87,7 @@ resource "google_service_account_iam_policy" "robot-service" {
 resource "google_service_account" "human-acl" {
   account_id   = "human-acl"
   display_name = "human-acl"
-  project      = "${google_project.project.project_id}"
+  project      = "${data.google_project.project.project_id}"
 }
 
 # TODO(swolter): I'm 90% sure that we don't need this permission anymore.

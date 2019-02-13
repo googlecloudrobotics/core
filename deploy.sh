@@ -99,7 +99,6 @@ id = "${GCP_PROJECT_ID}"
 domain = "${CLOUD_ROBOTICS_DOMAIN}"
 zone = "${GCP_ZONE}"
 region = "${GCP_REGION}"
-billing_account = "${GCP_BILLING_ACCOUNT}"
 shared_owner_group = "${CLOUD_ROBOTICS_SHARED_OWNER_GROUP}"
 EOF
 
@@ -133,6 +132,9 @@ function terraform_apply {
 
   # Workaround for https://github.com/terraform-providers/terraform-provider-google/issues/2118
   terraform_exec import google_app_engine_application.app ${GCP_PROJECT_ID} 2>/dev/null || true
+  # We've stopped managing Google Cloud projects in Terraform, make sure they
+  # aren't deleted.
+  terraform_exec state rm google_project.project 2>/dev/null || true
 
   # google_endpoints_service references built file (see endpoints.tf)
   bazel build //src/proto/map:proto_descriptor \
@@ -143,13 +145,7 @@ function terraform_apply {
 }
 
 function terraform_delete {
-  # We only do a partial deletion because e.g. projects take ages to redeploy.
-  terraform_exec destroy \
-      -auto-approve \
-      -target google_container_cluster.cloud-robotics \
-      -target google_cloudiot_registry.cloud-robotics \
-      -target google_dns_managed_zone.external-dns \
-    || die "terraform destroy failed"
+  terraform_exec destroy -auto-approve || die "terraform destroy failed"
 }
 
 
@@ -236,21 +232,11 @@ function set-project {
   gcloud projects describe "${project_id}" >/dev/null \
     || die "ERROR: unable to access ${project_id}"
 
-  # Extract the billing account name from gcloud. The output looks like:
-  # billingAccountName: billingAccounts/001E73-146317-2C82DD
-  local billing_account=$(gcloud beta billing projects describe "${project_id}" \
-    | sed -n "s#^billingAccountName.*/##p")
-
-  [[ -n "${billing_account}" ]] \
-    || die "ERROR: failed to get billing account for ${project_id}. Please check that billing is enabled."
-
   # Create config files based on templates.
   sed "s/my-project/${project_id}/" "${DIR}/config.bzl.tmpl" > "${DIR}/config.bzl"
   echo "Created config.bzl for ${project_id}."
 
-  sed -e "s/my-project/${project_id}/" \
-      -e "s/012345-678901-234567/${billing_account}/" \
-      "${DIR}/config.sh.tmpl"  > "${DIR}/config.sh"
+  sed -e "s/my-project/${project_id}/" "${DIR}/config.sh.tmpl"  > "${DIR}/config.sh"
   echo "Created config.sh for ${project_id}."
 
   # Load the newly created config and import the project into the Terraform

@@ -18,17 +18,8 @@ variable "region" {
   description = "Cloud region to deploy to (europe-west1)"
 }
 
-variable "billing_account" {
-  description = "The account to handle cost of the project"
-}
-
 variable "shared_owner_group" {
   description = "Name of a group to be added as a owner. Leave empty to not use group sharing."
-  default     = ""
-}
-
-variable "project_folder_id" {
-  description = "Id of parent to create the project under. Leave out if not using folders."
   default     = ""
 }
 
