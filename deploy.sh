@@ -41,13 +41,6 @@ function include_config {
   HELM="${DIR}/bazel-out/../../../external/kubernetes_helm/helm --kube-context ${KUBE_CONTEXT}"
 }
 
-function robot_bootstrap {
-  include_config
-
-  bazel run //src/go/cmd/setup-robot:setup-robot.push
-  bazel run //src/app_charts/base:base-robot.push
-}
-
 function check_project_resources {
   include_config
 
@@ -164,14 +157,16 @@ function helm_charts {
   local GCP_PROJECT_NUMBER=$(terraform_exec output project-number)
   local INGRESS_IP=$(terraform_exec output ingress-ip)
 
+  # To keep things simple also push setup-robot.
   bazel build "@kubernetes_helm//:helm" \
       //src/app_charts/base:base-cloud \
       //src/app_charts/platform-apps:platform-apps-cloud \
-      //src/app_charts:push
+      //src/app_charts:push \
+      //src/go/cmd/setup-robot:setup-robot.push
 
-  # Running :push outside the build system shaves ~3 seconds off an incremental
-  # build.
+  # Running :push outside the build system shaves ~3 seconds off an incremental build.
   ${DIR}/bazel-bin/src/app_charts/push
+  ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push
 
   ${HELM} init --history-max=10 --upgrade --force-upgrade --wait
 
@@ -253,10 +248,6 @@ function create {
   include_config
   terraform_apply
   cluster_auth
-  # TODO(b/123625511): move robot_bootstrap after helm_charts. For now, make
-  # sure `setup-robot.push` is the first container push to avoid a GCR bug with
-  # parallel pushes on newly created projects.
-  robot_bootstrap
   helm_charts
   check_project_resources
 }
@@ -273,7 +264,6 @@ function update {
 }
 
 function fast_push {
-  include_config
   helm_charts
 }
 
