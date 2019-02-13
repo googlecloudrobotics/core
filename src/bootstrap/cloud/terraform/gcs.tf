@@ -6,6 +6,34 @@ resource "google_storage_bucket" "robot" {
   depends_on    = ["google_project_service.compute"]
 }
 
+resource "google_storage_bucket_object" "setup_robot" {
+  name          = "setup_robot.sh"
+  source        = "../../../../bazel-genfiles/src/bootstrap/robot/setup_robot.sh"
+  bucket        = "${google_storage_bucket.robot.name}"
+  cache_control = "private, max-age=0, no-transform"
+}
+
+resource "google_storage_object_access_control" "setup_robot_ac" {
+  object = "${google_storage_bucket_object.setup_robot.name}"
+  bucket = "${google_storage_bucket.robot.name}"
+  role   = "READER"
+  entity = "allUsers"
+}
+
+resource "google_storage_bucket_object" "install_k8s_on_robot" {
+  name          = "install_k8s_on_robot.sh"
+  source        = "../../robot/install_k8s_on_robot.sh"
+  bucket        = "${google_storage_bucket.robot.name}"
+  cache_control = "private, max-age=0, no-transform"
+}
+
+resource "google_storage_object_access_control" "install_k8s_on_robot_ac" {
+  object = "${google_storage_bucket_object.install_k8s_on_robot.name}"
+  bucket = "${google_storage_bucket.robot.name}"
+  role   = "READER"
+  entity = "allUsers"
+}
+
 resource "google_storage_bucket" "tools" {
   name          = "${var.id}-tools"
   location      = "${var.region}"

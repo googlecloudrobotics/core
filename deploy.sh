@@ -28,7 +28,6 @@ TERRAFORM_APPLY_FLAGS=${TERRAFORM_APPLY_FLAGS:- -auto-approve}
 
 APP_MANAGEMENT=${APP_MANAGEMENT:-false}
 
-
 # utility functions
 
 function include_config {
@@ -45,15 +44,8 @@ function include_config {
 function robot_bootstrap {
   include_config
 
-  bazel build //src/bootstrap/robot:all
   bazel run //src/go/cmd/setup-robot:setup-robot.push
   bazel run //src/app_charts/base:base-robot.push
-
-  gsutil -h "Cache-Control:private, max-age=0, no-transform" \
-    cp -a public-read \
-      src/bootstrap/robot/install_k8s_on_robot.sh \
-      bazel-genfiles/src/bootstrap/robot/setup_robot.sh \
-      "gs://${GCP_PROJECT_ID}-robot/"
 }
 
 function check_project_resources {
@@ -143,7 +135,8 @@ function terraform_apply {
   terraform_exec import google_app_engine_application.app ${GCP_PROJECT_ID} 2>/dev/null || true
 
   # google_endpoints_service references built file (see endpoints.tf)
-  bazel build //src/proto/map:proto_descriptor
+  bazel build //src/proto/map:proto_descriptor \
+      //src/bootstrap/robot:setup-robot-sh
 
   terraform_exec apply ${TERRAFORM_APPLY_FLAGS} \
     || die "terraform apply failed"

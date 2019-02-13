@@ -56,16 +56,6 @@ function include_config {
   HELM="${DIR}/bin/helm --kube-context ${KUBE_CONTEXT}"
 }
 
-function robot_bootstrap {
-  include_config
-
-  gsutil -h "Cache-Control:private, max-age=0, no-transform" \
-    cp -a public-read \
-      src/bootstrap/robot/install_k8s_on_robot.sh \
-      src/bootstrap/robot/setup_robot.sh \
-      "gs://${GCP_PROJECT_ID}-robot/"
-}
-
 function clear_iot_devices {
   include_config
 
@@ -239,10 +229,9 @@ function set-project {
 
   get_dependencies
 
-  cat "${DIR}/config.sh.tmpl" \
-    | sed -e "s/my-project/${project_id}/" \
+  sed -e "s/my-project/${project_id}/" \
       -e "s/012345-678901-234567/${billing_account}/" \
-    > "${DIR}/config.sh"
+      "${DIR}/config.sh.tmpl"  > "${DIR}/config.sh"
   echo "Created config.sh for ${project_id}."
 
   # Load the newly created config and import the project into the Terraform
@@ -260,7 +249,6 @@ function create {
   include_config
   terraform_apply
   cluster_auth
-  robot_bootstrap
   helm_init
   helm_charts
 }
