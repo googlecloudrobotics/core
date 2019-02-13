@@ -15,15 +15,21 @@
 package gcr
 
 import (
-	"bytes"
 	"testing"
+
+	. "github.com/onsi/gomega"
 )
 
 func TestDockercfgJSON(t *testing.T) {
-	expectedJSON := []byte(`{"https://eu.gcr.io":{"username":"oauth2accesstoken","password":"ya29.yaddayadda","email":"not@val.id","auth":"b2F1dGgyYWNjZXNzdG9rZW46eWEyOS55YWRkYXlhZGRh"}}`)
+	g := NewGomegaWithT(t)
+	expectedJSON := `{
+  "https://gcr.io":{"username":"oauth2accesstoken","password":"ya29.yaddayadda","email":"not@val.id","auth":"b2F1dGgyYWNjZXNzdG9rZW46eWEyOS55YWRkYXlhZGRh"},
+  "https://asia.gcr.io":{"username":"oauth2accesstoken","password":"ya29.yaddayadda","email":"not@val.id","auth":"b2F1dGgyYWNjZXNzdG9rZW46eWEyOS55YWRkYXlhZGRh"},
+  "https://eu.gcr.io":{"username":"oauth2accesstoken","password":"ya29.yaddayadda","email":"not@val.id","auth":"b2F1dGgyYWNjZXNzdG9rZW46eWEyOS55YWRkYXlhZGRh"},
+  "https://us.gcr.io":{"username":"oauth2accesstoken","password":"ya29.yaddayadda","email":"not@val.id","auth":"b2F1dGgyYWNjZXNzdG9rZW46eWEyOS55YWRkYXlhZGRh"}
+}`
+
 	gotJSON := dockercfgJSON("ya29.yaddayadda")
 
-	if !bytes.Equal(expectedJSON, gotJSON) {
-		t.Errorf("Expected:\n  %s\nGot:\n  %s\n", expectedJSON, gotJSON)
-	}
+	g.Expect(gotJSON).To(MatchJSON(expectedJSON))
 }

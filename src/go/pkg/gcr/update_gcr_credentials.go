@@ -41,13 +41,14 @@ func dockercfgJSON(token string) []byte {
 		Auth     []byte `json:"auth"`
 	}
 
-	m := map[string]interface{}{
-		"https://eu.gcr.io": dockercfg{
+	m := map[string]interface{}{}
+	for _, r := range []string{"gcr.io", "asia.gcr.io", "eu.gcr.io", "us.gcr.io"} {
+		m["https://"+r] = dockercfg{
 			Username: "oauth2accesstoken",
 			Password: string(token),
 			Email:    "not@val.id",
 			Auth:     []byte("oauth2accesstoken:" + token),
-		},
+		}
 	}
 	b, err := json.Marshal(m)
 	if err != nil {

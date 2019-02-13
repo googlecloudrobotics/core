@@ -22,4 +22,5 @@ go_test(
     srcs = ["update_gcr_credential_test.go"],
     embed = [":go_default_library"],
     visibility = ["//visibility:private"],
+    deps = ["@com_github_onsi_gomega//:go_default_library"],
 )
