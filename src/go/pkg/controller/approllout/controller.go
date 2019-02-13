@@ -15,10 +15,12 @@
 package approllout
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -27,15 +29,17 @@ import (
 	"github.com/pkg/errors"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/helm/pkg/chartutil"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -44,27 +48,34 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/builder"
 	admissiontypes "sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
+	"sigs.k8s.io/yaml"
 )
 
 const (
-	ownerFieldIndex = "metadata.ownerReferences.uid"
-	labelRobotName  = "cloudrobotics.com/robot-name"
+	fieldIndexOwners  = "metadata.ownerReferences.uid"
+	fieldIndexAppName = "spec.appName"
+	labelRobotName    = "cloudrobotics.com/robot-name"
 )
 
 // Add adds a controller for the AppRollout resource type
 // to the manager and server.
 func Add(mgr manager.Manager, baseValues chartutil.Values) error {
+	r := &Reconciler{
+		kube:       mgr.GetClient(),
+		baseValues: baseValues,
+	}
 	c, err := controller.New("approllout", mgr, controller.Options{
-		Reconciler: &Reconciler{
-			kube:       mgr.GetClient(),
-			baseValues: baseValues,
-		},
+		Reconciler: r,
 	})
 	if err != nil {
 		return errors.Wrap(err, "create controller")
 	}
 
-	err = mgr.GetCache().IndexField(&apps.ChartAssignment{}, ownerFieldIndex, indexOwnerReferences)
+	err = mgr.GetCache().IndexField(&apps.ChartAssignment{}, fieldIndexOwners, indexOwnerReferences)
+	if err != nil {
+		return errors.Wrap(err, "add field indexer")
+	}
+	err = mgr.GetCache().IndexField(&apps.AppRollout{}, fieldIndexAppName, indexAppName)
 	if err != nil {
 		return errors.Wrap(err, "add field indexer")
 	}
@@ -76,7 +87,97 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 	if err != nil {
 		return errors.Wrap(err, "watch AppRollouts")
 	}
+	// We only react to delete events for ChartAssignments. Creations and updates
+	// are generally performed by ourselves, thus there's nothing to reconcile.
+	// CAs created by other means are not relevant to us. Updates
+	// to CAs we own are most likely due to active debugging, which we don't
+	// want to disrupt by overwriting it immediately.
+	ownerHandler := &handler.EnqueueRequestForOwner{
+		OwnerType:    &apps.AppRollout{},
+		IsController: true,
+	}
+	err = c.Watch(
+		&source.Kind{Type: &apps.ChartAssignment{}},
+		&handler.Funcs{
+			DeleteFunc: ownerHandler.Delete,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "watch ChartAssignments")
+	}
+	// Determining which rollouts are affected by a robot change is tedious.
+	// We just enqueue all AppRollouts again.
+	err = c.Watch(
+		&source.Kind{Type: &registry.Robot{}},
+		&handler.Funcs{
+			CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+				r.enqueueAll(q)
+			},
+			UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+				// Robots don't have the status subresource enabled. Filter updates that didn't
+				// change robot name or labels.
+				change := !reflect.DeepEqual(e.MetaOld.GetLabels(), e.MetaNew.GetLabels())
+				change = change || e.MetaOld.GetName() != e.MetaNew.GetName()
+				if change {
+					r.enqueueAll(q)
+				}
+			},
+			DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+				r.enqueueAll(q)
+			},
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "watch Robots")
+	}
+	err = c.Watch(
+		&source.Kind{Type: &apps.App{}},
+		&handler.Funcs{
+			CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+				r.enqueueForApp(e.Meta, q)
+			},
+			UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+				r.enqueueForApp(e.MetaNew, q)
+			},
+			DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+				r.enqueueForApp(e.Meta, q)
+			},
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "watch Apps")
+	}
 	return nil
+}
+
+// enqueueForApp enqueues all AppRollouts for the given app.
+func (r *Reconciler) enqueueForApp(m metav1.Object, q workqueue.RateLimitingInterface) {
+	var rollouts apps.AppRolloutList
+	err := r.kube.List(context.TODO(), kclient.MatchingField(fieldIndexAppName, m.GetName()), &rollouts)
+	if err != nil {
+		log.Printf("List AppRollouts for appName %s failed: %s", m.GetName(), err)
+		return
+	}
+	for _, ar := range rollouts.Items {
+		q.Add(reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: ar.Name},
+		})
+	}
+}
+
+// enqueueAll enqueues all AppRollouts.
+func (r *Reconciler) enqueueAll(q workqueue.RateLimitingInterface) {
+	var rollouts apps.AppRolloutList
+	err := r.kube.List(context.TODO(), nil, &rollouts)
+	if err != nil {
+		log.Printf("List AppRollouts failed: %s", err)
+		return
+	}
+	for _, ar := range rollouts.Items {
+		q.Add(reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: ar.Name},
+		})
+	}
 }
 
 // Reconciler provides an idempotent function that brings the cluster into a
@@ -102,7 +203,7 @@ func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconcile.Result, error) {
-	log.Printf("Reconcile AppRollout %q", ar.Name)
+	log.Printf("Reconcile AppRollout %q (version: %s)", ar.Name, ar.ResourceVersion)
 
 	// Apply spec.
 	var (
@@ -116,7 +217,7 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 		// since it is actionable for the user.
 		return reconcile.Result{}, errors.Wrapf(err, "get app %q", ar.Spec.AppName)
 	}
-	err = r.kube.List(ctx, kclient.MatchingField(ownerFieldIndex, string(ar.UID)), &curCAs)
+	err = r.kube.List(ctx, kclient.MatchingField(fieldIndexOwners, string(ar.UID)), &curCAs)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "list ChartAssignments for owner UID %s", ar.UID)
 	}
@@ -139,7 +240,7 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 		dropCAs[ca.Name] = ca
 	}
 	// Create or update ChartAssignments. Only update ChartAssignments if the rollout's
-	// spec has been updated.
+	// spec or labels have been updated.
 	for _, ca := range wantCAs {
 		_true := true
 		setOwnerReference(&ca.ObjectMeta, metav1.OwnerReference{
@@ -151,24 +252,32 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 			Controller:         &_true,
 		})
 		prev, exists := dropCAs[ca.Name]
+		delete(dropCAs, ca.Name)
+
 		if !exists {
 			if err := r.kube.Create(ctx, ca); err != nil {
 				return reconcile.Result{}, errors.Wrapf(err, "create ChartAssignment %q", ca.Name)
 			}
-		} else if ar.Generation > ar.Status.ObservedGeneration {
-			ca.ResourceVersion = prev.ResourceVersion
-			if err := r.kube.Update(ctx, ca); err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "update ChartAssignment %q", ca.Name)
-			}
+			log.Printf("Created ChartAssignment %q", ca.Name)
+			continue
 		}
-		// Remove CA from set that should be deleted.
-		delete(dropCAs, ca.Name)
+		if changed, err := chartAssignmentChanged(&prev, ca); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "check ChartAssignment changed")
+		} else if !changed {
+			continue
+		}
+		ca.ResourceVersion = prev.ResourceVersion
+		if err := r.kube.Update(ctx, ca); err != nil {
+			return reconcile.Result{}, errors.Wrapf(err, "update ChartAssignment %q", ca.Name)
+		}
+		log.Printf("Updated ChartAssignment %q", ca.Name)
 	}
 	// Delete obsolete assignments.
 	for _, ca := range dropCAs {
 		if err := r.kube.Delete(ctx, &ca); err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "delete ChartAssignment %q", ca.Name)
 		}
+		log.Printf("Deleted ChartAssignment %q", ca.Name)
 	}
 	// Update status.
 	ar.Status.ObservedGeneration = ar.Generation
@@ -177,6 +286,25 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 		return reconcile.Result{}, errors.Wrap(err, "update status")
 	}
 	return reconcile.Result{}, nil
+}
+
+// chartAssignmentChanged returns true if the CA's labels, annotations, or spec changed.
+func chartAssignmentChanged(prev, cur *apps.ChartAssignment) (bool, error) {
+	if !reflect.DeepEqual(prev.Labels, cur.Labels) {
+		return true, nil
+	}
+	if !reflect.DeepEqual(prev.Annotations, cur.Annotations) {
+		return true, nil
+	}
+	prevSpec, err := yaml.Marshal(prev.Spec)
+	if err != nil {
+		return false, err
+	}
+	curSpec, err := yaml.Marshal(cur.Spec)
+	if err != nil {
+		return false, err
+	}
+	return !bytes.Equal(prevSpec, curSpec), nil
 }
 
 type errRobotSelectorOverlap string
@@ -297,8 +425,14 @@ func newRobotChartAssignment(
 func newBaseChartAssignment(app *apps.App, rollout *apps.AppRollout, comp *apps.AppComponent) *apps.ChartAssignment {
 	var ca apps.ChartAssignment
 
-	ca.Labels = rollout.Labels
-	ca.Annotations = rollout.Annotations
+	// Clone labels and annotations. Just setting the map reference
+	// would cause the map to be shared across objects.
+	for k, v := range rollout.Labels {
+		setLabel(&ca.ObjectMeta, k, v)
+	}
+	for k, v := range rollout.Annotations {
+		setAnnotation(&ca.ObjectMeta, k, v)
+	}
 	ca.Spec.NamespaceName = appNamespaceName(rollout.Name)
 
 	if comp.Name != "" {
@@ -356,6 +490,12 @@ type robotValues struct {
 	Name string `json:"name"`
 }
 
+func setAnnotation(o *metav1.ObjectMeta, k, v string) {
+	if o.Annotations == nil {
+		o.Annotations = map[string]string{}
+	}
+	o.Annotations[k] = v
+}
 func setLabel(o *metav1.ObjectMeta, k, v string) {
 	if o.Labels == nil {
 		o.Labels = map[string]string{}
@@ -377,15 +517,16 @@ func setOwnerReference(om *metav1.ObjectMeta, ref metav1.OwnerReference) {
 
 // indexOwnerReferences indexes resources by the UIDs of their owner references.
 func indexOwnerReferences(o runtime.Object) (vs []string) {
-	accessor, err := meta.Accessor(o)
-	if err != nil {
-		log.Printf("Creating accessor failed: %s", err)
-		return nil
-	}
-	for _, or := range accessor.GetOwnerReferences() {
+	ca := o.(*apps.ChartAssignment)
+	for _, or := range ca.OwnerReferences {
 		vs = append(vs, string(or.UID))
 	}
 	return vs
+}
+
+func indexAppName(o runtime.Object) []string {
+	ar := o.(*apps.AppRollout)
+	return []string{ar.Spec.AppName}
 }
 
 // NewValidationWebhook returns a new webhook that validates AppRollouts.

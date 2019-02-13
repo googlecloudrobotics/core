@@ -182,7 +182,7 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 		return reconcile.Result{Requeue: true, RequeueAfter: requeueFast}, nil
 	}
 
-	log.Printf("ChartAssignment %q changed, updating chart release", as.Name)
+	log.Printf("ChartAssignment %q (version: %s) changed, updating chart release", as.Name, as.ResourceVersion)
 
 	// Create application namespace if it doesn't exist.
 	var ns core.Namespace
