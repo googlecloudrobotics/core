@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright 2019 The Google Cloud Robotics Authors
+# Copyright 2019 The Cloud Robotics Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ cd ${SHADOW_REPO}
 REPO=github.com/googlecloudrobotics/core/src/go
 
 cat > "${SHADOW_REPO}/HEADER" <<EOF
-// Copyright $(date +%Y) The Google Cloud Robotics Authors
+// Copyright $(date +%Y) The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.

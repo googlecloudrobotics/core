@@ -1,4 +1,4 @@
-// Copyright 2019 The Google Cloud Robotics Authors
+// Copyright 2019 The Cloud Robotics Authors
 
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
