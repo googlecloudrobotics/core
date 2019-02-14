@@ -164,9 +164,11 @@ function helm_charts {
       //src/app_charts:push \
       //src/go/cmd/setup-robot:setup-robot.push
 
+  # `setup-robot.push` is the first container push to avoid a GCR bug with parallel pushes on newly
+  # created projects (see b/123625511).
+  ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push
   # Running :push outside the build system shaves ~3 seconds off an incremental build.
   ${DIR}/bazel-bin/src/app_charts/push
-  ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push
 
   ${HELM} init --history-max=10 --upgrade --force-upgrade --wait
 
