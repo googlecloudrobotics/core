@@ -15,17 +15,17 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"regexp"
 	"strconv"
-	"strings"
+	"sync"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -33,33 +33,30 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"google.golang.org/grpc"
+	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	crdinformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-var methodRE = regexp.MustCompile("^/(.*)\\.K8s([^.]*)/([^/]*)$")
-
-// Global options for unmarshaling JSON to proto messages.
-// Allow unknown fields as a safety measure (in case the Kubernetes API server's version does
-// not match the version used to generate the proto descriptor).
-var unmarshaler = &jsonpb.Unmarshaler{AllowUnknownFields: true}
-
 type ResourceInfo struct {
 	FileDescriptor *desc.FileDescriptor
-	ProtoPackage   string
-	APIGroup       string
 	APIVersion     string
 	Kind           string
 	KindPlural     string
 	Client         *rest.RESTClient
 }
 
-// TODO(daschmidt): Support more than one resource kind.
-var resourceInfo = &ResourceInfo{}
+type ResourceInfoRepository struct {
+	mutex     sync.RWMutex
+	resources map[string]*ResourceInfo
+}
 
 type K8sRequestParams struct {
 	InMessageName        string
@@ -71,6 +68,26 @@ type K8sRequestParams struct {
 	BodyFieldName        string
 }
 
+var (
+	methodRE               = regexp.MustCompile("^/(.*)\\.K8s([^.]*)/([^/]*)$")
+	resourceInfoRepository = ResourceInfoRepository{resources: make(map[string]*ResourceInfo)}
+	messageFactory         = dynamic.NewMessageFactoryWithDefaults()
+	// Global options for unmarshaling JSON to proto messages.
+	// Allow unknown fields as a safety measure (in case the Kubernetes API server's version does
+	// not match the version used to generate the proto descriptor).
+	unmarshaler = &jsonpb.Unmarshaler{AllowUnknownFields: true}
+)
+
+func LookupRepository(protoPackage string, messageName string) (*ResourceInfo, error) {
+	key := fmt.Sprintf("%s.K8s%s", protoPackage, messageName)
+	resourceInfoRepository.mutex.RLock()
+	defer resourceInfoRepository.mutex.RUnlock()
+	if v, ok := resourceInfoRepository.resources[key]; ok {
+		return v, nil
+	}
+	return nil, fmt.Errorf("didn't find a CR matching %s", key)
+}
+
 func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 	fullMethodName, _ := grpc.MethodFromServerStream(stream)
 
@@ -79,8 +96,9 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 		return fmt.Errorf("unable to parse method name: %v", err)
 	}
 
-	if streamPkg != resourceInfo.ProtoPackage || streamKind != resourceInfo.Kind {
-		return fmt.Errorf("unknown package/kind: %s/%s", streamPkg, streamKind)
+	resourceInfo, err := LookupRepository(streamPkg, streamKind)
+	if err != nil {
+		return err
 	}
 
 	var params *K8sRequestParams
@@ -169,7 +187,7 @@ func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *Res
 	if messageDesc == nil {
 		return fmt.Errorf("unknown message: %s", params.InMessageName)
 	}
-	message := dynamic.NewMessage(messageDesc)
+	message := dynamic.NewMessageWithMessageFactory(messageDesc, messageFactory)
 
 	// Receive proto message.
 	err := stream.RecvMsg(message)
@@ -195,7 +213,7 @@ func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *Res
 		}
 	}
 
-	// Create kubernetes request.
+	// Create Kubernetes request.
 	req := resource.Client.Verb(params.Verb).Resource(resource.KindPlural).Namespace("default")
 	// Set resource name.
 	var name string
@@ -225,7 +243,7 @@ func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *Res
 		req = req.Body(body)
 	}
 
-	// Perform kubernetes request.
+	// Perform Kubernetes request.
 	if name == "" {
 		log.Printf("Performing %s request for %s to %s", params.Verb, resource.KindPlural, req.URL().String())
 	} else {
@@ -233,7 +251,7 @@ func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *Res
 	}
 	res, err := req.DoRaw()
 	if err != nil {
-		return fmt.Errorf("kubernetes request failed: %v. Response body: %s", err, res)
+		return fmt.Errorf("Kubernetes request failed: %v. Response body: %s", err, res)
 	}
 
 	// Create instance of dynamic message for received data.
@@ -241,12 +259,12 @@ func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *Res
 	if messageDesc == nil {
 		return fmt.Errorf("unknown message: %s", params.OutMessageName)
 	}
-	message = dynamic.NewMessage(messageDesc)
+	message = dynamic.NewMessageWithMessageFactory(messageDesc, messageFactory)
 
 	// Unmarshal kubernetes response to proto message.
 	err = message.UnmarshalJSONPB(unmarshaler, res)
 	if err != nil {
-		return fmt.Errorf("error unmarshaling response from kubernetes: %v", err)
+		return fmt.Errorf("error unmarshaling response from Kubernetes: %v\n%s", err, string(res))
 	}
 
 	// Send proto message.
@@ -404,7 +422,7 @@ func getQueryParams(message *dynamic.Message) (map[string]string, error) {
 				if ok {
 					queryParams[optionName] = optionValue
 				} else {
-					log.Printf("Unable to process option field %s.", optionName)
+					log.Printf("unable to process option field %s.", optionName)
 				}
 			}
 		}
@@ -424,78 +442,156 @@ func parseMethodName(methodName string) (streamPkg string, streamKind string, me
 	return
 }
 
-func main() {
-	var kubeconfig string
-	var master string
-	var descfile string
-
-	flag.StringVar(&kubeconfig, "k", "", "absolute path to the kubeconfig file")
-	flag.StringVar(&master, "m", "", "master URL")
-	flag.StringVar(&descfile, "d", "", "absolute path to the proto descriptor file")
-	flag.StringVar(&resourceInfo.APIGroup, "g", "", "API Group")
-	flag.StringVar(&resourceInfo.KindPlural, "p", "", "kind plural (default: <kind>+\"s\" )")
-
-	flag.Parse()
-
-	// Read bytes from descriptor file.
-	b, err := ioutil.ReadFile(descfile)
-	if err != nil {
-		log.Fatalf("Error reading file %s: %v", descfile, err)
+func getFileDescriptor(obj *crdtypes.CustomResourceDefinition) (*desc.FileDescriptor, error) {
+	annotation := obj.ObjectMeta.Annotations["crc.cloudrobotics.com/proto-descriptor"]
+	if annotation == "" {
+		return nil, fmt.Errorf("no proto-descriptor annotation on %s", obj.ObjectMeta.Name)
 	}
-
+	b, err := base64.StdEncoding.DecodeString(annotation)
+	if err != nil {
+		return nil, fmt.Errorf("unable to decode base64 in proto-descriptor annotation on %s: %v", err)
+	}
 	// Unmarshal file descriptor set.
 	fds := &descriptor.FileDescriptorSet{}
-	err = proto.Unmarshal(b, fds)
-	if err != nil {
-		log.Fatalf("Error unmarshaling FileDescriptorSet: %v", err)
+	if err := proto.Unmarshal(b, fds); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal FileDescriptorSet from proto-descriptor annotation on %s: %v", err)
 	}
 
 	// Create dynamic file descriptor.
-	resourceInfo.FileDescriptor, err = desc.CreateFileDescriptorFromSet(fds)
+	fd, err := desc.CreateFileDescriptorFromSet(fds)
 	if err != nil {
-		log.Fatalf("Error creating file descriptor: %v", err)
+		return nil, err
 	}
 
+	return fd, nil
+}
+
+func getServiceName(fd *desc.FileDescriptor, kind string) (string, error) {
 	// Determine kind and kindPlural.
-	svcs := resourceInfo.FileDescriptor.GetServices()
-	if len(svcs) != 1 {
-		log.Fatalf("Expected exactly one service in descriptor, got %d", len(svcs))
+	serviceName := fmt.Sprintf("K8s%s", kind)
+	svcs := fd.GetServices()
+	for _, svc := range svcs {
+		if svc.GetName() == serviceName {
+			return svc.GetFullyQualifiedName(), nil
+		}
 	}
-	svc := svcs[0]
-	resourceInfo.Kind = strings.TrimPrefix(svc.GetName(), "K8s")
-	if resourceInfo.KindPlural == "" {
-		resourceInfo.KindPlural = strings.ToLower(resourceInfo.Kind) + "s"
-	} else {
-		resourceInfo.KindPlural = strings.ToLower(resourceInfo.KindPlural)
+	return "", fmt.Errorf("no service with name %s found in proto descriptor for %s", serviceName, kind)
+}
+
+func deleteResourceInfo(obj *crdtypes.CustomResourceDefinition) {
+	fd, err := getFileDescriptor(obj)
+	if err != nil {
+		return
+	}
+	name, err := getServiceName(fd, obj.Spec.Names.Kind)
+	if err != nil {
+		return
+	}
+	log.Printf("removing descriptor for service %s", name)
+	delete(resourceInfoRepository.resources, name)
+}
+
+func insertResourceInfo(obj *crdtypes.CustomResourceDefinition, config *rest.Config) {
+	fd, err := getFileDescriptor(obj)
+	if err != nil {
+		return
+	}
+	name, err := getServiceName(fd, obj.Spec.Names.Kind)
+	if err != nil {
+		return
 	}
 
-	// Determine API version.
-	resourceInfo.ProtoPackage = resourceInfo.FileDescriptor.GetPackage()
-	pkgParts := strings.Split(resourceInfo.ProtoPackage, ".")
-	if len(pkgParts) < 2 {
-		log.Fatalf("Unable to extract version from package name, expected format: package.path.<version>")
+	if len(obj.Spec.Versions) != 1 {
+		log.Printf("ignoring CRD %s with multiple versions", obj.ObjectMeta.Name)
+		return
 	}
-	resourceInfo.APIVersion = pkgParts[len(pkgParts)-1]
+	version := obj.Spec.Versions[0].Name
+
+	c := *config
+	c.APIPath = "/apis"
+	c.GroupVersion = &schema.GroupVersion{obj.Spec.Group, version}
+	c.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+
+	// Build Kubernetes REST client.
+	client, err := rest.RESTClientFor(&c)
+	if err != nil {
+		log.Fatalf("error building Kubernetes client: %v", err)
+	}
+
+	log.Printf("adding descriptor for service %s", name)
+	resourceInfoRepository.resources[name] = &ResourceInfo{
+		FileDescriptor: fd,
+		APIVersion:     c.GroupVersion.String(),
+		Kind:           obj.Spec.Names.Kind,
+		KindPlural:     obj.Spec.Names.Plural,
+		Client:         client,
+	}
+}
+
+func updateResourceInfoRepository(done <-chan struct{}, config *rest.Config) error {
+	clientset, err := crdclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	factory := crdinformer.NewSharedInformerFactory(clientset, 0)
+	informer := factory.Apiextensions().V1beta1().CustomResourceDefinitions().Informer()
+
+	go informer.Run(done)
+
+	ok := cache.WaitForCacheSync(done, informer.HasSynced)
+	if !ok {
+		return fmt.Errorf("WaitForCacheSync failed")
+	}
+
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			resourceInfoRepository.mutex.Lock()
+			defer resourceInfoRepository.mutex.Unlock()
+			insertResourceInfo(obj.(*crdtypes.CustomResourceDefinition), config)
+		},
+		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
+			resourceInfoRepository.mutex.Lock()
+			defer resourceInfoRepository.mutex.Unlock()
+			deleteResourceInfo(oldObj.(*crdtypes.CustomResourceDefinition))
+			insertResourceInfo(newObj.(*crdtypes.CustomResourceDefinition), config)
+		},
+		DeleteFunc: func(obj interface{}) {
+			resourceInfoRepository.mutex.Lock()
+			defer resourceInfoRepository.mutex.Unlock()
+			deleteResourceInfo(obj.(*crdtypes.CustomResourceDefinition))
+		},
+	})
+
+	return nil
+}
+
+func main() {
+	var kubeconfig string
+	var master string
+
+	flag.StringVar(&kubeconfig, "k", "", "absolute path to the kubeconfig file")
+	flag.StringVar(&master, "m", "", "master URL")
+
+	flag.Parse()
 
 	// Build kubeconfig.
 	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
-		log.Fatalf("Error building kubernetes config: %v", err)
+		log.Fatalf("error building Kubernetes config: %v", err)
 	}
-	config.APIPath = "/apis"
-	config.GroupVersion = &schema.GroupVersion{resourceInfo.APIGroup, resourceInfo.APIVersion}
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
 
-	// Build kubernetes REST client.
-	resourceInfo.Client, err = rest.RESTClientFor(config)
-	if err != nil {
-		log.Fatalf("Error building kubernetes client: %v", err)
-	}
+	go func() {
+		done := make(chan struct{})
+		err := updateResourceInfoRepository(done, config)
+		if err != nil {
+			log.Fatalf("error building resource info repository: %v", err)
+		}
+	}()
 
 	// Start gRPC server.
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", 50051))
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		log.Fatalf("failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer(grpc.UnknownServiceHandler(streamHandler))
 	log.Fatal(grpcServer.Serve(lis))
