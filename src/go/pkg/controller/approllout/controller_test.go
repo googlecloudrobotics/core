@@ -112,6 +112,8 @@ spec:
     name: foo-robot
     inline: abcdefgh
     values:
+      robot:
+        name: robot1
       foo1: bar1
       foo2: bar2
 	`)
@@ -250,7 +252,7 @@ spec:
       matchLabels:
         a: c
     values:
-      robot: robot3
+      foo3: bar3
 	`)
 
 	var expected [3]apps.ChartAssignment
@@ -279,6 +281,8 @@ spec:
   namespaceName: app-foo-rollout
   chart:
     values:
+      robot:
+        name: robot1
       foo2: bar2
       `)
 	unmarshalYAML(t, &expected[2], `
@@ -291,8 +295,10 @@ spec:
   namespaceName: app-foo-rollout
   chart:
     values:
+      robot:
+        name: robot3
       foo2: bar2
-      robot: robot3
+      foo3: bar3
       `)
 
 	cas, err := generateChartAssignments(&app, &rollout, robots[:], baseValues)

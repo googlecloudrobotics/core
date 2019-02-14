@@ -421,6 +421,7 @@ func newRobotChartAssignment(
 	vals := chartutil.Values{}
 	vals.MergeInto(values)
 	vals.MergeInto(chartutil.Values(spec.Values))
+	vals.MergeInto(chartutil.Values{"robot": robotValues{Name: robot.Name}})
 
 	ca.Spec.Chart.Values = apps.ConfigValues(vals)
 
