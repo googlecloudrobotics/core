@@ -10,6 +10,7 @@ proto_library(
     deps = [
         "//third_party/kubernetes_proto/runtime:runtime_proto",
         "//third_party/kubernetes_proto/schema:schema_proto",
+        "@com_google_protobuf//:timestamp_proto",
     ],
 )
 
