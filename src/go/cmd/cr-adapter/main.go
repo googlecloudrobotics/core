@@ -60,6 +60,7 @@ type K8sRequestParams struct {
 	Verb                 string
 	OptionsAsQueryParams bool
 	NameInPath           bool
+	SetKindAndApiGroup   bool
 	BodyFieldName        string
 }
 
@@ -85,6 +86,7 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 			Verb:                 "GET",
 			OptionsAsQueryParams: true,
 			NameInPath:           true,
+			SetKindAndApiGroup:   false,
 			BodyFieldName:        "",
 		}
 	case "List":
@@ -94,6 +96,7 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 			Verb:                 "GET",
 			OptionsAsQueryParams: true,
 			NameInPath:           false,
+			SetKindAndApiGroup:   false,
 			BodyFieldName:        "",
 		}
 	case "Watch":
@@ -105,6 +108,7 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 			Verb:                 "POST",
 			OptionsAsQueryParams: true,
 			NameInPath:           false,
+			SetKindAndApiGroup:   true,
 			BodyFieldName:        "object",
 		}
 	case "Update":
@@ -114,6 +118,7 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 			Verb:                 "PUT",
 			OptionsAsQueryParams: true,
 			NameInPath:           true,
+			SetKindAndApiGroup:   true,
 			BodyFieldName:        "object",
 		}
 	case "UpdateStatus":
@@ -125,6 +130,7 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 			Verb:                 "DELETE",
 			OptionsAsQueryParams: false,
 			NameInPath:           true,
+			SetKindAndApiGroup:   false,
 			BodyFieldName:        "options",
 		}
 	default:
@@ -151,6 +157,24 @@ func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *Res
 	err := stream.RecvMsg(message)
 	if err != nil {
 		return fmt.Errorf("error receiving message: %v", err)
+	}
+
+	// Add Kind and ApiGroup if necessary.
+	if params.SetKindAndApiGroup {
+		objectInterface, err := message.TryGetFieldByName("object")
+		if err != nil {
+			return errors.New("unknown field: object")
+		}
+		object, ok := objectInterface.(*dynamic.Message)
+		if !ok {
+			return errors.New("object is not a message")
+		}
+		if err := object.TrySetFieldByName("kind", resource.Kind); err != nil {
+			return errors.New("object has no kind field")
+		}
+		if err := object.TrySetFieldByName("apiVersion", resource.APIVersion); err != nil {
+			return errors.New("object has no APIVersion field")
+		}
 	}
 
 	// Create kubernetes request.
