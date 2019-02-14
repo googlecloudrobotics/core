@@ -23,7 +23,16 @@ set -o pipefail -o errexit
 
 PROJECT_NAME="cloud-robotics"
 
-TERRAFORM="${DIR}/bazel-out/../../../external/hashicorp_terraform/terraform"
+if [[ -e "${DIR}/INSTALL_FROM_BINARY" ]]; then
+  # Commands prefixed by ${SKIP_FOR_BINARY} are not executed when installing the binary.
+  SKIP_FOR_BINARY="true"
+  TERRAFORM="${DIR}/bin/terraform"
+  HELM_COMMAND="${DIR}/bin/helm"
+else
+  TERRAFORM="${DIR}/bazel-out/../../../external/hashicorp_terraform/terraform"
+  HELM_COMMAND="${DIR}/bazel-out/../../../external/kubernetes_helm/helm"
+fi
+
 TERRAFORM_DIR="${DIR}/src/bootstrap/cloud/terraform"
 TERRAFORM_APPLY_FLAGS=${TERRAFORM_APPLY_FLAGS:- -auto-approve}
 
@@ -38,7 +47,7 @@ function include_config {
   PROJECT_OWNER_EMAIL=${CLOUD_ROBOTICS_OWNER_EMAIL:-$(gcloud config get-value account)}
   KUBE_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"
 
-  HELM="${DIR}/bazel-out/../../../external/kubernetes_helm/helm --kube-context ${KUBE_CONTEXT}"
+  HELM="${HELM_COMMAND} --kube-context ${KUBE_CONTEXT}"
 }
 
 function check_project_resources {
@@ -79,7 +88,7 @@ function terraform_exec {
 
 function terraform_init {
   include_config
-  bazel build "@hashicorp_terraform//:terraform"
+  ${SKIP_FOR_BINARY} bazel build "@hashicorp_terraform//:terraform"
 
   IMAGE_PROJECT_ID="$(echo ${CLOUD_ROBOTICS_CONTAINER_REGISTRY} | sed -n -e 's:^.*gcr.io/::p')"
 
@@ -130,7 +139,7 @@ function terraform_apply {
   terraform_exec state rm google_project.project 2>/dev/null || true
 
   # google_endpoints_service references built file (see endpoints.tf)
-  bazel build //src/proto/map:proto_descriptor \
+  ${SKIP_FOR_BINARY} bazel build //src/proto/map:proto_descriptor \
       //src/bootstrap/robot:setup-robot-sh
 
   terraform_exec apply ${TERRAFORM_APPLY_FLAGS} \
@@ -158,7 +167,7 @@ function helm_charts {
   local INGRESS_IP=$(terraform_exec output ingress-ip)
 
   # To keep things simple also push setup-robot.
-  bazel build "@kubernetes_helm//:helm" \
+  ${SKIP_FOR_BINARY} bazel build "@kubernetes_helm//:helm" \
       //src/app_charts/base:base-cloud \
       //src/app_charts/platform-apps:platform-apps-cloud \
       //src/app_charts:push \
@@ -166,9 +175,9 @@ function helm_charts {
 
   # `setup-robot.push` is the first container push to avoid a GCR bug with parallel pushes on newly
   # created projects (see b/123625511).
-  ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push
+  ${SKIP_FOR_BINARY} ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push
   # Running :push outside the build system shaves ~3 seconds off an incremental build.
-  ${DIR}/bazel-bin/src/app_charts/push
+  ${SKIP_FOR_BINARY} ${DIR}/bazel-bin/src/app_charts/push
 
   ${HELM} init --history-max=10 --upgrade --force-upgrade --wait
 

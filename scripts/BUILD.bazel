@@ -1,0 +1,5 @@
+exports_files([
+    "common.sh",
+    "include-config.sh",
+    "show-resource-usage.sh",
+])

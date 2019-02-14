@@ -3,7 +3,11 @@
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(["config.sh.tmpl"])
+exports_files([
+    "config.sh.tmpl",
+    "config.bzl.tmpl",
+    "deploy.sh",
+])
 
 load("@bazel_gazelle//:def.bzl", "gazelle")
 
