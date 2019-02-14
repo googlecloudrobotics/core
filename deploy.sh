@@ -218,16 +218,20 @@ EOF
 # commands
 
 function set-project {
-  [[ $# -eq 1 ]] || die "usage: $0 set-project <project-id>"
+  [[ ! -e "${DIR}/config.sh" ]] || [[ ! -e "${DIR}/config.bzl" ]] || \
+    die "ERROR: config.sh and config.bzl already exist"
+  [[ ! -e "${DIR}/config.sh" ]] || die "ERROR: config.sh already exists but config.bzl does not."
+  [[ ! -e "${DIR}/config.bzl" ]] || die "ERROR: config.bzl already exists but config.sh does not."
 
   local project_id=$1
-
-  [[ ! -e "${DIR}/config.sh" ]] || die "ERROR: config.sh already exists"
-  [[ ! -e "${DIR}/config.bzl" ]] || die "ERROR: config.bzl already exists"
+  if [[ -z ${project_id} ]]; then
+    echo "Enter the id of your Google Cloud project:"
+    read project_id
+  fi
 
   # Check that the project exists and that we have access.
   gcloud projects describe "${project_id}" >/dev/null \
-    || die "ERROR: unable to access ${project_id}"
+    || die "ERROR: unable to access Google Cloud project: ${project_id}"
 
   # Create config files based on templates.
   sed "s/my-project/${project_id}/" "${DIR}/config.bzl.tmpl" > "${DIR}/config.bzl"
@@ -247,6 +251,9 @@ function set-project {
 }
 
 function create {
+  if [[ ! -e "${DIR}/config.sh" && ! -e "${DIR}/config.bzl" ]]; then
+    set-project
+  fi
   include_config
   terraform_apply
   cluster_auth
