@@ -62,9 +62,8 @@ const DefaultTillerHost = "tiller-deploy.kube-system.svc:44134"
 
 // Add adds a controller and validation webhook for the ChartAssignment resource type
 // to the manager and server.
-// Handled ChartAssignments are filtered by the provided cluster. The given values
-// are merged into all charts' default values before deployment.
-func Add(mgr manager.Manager, cluster, tillerHost string, values chartutil.Values) error {
+// Handled ChartAssignments are filtered by the provided cluster.
+func Add(mgr manager.Manager, cluster, tillerHost string) error {
 	if tillerHost == "" {
 		tillerHost = DefaultTillerHost
 	}
@@ -73,7 +72,6 @@ func Add(mgr manager.Manager, cluster, tillerHost string, values chartutil.Value
 			kube:    mgr.GetClient(),
 			helm:    hclient.NewClient(hclient.Host(tillerHost)),
 			cluster: cluster,
-			values:  values,
 		},
 	})
 	if err != nil {
@@ -94,8 +92,7 @@ func Add(mgr manager.Manager, cluster, tillerHost string, values chartutil.Value
 type Reconciler struct {
 	kube    kclient.Client
 	helm    hclient.Interface
-	cluster string           // Cluster for which to handle AppAssignments.
-	values  chartutil.Values // Configuration values passed to all charts.
+	cluster string // Cluster for which to handle AppAssignments.
 }
 
 // Reconcile creates and updates a Helm release for the given chart assignment.
@@ -371,7 +368,6 @@ func (r *Reconciler) applyChart(as *apps.ChartAssignment) error {
 	if err != nil {
 		return fmt.Errorf("reading chart values failed: %s", err)
 	}
-	vals.MergeInto(r.values)                               // Controller-wide values.
 	vals.MergeInto(chartutil.Values(as.Spec.Chart.Values)) // ChartAssignment values.
 
 	valsRaw, err := vals.YAML()

@@ -20,7 +20,6 @@ go_library(
         "@io_k8s_client_go//dynamic:go_default_library",
         "@io_k8s_client_go//kubernetes/scheme:go_default_library",
         "@io_k8s_client_go//rest:go_default_library",
-        "@io_k8s_helm//pkg/chartutil:go_default_library",
         "@io_k8s_helm//pkg/strvals:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/manager:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/runtime/log:go_default_library",

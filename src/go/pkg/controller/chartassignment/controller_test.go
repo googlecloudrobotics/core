@@ -86,22 +86,17 @@ metadata:
 spec:
   chart:
     values:
+      bar1: 4
       bar2:
         baz2: test
 	`)
 	as.Spec.Chart.Inline = chart
 
 	r := &Reconciler{
-		values: chartutil.Values{
-			"bar1": "world",
-			"bar2": chartutil.Values{
-				"baz2": "never_shown",
-			},
-		},
 		helm: &helm.FakeClient{},
 	}
 	wantValues := chartutil.Values{
-		"bar1": "world",
+		"bar1": 4,
 		"bar2": chartutil.Values{"baz2": "test"},
 		"foo1": chartutil.Values{"baz1": "hello"},
 	}
@@ -130,18 +125,13 @@ metadata:
 spec:
   chart:
     values:
+      bar1: 4
       bar2:
         baz2: test
 	`)
 	as.Spec.Chart.Inline = chart
 
 	r := &Reconciler{
-		values: chartutil.Values{
-			"bar1": "world",
-			"bar2": chartutil.Values{
-				"baz2": "never_shown",
-			},
-		},
 		helm: &helm.FakeClient{},
 	}
 
@@ -151,13 +141,12 @@ spec:
 	}
 	// Apply the chart again with changed values should upgrade the
 	// existing release.
-	as.Spec.Chart.Values["bar3"] = 4
+	as.Spec.Chart.Values["bar1"] = 5
 
 	wantValues := chartutil.Values{
-		"bar1": "world",
+		"bar1": 5,
 		"bar2": chartutil.Values{"baz2": "test"},
 		"foo1": chartutil.Values{"baz1": "hello"},
-		"bar3": 4,
 	}
 	if err := r.applyChart(&as); err != nil {
 		t.Fatal(err)

@@ -40,7 +40,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/strvals"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -127,7 +126,7 @@ func main() {
 	}
 
 	if *enableAppV2 {
-		if err := setupAppV2(config, robotName, helmParams); err != nil {
+		if err := setupAppV2(config, robotName); err != nil {
 			log.Fatalln(err)
 		}
 	}
@@ -147,7 +146,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func setupAppV2(cfg *rest.Config, cluster string, params map[string]interface{}) error {
+func setupAppV2(cfg *rest.Config, cluster string) error {
 	ctrllog.SetLogger(ctrllog.ZapLogger(true))
 
 	sc := runtime.NewScheme()
@@ -175,7 +174,7 @@ func setupAppV2(cfg *rest.Config, cluster string, params map[string]interface{})
 	if err != nil {
 		return errors.Wrap(err, "create webhook server")
 	}
-	if err := chartassignment.Add(mgr, cluster, *tillerHost, chartutil.Values(params)); err != nil {
+	if err := chartassignment.Add(mgr, cluster, *tillerHost); err != nil {
 		return errors.Wrap(err, "add ChartAssignment controller")
 	}
 
