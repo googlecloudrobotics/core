@@ -246,8 +246,6 @@ function set-project {
   # state.
   include_config
   terraform_init
-  terraform_exec import google_project.project "${project_id}" \
-    || die "ERROR: failed to import project ${project_id} into Terraform"
 
   echo "Project successfully set to ${project_id}."
 }
