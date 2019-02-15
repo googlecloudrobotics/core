@@ -7,7 +7,7 @@ variable "id" {
 }
 
 variable "domain" {
-  description = "Deployment domain (demo.dev.cloudrobotics.com)"
+  description = "Deployment domain (www.example.com)"
 }
 
 variable "zone" {
