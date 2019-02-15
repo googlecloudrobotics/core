@@ -15,9 +15,11 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -40,6 +42,11 @@ import (
 )
 
 var methodRE = regexp.MustCompile("^/(.*)\\.K8s([^.]*)/([^/]*)$")
+
+// Global options for unmarshaling JSON to proto messages.
+// Allow unknown fields as a safety measure (in case the Kubernetes API server's version does
+// not match the version used to generate the proto descriptor).
+var unmarshaler = &jsonpb.Unmarshaler{AllowUnknownFields: true}
 
 type ResourceInfo struct {
 	FileDescriptor *desc.FileDescriptor
@@ -100,7 +107,14 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 			BodyFieldName:        "",
 		}
 	case "Watch":
-		return errors.New("Watch is not yet implemented")
+		params = &K8sRequestParams{
+			InMessageName:        fmt.Sprintf("%s.Watch%sRequest", streamPkg, streamKind),
+			OutMessageName:       fmt.Sprintf("%s.%sEvent", streamPkg, streamKind),
+			Verb:                 "GET",
+			OptionsAsQueryParams: true,
+			NameInPath:           false,
+			BodyFieldName:        "",
+		}
 	case "Create":
 		params = &K8sRequestParams{
 			InMessageName:        fmt.Sprintf("%s.Create%sRequest", streamPkg, streamKind),
@@ -137,7 +151,11 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 		return fmt.Errorf("unsupported method: %v", method)
 	}
 
-	err = unaryCall(stream, params, resourceInfo)
+	if method == "Watch" {
+		err = streamingCall(stream, params, resourceInfo)
+	} else {
+		err = unaryCall(stream, params, resourceInfo)
+	}
 	if err != nil {
 		log.Print(err)
 	}
@@ -226,9 +244,6 @@ func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *Res
 	message = dynamic.NewMessage(messageDesc)
 
 	// Unmarshal kubernetes response to proto message.
-	// Allow unknown fields as a safety measure (in case the Kubernetes API server's version does
-	// not match the version used to generate the proto descriptor).
-	unmarshaler := &jsonpb.Unmarshaler{AllowUnknownFields: true}
 	err = message.UnmarshalJSONPB(unmarshaler, res)
 	if err != nil {
 		return fmt.Errorf("error unmarshaling response from kubernetes: %v", err)
@@ -241,6 +256,67 @@ func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *Res
 	}
 
 	return nil
+}
+
+func streamingCall(stream grpc.ServerStream, params *K8sRequestParams, resource *ResourceInfo) error {
+
+	// Create instance of dynamic message for input.
+	inMessageDesc := resource.FileDescriptor.FindMessage(params.InMessageName)
+	if inMessageDesc == nil {
+		return fmt.Errorf("unknown message: %s", params.InMessageName)
+	}
+	inMessage := dynamic.NewMessage(inMessageDesc)
+
+	// Create instance of dynamic message for output.
+	outMessageDesc := resource.FileDescriptor.FindMessage(params.OutMessageName)
+	if outMessageDesc == nil {
+		return fmt.Errorf("unknown message: %s", params.OutMessageName)
+	}
+	outMessage := dynamic.NewMessage(outMessageDesc)
+
+	// Receive proto message.
+	err := stream.RecvMsg(inMessage)
+	if err != nil {
+		return fmt.Errorf("error receiving message: %v", err)
+	}
+
+	// Create kubernetes request.
+	req := resource.Client.Verb(params.Verb).Resource(resource.KindPlural).Namespace("default")
+	// Set query params.
+	queryParams, err := getQueryParams(inMessage)
+	if err != nil {
+		return fmt.Errorf("error determining query parameters: %v", err)
+	}
+	for k, v := range queryParams {
+		if k != "watch" {
+			req = req.Param(k, v)
+		}
+	}
+	req = req.Param("watch", "true")
+
+	// Send kubernetes request.
+	log.Printf("Performing %s request for %s to %s", params.Verb, resource.KindPlural, req.URL().String())
+	str, err := req.Stream()
+	if err != nil {
+		return fmt.Errorf("kubernetes request failed: %v", err)
+	}
+	defer str.Close()
+
+	// Process response stream.
+	dec := json.NewDecoder(str)
+	for {
+		if err := unmarshaler.UnmarshalNext(dec, outMessage); err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return fmt.Errorf("error unmarshaling response from kubernetes: %v", err)
+		}
+		err = stream.SendMsg(outMessage)
+		if err != nil {
+			return fmt.Errorf("error sending message: %v", err)
+		}
+		outMessage.Reset()
+	}
 }
 
 func getName(message *dynamic.Message) (string, error) {
