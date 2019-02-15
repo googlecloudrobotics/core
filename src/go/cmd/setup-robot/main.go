@@ -105,6 +105,10 @@ func main() {
 		log.Fatal("ACCESS_TOKEN environment variable is required.")
 	}
 
+	if err := waitForDNS(); err != nil {
+		log.Fatalf("Failed to resolve cloud cluster: %s. Please retry in 5 minutes.", err)
+	}
+
 	// Set up the OAuth2 token source.
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: envToken})
 
@@ -122,10 +126,6 @@ func main() {
 	k8sLocalClientSet, err := kubernetes.NewForConfig(localConfig)
 	if err != nil {
 		log.Fatal("Failed to create kubernetes client set: ", err)
-	}
-
-	if err := waitForDNS(); err != nil {
-		log.Fatalf("Failed to resolve cloud cluster: %s. Please retry in 5 minutes.", err)
 	}
 
 	if *robotAuthentication {
