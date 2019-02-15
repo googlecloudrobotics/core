@@ -58,12 +58,13 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "dist",
+    name = "cloud-robotics-core",
     srcs = [
         "INSTALL_FROM_BINARY",
     ],
     extension = "tar.gz",
     mode = "644",
+    package_dir = "/cloud-robotics-core",
     deps = [
         ":bazel-bin",
         ":bazel-genfiles",
