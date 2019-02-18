@@ -15,19 +15,17 @@
 package main
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/h2non/gock"
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 	k8sfake "k8s.io/client-go/dynamic/fake"
-	"k8s.io/client-go/rest"
 	k8stest "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -107,19 +105,40 @@ func (f *fixture) verifyWriteActions() {
 		localWrites  = filterReadActions(f.local.Actions())
 		remoteWrites = filterReadActions(f.remote.Actions())
 	)
-	if len(localWrites) != len(f.localActions) {
-		f.Errorf("expected %d local writes but got %d", len(localWrites), len(f.localActions))
-	}
 	if !reflect.DeepEqual(localWrites, f.localActions) {
-		f.Errorf("received local writes: %v", localWrites)
-		f.Errorf("expected local writes: %v", f.localActions)
-	}
-	if len(remoteWrites) != len(f.remoteActions) {
-		f.Errorf("expected %d remote writes but got %d", len(remoteWrites), len(f.remoteActions))
+		f.Errorf("local writes did not match")
+		f.Logf("received:")
+		for i, a := range localWrites {
+			f.Logf("%d: %s", i, sprintAction(a))
+		}
+		f.Logf("expected:")
+		for i, a := range f.localActions {
+			f.Logf("%d: %s", i, sprintAction(a))
+		}
 	}
 	if !reflect.DeepEqual(remoteWrites, f.remoteActions) {
-		f.Errorf("received remote writes: %v", remoteWrites)
-		f.Errorf("expected remote writes: %v", f.remoteActions)
+		f.Errorf("remote writes did not match")
+		f.Logf("received:")
+		for i, a := range remoteWrites {
+			f.Logf("%d: %s", i, sprintAction(a))
+		}
+		f.Logf("expected:")
+		for i, a := range f.remoteActions {
+			f.Logf("%d: %s", i, sprintAction(a))
+		}
+	}
+}
+
+func sprintAction(a k8stest.Action) string {
+	switch v := a.(type) {
+	case k8stest.DeleteActionImpl:
+		return fmt.Sprintf("DELETE %s/%s %s/%s", v.Resource, v.Subresource, v.Namespace, v.Name)
+	case k8stest.CreateActionImpl:
+		return fmt.Sprintf("CREATE %s/%s %s/%s: %v", v.Resource, v.Subresource, v.Namespace, v.Name, v.Object.(*unstructured.Unstructured))
+	case k8stest.UpdateActionImpl:
+		return fmt.Sprintf("UPDATE %s/%s %s: %v", v.Resource, v.Subresource, v.Namespace, v.Object.(*unstructured.Unstructured))
+	default:
+		return fmt.Sprintf("<UNKNOWN ACTION %T>", a)
 	}
 }
 
@@ -162,36 +181,252 @@ func newTestCR(name string, spec, status interface{}) *unstructured.Unstructured
 	return o
 }
 
-func TestCRSyncer_syncDeletes(t *testing.T) {
+func TestSyncUpstream_createSpec(t *testing.T) {
+	crd := testCRD()
+	f := newFixture(t)
+
+	// When an upstream resource is seen for the first time, it should be
+	// created in the downstream cluster including its current status.
+	// The finalizer must be added upstream and downstream.
+	tcrRemote := newTestCR("resource1", "spec1", "status1")
+	f.addRemoteObjects(tcrRemote)
+
+	crs, gvr := f.newCRSyncer(crd, "cluster1")
+	defer crs.stop()
+
+	crs.startInformers()
+	if err := crs.syncUpstream("default/resource1"); err != nil {
+		t.Fatal(err)
+	}
+	var (
+		finalizer    = finalizerFor("robot-cluster1")
+		tcrLocalNew  = newTestCR("resource1", "spec1", "status1")
+		tcrRemoteNew = newTestCR("resource1", "spec1", "status1")
+	)
+	tcrLocalNew.SetFinalizers([]string{finalizer})
+	tcrRemoteNew.SetFinalizers([]string{finalizer})
+
+	f.expectRemoteActions(k8stest.NewUpdateAction(gvr, "default", tcrRemoteNew))
+	f.expectLocalActions(k8stest.NewCreateAction(gvr, "default", tcrLocalNew))
+	f.verifyWriteActions()
+}
+
+func TestSyncUpstream_updateSpec(t *testing.T) {
+	crd := testCRD()
+	f := newFixture(t)
+
+	// On upstream update, the spec in the downstream cluster should be adjusted
+	// and the finalizer be set in both clusters.
+	var (
+		tcrLocal  = newTestCR("resource1", "spec1", "status2")
+		tcrRemote = newTestCR("resource1", "spec2", "status1")
+	)
+	f.addLocalObjects(tcrLocal)
+	f.addRemoteObjects(tcrRemote)
+
+	crs, gvr := f.newCRSyncer(crd, "cluster1")
+	defer crs.stop()
+
+	crs.startInformers()
+	if err := crs.syncUpstream("default/resource1"); err != nil {
+		t.Fatal(err)
+	}
+	var (
+		finalizer    = finalizerFor("robot-cluster1")
+		tcrLocalNew  = newTestCR("resource1", "spec2", "status2")
+		tcrRemoteNew = newTestCR("resource1", "spec2", "status1")
+	)
+	tcrLocalNew.SetFinalizers([]string{finalizer})
+	tcrRemoteNew.SetFinalizers([]string{finalizer})
+
+	f.expectRemoteActions(k8stest.NewUpdateAction(gvr, "default", tcrRemoteNew))
+	f.expectLocalActions(k8stest.NewUpdateAction(gvr, "default", tcrLocalNew))
+	f.verifyWriteActions()
+}
+
+func TestSyncUpstream_propagateDelete(t *testing.T) {
 	crd := testCRD()
 	f := newFixture(t)
 
 	var (
-		// Two local-only resources only one of which is owned by the
-		// remote and should be deleted.
-		tcrLocal1 = newTestCR("local1", "spec1", "status1")
-		tcrLocal2 = newTestCR("local2", "spec1", "status1")
-		tcrRemote = newTestCR("remote", "spec1", "status1")
-		tcrShared = newTestCR("shared", "spec1", "status1")
+		now       = metav1.Now()
+		finalizer = finalizerFor("robot-cluster1")
+		tcrLocal  = newTestCR("resource1", "spec1", "status1")
+		tcrRemote = newTestCR("resource1", "spec1", "status1")
 	)
-	setAnnotation(tcrLocal1, annotationOwnedByUpstream, "true")
+	tcrRemote.SetDeletionTimestamp(&now)
+	tcrRemote.SetFinalizers([]string{finalizer})
+	tcrLocal.SetFinalizers([]string{finalizer})
 
-	f.addLocalObjects(tcrLocal1, tcrLocal2, tcrShared)
-	f.addRemoteObjects(tcrRemote, tcrShared)
+	f.addLocalObjects(tcrLocal)
+	f.addRemoteObjects(tcrRemote)
+
+	crs, gvr := f.newCRSyncer(crd, "cluster1")
+	defer crs.stop()
+
+	crs.startInformers()
+	if err := crs.syncUpstream("default/resource1"); err != nil {
+		t.Fatal(err)
+	}
+
+	tcrLocalNew := newTestCR("resource1", "spec1", "status1")
+	tcrLocalNew.SetFinalizers([]string{finalizer})
+
+	f.expectLocalActions(
+		k8stest.NewUpdateAction(gvr, "default", tcrLocalNew),
+		k8stest.NewDeleteAction(gvr, "default", "resource1"),
+	)
+	f.verifyWriteActions()
+}
+
+func TestSyncDownstream_deleteOrphan(t *testing.T) {
+	crd := testCRD()
+	f := newFixture(t)
+
+	// We have a local resource that has no matching resource in the upstream cluster.
+	// Trying to sync it again should delete the local copy and remove the finalizer.
+	tcrLocal := newTestCR("resource1", "spec1", "status1")
+	tcrLocal.SetFinalizers([]string{finalizerFor("robot-cluster1")})
+
+	f.addLocalObjects(tcrLocal)
+
+	crs, gvr := f.newCRSyncer(crd, "cluster1")
+	defer crs.stop()
+
+	crs.startInformers()
+	if err := crs.syncDownstream("default/resource1"); err != nil {
+		t.Fatal(err)
+	}
+
+	tcrRemoteNew := newTestCR("resource1", "spec1", "status1")
+
+	f.expectLocalActions(
+		k8stest.NewUpdateAction(gvr, "default", tcrRemoteNew),
+		k8stest.NewDeleteAction(gvr, "default", "resource1"),
+	)
+	f.verifyWriteActions()
+}
+
+func TestSyncDownstream_statusFull(t *testing.T) {
+	crd := testCRD()
+	f := newFixture(t)
+
+	var (
+		tcrLocal  = newTestCR("resource1", "spec1", "status2")
+		tcrRemote = newTestCR("resource1", "spec1", "status1")
+	)
+	tcrLocal.SetResourceVersion("123")
+
+	f.addLocalObjects(tcrLocal)
+	f.addRemoteObjects(tcrRemote)
 
 	crs, gvr := f.newCRSyncer(crd, "")
 	defer crs.stop()
 
-	// After reconciliation we expect that the resource that only lived
-	// locally has been deleted.
-	// The other ones remain unchanged. The remote-only resource has not
-	// been copied to the local cluster since that's not part of the
-	// deletion reconciliation.
 	crs.startInformers()
-	crs.syncDeletes()
+	if err := crs.syncDownstream("default/resource1"); err != nil {
+		t.Fatal(err)
+	}
 
-	f.expectLocalActions(k8stest.NewDeleteAction(gvr, metav1.NamespaceDefault, "local1"))
+	tcrRemoteNew := newTestCR("resource1", "spec1", "status2")
+	tcrRemoteNew.SetAnnotations(map[string]string{
+		annotationResourceVersion: "123",
+	})
 
+	f.expectRemoteActions(k8stest.NewUpdateAction(gvr, "default", tcrRemoteNew))
+	f.verifyWriteActions()
+}
+
+func TestSyncDownstream_statusSubtree(t *testing.T) {
+	crd := testCRD()
+	f := newFixture(t)
+
+	var (
+		tcrLocal = newTestCR("resource1", "spec1", map[string]interface{}{
+			"cloud": "cloud_1",
+			"robot": "robot_2",
+		})
+		tcrRemote = newTestCR("resource1", "spec1", map[string]interface{}{
+			"cloud": "cloud_2",
+			"robot": "robot_1",
+		})
+	)
+	tcrLocal.SetResourceVersion("123")
+
+	f.addLocalObjects(tcrLocal)
+	f.addRemoteObjects(tcrRemote)
+
+	crs, gvr := f.newCRSyncer(crd, "")
+	defer crs.stop()
+
+	crs.subtree = "robot"
+	crs.startInformers()
+	if err := crs.syncDownstream("default/resource1"); err != nil {
+		t.Fatal(err)
+	}
+
+	tcrRemoteNew := newTestCR("resource1", "spec1", map[string]interface{}{
+		"cloud": "cloud_2",
+		"robot": "robot_2",
+	})
+	tcrRemoteNew.SetAnnotations(map[string]string{
+		annotationResourceVersion: "123",
+	})
+
+	f.expectRemoteActions(k8stest.NewUpdateAction(gvr, "default", tcrRemoteNew))
+	f.verifyWriteActions()
+}
+
+func TestSyncDownstream_removeFinalizers(t *testing.T) {
+	crd := testCRD()
+	f := newFixture(t)
+
+	// If a deletion timestamp is set on the local resource, the finalizer
+	// should be removed from upstream and downstream resource.
+	var (
+		now       = metav1.Now()
+		finalizer = finalizerFor("robot-cluster1")
+		tcrLocal  = newTestCR("resource1", "spec1", "status1")
+		tcrRemote = newTestCR("resource1", "spec1", "status1")
+	)
+	tcrLocal.SetDeletionTimestamp(&now)
+	tcrLocal.SetResourceVersion("123")
+	tcrLocal.SetFinalizers([]string{finalizer})
+	tcrRemote.SetFinalizers([]string{finalizer})
+
+	f.addLocalObjects(tcrLocal)
+	f.addRemoteObjects(tcrRemote)
+
+	crs, gvr := f.newCRSyncer(crd, "cluster1")
+	defer crs.stop()
+
+	crs.startInformers()
+	if err := crs.syncDownstream("default/resource1"); err != nil {
+		t.Fatal(err)
+	}
+
+	var (
+		tcrLocalNew   = newTestCR("resource1", "spec1", "status1")
+		tcrRemoteNew1 = newTestCR("resource1", "spec1", "status1")
+		tcrRemoteNew2 = newTestCR("resource1", "spec1", "status1")
+	)
+	tcrLocalNew.SetResourceVersion("123")
+	tcrLocalNew.SetDeletionTimestamp(&now)
+	tcrRemoteNew1.SetFinalizers([]string{finalizer})
+	tcrRemoteNew1.SetAnnotations(map[string]string{
+		annotationResourceVersion: "123",
+	})
+	tcrRemoteNew2.SetAnnotations(map[string]string{
+		annotationResourceVersion: "123",
+	})
+
+	f.expectLocalActions(
+		k8stest.NewUpdateAction(gvr, "default", tcrLocalNew),
+	)
+	f.expectRemoteActions(
+		k8stest.NewUpdateAction(gvr, "default", tcrRemoteNew1),
+		k8stest.NewUpdateAction(gvr, "default", tcrRemoteNew2),
+	)
 	f.verifyWriteActions()
 }
 
@@ -272,54 +507,6 @@ func TestCRSyncer_populateWorkqueueWithFilter(t *testing.T) {
 		t.Errorf("Unexpected update: %v", item)
 	case <-time.After(3 * time.Second):
 	}
-}
-
-func TestCRSyncer_copySpec_handleDelete(t *testing.T) {
-	f := newFixture(t)
-	f.addLocalObjects(newTestCR("cr1", "spec1", "status1"))
-
-	crs, gvr := f.newCRSyncer(testCRD(), "")
-	defer crs.stop()
-	crs.startInformers()
-
-	crs.copySpec(metav1.NamespaceDefault + "/cr1")
-
-	f.expectLocalActions(k8stest.NewDeleteAction(gvr, metav1.NamespaceDefault, "cr1"))
-	f.verifyWriteActions()
-}
-
-func TestCRSyncer_copySpec_handleDeleteErrors(t *testing.T) {
-	defer gock.Off()
-	// First we return a 500 error, which should be handed down.
-	gock.New("http://remote-server/").
-		Delete("/apis/crds.example.com/v1beta1/namespaces/default/goals/foo").
-		Reply(500)
-	// The 404 error should be ignored to handle double deletions.
-	gock.New("http://remote-server/").
-		Delete("/apis/crds.example.com/v1beta1/namespaces/default/goals/foo").
-		Reply(404)
-
-	f := newFixture(t)
-	crs, gvr := f.newCRSyncer(testCRD(), "")
-
-	client, err := dynamic.NewForConfig(&rest.Config{
-		Host: "remote-server",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	crs.downstream = client.Resource(gvr).Namespace(metav1.NamespaceDefault)
-
-	if err := crs.copySpec("foo"); err == nil {
-		t.Errorf("Expected error but got none")
-	}
-	if err := crs.copySpec("foo"); err != nil {
-		t.Errorf("Unexpected error: %s", err)
-	}
-	if !gock.IsDone() {
-		t.Errorf("%d mocks still pending:", len(gock.Pending()))
-	}
-
 }
 
 func channelFromQueue(t *testing.T, queue workqueue.Interface, inf cache.SharedIndexInformer) <-chan *unstructured.Unstructured {

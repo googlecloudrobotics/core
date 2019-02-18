@@ -45,8 +45,6 @@ import (
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdinformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
@@ -110,71 +108,6 @@ func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
 	}, nil
 }
 
-// syncMetaAndSpec ensures that the downstream object matches the source in metadata and spec.
-// It keeps the downstream status, if there is any.
-// If the upstream object is pending deletion, the deletion is propagated downstream.
-func syncMetaAndSpec(target dynamic.ResourceInterface, source *unstructured.Unstructured) error {
-	o, err := target.Get(source.GetName(), metav1.GetOptions{})
-	if err != nil {
-		status, isStatus := err.(*errors.StatusError)
-		if !isStatus || status.ErrStatus.Code != http.StatusNotFound {
-			return fmt.Errorf("Get for current state failed: %v", err)
-		}
-
-		checkResourceVersionAnnotation(o, source)
-
-		o := &unstructured.Unstructured{}
-		o.SetGroupVersionKind(source.GroupVersionKind())
-		o.SetName(source.GetName())
-		// Don't copy output-only and generated fields.
-		o.SetAnnotations(source.GetAnnotations())
-		setAnnotation(o, annotationOwnedByUpstream, "true")
-		o.SetLabels(source.GetLabels())
-		o.Object["spec"] = source.Object["spec"]
-		o.Object["status"] = source.Object["status"]
-
-		_, err = target.Create(o, metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("Create failed: %v", err)
-		}
-		return nil
-	}
-
-	// Don't copy output-only and generated fields.
-	o.SetAnnotations(source.GetAnnotations())
-	deleteAnnotation(o, annotationResourceVersion)
-	setAnnotation(o, annotationOwnedByUpstream, "true")
-	o.SetLabels(source.GetLabels())
-	o.Object["spec"] = source.Object["spec"]
-
-	// TODO(swolter): We could elide the Update if no updates happened. Checking
-	// for equality is hard, though, and inBytes vs outBytes comparisons don't
-	// work. DeepEqual might work.
-	_, err = target.Update(o, metav1.UpdateOptions{})
-	if err != nil {
-		return fmt.Errorf("Update failed: %v", err)
-	}
-	// Propagate in-progress deletion downstream in case upstream final deletion
-	// depends on downstream cleanup to complete.
-	// Since the deletion timestamp field is immutable, we've to do this via
-	// an explicit delete call.
-	if source.GetDeletionTimestamp() == nil {
-		return nil
-	}
-	if o.GetDeletionTimestamp() != nil {
-		return nil // Already deleted.
-	}
-	if err := target.Delete(o.GetName(), nil); err != nil {
-		status, ok := err.(*errors.StatusError)
-		if ok && status.ErrStatus.Code == http.StatusNotFound {
-			log.Printf("Resource already deleted: %s", o.GetName())
-			return nil
-		}
-		return fmt.Errorf("delete failed: %s", err)
-	}
-	return nil
-}
-
 func setAnnotation(o *unstructured.Unstructured, key, value string) {
 	annotations := o.GetAnnotations()
 	if annotations == nil {
@@ -220,76 +153,6 @@ func checkResourceVersionAnnotation(target, source *unstructured.Unstructured) {
 			sourceRV, targetRV)
 	}
 	return
-}
-
-// syncStatus updates the status and finalizers of upstream resources to match
-// the downstream cluster.
-// isSubresource indicates whether the status section is defined as a subresource
-// in the CRD.
-func syncStatus(target dynamic.ResourceInterface, subtree string, source *unstructured.Unstructured, isSubresource bool) (*unstructured.Unstructured, error) {
-	// TODO(swolter): A local cache would avoid spurious loads of the remote resources.
-	o, err := target.Get(source.GetName(), metav1.GetOptions{})
-	if err != nil {
-		status, isStatus := err.(*errors.StatusError)
-		if isStatus && status.ErrStatus.Code == http.StatusNotFound {
-			log.Printf("Upstream resource already deleted: %s", source.GetName())
-			return nil, nil
-		}
-		return nil, fmt.Errorf("Loading failed: %v", err)
-	}
-	if subtree == "" {
-		o.Object["status"] = source.Object["status"]
-		// Synchronize finalizers so the spec source cluster can block deletion
-		// until the controlling cluster has completed potential cleanup operations.
-		// This is only done for CRs which don't have status subtrees. Those
-		// have controllers in multiple clusters and finalizers cannot be reliably
-		// synchronized between them.
-		o.SetFinalizers(source.GetFinalizers())
-	} else if source.Object["status"] != nil {
-		sourceMap, ok := source.Object["status"].(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("Expected status of %s in downstream cluster to be a dict", source.GetName())
-		}
-		if o.Object["status"] == nil {
-			o.Object["status"] = make(map[string]interface{})
-		}
-		upstreamMap, ok := o.Object["status"].(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("Expected status of %s in upstream cluster to be a dict", source.GetName())
-		}
-		if sourceMap[subtree] != nil {
-			upstreamMap[subtree] = sourceMap[subtree]
-		} else {
-			delete(upstreamMap, subtree)
-		}
-	}
-	setAnnotation(o, annotationResourceVersion, source.GetResourceVersion())
-
-	// We need to make a dedicated UpdateStatus call if the status is defined
-	// as an explicit subresource of the CRD.
-	// We need a full update below in any case to propagate finalizer removal
-	// and the revision annotation.
-	// This reduces the atomicity of our status propagation by necessity. However,
-	// not declaring status a subresource will disable generation tracking by the
-	// API server, which we need to verify that a resource has been processed
-	// by its controller.
-	if isSubresource {
-		// Status must not be null/nil.
-		if o.Object["status"] == nil {
-			o.Object["status"] = struct{}{}
-		}
-		if _, err := target.UpdateStatus(o, metav1.UpdateOptions{}); err != nil {
-			return nil, fmt.Errorf("Status update failed: %v", err)
-		}
-	}
-	// TODO(swolter): We could elide the Update if no updates happened. Checking
-	// for equality is hard, though, and inBytes vs outBytes comparisons don't
-	// work. DeepEqual might work.
-	updated, err := target.Update(o, metav1.UpdateOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("Update failed: %v", err)
-	}
-	return updated, nil
 }
 
 type CrdChange struct {

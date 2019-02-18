@@ -19,7 +19,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"time"
 
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -41,19 +40,40 @@ const (
 
 	// Annotations and labels attached to CRs.
 	labelRobotName = "cloudrobotics.com/robot-name"
-	// Annotation that indicates that a spec should be deleted when it no
-	// longer exists in the upstream cluster.
-	annotationOwnedByUpstream = "cr-syncer.cloudrobotics.com/owned-by-upstream"
 	// Annotation for remote resource version. Note that for resources in the cloud cluster,
 	// this is a resource version on the robot's cluster (and vice versa).
 	annotationResourceVersion = "cr-syncer.cloudrobotics.com/remote-resource-version"
 )
+
+// finalizerFor returns the finalizer for the given cluster name
+func finalizerFor(clusterName string) string {
+	return fmt.Sprintf("%s.synced.cr-syncer.cloudrobotics.com", clusterName)
+}
+
+func stringsContain(strs []string, v string) bool {
+	for _, s := range strs {
+		if s == v {
+			return true
+		}
+	}
+	return false
+}
+
+func stringsDelete(list []string, s string) (res []string) {
+	for _, x := range list {
+		if x != s {
+			res = append(res, x)
+		}
+	}
+	return res
+}
 
 // crSyncer synchronizes custom resources from an upstream source cluster to a
 // downstream cluster.
 // Updates to the status subresource in the downstream are propagated back to
 // the upstream cluster.
 type crSyncer struct {
+	clusterName   string // Name of downstream cluster.
 	crd           crdtypes.CustomResourceDefinition
 	upstream      dynamic.ResourceInterface // Source of the spec.
 	downstream    dynamic.ResourceInterface // Source of the status.
@@ -106,10 +126,11 @@ func newCRSyncer(
 	}
 	switch src := annotations[annotationSpecSource]; src {
 	case "robot":
+		s.clusterName = "cloud"
 		// Swap upstream and downstream if the robot is the spec source.
 		s.upstream, s.downstream = s.downstream, s.upstream
 	case "cloud":
-		// Nothing to do.
+		s.clusterName = fmt.Sprintf("robot-%s", robotName)
 	default:
 		return nil, fmt.Errorf("unknown spec source %q", src)
 	}
@@ -223,27 +244,14 @@ func (s *crSyncer) run() {
 	}
 	// Process the upstream and downstream work queues.
 	go func() {
-		for s.processNextWorkItem(s.upstreamQueue, s.copySpec, "upstream") {
+		for s.processNextWorkItem(s.upstreamQueue, s.syncUpstream, "upstream") {
 		}
 	}()
 	go func() {
-		for s.processNextWorkItem(s.downstreamQueue, s.copyStatus, "downstream") {
+		for s.processNextWorkItem(s.downstreamQueue, s.syncDownstream, "downstream") {
 		}
 	}()
-	// Periodically reconcile deleted resources.
-	syncDeletes := time.NewTicker(resyncPeriod)
-	defer syncDeletes.Stop()
-
-	for {
-		select {
-		case <-syncDeletes.C:
-			if err := s.syncDeletes(); err != nil {
-				log.Printf("Syncing deletes failed: %s", err)
-			}
-		case <-s.done:
-			return
-		}
-	}
+	<-s.done
 }
 
 func (s *crSyncer) stop() {
@@ -251,127 +259,210 @@ func (s *crSyncer) stop() {
 	close(s.done)
 }
 
-func (s *crSyncer) copyStatus(key string) error {
-	// Get a recent version of the downstream status.
-	obj, exists, err := s.downstreamInf.GetIndexer().GetByKey(key)
+// syncDownstream reconciles state after receiving change events from the downstream cluster.
+// It synchronizes the status from the downstream to the upstream cluster, removes
+// fnializers from upstream and downstream if both resources can be safely deleted, and
+// deletes orphaned downstream resources.
+func (s *crSyncer) syncDownstream(key string) error {
+	var (
+		finalizer           = finalizerFor(s.clusterName)
+		statusIsSubresource = s.crd.Spec.Subresources != nil && s.crd.Spec.Subresources.Status != nil
+	)
+	// Get a recent version of the upstream spec.
+	srcObj, exists, err := s.downstreamInf.GetIndexer().GetByKey(key)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve resource for key %s: %s", key, err)
 	}
 	if !exists {
-		// Object was dropped from the cache since we enqueued it or it
-		// was an actual deletion event.
-		// We ignore it since the deletion was triggered by the upstream
-		// resource and we no longer need to propagate status information.
 		return nil
 	}
-	source := obj.(*unstructured.Unstructured)
-	isSubresource := s.crd.Spec.Subresources != nil && s.crd.Spec.Subresources.Status != nil
+	src := srcObj.(*unstructured.Unstructured).DeepCopy()
 
-	updated, err := syncStatus(s.upstream, s.subtree, source, isSubresource)
-	if err != nil {
-		return fmt.Errorf("failed to update %s %s from downstream@v%s: %s",
-			source.GetKind(), source.GetName(), source.GetResourceVersion(), err)
-	} else if updated == nil {
-		log.Printf("Copied %s %s status@v%s to upstream@UNKNOWN",
-			source.GetKind(), source.GetName(), source.GetResourceVersion())
-	} else {
-		log.Printf("Copied %s %s status@v%s to upstream@v%s",
-			source.GetKind(), source.GetName(), source.GetResourceVersion(), updated.GetResourceVersion())
-	}
-	return nil
-}
-
-func (s *crSyncer) copySpec(key string) error {
-	// Get a recent version of the upstream spec.
-	obj, exists, err := s.upstreamInf.GetIndexer().GetByKey(key)
+	dstObj, exists, err := s.upstreamInf.GetIndexer().GetByKey(key)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve resource for key %s: %s", key, err)
 	}
+	// Upstream resource no longer exists. Remove the finalizer from the downstream
+	// resource and delete it.
 	if !exists {
-		// If the object was actually deleted, remove it from the downstream.
-		_, name, err := cache.SplitMetaNamespaceKey(key)
-		if err != nil {
-			return err
-		}
-		if err := s.downstream.Delete(name, nil); err != nil {
-			status, ok := err.(*errors.StatusError)
-			if ok && status.ErrStatus.Code == http.StatusNotFound {
-				// An earlier run of the syncer that didn't persist its
-				// progress might already have deleted the object.
+		src.SetFinalizers(stringsDelete(src.GetFinalizers(), finalizer))
+		if _, err := s.downstream.Update(src, metav1.UpdateOptions{}); err != nil {
+			if isNotFoundError(err) {
 				return nil
 			}
-			return fmt.Errorf("Deletion failed: %v", err)
+			return err
+		}
+		if src.GetDeletionTimestamp() != nil {
+			return nil // Already deleted.
+		}
+		if err := s.downstream.Delete(src.GetName(), nil); err != nil {
+			if isNotFoundError(err) {
+				return nil
+			}
+			return err
 		}
 		return nil
 	}
-	source := obj.(*unstructured.Unstructured)
+	dst := dstObj.(*unstructured.Unstructured).DeepCopy()
 
-	if err := syncMetaAndSpec(s.downstream, source); err != nil {
-		return fmt.Errorf("failed to update downstream spec for %s %s@v%s: %s",
-			source.GetKind(), source.GetName(), source.GetResourceVersion(), err)
+	// Copy full status or subtree from src to dst.
+	if s.subtree == "" {
+		dst.Object["status"] = src.Object["status"]
+	} else if src.Object["status"] != nil {
+		srcStatus, ok := src.Object["status"].(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("Expected status of %s in downstream cluster to be a dict", src.GetName())
+		}
+		if dst.Object["status"] == nil {
+			dst.Object["status"] = make(map[string]interface{})
+		}
+		dstStatus, ok := dst.Object["status"].(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("Expected status of %s in upstream cluster to be a dict", src.GetName())
+		}
+		if srcStatus[s.subtree] != nil {
+			dstStatus[s.subtree] = srcStatus[s.subtree]
+		} else {
+			delete(dstStatus, s.subtree)
+		}
 	}
-	log.Printf("Updated downstream spec for %s %s", source.GetKind(), source.GetName())
+	setAnnotation(dst, annotationResourceVersion, src.GetResourceVersion())
+
+	// We need to make a dedicated UpdateStatus call if the status is defined
+	// as an explicit subresource of the CRD.
+	if statusIsSubresource {
+		// Status must not be null/nil.
+		if dst.Object["status"] == nil {
+			dst.Object["status"] = struct{}{}
+		}
+		dst, err = s.upstream.UpdateStatus(dst, metav1.UpdateOptions{})
+		if err != nil {
+			return newAPIErrorf(dst, "update status failed: %s", err)
+		}
+	} else {
+		dst, err = s.upstream.Update(dst, metav1.UpdateOptions{})
+		if err != nil {
+			return newAPIErrorf(dst, "update failed: %s", err)
+		}
+	}
+	log.Printf("Copied %s %s status@v%s to upstream@v%s",
+		src.GetKind(), src.GetName(), src.GetResourceVersion(), src.GetResourceVersion())
+
+	if src.GetDeletionTimestamp() == nil {
+		return nil
+	}
+	// Downstream resource is pending for deletion. Once all downstream finalizers but our
+	// own are removed, drop it from upstream and downstream in order. The order
+	// ensures that the upstream resource is not left with a dangling finalizer.
+	if len(src.GetFinalizers()) == 1 && stringsContain(src.GetFinalizers(), finalizer) {
+		dst.SetFinalizers(stringsDelete(src.GetFinalizers(), finalizer))
+		src.SetFinalizers(nil)
+
+		if _, err := s.upstream.Update(dst, metav1.UpdateOptions{}); err != nil {
+			return newAPIErrorf(dst, "upstream update failed: %s", err)
+		}
+		// If we crash before reaching this point, the orphan cleanup above
+		// will ensure the downstream resource is deleted.
+		if _, err := s.downstream.Update(src, metav1.UpdateOptions{}); err != nil {
+			return newAPIErrorf(src, "downstream update failed: %s", err)
+		}
+	}
 	return nil
 }
 
-// syncDeletes synchronizes deleted resources between both clusters.
-//
-// We generally trust that we receive all update, add, and delete events
-// and apply them in our loop in run(). However, if the syncer is not running
-// during a delete event, there is a chance it may be lost forever.
-// This can result in resources that were created downstream to stick around
-// forever while the upstream resource is already deleted.
-// Kubernetes generally solves this through ownerReferences, which a garbage
-// collection controller follow and then deletes orphaned resources. This
-// does not work when synchronizing across clusters. Thus we've to implement
-// dedicated logic here.
-func (s *crSyncer) syncDeletes() error {
-	kind := s.crd.Spec.Names.Kind
+// syncUpstream reconciles the state after receiving a change event from upstream.
+// It synchronizes the spec changes from usptream to the downstream cluster and propagates
+// deletions.
+// It attaches a finalizer to the upstream and downstream resource in order to
+// ensure that downstream resources are properly cleaned up before the upstream resource
+// can complete deletion.
+func (s *crSyncer) syncUpstream(key string) error {
+	// Create-or-update function.
+	upsert := func(o *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+		return s.downstream.Update(o, metav1.UpdateOptions{})
+	}
+	// Get a recent version of the upstream spec.
+	srcObj, exists, err := s.upstreamInf.GetIndexer().GetByKey(key)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve resource for key %s: %s", key, err)
+	}
+	if !exists {
+		return nil
+	}
+	src := srcObj.(*unstructured.Unstructured).DeepCopy()
 
-	for _, obj := range s.downstreamInf.GetIndexer().List() {
-		o, ok := obj.(*unstructured.Unstructured)
-		if !ok {
-			log.Printf("Converting to unstructured failed, got %T", obj)
-			continue
-		}
-		// Abort early if the resource is not explicitly owned by the
-		// upstream cluster.
-		ownedByUpstream := o.GetAnnotations()[annotationOwnedByUpstream]
-		if ownedByUpstream != "" {
-			v, err := strconv.ParseBool(ownedByUpstream)
-			if err != nil {
-				log.Printf("Value for %s must be boolean on %s, got %q",
-					annotationOwnedByUpstream, kind, ownedByUpstream)
-				continue
-			}
-			if !v {
-				continue
-			}
-		} else {
-			continue
-		}
+	dstObj, exists, err := s.downstreamInf.GetIndexer().GetByKey(key)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve resource for key %s: %s", key, err)
+	}
+	dst := &unstructured.Unstructured{}
+	if exists {
+		dst = dstObj.(*unstructured.Unstructured).DeepCopy()
+	} else {
+		// Create object and set base fields.
+		upsert = func(o *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+			o.SetGroupVersionKind(src.GroupVersionKind())
+			o.SetNamespace(src.GetNamespace())
+			o.SetName(src.GetName())
+			// Copy upstream status on initial creation.
+			o.Object["status"] = src.Object["status"]
 
-		key, ok := keyFunc(o)
-		if !ok {
-			continue
-		}
-		// If the resource no longer exists upstream, we can delete it
-		// downstream.
-		_, exists, err := s.upstreamInf.GetIndexer().GetByKey(key)
-		if err != nil {
-			log.Printf("Unexpected error when reconciling deletions for %s %s", kind, key)
-			continue
-		}
-		if exists {
-			continue
-		}
-		if err := s.downstream.Delete(o.GetName(), nil); err != nil {
-			log.Printf("Deleting resource %s %s failed: %s", kind, key, err)
-		} else {
-			log.Printf("Deleted obsolete resource %s %s", kind, key)
+			return s.downstream.Create(o, metav1.CreateOptions{})
 		}
 	}
+
+	finalizer := finalizerFor(s.clusterName)
+
+	if !stringsContain(dst.GetFinalizers(), finalizer) {
+		dst.SetFinalizers(append(dst.GetFinalizers(), finalizer))
+	}
+	dst.SetLabels(src.GetLabels())
+	dst.SetAnnotations(src.GetAnnotations())
+	deleteAnnotation(dst, annotationResourceVersion)
+
+	dst.Object["spec"] = src.Object["spec"]
+
+	// Ensure that our finalizer is set in the upstream resource before the downstream
+	// resource is created.
+	if src.GetDeletionTimestamp() == nil && !stringsContain(src.GetFinalizers(), finalizer) {
+		src.SetFinalizers(append(src.GetFinalizers(), finalizer))
+
+		if _, err := s.upstream.Update(src, metav1.UpdateOptions{}); err != nil {
+			return newAPIErrorf(src, "setting upstream finalizer failed: %s", err)
+		}
+	}
+	// Now we can safely create/update the resource downstream and the upstream
+	// resource will not go away until we've deleted it again.
+	dst, err = upsert(dst)
+	if err != nil {
+		return newAPIErrorf(dst, "failed to upsert downstream: %s", err)
+	}
+	// Mark downstream resource deleted if upstream resource is being deleted.
+	if src.GetDeletionTimestamp() != nil && dst.GetDeletionTimestamp() == nil {
+		if err := s.downstream.Delete(dst.GetName(), nil); err != nil {
+			return newAPIErrorf(dst, "downstream delete failed: %s", err)
+		}
+		return nil
+	}
 	return nil
+}
+
+func isNotFoundError(err error) bool {
+	status, ok := err.(*errors.StatusError)
+	return ok && status.ErrStatus.Code == http.StatusNotFound
+}
+
+type apiError struct {
+	o   *unstructured.Unstructured
+	msg string
+}
+
+func (e apiError) Error() string {
+	return fmt.Sprintf("%s %s/%s @ %s: %s", e.o.GetKind(), e.o.GetNamespace(), e.o.GetName(), e.o.GetResourceVersion(), e.msg)
+}
+
+func newAPIErrorf(o *unstructured.Unstructured, format string, args ...interface{}) apiError {
+	return apiError{o: o, msg: fmt.Sprintf(format, args...)}
 }
 
 // keyFunc extracts a key of the form [<namespace>/]<name> from a resource

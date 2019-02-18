@@ -43,7 +43,6 @@ go_test(
     visibility = ["//visibility:private"],
     deps = [
         "@com_github_onsi_gomega//:go_default_library",
-        "@github_com_h2non_gock//:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/apis/apiextensions/v1beta1:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/client/clientset/clientset/fake:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
@@ -51,9 +50,7 @@ go_test(
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
         "@io_k8s_apimachinery//pkg/watch:go_default_library",
-        "@io_k8s_client_go//dynamic:go_default_library",
         "@io_k8s_client_go//dynamic/fake:go_default_library",
-        "@io_k8s_client_go//rest:go_default_library",
         "@io_k8s_client_go//testing:go_default_library",
         "@io_k8s_client_go//tools/cache:go_default_library",
         "@io_k8s_client_go//util/workqueue:go_default_library",
