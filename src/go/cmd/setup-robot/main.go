@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,6 +34,7 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
 
 	"golang.org/x/oauth2"
+	"google.golang.org/api/cloudresourcemanager/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -47,7 +49,6 @@ import (
 var (
 	domain              = flag.String("domain", "", "Domain for the Cloud Robotics project (default: www.endpoints.<project>.cloud.goog)")
 	project             = flag.String("project", "", "Project ID for the Google Cloud Platform")
-	projectNumber       = flag.Uint64("project-number", 0, "Project Number for the Google Cloud Platform")
 	robotName           = flag.String("robot-name", "", "Robot name")
 	robotRole           = flag.String("robot-role", "", "Robot role. Optional if the robot is already registered.")
 	robotType           = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
@@ -60,6 +61,18 @@ const (
 	helmPath      = filesDir + "/helm"
 	numDNSRetries = 6
 )
+
+func getProjectNumber(client *http.Client, projectID string) (int64, error) {
+	crm, err := cloudresourcemanager.New(client)
+	if err != nil {
+		return 0, err
+	}
+	project, err := crm.Projects.Get(projectID).Do()
+	if err != nil {
+		return 0, err
+	}
+	return project.ProjectNumber, nil
+}
 
 func parseFlags() {
 	flag.Parse()
@@ -109,8 +122,9 @@ func main() {
 		log.Fatalf("Failed to resolve cloud cluster: %s. Please retry in 5 minutes.", err)
 	}
 
-	// Set up the OAuth2 token source.
+	// Set up the OAuth2 token source and client.
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: envToken})
+	client := oauth2.NewClient(context.Background(), tokenSource)
 
 	if *robotRole != "" || *robotType != "" {
 		if err := createOrUpdateRobot(tokenSource); err != nil {
@@ -136,7 +150,6 @@ func main() {
 			Domain:              *domain,
 			PublicKeyRegistryId: fmt.Sprintf("robot-%s", *robotName),
 		}
-		client := oauth2.NewClient(context.Background(), tokenSource)
 		if err := setup.CreateAndPublishCredentialsToCloud(client, auth); err != nil {
 			log.Fatal(err)
 		}
@@ -146,6 +159,12 @@ func main() {
 		if err := gcr.UpdateGcrCredentials(k8sLocalClientSet, auth); err != nil {
 			log.Fatal(err)
 		}
+	}
+
+	// Get the project number, which is passed as a value to the helm charts.
+	projectNumber, err := getProjectNumber(client, *project)
+	if err != nil {
+		log.Fatalf("Failed to get project number: %v", err)
 	}
 
 	// Create service account and role binding for Tiller.
@@ -194,7 +213,7 @@ func main() {
 	// Clean up deprecated releases.
 	deleteReleaseIfPresent("robot-cluster")
 
-	installChartOrDie("robot-base", "base-robot-0.0.1.tgz")
+	installChartOrDie("robot-base", "base-robot-0.0.1.tgz", projectNumber)
 }
 
 func helmValuesStringFromMap(varMap map[string]string) string {
@@ -218,12 +237,12 @@ func deleteReleaseIfPresent(name string) {
 	}
 }
 
-func installChartOrDie(name string, chartPath string) {
+func installChartOrDie(name string, chartPath string, projectNumber int64) {
 	log.Printf("Installing %s Helm chart from %s", name, chartPath)
 	vars := helmValuesStringFromMap(map[string]string{
 		"domain":               *domain,
 		"project":              *project,
-		"project_number":       strconv.FormatUint(*projectNumber, 10),
+		"project_number":       strconv.FormatInt(projectNumber, 10),
 		"app_management":       strconv.FormatBool(*appManagement),
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
 		"robot.name":           *robotName,
