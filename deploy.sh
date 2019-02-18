@@ -140,7 +140,7 @@ function terraform_apply {
 
   # google_endpoints_service references built file (see endpoints.tf)
   ${SKIP_FOR_BINARY} bazel build //src/proto/map:proto_descriptor \
-      //src/bootstrap/robot:setup-robot-sh
+      //src/bootstrap/robot:setup-robot-image-reference-txt
 
   terraform_exec apply ${TERRAFORM_APPLY_FLAGS} \
     || die "terraform apply failed"

@@ -41,8 +41,30 @@ if [[ ! "$@" =~ "--project" && $# -ge 2 ]] ; then
   set -- "$2" --project "$1" --robot-role "${3:-}" --robot-type "${4:-}"
 fi
 
+# Extract the project from the command-line args. It is required to identify the reference for the
+# setup-robot image. This is challenging as --project is an option, so we have to do some
+# rudimentary CLI parameter parsing.
+for i in $(seq 1 $#) ; do
+  if [[ "${!i}" == "--project" ]] ; then
+    j=$((i+1))
+    PROJECT=${!j}
+  fi
+done
+
+if [[ -z "$PROJECT" ]] ; then
+  echo "ERROR: --project <project-id> is required" >&2
+  exit 1
+fi
+
 # Full reference to the setup-robot image. The default is filled in by a genrule.
-IMAGE_REFERENCE="DEFAULT_IMAGE_REFERENCE"
+IMAGE_REFERENCE=$(curl -fsSL \
+  "https://storage.googleapis.com/${PROJECT}-robot/setup_robot_image_reference.txt") || \
+  IMAGE_REFERENCE=""
+
+if [[ -z "$IMAGE_REFERENCE" ]] ; then
+  echo "ERROR: failed to get setup_robot_image_reference.txt from GCS" >&2
+  exit 1
+fi
 
 if [[ -n "$ACCESS_TOKEN_FILE" ]]; then
   ACCESS_TOKEN=$(cat ${ACCESS_TOKEN_FILE})
@@ -55,27 +77,21 @@ if [[ -z "$ACCESS_TOKEN" ]]; then
   read ACCESS_TOKEN
 fi
 
-# Extract registry and digest from IMAGE_REFERENCE. E.g.:
+# Extract registry from IMAGE_REFERENCE. E.g.:
 # IMAGE_REFERENCE = "eu.gcr.io/my-project/setup-robot@sha256:07...5465244d"
 # REGISTRY = "eu.gcr.io"
-# IMAGE_DIGEST = "sha256:07...5465244d"
 REGISTRY=${IMAGE_REFERENCE%%/*}
-IMAGE_DIGEST=${IMAGE_REFERENCE##*@}
 
 # TODO(daschmidt): Remove the login dance when the setup-robot image is available from a public registry.
-if ! docker images --digests | grep ${IMAGE_DIGEST} > /dev/null; then
+echo "Pulling image from ${REGISTRY}..."
 
-  echo "Image not locally available, must be pulled from ${REGISTRY}"
+echo ${ACCESS_TOKEN} | docker login -u oauth2accesstoken --password-stdin https://${REGISTRY}
 
-  echo ${ACCESS_TOKEN} | docker login -u oauth2accesstoken --password-stdin https://${REGISTRY}
-
-  if ! docker pull ${IMAGE_REFERENCE}; then
-    docker logout https://${REGISTRY}
-    exit 1
-  fi
+if ! docker pull ${IMAGE_REFERENCE}; then
   docker logout https://${REGISTRY}
-
+  exit 1
 fi
+docker logout https://${REGISTRY}
 
 # Explicitly specify the context to not run this against the cloud cluster.
 kubectl --context=kubernetes-admin@kubernetes run setup-robot --restart=Never -i --rm \

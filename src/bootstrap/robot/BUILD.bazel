@@ -1,21 +1,14 @@
 load("//:config.bzl", "CLOUD_ROBOTICS_CONTAINER_REGISTRY")
 
-exports_files(["install_k8s_on_robot.sh"])
+exports_files([
+    "install_k8s_on_robot.sh",
+    "setup_robot.sh",
+])
 
-native.genrule(
-    name = "setup-robot-sh",
-    srcs = [
-        "setup_robot.sh.templ",
-        "//src/go/cmd/setup-robot:setup-robot-image.digest",
-    ],
-    outs = ["setup_robot.sh"],
-    cmd = "\n".join([
-        "SETUP_ROBOT_OUT=$@",
-        "SETUP_ROBOT_TEMPL=$(location setup_robot.sh.templ)",
-        "DIGEST_FILE=$(location //src/go/cmd/setup-robot:setup-robot-image.digest)",
-        "DIGEST=$$(cat $${DIGEST_FILE})",
-        "IMAGE_REFERENCE=\"" + CLOUD_ROBOTICS_CONTAINER_REGISTRY + "/setup-robot@$$DIGEST\"",
-        "sed \"s|DEFAULT_IMAGE_REFERENCE|$$IMAGE_REFERENCE|g\" $$SETUP_ROBOT_TEMPL > $$SETUP_ROBOT_OUT",
-    ]),
+genrule(
+    name = "setup-robot-image-reference-txt",
+    srcs = ["//src/go/cmd/setup-robot:setup-robot-image.digest"],
+    outs = ["setup_robot_image_reference.txt"],
+    cmd = "echo \"%s/setup-robot@$$(cat $<)\" > $@" % CLOUD_ROBOTICS_CONTAINER_REGISTRY,
     visibility = ["//visibility:public"],
 )

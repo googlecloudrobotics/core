@@ -6,9 +6,23 @@ resource "google_storage_bucket" "robot" {
   depends_on    = ["google_project_service.compute"]
 }
 
+resource "google_storage_bucket_object" "setup_robot_image_reference" {
+  name          = "setup_robot_image_reference.txt"
+  source        = "../../../../bazel-genfiles/src/bootstrap/robot/setup_robot_image_reference.txt"
+  bucket        = "${google_storage_bucket.robot.name}"
+  cache_control = "private, max-age=0, no-transform"
+}
+
+resource "google_storage_object_access_control" "setup_robot_image_reference_ac" {
+  object = "${google_storage_bucket_object.setup_robot_image_reference.name}"
+  bucket = "${google_storage_bucket.robot.name}"
+  role   = "READER"
+  entity = "allUsers"
+}
+
 resource "google_storage_bucket_object" "setup_robot" {
   name          = "setup_robot.sh"
-  source        = "../../../../bazel-genfiles/src/bootstrap/robot/setup_robot.sh"
+  source        = "../../robot/setup_robot.sh"
   bucket        = "${google_storage_bucket.robot.name}"
   cache_control = "private, max-age=0, no-transform"
 }

@@ -16,7 +16,7 @@ pkg_tar(
     srcs = [
         "//src/app_charts/base:base-cloud",
         "//src/app_charts/platform-apps:platform-apps-cloud",
-        "//src/bootstrap/robot:setup-robot-sh",
+        "//src/bootstrap/robot:setup-robot-image-reference-txt",
     ],
     mode = "644",
     package_dir = "/bazel-genfiles",
@@ -42,6 +42,7 @@ pkg_tar(
         "//scripts:include-config.sh",
         "//scripts:show-resource-usage.sh",
         "//src/bootstrap/robot:install_k8s_on_robot.sh",
+        "//src/bootstrap/robot:setup_robot.sh",
     ],
     mode = "755",
     strip_prefix = "/",
