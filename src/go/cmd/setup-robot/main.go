@@ -16,7 +16,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -27,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	flag "github.com/spf13/pflag"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
@@ -47,9 +48,9 @@ import (
 )
 
 var (
+	robotName           = new(string)
 	domain              = flag.String("domain", "", "Domain for the Cloud Robotics project (default: www.endpoints.<project>.cloud.goog)")
 	project             = flag.String("project", "", "Project ID for the Google Cloud Platform")
-	robotName           = flag.String("robot-name", "", "Robot name")
 	robotRole           = flag.String("robot-role", "", "Robot role. Optional if the robot is already registered.")
 	robotType           = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
 	robotAuthentication = flag.Bool("robot-authentication", true, "Set up robot authentication.")
@@ -75,14 +76,30 @@ func getProjectNumber(client *http.Client, projectID string) (int64, error) {
 }
 
 func parseFlags() {
+	flag.Usage = func() {
+		fmt.Fprintln(os.Stderr, "Usage: setup-robot <robot-name> --project <project-id> [OPTIONS]")
+		fmt.Fprintln(os.Stderr, "  robot-name")
+		fmt.Fprintln(os.Stderr, "        Robot name")
+		fmt.Fprintln(os.Stderr, "")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
+	if flag.NArg() < 1 {
+		flag.Usage()
+		log.Fatal("ERROR: robot-name is required.")
+	} else if flag.NArg() > 1 {
+		flag.Usage()
+		log.Fatalf("ERROR: too many positional arguments (%d), expected 1.", flag.NArg())
+	}
+
+	*robotName = flag.Arg(0)
+
 	if *project == "" {
-		log.Fatal("--project is required.")
+		flag.Usage()
+		log.Fatal("ERROR: --project is required.")
 	}
-	if *robotName == "" {
-		log.Fatal("--robot-name is required.")
-	}
+
 	if *domain == "" {
 		*domain = fmt.Sprintf("www.endpoints.%s.cloud.goog", *project)
 	}
