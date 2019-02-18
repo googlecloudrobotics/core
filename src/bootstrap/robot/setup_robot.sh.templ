@@ -42,7 +42,7 @@ fi
 
 if [[ -z "$ACCESS_TOKEN" ]]; then
   echo "Generate access token with gcloud:"
-  echo "    gcloud auth application-default print-access-token --project ${PROJECT}"
+  echo "    gcloud auth application-default print-access-token"
   echo "Enter access token:"
   read ACCESS_TOKEN
 fi
