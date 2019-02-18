@@ -16,6 +16,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
@@ -24,9 +25,10 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// Updates the token used to pull images from GCR in the surrounding cluster. Exits after the update
-// has finished and thus should be run as a cron job in order to prevent the token from expiring.
-func main() {
+const updateInterval = 10 * time.Minute
+
+// Updates the token used to pull images from GCR in the surrounding cluster.
+func updateCredentials() error {
 	// Connect to the surrounding k8s cluster.
 	localConfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -42,15 +44,24 @@ func main() {
 		log.Printf("Warning: Robot auth secret not found. Not refreshing GCR " +
 			"credentials... (this is only OK if the robot cluster is running " +
 			"in the cloud).")
-		return
+		return nil
 	}
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	// Perform a token exchange with the TokenVendor in the cloud cluster and update the
 	// credentials used to pull images from GCR.
-	if err := gcr.UpdateGcrCredentials(localClient, robotAuth); err != nil {
-		log.Fatal(err)
+	return gcr.UpdateGcrCredentials(localClient, robotAuth)
+}
+
+// Updates the token used to pull images from GCR in the surrounding cluster. The update runs
+// on startup, and then every 10 minutes.
+func main() {
+	for {
+		if err := updateCredentials(); err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Updated GCR credentials in local cluster")
+		time.Sleep(updateInterval)
 	}
-	log.Printf("Updated gcr credentials in local cluster")
 }
