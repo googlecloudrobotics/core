@@ -20,24 +20,32 @@
 set -e
 set -o pipefail
 
-PROJECT="$1"
-ROBOT_NAME="$2"
-ROBOT_ROLE="${3:-}"
-ROBOT_TYPE="${4:-}"
-APP_MANAGEMENT=${APP_MANAGEMENT:-true}
-# Full reference to the setup-robot image
-IMAGE_REFERENCE="${5:-DEFAULT_IMAGE_REFERENCE}"
+if [[ -n "$APP_MANAGEMENT" ]] ; then
+  echo "WARNING: using the APP_MANAGEMENT envvar for setup_robot.sh is deprecated." >&2
+  echo "    Please use --app-management instead. Setup continues in 60 seconds..." >&2
+  # Sleep, as the warning can't be seen after the helm output fills the screen.
+  sleep 60
+  APP_MANAGEMENT="--app-management=${APP_MANAGEMENT}"
+else
+  APP_MANAGEMENT=""
+fi
+
+if [[ ! "$@" =~ "--project" && $# -ge 2 ]] ; then
+  echo "WARNING: using only positional arguments for setup_robot.sh is deprecated." >&2
+  echo "    Please use the following invocation instead. Setup continues in 60 seconds..." >&2
+  echo "    setup-robot <robot-name> --project <project-id> \\" >&2
+  echo "        [--robot-type <type>] [--robot-role <role>] [--app-management]" >&2
+  # Sleep, as the warning can't be seen after the helm output fills the screen.
+  sleep 60
+  # Rewrite parameters to new usage.
+  set -- "$2" --project "$1" --robot-role "${3:-}" --robot-type "${4:-}"
+fi
+
+# Full reference to the setup-robot image. The default is filled in by a genrule.
+IMAGE_REFERENCE="DEFAULT_IMAGE_REFERENCE"
 
 if [[ -n "$ACCESS_TOKEN_FILE" ]]; then
   ACCESS_TOKEN=$(cat ${ACCESS_TOKEN_FILE})
-fi
-
-# ROBOT_ROLE and ROBOT_TYPE are optional: If not passed, the robot CR is assumed
-# to be already created.
-if [[ -z "$PROJECT" ]] || [[ -z "$ROBOT_NAME" ]] || \
-   [[ -z "$IMAGE_REFERENCE" ]] ; then
-  echo "Usage: $0 <project-id> <robot-name> <robot-role> <robot-type> [<setup-robot-image>]" >&2
-  exit 1
 fi
 
 if [[ -z "$ACCESS_TOKEN" ]]; then
@@ -72,6 +80,4 @@ fi
 # Explicitly specify the context to not run this against the cloud cluster.
 kubectl --context=kubernetes-admin@kubernetes run setup-robot --restart=Never -i --rm \
   --image=${IMAGE_REFERENCE} --env="ACCESS_TOKEN=${ACCESS_TOKEN}" -- \
-  "${ROBOT_NAME}" --project "${PROJECT}" \
-  --robot-role "${ROBOT_ROLE}" --robot-type "${ROBOT_TYPE}" \
-  --app-management="${APP_MANAGEMENT}"
+   ${APP_MANAGEMENT} "$@"
