@@ -120,7 +120,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	helmParams, err := strvals.Parse(*params)
+	helmParams, err := strvals.ParseString(*params)
 	if err != nil {
 		log.Fatalln("invalid Helm parameters:", err)
 	}

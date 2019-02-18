@@ -120,7 +120,7 @@ func main() {
 		log.Fatalf("Failed to initialize Kubernetes config: %v", err)
 	}
 
-	helmParams, err := strvals.Parse(*params)
+	helmParams, err := strvals.ParseString(*params)
 	if err != nil {
 		log.Fatalln("invalid Helm parameters:", err)
 	}
