@@ -142,10 +142,9 @@ buildifier_dependencies()
 # Go rules and proto support
 http_archive(
     name = "io_bazel_rules_go",
-    sha256 = "8be57ff66da79d9e4bd434c860dce589195b9101b2c187d144014bbca23b5166",
-    strip_prefix = "rules_go-0.16.3",
+    strip_prefix = "rules_go-0.17.0",
     urls = [
-        "https://github.com/bazelbuild/rules_go/archive/0.16.3.tar.gz",
+        "https://github.com/bazelbuild/rules_go/archive/0.17.0.tar.gz",
     ],
 )
 
@@ -158,7 +157,7 @@ http_archive(
     ],
 )
 
-load("@io_bazel_rules_go//go:def.bzl", "go_register_toolchains")
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains")
 load("@bazel_gazelle//:def.bzl", "go_repository")
 
 # Do not call go_rules_dependencies() until after all other go_repository
@@ -871,7 +870,7 @@ http_archive(
     ],
 )
 
-load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies")
+load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies")
 
 go_rules_dependencies()
 
