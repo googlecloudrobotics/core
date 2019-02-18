@@ -1,6 +1,5 @@
 exports_files([
     "app.bzl",
     "app_chart.bzl",
-    "proto_k8s_service.proto.tmpl",
     "repositories.bzl",
 ])

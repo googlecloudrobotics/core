@@ -3,6 +3,7 @@ workspace(name = "cloud_robotics")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("//bazel:repositories.bzl", "cloud_robotics_repositories")
 
+# gazelle:repo bazel_gazelle
 cloud_robotics_repositories()
 
 # Protobuf
@@ -126,38 +127,6 @@ http_file(
     urls = [
         "http://ftp.de.debian.org/debian/pool/main/p/python2.7/libpython2.7_2.7.13-2+deb9u2_amd64.deb",
         "http://snapshot.debian.org/archive/debian/20171129T213627Z/pool/main/p/python2.7/libpython2.7_2.7.13-2+deb9u2_amd64.deb",
-    ],
-)
-
-# Bazel build tools (must be before go_rules_dependencies() to take priority)
-http_archive(
-    name = "com_github_bazelbuild_buildtools",
-    sha256 = "d42e4c9727958bc5814d3bc44f19db5a24f419436cbba09f1e8913eb4a09da31",
-    strip_prefix = "buildtools-0.19.2.1",
-    urls = [
-        "https://github.com/bazelbuild/buildtools/archive/0.19.2.1.tar.gz",
-    ],
-)
-
-load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
-
-buildifier_dependencies()
-
-# Go rules and proto support
-http_archive(
-    name = "io_bazel_rules_go",
-    strip_prefix = "rules_go-0.17.0",
-    urls = [
-        "https://github.com/bazelbuild/rules_go/archive/0.17.0.tar.gz",
-    ],
-)
-
-http_archive(
-    name = "bazel_gazelle",
-    sha256 = "a2c6b31cd295648779a92d5b8a255da4494e95c7383afd5058334cdce6a80d10",
-    strip_prefix = "bazel-gazelle-455e69320ee92c6f3bfb267aa211a4fa6ebc4e5d",
-    urls = [
-        "https://github.com/bazelbuild/bazel-gazelle/archive/455e69320ee92c6f3bfb267aa211a4fa6ebc4e5d.tar.gz",
     ],
 )
 
@@ -873,6 +842,10 @@ http_archive(
         "https://github.com/kubernetes-sigs/application/archive/464aad9c212082e99a9f9ed4515f1bd1f1df2bfa.tar.gz",
     ],
 )
+
+load("//bazel/proto_crd:repositories.bzl", proto_crd_repositories = "repositories")
+
+proto_crd_repositories()
 
 load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies")
 

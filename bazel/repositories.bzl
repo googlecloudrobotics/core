@@ -582,6 +582,37 @@ cc_library(
         urls = ["https://github.com/bazelbuild/rules_docker/archive/ed6505df1dbdfd79063d22b9374f4dfb403aeca5.tar.gz"],
     )
 
+    # Go rules and proto support
+    _maybe(
+        http_archive,
+        name = "io_bazel_rules_go",
+        sha256 = "b4b38b649354c882774d1a5589402e7874f1e38ddb9bb7dfdc2b3f9902b5b64e",
+        strip_prefix = "rules_go-0.17.0",
+        urls = [
+            "https://github.com/bazelbuild/rules_go/archive/0.17.0.tar.gz",
+        ],
+    )
+
+    _maybe(
+        http_archive,
+        name = "bazel_gazelle",
+        sha256 = "1cae8a59e959ffd8359df1d898323236aeffa932de2e49c9639a75daf393af28",
+        strip_prefix = "bazel-gazelle-0.16.0",
+        urls = [
+            "https://github.com/bazelbuild/bazel-gazelle/archive/0.16.0.tar.gz",
+        ],
+    )
+
+    _maybe(
+        http_archive,
+        name = "com_github_bazelbuild_buildtools",
+        sha256 = "d42e4c9727958bc5814d3bc44f19db5a24f419436cbba09f1e8913eb4a09da31",
+        strip_prefix = "buildtools-0.19.2.1",
+        urls = [
+            "https://github.com/bazelbuild/buildtools/archive/0.19.2.1.tar.gz",
+        ],
+    )
+
 def _maybe(repo_rule, name, **kwargs):
     if name not in native.existing_rules():
         repo_rule(name = name, **kwargs)

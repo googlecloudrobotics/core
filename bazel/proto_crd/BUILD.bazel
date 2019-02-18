@@ -1,0 +1,6 @@
+exports_files([
+    "proto_crd.bzl",
+    "proto_k8s_service.proto.tmpl",
+    "proto_k8s_service.bzl",
+    "repositories.bzl",
+])

@@ -23,3 +23,9 @@ go_library(
     importpath = "k8s.io/apimachinery/pkg/runtime/schema",
     visibility = ["//visibility:public"],
 )
+
+cc_proto_library(
+    name = "schema_cc_proto",
+    visibility = ["//visibility:public"],
+    deps = [":schema_proto"],
+)
