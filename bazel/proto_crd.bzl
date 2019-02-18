@@ -1,17 +1,11 @@
 def _impl(ctx):
-    # The list of arguments we pass to the script.
-    service = None
-    for f in ctx.files.openapi_spec:
-        if "service.swagger.json" in f.path:
-            service = f
-
     args = [
         "--output",
         ctx.outputs.yaml_file.path,
         "--proto_descriptor_file",
         ctx.file.descriptor.path,
         "--openapi_spec_file",
-        service.path,
+        ctx.file.openapi_spec.path,
         "--message",
         ctx.attr.message,
         "--group",
@@ -22,9 +16,8 @@ def _impl(ctx):
     if ctx.attr.namespaced:
         args.append("--namespaced")
 
-    # Action to call the script.
     ctx.actions.run(
-        inputs = [ctx.file.descriptor, service],
+        inputs = [ctx.file.descriptor, ctx.file.openapi_spec],
         outputs = [ctx.outputs.yaml_file],
         arguments = args,
         progress_message = "Generating CRD into %s" % ctx.outputs.yaml_file.short_path,
@@ -39,7 +32,7 @@ proto_crd = rule(
             doc = "Proto descriptor with the CRD's definition.",
         ),
         "openapi_spec": attr.label(
-            allow_files = True,
+            allow_single_file = True,
             doc = "JSON file with the service's Swagger spec.",
         ),
         "message": attr.string(

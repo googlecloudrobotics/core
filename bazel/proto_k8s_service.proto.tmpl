@@ -14,31 +14,33 @@
 
 syntax = "proto3";
 
-package cloudrobotics.hello_world.v1alpha1;
+package ${NAMESPACE};
 
-import "src/proto/hello-world/spec.proto";
+${OPTIONS}
+
+${IMPORTS}
 import "third_party/kubernetes_proto/meta/generated.proto";
 
-message HelloWorld {
+message ${KIND} {
   // Output only.
   string apiVersion = 1;
   // Output only.
   string kind = 2;
   k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 3;
-  HelloWorldSpec spec = 4;
-  HelloWorldStatus status = 5;
+  ${KIND}Spec spec = 4;
+  ${KIND}Status status = 5;
 }
 
-message HelloWorldList {
+message ${KIND}List {
   // Output only.
   string apiVersion = 1;
   // Output only.
   string kind = 2;
   k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 3;
-  repeated HelloWorld items = 4;
+  repeated ${KIND} items = 4;
 }
 
-message HelloWorldEvent {
+message ${KIND}Event {
   enum Type {
     UNKNOWN = 0;
     ADDED = 1;
@@ -48,45 +50,45 @@ message HelloWorldEvent {
   }
 
   Type type = 1;
-  HelloWorld object = 2;
+  ${KIND} object = 2;
 }
 
-message GetHelloWorldRequest {
+message Get${KIND}Request {
   string name = 1;
   k8s.io.apimachinery.pkg.apis.meta.v1.GetOptions options = 2;
 }
 
-message ListHelloWorldRequest {
+message List${KIND}Request {
   k8s.io.apimachinery.pkg.apis.meta.v1.ListOptions options = 1;
 }
 
-message WatchHelloWorldRequest {
+message Watch${KIND}Request {
   k8s.io.apimachinery.pkg.apis.meta.v1.ListOptions options = 1;
 }
 
-message CreateHelloWorldRequest {
-  HelloWorld object = 1;
+message Create${KIND}Request {
+  ${KIND} object = 1;
   k8s.io.apimachinery.pkg.apis.meta.v1.CreateOptions options = 2;
 }
 
-message UpdateHelloWorldRequest {
-  HelloWorld object = 1;
+message Update${KIND}Request {
+  ${KIND} object = 1;
   k8s.io.apimachinery.pkg.apis.meta.v1.UpdateOptions options = 2;
 }
 
-message DeleteHelloWorldRequest {
+message Delete${KIND}Request {
   string name = 1;
   k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions options = 2;
 }
 
-message DeleteHelloWorldResponse {
+message Delete${KIND}Response {
 }
 
-service K8sHelloWorld {
-  rpc Get(GetHelloWorldRequest) returns (HelloWorld) {}
-  rpc List(ListHelloWorldRequest) returns (HelloWorldList) {}
-  rpc Watch(WatchHelloWorldRequest) returns (stream HelloWorldEvent) {}
-  rpc Create(CreateHelloWorldRequest) returns (HelloWorld) {}
-  rpc Update(UpdateHelloWorldRequest) returns (HelloWorld) {}
-  rpc Delete(DeleteHelloWorldRequest) returns (DeleteHelloWorldResponse) {}
+service K8s${KIND} {
+  rpc Get(Get${KIND}Request) returns (${KIND}) {}
+  rpc List(List${KIND}Request) returns (${KIND}List) {}
+  rpc Watch(Watch${KIND}Request) returns (stream ${KIND}Event) {}
+  rpc Create(Create${KIND}Request) returns (${KIND}) {}
+  rpc Update(Update${KIND}Request) returns (${KIND}) {}
+  rpc Delete(Delete${KIND}Request) returns (Delete${KIND}Response) {}
 }

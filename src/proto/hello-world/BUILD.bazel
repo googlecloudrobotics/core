@@ -1,72 +1,62 @@
+# Gazelle doesn't like generated files.
+# gazelle:ignore
+
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
-load("@cloud_robotics//bazel/build_rules:proto_descriptor.bzl", "proto_descriptor")
 load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
-load("//bazel:proto_crd.bzl", "proto_crd")
-load("@grpc_ecosystem_grpc_gateway//protoc-gen-swagger:defs.bzl", "protoc_gen_swagger")
-
-proto_descriptor(
-    name = "proto_descriptor",
-    out = "proto_descriptor.pb",
-    proto_library = ":cloudrobotics_hello_world_v1alpha1_proto",
-)
-
-protoc_gen_swagger(
-    name = "swagger",
-    proto = ":cloudrobotics_hello_world_v1alpha1_proto",
-)
-
-proto_crd(
-    name = "proto_crd",
-    descriptor = ":proto_descriptor",
-    group = "hello-world.cloudrobotics.com",
-    message = "cloudrobotics.hello_world.v1alpha1.HelloWorld",
-    openapi_spec = ":swagger",
-)
+load("//bazel:proto_k8s_service.bzl", "proto_k8s_service")
 
 proto_library(
-    name = "cloudrobotics_hello_world_v1alpha1_proto",
+    name = "spec_proto",
     srcs = [
-        "service.proto",
         "spec.proto",
     ],
-    visibility = ["//visibility:public"],
-    deps = ["//third_party/kubernetes_proto/meta:meta_proto"],
+)
+
+proto_k8s_service(
+    name = "service_proto",
+    file_options = {"java_outer_classname": "Service"},
+    group = "hello-world.cloudrobotics.com",
+    message = "cloudrobotics.hello_world.v1alpha1.HelloWorld",
+    spec = ":spec_proto",
 )
 
 # language bindings
 
 cc_proto_library(
-    name = "cloudrobotics_hello_world_v1alpha1_proto_cc",
+    name = "k8s_service_cc",
     visibility = ["//visibility:public"],
-    deps = [":cloudrobotics_hello_world_v1alpha1_proto"],
+    deps = [":service_proto"],
 )
 
 java_proto_library(
-    name = "cloudrobotics_hello_world_v1alpha1_proto_java",
+    name = "k8s_service_java",
     visibility = ["//visibility:public"],
-    deps = [":cloudrobotics_hello_world_v1alpha1_proto"],
+    deps = [":service_proto"],
 )
 
 java_grpc_library(
-    name = "cloudrobotics_hello_world_v1alpha1_proto_java_grpc",
-    srcs = [":cloudrobotics_hello_world_v1alpha1_proto"],
+    name = "k8s_service_java_grpc",
+    srcs = [":service_proto"],
     visibility = ["//visibility:public"],
-    deps = [":cloudrobotics_hello_world_v1alpha1_proto_java"],
+    deps = [":k8s_service_java"],
 )
 
 go_proto_library(
-    name = "cloudrobotics_hello_world_v1alpha1_go_proto",
+    name = "k8s_service_go",
     compilers = ["@io_bazel_rules_go//proto:go_grpc"],
     importpath = "cloud-robotics.googlesource.com/cloud-robotics/src/proto/hello-world",
-    proto = ":cloudrobotics_hello_world_v1alpha1_proto",
+    protos = [
+        ":service_proto",
+        ":spec_proto",
+    ],
     visibility = ["//visibility:public"],
     deps = ["//third_party/kubernetes_proto/meta:go_default_library"],
 )
 
 go_library(
     name = "go_default_library",
-    embed = [":cloudrobotics_hello_world_v1alpha1_go_proto"],
+    embed = [":k8s_service_go"],
     importpath = "cloud-robotics.googlesource.com/cloud-robotics/src/proto/hello-world",
     visibility = ["//visibility:public"],
 )
