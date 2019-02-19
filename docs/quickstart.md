@@ -27,7 +27,7 @@ and 18.04) Linux.
 1. Install additional build dependencies:
 
     ```
-    sudo apt-get install default-jdk git jq python-dev unzip
+    sudo apt-get install default-jdk git jq python-dev unzip xz-utils
     ```
 
 [resource-manager]: https://console.cloud.google.com/cloud-resource-manager
