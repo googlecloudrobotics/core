@@ -129,7 +129,6 @@ spec:
       properties:
         spec:
           type: object
-          required: ['type', 'role']
           maxProperties: 3
           properties:
             type:
