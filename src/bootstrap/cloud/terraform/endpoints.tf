@@ -8,7 +8,7 @@ data "template_file" "map_yaml" {
 
 resource "google_endpoints_service" "map" {
   service_name         = "map.endpoints.${var.id}.cloud.goog"
-  project              = "${data.google_project.project.name}"
+  project              = "${data.google_project.project.project_id}"
   grpc_config          = "${data.template_file.map_yaml.rendered}"
   protoc_output_base64 = "${base64encode(file("../../../../bazel-bin/src/proto/map/proto_descriptor.pb"))}"
 }
