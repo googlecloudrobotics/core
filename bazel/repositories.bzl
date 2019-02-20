@@ -577,9 +577,9 @@ cc_library(
     _maybe(
         http_archive,
         name = "io_bazel_rules_docker",
-        sha256 = "35c585261362a96b1fe777a7c4c41252b22fd404f24483e1c48b15d7eb2b55a5",
-        strip_prefix = "rules_docker-4282829a554058401f7ff63004c8870c8d35e29c",
-        urls = ["https://github.com/bazelbuild/rules_docker/archive/4282829a554058401f7ff63004c8870c8d35e29c.tar.gz"],
+        sha256 = "be0983b760cefdd9ef3df157828c09286635b0f425f2e87ec5942fb31099ea6b",
+        strip_prefix = "rules_docker-ed6505df1dbdfd79063d22b9374f4dfb403aeca5",
+        urls = ["https://github.com/bazelbuild/rules_docker/archive/ed6505df1dbdfd79063d22b9374f4dfb403aeca5.tar.gz"],
     )
 
 def _maybe(repo_rule, name, **kwargs):
