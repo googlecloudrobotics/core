@@ -89,15 +89,19 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 	}
 	// We don't trigger on ChartAssignment creations since it was either ourselves
 	// or a CA we don't care about anyway.
-	ownerHandler := &handler.EnqueueRequestForOwner{
-		OwnerType:    &apps.AppRollout{},
-		IsController: true,
-	}
 	err = c.Watch(
 		&source.Kind{Type: &apps.ChartAssignment{}},
+		// We manually enqueue for the owner reference since handler.EnqueueRequestForOwner
+		// does not work.
+		// TODO: There is an associated bug in the controller-runtime but upgrading to include
+		// https://github.com/kubernetes-sigs/controller-runtime/pull/274 did not resolve the issue.
 		&handler.Funcs{
-			DeleteFunc: ownerHandler.Delete,
-			UpdateFunc: ownerHandler.Update,
+			DeleteFunc: func(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+				r.enqueueForOwner(evt.Meta, q)
+			},
+			UpdateFunc: func(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+				r.enqueueForOwner(evt.MetaNew, q)
+			},
 		},
 	)
 	if err != nil {
@@ -160,6 +164,18 @@ func (r *Reconciler) enqueueForApp(m metav1.Object, q workqueue.RateLimitingInte
 		q.Add(reconcile.Request{
 			NamespacedName: types.NamespacedName{Name: ar.Name},
 		})
+	}
+}
+
+// enqueueForOwner enqueues AppRollouts that are listed in the owner references
+// of the given resource metadata.
+func (r *Reconciler) enqueueForOwner(m metav1.Object, q workqueue.RateLimitingInterface) {
+	for _, or := range m.GetOwnerReferences() {
+		if or.APIVersion == "apps.cloudrobotics.com/v1alpha1" && or.Kind == "AppRollout" {
+			q.Add(reconcile.Request{
+				types.NamespacedName{Name: or.Name},
+			})
+		}
 	}
 }
 
