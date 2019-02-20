@@ -24,8 +24,6 @@ set -o pipefail -o errexit
 PROJECT_NAME="cloud-robotics"
 
 if [[ -e "${DIR}/INSTALL_FROM_BINARY" ]]; then
-  # Commands prefixed by ${SKIP_FOR_BINARY} are not executed when installing the binary.
-  SKIP_FOR_BINARY="true"
   TERRAFORM="${DIR}/bin/terraform"
   HELM_COMMAND="${DIR}/bin/helm"
 else
@@ -50,9 +48,24 @@ function include_config {
   HELM="${HELM_COMMAND} --kube-context ${KUBE_CONTEXT}"
 }
 
-function check_project_resources {
-  include_config
+function prepare_source_install {
+  bazel build "@hashicorp_terraform//:terraform" \
+      "@kubernetes_helm//:helm" \
+      //src/app_charts/base:base-cloud \
+      //src/app_charts/platform-apps:platform-apps-cloud \
+      //src/app_charts:push \
+      //src/bootstrap/robot:setup-robot-image-reference-txt \
+      //src/go/cmd/setup-robot:setup-robot.push \
+      //src/proto/map:proto_descriptor \
 
+  # `setup-robot.push` is the first container push to avoid a GCR bug with parallel pushes on newly
+  # created projects (see b/123625511).
+  ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push
+  # Running :push outside the build system shaves ~3 seconds off an incremental build.
+  ${DIR}/bazel-bin/src/app_charts/push
+}
+
+function check_project_resources {
   # TODO(rodrigoq): if cleanup-services.sh is adjusted to allow specifying the
   # project, adjust this message too.
   echo "Project resource status:"
@@ -61,8 +74,6 @@ function check_project_resources {
 }
 
 function clear_iot_devices {
-  include_config
-
   local iot_registry_name="$1"
   local devices=$(gcloud beta iot devices list \
     --project "${GCP_PROJECT_ID}" \
@@ -87,10 +98,7 @@ function terraform_exec {
 }
 
 function terraform_init {
-  include_config
-  ${SKIP_FOR_BINARY} bazel build "@hashicorp_terraform//:terraform"
-
-  IMAGE_PROJECT_ID="$(echo ${CLOUD_ROBOTICS_CONTAINER_REGISTRY} | sed -n -e 's:^.*gcr.io/::p')"
+  local IMAGE_PROJECT_ID="$(echo ${CLOUD_ROBOTICS_CONTAINER_REGISTRY} | sed -n -e 's:^.*gcr.io/::p')"
 
   # Pass CLOUD_ROBOTICS_DOMAIN here and not PROJECT_DOMAIN, as we only create dns resources if a custom
   # domain is used.
@@ -129,7 +137,6 @@ EOF
 }
 
 function terraform_apply {
-  include_config
   terraform_init
 
   # Workaround for https://github.com/terraform-providers/terraform-provider-google/issues/2118
@@ -137,10 +144,6 @@ function terraform_apply {
   # We've stopped managing Google Cloud projects in Terraform, make sure they
   # aren't deleted.
   terraform_exec state rm google_project.project 2>/dev/null || true
-
-  # google_endpoints_service references built file (see endpoints.tf)
-  ${SKIP_FOR_BINARY} bazel build //src/proto/map:proto_descriptor \
-      //src/bootstrap/robot:setup-robot-image-reference-txt
 
   terraform_exec apply ${TERRAFORM_APPLY_FLAGS} \
     || die "terraform apply failed"
@@ -150,34 +153,14 @@ function terraform_delete {
   terraform_exec destroy -auto-approve || die "terraform destroy failed"
 }
 
-
-function cluster_auth {
-  include_config
+function helm_charts {
+  local GCP_PROJECT_NUMBER=$(terraform_exec output project-number)
+  local INGRESS_IP=$(terraform_exec output ingress-ip)
 
   gcloud container clusters get-credentials "${PROJECT_NAME}" \
     --zone ${GCP_ZONE} \
     --project ${GCP_PROJECT_ID} \
     || die "create: failed to get cluster credentials"
-}
-
-function helm_charts {
-  include_config
-
-  local GCP_PROJECT_NUMBER=$(terraform_exec output project-number)
-  local INGRESS_IP=$(terraform_exec output ingress-ip)
-
-  # To keep things simple also push setup-robot.
-  ${SKIP_FOR_BINARY} bazel build "@kubernetes_helm//:helm" \
-      //src/app_charts/base:base-cloud \
-      //src/app_charts/platform-apps:platform-apps-cloud \
-      //src/app_charts:push \
-      //src/go/cmd/setup-robot:setup-robot.push
-
-  # `setup-robot.push` is the first container push to avoid a GCR bug with parallel pushes on newly
-  # created projects (see b/123625511).
-  ${SKIP_FOR_BINARY} ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push
-  # Running :push outside the build system shaves ~3 seconds off an incremental build.
-  ${SKIP_FOR_BINARY} ${DIR}/bazel-bin/src/app_charts/push
 
   ${HELM} init --history-max=10 --upgrade --force-upgrade --wait
 
@@ -251,11 +234,6 @@ function set-project {
   sed -e "s/my-project/${project_id}/" "${DIR}/config.sh.tmpl"  > "${DIR}/config.sh"
   echo "Created config.sh for ${project_id}."
 
-  # Load the newly created config and import the project into the Terraform
-  # state.
-  include_config
-  terraform_init
-
   echo "Project successfully set to ${project_id}."
 }
 
@@ -264,14 +242,19 @@ function create {
     set-project
   fi
   include_config
+  if [[ ! -e "${DIR}/INSTALL_FROM_BINARY" ]]; then
+    prepare_source_install
+  fi
   terraform_apply
-  cluster_auth
   helm_charts
   check_project_resources
 }
 
 function delete {
   include_config
+  if [[ ! -e "${DIR}/INSTALL_FROM_BINARY" ]]; then
+    bazel build "@hashicorp_terraform//:terraform"
+  fi
   clear_iot_devices "cloud-robotics"
   terraform_delete
 }
@@ -281,13 +264,17 @@ function update {
   create
 }
 
+# This is a shortcut for skipping Terrafrom configs checks if you know the config has not changed.
 function fast_push {
+  include_config
+  if [[ ! -e "${DIR}/INSTALL_FROM_BINARY" ]]; then
+    prepare_source_install
+  fi
   helm_charts
 }
 
 # main
-
-if [ "$#" -lt 1 ]; then
+if [[ ! "$1" =~ ^(set-project|create|delete|update|fast_push)$ ]]; then
   die "Usage: $0 {set-project|create|delete|update|fast_push}"
 fi
 
