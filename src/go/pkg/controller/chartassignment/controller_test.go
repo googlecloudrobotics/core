@@ -105,7 +105,7 @@ spec:
 	if err := r.applyChart(&as); err != nil {
 		t.Fatal(err)
 	}
-	verifyRelease(t, r.helm, as.Name, 1, wantValues, releaseReasonInstall)
+	verifyRelease(t, r.helm, as.Name, 1, wantValues)
 }
 
 func TestReconciler_applyChartTwice(t *testing.T) {
@@ -151,10 +151,10 @@ spec:
 	if err := r.applyChart(&as); err != nil {
 		t.Fatal(err)
 	}
-	verifyRelease(t, r.helm, as.Name, 2, wantValues, releaseReasonUpgrade)
+	verifyRelease(t, r.helm, as.Name, 2, wantValues)
 }
 
-func verifyRelease(t *testing.T, helmClient helm.Interface, release string, wantVersion int32, wantValues chartutil.Values, wantReleaseReason releaseReason) {
+func verifyRelease(t *testing.T, helmClient helm.Interface, release string, wantVersion int32, wantValues chartutil.Values) {
 	resp, err := helmClient.ReleaseContent(release)
 	if err != nil {
 		t.Fatalf("get release content: %s", err)
@@ -168,9 +168,6 @@ func verifyRelease(t *testing.T, helmClient helm.Interface, release string, want
 		t.Fatal(err)
 	} else if want != rel.Config.Raw {
 		t.Fatalf("config values do not match: want\n%s\n\ngot\n%s\n", want, rel.Config.Raw)
-	}
-	if got := decodeReleaseDesc(rel.Info.Description); got.Reason != wantReleaseReason {
-		t.Fatalf("unexpected release reason: want %q, got %q", wantReleaseReason, got.Reason)
 	}
 }
 

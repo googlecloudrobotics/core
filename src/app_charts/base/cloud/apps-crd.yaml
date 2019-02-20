@@ -158,7 +158,7 @@ spec:
   - JSONPath: .status.desiredRevision
     name: Desired
     type: integer
-  - JSONPath: .metadata.rollbackRevision
+  - JSONPath: .status.rollbackRevision
     name: Rollback
     type: integer
   - JSONPath: .metadata.creationTimestamp

@@ -19,13 +19,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -150,14 +151,16 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 	if as.Generation == as.Status.ObservedGeneration {
 		log.Printf("ChartAssignment %q up-to-date, updating status", as.Name)
 
-		if err := r.setChartStatus(as); err == errRollbackRequested {
+		err := r.setChartStatus(as)
+		if rev, ok := err.(errRollbackRequest); ok {
 			log.Printf("ChartAssignment %q failing, rolling back", as.Name)
 
-			if err := r.rollbackChart(as); err != nil {
+			if err := r.rollbackChart(as, int32(rev)); err != nil {
 				return reconcile.Result{}, fmt.Errorf("rollback failed: %s", err)
 			}
 			// Update chart status again after rollback.
-			if err := r.setChartStatus(as); err != nil && err != errRollbackRequested {
+			err := r.setChartStatus(as)
+			if _, ok := err.(errRollbackRequest); err != nil && ok {
 				return reconcile.Result{}, fmt.Errorf("setting chart status failed: %s", err)
 			}
 		} else if err != nil {
@@ -210,10 +213,6 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 		return reconcile.Result{}, err
 	}
 
-	if err := r.applyChart(as); err != nil {
-		return reconcile.Result{}, err
-	}
-
 	// Set a finalizer on the ChartAssignment so we don't get deleted before
 	// we've properly deleted the associated Helm release.
 	if !stringsContain(as.Finalizers, finalizer) {
@@ -223,13 +222,18 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 		}
 	}
 
+	if err := r.applyChart(as); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Update the observed generation to ensure we don't keep updating an
 	// unchanged chart. This is particulary important because Helm will always
 	// create a new revision not check whether there's an actual diff.
 	as.Status.ObservedGeneration = as.Generation
 	// Update chart status but don't apply requested rollbacks. We enqueue
 	// the item again below for that.
-	if err := r.setChartStatus(as); err != nil && err != errRollbackRequested {
+	err = r.setChartStatus(as)
+	if _, ok := err.(errRollbackRequest); err != nil && !ok {
 		return reconcile.Result{}, fmt.Errorf("setting chart status failed: %s", err)
 	}
 	if err := r.kube.Status().Update(ctx, as); err != nil {
@@ -239,7 +243,11 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 	return reconcile.Result{Requeue: true, RequeueAfter: requeueFast}, nil
 }
 
-var errRollbackRequested = fmt.Errorf("release failed, rollback requested")
+type errRollbackRequest int
+
+func (e errRollbackRequest) Error() string {
+	return fmt.Sprintf("rollback to revision %d requested", e)
+}
 
 // setChartStatus updates the status section of the chart based on Helm's reported
 // state. It returns true if a rollback should be attempted.
@@ -253,33 +261,31 @@ func (r *Reconciler) setChartStatus(as *apps.ChartAssignment) error {
 	}
 	active := history.Releases[0]
 
-	// Decode desired/rollback/deployed revisions from history descriptions.
 	activeDesc := decodeReleaseDesc(active.Info.Description)
 	// Most recent revision is what's currently deployed.
 	as.Status.DeployedRevision = active.Version
-	// If it was created by a rollback, the rolled-back-to revision is
-	// in the description.
-	if activeDesc.Reason == releaseReasonRollback {
-		as.Status.RollbackRevision = activeDesc.RollbackTo
+	// If the current revision is a rollback, set the rollback revision. If we couldn't
+	// determine it from history, it's set to 0 and will be left blank.
+	if activeDesc.action == releaseActionRollback {
+		as.Status.RollbackRevision = activeDesc.rollbackTo
 		setCondition(as, apps.ChartAssignmentConditionRolledBack, core.ConditionTrue)
 	} else {
-		as.Status.RollbackRevision = 0
 		setCondition(as, apps.ChartAssignmentConditionRolledBack, core.ConditionFalse)
 	}
-	// Last revision that's not a rollback is what the user intended.
-	found := false
+	// Last installed or upgraded release is what the user intended to run.
+	foundDesiredRevision := false
 	for _, r := range history.Releases {
-		if desc := decodeReleaseDesc(r.Info.Description); desc.Reason != releaseReasonRollback {
+		if a := decodeReleaseAction(r.Info.Description); a == releaseActionInstall || a == releaseActionUpgrade {
 			as.Status.DesiredRevision = r.Version
-			found = true
+			foundDesiredRevision = true
 			break
 		}
 	}
 	// If nothing in the history we fetched matches, we no longer know
 	// what the desired revision was.
-	if !found {
+	if !foundDesiredRevision {
 		as.Status.DesiredRevision = 0
-		log.Printf("release history for %q too short, could not determine desired revision", as.Name)
+		log.Printf("Release history for %q too short, could not determine desired revision", as.Name)
 	}
 
 	as.Status.Phase = chartPhase(active.Info.Status.Code)
@@ -297,9 +303,18 @@ func (r *Reconciler) setChartStatus(as *apps.ChartAssignment) error {
 		setCondition(as, apps.ChartAssignmentConditionReady, core.ConditionFalse)
 		setCondition(as, apps.ChartAssignmentConditionUpdated, core.ConditionTrue)
 
+		// Find the last successful release that we may want to rollback to.
+		var rollbackRevision int32
+		for _, r := range history.Releases[1:] {
+			if d := decodeReleaseDesc(r.Info.Description); !d.failed {
+				rollbackRevision = r.Version
+				break
+			}
+		}
 		// Trigger a rollback if the current revision isn't already one.
-		if desc := decodeReleaseDesc(active.Info.Description); desc.Reason != releaseReasonRollback {
-			return errRollbackRequested
+		a := decodeReleaseAction(active.Info.Description)
+		if a != releaseActionRollback && a != releaseActionUnknown && rollbackRevision > 0 {
+			return errRollbackRequest(rollbackRevision)
 		}
 		return nil
 
@@ -312,20 +327,9 @@ func (r *Reconciler) setChartStatus(as *apps.ChartAssignment) error {
 
 // rollbackChart will rollback the chart to the previous revision if it exists
 // and wasn't a rollback itself.
-func (r *Reconciler) rollbackChart(as *apps.ChartAssignment) error {
-	history, err := r.helm.ReleaseHistory(as.Name, hclient.WithMaxHistory(1))
-	if err != nil {
-		return err
-	}
-	if len(history.Releases) == 0 {
-		log.Println("skipping rollback for %q: no previous revision", as.Name)
-		return nil
-	}
-	rev := history.Releases[0].Version
-
-	_, err = r.helm.RollbackRelease(as.Name,
+func (r *Reconciler) rollbackChart(as *apps.ChartAssignment, rev int32) error {
+	_, err := r.helm.RollbackRelease(as.Name,
 		hclient.RollbackForce(true),
-		hclient.RollbackDescription(descriptionRollback(rev)),
 		hclient.RollbackTimeout(tillerTimeout),
 		hclient.RollbackVersion(rev),
 	)
@@ -343,9 +347,9 @@ func (r *Reconciler) applyChart(as *apps.ChartAssignment) error {
 		archive = base64.NewDecoder(base64.StdEncoding, strings.NewReader(cspec.Inline))
 	} else {
 		archive, err = r.fetchChartTar(cspec.Repository, cspec.Name, cspec.Version)
-	}
-	if err != nil {
-		return fmt.Errorf("retrieving chart failed: %s", err)
+		if err != nil {
+			return fmt.Errorf("retrieving chart failed: %s", err)
+		}
 	}
 	c, err := chartutil.LoadArchive(archive)
 	if err != nil {
@@ -385,7 +389,6 @@ func (r *Reconciler) applyChart(as *apps.ChartAssignment) error {
 		_, err = r.helm.InstallReleaseFromChart(c, as.Spec.NamespaceName,
 			hclient.ReleaseName(as.Name),
 			hclient.InstallTimeout(tillerTimeout),
-			hclient.InstallDescription(descriptionInstall()),
 			hclient.ValueOverrides([]byte(valsRaw)),
 		)
 		if err != nil {
@@ -396,7 +399,6 @@ func (r *Reconciler) applyChart(as *apps.ChartAssignment) error {
 	_, err = r.helm.UpdateReleaseFromChart(as.Name, c,
 		hclient.UpgradeForce(true),
 		hclient.UpgradeTimeout(tillerTimeout),
-		hclient.UpgradeDescription(descriptionUpgrade()),
 		hclient.UpdateValueOverrides([]byte(valsRaw)),
 	)
 	if err != nil {
@@ -456,58 +458,85 @@ func (r *Reconciler) fetchChartTar(repoURL, name, version string) (io.Reader, er
 	return bytes.NewReader(b), nil
 }
 
-type releaseReason string
-
-const (
-	releaseReasonInstall  releaseReason = "install"
-	releaseReasonUpgrade                = "upgrade"
-	releaseReasonRollback               = "rollback"
-	releaseReasonUnknown                = "unknown"
-)
-
-// releaseDesc is serialized and used as the description in Helm releases.
-//
-// Overall this is necessary because Helm does not store any structured state
-// about how a revision was triggered. For example, a rollback from 3 to 2 will
-// create a new revision 4. Similarly, noop upgrades will spawn a new revision.
-// Simply setting that informationin the ChartAssignment status during our own
-// reconciliation is not sufficient. Since it is not idempotent, we may lose the
-// state if the status update failed due to optimistic concurrency control.
 type releaseDesc struct {
-	Reason     releaseReason `json:"reason"`
-	RollbackTo int32         `json:"rollbackTo,omitempty"`
+	failed     bool
+	action     releaseAction
+	rollbackTo int32
 }
 
-func decodeReleaseDesc(s string) (d releaseDesc) {
-	if err := json.Unmarshal([]byte(s), &d); err != nil {
-		log.Printf("unmarshal release description failed: %s", err)
-		d.Reason = releaseReasonUnknown
+type releaseAction string
+
+const (
+	releaseActionInstall  releaseAction = "install"
+	releaseActionUpgrade                = "upgrade"
+	releaseActionRollback               = "rollback"
+	releaseActionDeleted                = "delete"
+	releaseActionUnknown                = "unknown"
+)
+
+// decodeReleaseDesc decodes a Helm release description into the last performed action,
+// whether it failed, and which revision it possibly rolled back to.
+// See decodeReleaseAction for message format for different actions.
+func decodeReleaseDesc(s string) releaseDesc {
+	d := releaseDesc{
+		action: decodeReleaseAction(s),
+		failed: strings.Contains(s, "failed"),
+	}
+	// Decode revision that was rolled back to, e.g. "Rollback to 3".
+	if d.action == releaseActionRollback {
+		if parts := strings.Split(s, " "); len(parts) == 0 {
+			log.Printf("Could not decode rollback revision from description %q", s)
+		} else {
+			rev, err := strconv.Atoi(parts[len(parts)-1])
+			if err != nil {
+				log.Printf("Could not decode rollback revision from description %q: %s", s, err)
+			}
+			d.rollbackTo = int32(rev)
+		}
 	}
 	return d
 }
 
-func descriptionInstall() string {
-	b, err := json.Marshal(releaseDesc{Reason: releaseReasonInstall})
-	if err != nil {
-		panic(err)
+// decodeReleaseAction decodes the action for a release from the string description
+// message set by Helm.
+// Setting an explicit structured JSON description when doing installs/rollbacks/upgrades
+// did not work out since Helm rewrites the message on failure.
+func decodeReleaseAction(s string) releaseAction {
+	s = strings.ToLower(s)
+	// A release was an installation when the message is:
+	// 1. "Install complete."
+	// 2. Release "<name>" failed: <error snippet>
+	if strings.Contains(s, "install") || regexp.MustCompile(`release ".*" failed`).MatchString(s) {
+		return releaseActionInstall
 	}
-	return string(b)
+	// A release was an upgrade when the message is:
+	// 1. Upgrade complete.
+	// 2. Upgrade "<name>" failed: <error snippet>
+	if strings.Contains(s, "upgrade") {
+		return releaseActionUpgrade
+	}
+	// A release was an upgrade when the message is:
+	// 1. Rollback to 3.
+	// 2. rollback "<name>" failed: <error_snippet>
+	if strings.Contains(s, "rollback") {
+		return releaseActionRollback
+	}
+	// a revision is described as deleted if it previously failed and was
+	// replaced by a new version.
+	if strings.Contains(s, "delete") {
+		return releaseActionDeleted
+	}
+	// There appear to be no descriptions before complete/fail, which hints
+	// that the respective in-progress status codes like "installation pending"
+	// are unused.
+	log.Printf("Encountered unknown release action in description %q", s)
+	return releaseActionUnknown
 }
 
-func descriptionUpgrade() string {
-	b, err := json.Marshal(releaseDesc{Reason: releaseReasonUpgrade})
-	if err != nil {
-		panic(err)
-	}
-	return string(b)
-}
-
-func descriptionRollback(rev int32) string {
-	b, err := json.Marshal(releaseDesc{Reason: releaseReasonRollback, RollbackTo: rev})
-	if err != nil {
-		panic(err)
-	}
-	return string(b)
+// decodeReleaseFailed returns true if the release description indicates that it failed.
+// See decodeReleaseAction for possible descriptions.
+func decodeReleaseFailed(s string) bool {
+	return strings.Contains(s, "failed")
 }
 
 // newHTTPGetter return a Helm chart getter for HTTP(s) repositories.
