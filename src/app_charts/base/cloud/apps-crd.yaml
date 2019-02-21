@@ -209,6 +209,8 @@ spec:
                     type: string
                   type:
                     type: string
+                  message:
+                    type: string
             phase:
               type: string
             desiredRevision:
