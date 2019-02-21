@@ -56,16 +56,21 @@ fi
 
 # Run Gazelle if a Go or BUILD file changes. This is a heuristic, but hopefully
 # covers most cases where it is needed.
-if [ -n "$go_files" -o -n "$build_files" ]; then
-  diff=$(bazel run :gazelle -- -mode=diff 2>/dev/null)
-  if [ -n "$diff" ]; then
-    echo "$diff"
-    echo "To fix:"
-    echo "  bazel run :gazelle"
-    result=1
+for workspace_dir in $(find -name WORKSPACE -printf "%h\n"); do
+  bzl="$workspace_dir/BUILD.bazel"
+  if [ -e "$bzl" ] && grep -q "gazelle(" "$bzl"; then
+    # This calls gazelle for every workspace, affected or not.
+    if [ -n "$go_files" -o -n "$build_files" ]; then
+      diff=$(cd ${workspace_dir} && bazel run :gazelle -- -mode=diff 2>/dev/null)
+      if [ -n "$diff" ]; then
+        echo "$diff"
+        echo "To fix:"
+        echo "  bazel run :gazelle"
+        result=1
+      fi
+    fi
   fi
-fi
-
+done
 
 # Check for labels added by the unhelpful buildozer command from Bazel:
 # https://github.com/bazelbuild/bazel/issues/4584
