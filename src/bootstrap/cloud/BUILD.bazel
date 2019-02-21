@@ -59,7 +59,7 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "cloud-robotics-core",
+    name = "crc-binary",
     srcs = [
         "INSTALL_FROM_BINARY",
     ],
