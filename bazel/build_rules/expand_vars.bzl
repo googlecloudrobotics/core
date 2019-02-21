@@ -17,7 +17,7 @@ def _expand_vars_impl(ctx):
 expand_vars = rule(
     implementation = _expand_vars_impl,
     attrs = {
-        "template": attr.label(mandatory = True, allow_files = True, single_file = True),
+        "template": attr.label(mandatory = True, allow_single_file = True),
         "out": attr.output(mandatory = False),
         "substitutions": attr.string_dict(mandatory = False),
     },

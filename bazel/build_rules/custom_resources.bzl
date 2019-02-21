@@ -21,8 +21,7 @@ custom_resource_java = rule(
         "version": attr.string(mandatory = True),
         "_template": attr.label(
             default = Label("//bazel/build_rules:CustomResource.java.template"),
-            allow_files = True,
-            single_file = True,
+            allow_single_file = True,
         ),
     },
     outputs = {"source_file": "%{name}.java"},

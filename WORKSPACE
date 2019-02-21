@@ -873,10 +873,10 @@ maven_dependencies()
 # https://github.com/bazelbuild/rules_python/issues/14
 http_archive(
     name = "io_bazel_rules_python",
-    sha256 = "71990f9dbdd9817607e1427889e3db01e04a0840841ac14d9c21df6d0940cf2a",
-    strip_prefix = "rules_python-e092647bd5d33858041e61f018e19f4026c6fc46",
+    sha256 = "2cd567d61cae56631db1e7ef39471f7904bbba1df4ba1f88da5bc014ca25e991",
+    strip_prefix = "rules_python-0b13b922d7230c3eceb069140fae6beb5d1a44b9",
     urls = [
-        "https://github.com/drigz/rules_python/archive/e092647bd5d33858041e61f018e19f4026c6fc46.tar.gz",
+        "https://github.com/drigz/rules_python/archive/0b13b922d7230c3eceb069140fae6beb5d1a44b9.tar.gz",
     ],
 )
 
