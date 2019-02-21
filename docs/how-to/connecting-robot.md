@@ -17,10 +17,8 @@ Once you've done this, you can:
 1. On the computer you used to set up the cloud project, generate an access token, which you'll use to give the robot access to the cloud:
 
     ```
-    gcloud auth application-default print-access-token --project [PROJECT_ID]
+    gcloud auth application-default print-access-token
     ```
-
-Replace `[PROJECT_ID]` with your GCP project ID.
 
 ## Installing the cluster on the robot
 
