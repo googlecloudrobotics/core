@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
@@ -111,8 +112,12 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 	// We just enqueue all AppRollouts again.
 	err = c.Watch(
 		&source.Kind{Type: &registry.Robot{}},
+		// We log robot events for now while b/125308238 persists.
+		// To mitigate the effects we defer enqueueing in the delete handler
+		// so the robot ideally reappeared before we reconcile.
 		&handler.Funcs{
 			CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+				log.Printf("AppRollout controller received create event for Robot %q", e.Meta.GetName())
 				r.enqueueAll(q)
 			},
 			UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
@@ -125,7 +130,10 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 				}
 			},
 			DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				r.enqueueAll(q)
+				log.Printf("AppRollout controller received delete event for Robot %q", e.Meta.GetName())
+				time.AfterFunc(3*time.Second, func() {
+					r.enqueueAll(q)
+				})
 			},
 		},
 	)
