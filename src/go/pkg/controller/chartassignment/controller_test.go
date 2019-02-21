@@ -102,7 +102,7 @@ spec:
 	}
 
 	// First apply, the chart should be installed.
-	if err := r.applyChart(&as); err != nil {
+	if _, err := r.applyChart(&as); err != nil {
 		t.Fatal(err)
 	}
 	verifyRelease(t, r.helm, as.Name, 1, wantValues)
@@ -136,7 +136,7 @@ spec:
 	}
 
 	// First apply, the chart should be installed.
-	if err := r.applyChart(&as); err != nil {
+	if _, err := r.applyChart(&as); err != nil {
 		t.Fatal(err)
 	}
 	// Apply the chart again with changed values should upgrade the
@@ -148,7 +148,7 @@ spec:
 		"bar2": chartutil.Values{"baz2": "test"},
 		"foo1": chartutil.Values{"baz1": "hello"},
 	}
-	if err := r.applyChart(&as); err != nil {
+	if _, err := r.applyChart(&as); err != nil {
 		t.Fatal(err)
 	}
 	verifyRelease(t, r.helm, as.Name, 2, wantValues)

@@ -25,12 +25,12 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
@@ -241,22 +241,23 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 
 	log.Printf("Apply chart for ChartAssignemnt %q", as.Name)
 
-	err := r.applyChart(as)
+	updated, err := r.applyChart(as)
+
+	updatedCond := core.ConditionFalse
+	if updated {
+		updatedCond = core.ConditionTrue
+	}
 	if _, ok := err.(errMalformedChart); ok {
 		// We didn't update successfully but the malformed chart is a permanent
 		// failure, so we won't reapply the chart next time.
 		setCondition(as, apps.ChartAssignmentConditionMalformedChart, core.ConditionTrue, err.Error())
-		setCondition(as, apps.ChartAssignmentConditionUpdated, core.ConditionFalse, "malformed chart")
-	} else if err == errSkipChartUpdate {
-		// Nothing to do.
+		setCondition(as, apps.ChartAssignmentConditionUpdated, updatedCond, "")
 	} else if err != nil {
-		// Any other error (e.g. Tiller unreachable). We'll retry on the next
-		// reconciliation.
 		setCondition(as, apps.ChartAssignmentConditionMalformedChart, core.ConditionFalse, "")
-		setCondition(as, apps.ChartAssignmentConditionUpdated, core.ConditionFalse, err.Error())
+		setCondition(as, apps.ChartAssignmentConditionUpdated, updatedCond, err.Error())
 	} else {
-		setCondition(as, apps.ChartAssignmentConditionUpdated, core.ConditionTrue, "")
 		setCondition(as, apps.ChartAssignmentConditionMalformedChart, core.ConditionFalse, "")
+		setCondition(as, apps.ChartAssignmentConditionMalformedChart, updatedCond, "")
 	}
 
 	if serr := r.setStatus(ctx, as); serr != nil {
@@ -332,9 +333,11 @@ type errMalformedChart struct {
 	error
 }
 
-// applyChart installs or updates the chart.
-// It indicates whether a failure may be resolved by retrying.
-func (r *Reconciler) applyChart(as *apps.ChartAssignment) (err error) {
+// applyChart installs or updates the chart. It returns true if the Chart could be applied
+// to helm irrespective of whether its deployment failed.
+// It returns an errMalformedChart, if the chart was broken so that deployment could
+// not even be attempted.
+func (r *Reconciler) applyChart(as *apps.ChartAssignment) (updated bool, err error) {
 	var (
 		cspec   = as.Spec.Chart
 		archive io.Reader
@@ -344,21 +347,21 @@ func (r *Reconciler) applyChart(as *apps.ChartAssignment) (err error) {
 	} else {
 		archive, err = r.fetchChartTar(cspec.Repository, cspec.Name, cspec.Version)
 		if err != nil {
-			return errMalformedChart{fmt.Errorf("retrieving chart failed: %s", err)}
+			return false, errMalformedChart{fmt.Errorf("retrieving chart failed: %s", err)}
 		}
 	}
 	c, err := chartutil.LoadArchive(archive)
 	if err != nil {
-		return errMalformedChart{fmt.Errorf("loading chart failed: %s", err)}
+		return false, errMalformedChart{fmt.Errorf("loading chart failed: %s", err)}
 	}
 
 	// Ensure charts in requirements.yaml are actually in packaged in.
 	if req, err := chartutil.LoadRequirements(c); err == nil {
 		if err := renderutil.CheckDependencies(c, req); err != nil {
-			return errMalformedChart{fmt.Errorf("chart dependency error: %s", err)}
+			return false, errMalformedChart{fmt.Errorf("chart dependency error: %s", err)}
 		}
 	} else if err != chartutil.ErrRequirementsNotFound {
-		return errMalformedChart{fmt.Errorf("cannot load requirements: %v", err)}
+		return false, errMalformedChart{fmt.Errorf("cannot load requirements: %v", err)}
 	}
 
 	// Build the full set of values including the default ones. Even though
@@ -366,54 +369,60 @@ func (r *Reconciler) applyChart(as *apps.ChartAssignment) (err error) {
 	// them explicitly.
 	vals, err := chartutil.ReadValues([]byte(c.Values.Raw))
 	if err != nil {
-		return errMalformedChart{fmt.Errorf("reading chart values failed: %s", err)}
+		return false, errMalformedChart{fmt.Errorf("reading chart values failed: %s", err)}
 	}
 	vals.MergeInto(chartutil.Values(as.Spec.Chart.Values)) // ChartAssignment values.
 
 	valsRaw, err := vals.YAML()
 	if err != nil {
-		return errMalformedChart{fmt.Errorf("encoding values failed: %s", err)}
+		return false, errMalformedChart{fmt.Errorf("encoding values failed: %s", err)}
 	}
 
 	// Install if the release doesn't exist yet, update otherwise.
+	var applyErr error
+
 	cur, err := r.helm.ReleaseContent(as.Name)
 	if err != nil {
 		if !strings.Contains(err.Error(), "not found") {
-			return fmt.Errorf("getting release status failed: %s", err)
+			return false, fmt.Errorf("getting release status failed: %s", err)
 		}
 		// First instance of this release for the namespace.
-		_, err = r.helm.InstallReleaseFromChart(c, as.Spec.NamespaceName,
+		_, applyErr = r.helm.InstallReleaseFromChart(c, as.Spec.NamespaceName,
 			hclient.ReleaseName(as.Name),
 			hclient.InstallTimeout(tillerTimeout),
 			hclient.ValueOverrides([]byte(valsRaw)),
 		)
-		if err != nil {
-			return fmt.Errorf("chart installation failed: %s", err)
+		if applyErr != nil {
+			applyErr = fmt.Errorf("chart installation failed: %s", applyErr)
 		}
-		return nil
-	}
-	// Skip noop updates so we don't keep bumping the revision.
-	if reflect.DeepEqual(cur.Release.Chart, c) && cur.Release.Config.Raw == valsRaw {
+	} else if proto.Equal(cur.Release.Chart, c) && cur.Release.Config.Raw == valsRaw {
+		// Skip upgrade if contents didn't change. This allows us to retry applyChart
+		// on any kind of error without creating an indefinite amount of new releases.
 		log.Printf("Chart for ChartAssignment %q did not change, skipping", as.Name)
-		return errSkipChartUpdate
+		return true, nil
+	} else {
+		_, applyErr = r.helm.UpdateReleaseFromChart(as.Name, c,
+			hclient.UpgradeForce(true),
+			hclient.UpgradeTimeout(tillerTimeout),
+			hclient.UpdateValueOverrides([]byte(valsRaw)),
+		)
+		if err != nil {
+			applyErr = fmt.Errorf("chart update failed: %s", applyErr)
+		}
 	}
-	// Skip upgrade if contents didn't change. This allows us to retry applyChart
-	// on any kind of error without creating an indefinite amount of new releases.
-	//
-	// TODO(freinartz): consider checking equality with the last revision if we end
-	// up spinning in update attempts in practice.
-	_, err = r.helm.UpdateReleaseFromChart(as.Name, c,
-		hclient.UpgradeForce(true),
-		hclient.UpgradeTimeout(tillerTimeout),
-		hclient.UpdateValueOverrides([]byte(valsRaw)),
-	)
+	// Check Helm again whether the update went through.
+	rel, err := r.helm.ReleaseContent(as.Name)
 	if err != nil {
-		return fmt.Errorf("chart update failed: %s", err)
+		if strings.Contains(err.Error(), "not found") {
+			return false, applyErr
+		}
+		return false, fmt.Errorf("get release content: %s", err)
 	}
-	return nil
+	if !proto.Equal(rel.Release.Chart, c) || rel.Release.Config.Raw != valsRaw {
+		return false, applyErr
+	}
+	return true, applyErr
 }
-
-var errSkipChartUpdate = fmt.Errorf("skip chart update")
 
 // ensureDeleted ensures that the Helm release is deleted and the finalizer gets removed.
 func (r *Reconciler) ensureDeleted(ctx context.Context, as *apps.ChartAssignment) error {
@@ -539,7 +548,7 @@ func decodeReleaseAction(s string) releaseAction {
 	}
 	// a revision is described as deleted if it previously failed and was
 	// replaced by a new version.
-	if strings.Contains(s, "delete") {
+	if strings.Contains(s, "delete") || strings.Contains(s, "deletion") {
 		return releaseActionDeleted
 	}
 	// There appear to be no descriptions before complete/fail, which hints
