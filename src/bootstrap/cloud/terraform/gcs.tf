@@ -14,7 +14,7 @@ resource "google_storage_bucket_object" "setup_robot_image_reference" {
 }
 
 resource "google_storage_object_access_control" "setup_robot_image_reference_ac" {
-  object = "${google_storage_bucket_object.setup_robot_image_reference.name}"
+  object = "${google_storage_bucket_object.setup_robot_image_reference.output_name}"
   bucket = "${google_storage_bucket.robot.name}"
   role   = "READER"
   entity = "allUsers"
@@ -28,7 +28,7 @@ resource "google_storage_bucket_object" "setup_robot" {
 }
 
 resource "google_storage_object_access_control" "setup_robot_ac" {
-  object = "${google_storage_bucket_object.setup_robot.name}"
+  object = "${google_storage_bucket_object.setup_robot.output_name}"
   bucket = "${google_storage_bucket.robot.name}"
   role   = "READER"
   entity = "allUsers"
@@ -42,7 +42,7 @@ resource "google_storage_bucket_object" "install_k8s_on_robot" {
 }
 
 resource "google_storage_object_access_control" "install_k8s_on_robot_ac" {
-  object = "${google_storage_bucket_object.install_k8s_on_robot.name}"
+  object = "${google_storage_bucket_object.install_k8s_on_robot.output_name}"
   bucket = "${google_storage_bucket.robot.name}"
   role   = "READER"
   entity = "allUsers"
