@@ -4,11 +4,18 @@
 
 result=0
 
+# Allow to call the pre-commit hook with a list of files. This allows to run the
+# script from the command line like this to check all files:
+# $ ./scripts/pre-commit $(git ls-files)
+files="$@"
+if [ -z "$files" ]; then
+  files="$(git diff --name-only --staged --diff-filter=ACMRTUXB)"
+fi
 
 function files_matching {
   # The diff-filter lists all but deleted files. The `echo` puts the output on
   # one line for easier copy-pasting.
-  echo $(git diff --name-only --staged --diff-filter=ACMRTUXB | grep -E "$1")
+  echo $(echo "$files" | tr ' ' '\n' | grep -E "$1")
 }
 
 go_files=$(files_matching "\.go$")
@@ -38,7 +45,7 @@ if [ -n "$py_files" ]; then
   fi
 fi
 
-build_files=$(git diff --name-only --staged --diff-filter=ACMRTUXB \
+build_files=$(echo "$files" | tr ' ' '\n' \
   | grep -E "BUILD|WORKSPACE|[.]bzl" \
   | grep -v "maven_dependencies.bzl" \
   | grep -v "third_party/java")
@@ -131,7 +138,7 @@ fi
 tf_files=$(files_matching "\.tf$")
 
 if [ -n "$tf_files" ]; then
-  tf_dirs=$(for f in $(git ls-files *.tf); do dirname $f; done | sort | uniq)
+  tf_dirs=$(for f in "$tf_files"; do dirname $f; done | sort | uniq)
   for tf_dir in $tf_dirs; do
     diff=$($HOME/.cache/cloud-robotics/terraform fmt -write=false $tf_dir)
     if [ -n "$diff" ]; then
