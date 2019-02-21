@@ -137,13 +137,15 @@ fi
 
 tf_files=$(files_matching "\.tf$")
 
+# Caveat when moving to Terraform-from-bazel: This script is also used from the
+# apps repo, which doesn't have a top-level bazel-out directory.
+TERRAFORM="$HOME/.cache/cloud-robotics/terraform"
 if [ -n "$tf_files" ]; then
   tf_dirs=$(for f in "$tf_files"; do dirname $f; done | sort | uniq)
   for tf_dir in $tf_dirs; do
-    diff=$($HOME/.cache/cloud-robotics/terraform fmt -write=false $tf_dir)
-    if [ -n "$diff" ]; then
-      echo "$diff" | grep "$tf_dir"
-      echo "To fix, run: $HOME/.cache/cloud-robotics/terraform fmt $tf_dir"
+    if ! ${TERRAFORM} fmt -write=false -list=false -check=true $tf_dir; then
+      ${TERRAFORM} fmt -write=false -list=false -diff=true $tf_dir
+      echo "To fix, run: ${TERRAFROM} fmt $tf_dir"
       result=1
     fi
   done
