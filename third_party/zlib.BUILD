@@ -42,7 +42,7 @@ cc_library(
             "contrib/amd64/amd64-match.S",
         ],
         "//conditions:default": [
-        ]
+        ],
     }),
     hdrs = [
         "zlib.h",

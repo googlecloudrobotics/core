@@ -33,9 +33,9 @@ import javax.inject.Inject;
 
 /**
  * The TokenVendorHandler implements a token exchange handler.
- * 
- * <p>It returns a JWT for the configured tokenSource in exchange for a JWT
- * validated by the configured tokenVerifier.
+ *
+ * <p>It returns a JWT for the configured tokenSource in exchange for a JWT validated by the
+ * configured tokenVerifier.
  */
 class TokenVendorHandler implements HttpHandler {
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
