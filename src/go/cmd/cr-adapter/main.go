@@ -568,8 +568,10 @@ func updateResourceInfoRepository(done <-chan struct{}, config *rest.Config) err
 func main() {
 	var kubeconfig string
 	var master string
+	var port int
 
 	flag.StringVar(&kubeconfig, "k", "", "absolute path to the kubeconfig file")
+	flag.IntVar(&port, "p", 50051, "Listening port of gRPC server")
 	flag.StringVar(&master, "m", "", "master URL")
 
 	flag.Parse()
@@ -589,7 +591,7 @@ func main() {
 	}()
 
 	// Start gRPC server.
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", 50051))
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
