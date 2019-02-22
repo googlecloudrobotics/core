@@ -4,7 +4,7 @@
 # cd ..
 # git clone https://github.com/johnynek/bazel-deps
 # cd bazel-deps
-# git checkout d90766f16fa15fe3b9c476c11f9739039d845361
+# git checkout e3f77e22d9f5b070915067a766607cfc96835c98
 # bazel build src/scala/com/github/johnynek/bazel_deps:parseproject_deploy.jar
 # cd ../cloud-robotics
 # ../bazel-deps/gen_maven_deps.sh generate -r $PWD -s third_party/maven_dependencies.bzl -d third_party/maven_dependencies.yaml

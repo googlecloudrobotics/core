@@ -3,7 +3,8 @@ licenses(["notice"])
 java_library(
     name = "jul_to_slf4j",
     exports = [
-        "//external:jar/org/slf4j/jul_to_slf4j"
+        "//external:jar/org/slf4j/jul_to_slf4j",
+        ":slf4j_api"
     ],
     visibility = [
         "//third_party/java:__subpackages__"

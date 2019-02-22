@@ -17,7 +17,8 @@ java_library(
 java_library(
     name = "google_http_client_appengine",
     exports = [
-        "//external:jar/com/google/http_client/google_http_client_appengine"
+        "//external:jar/com/google/http_client/google_http_client_appengine",
+        ":google_http_client"
     ],
     visibility = [
         "//third_party/java:__subpackages__"
@@ -30,7 +31,8 @@ java_library(
     name = "google_http_client_jackson",
     exports = [
         "//external:jar/com/google/http_client/google_http_client_jackson",
-        "//third_party/java/org/codehaus/jackson:jackson_core_asl"
+        "//third_party/java/org/codehaus/jackson:jackson_core_asl",
+        ":google_http_client"
     ],
     visibility = [
         "//third_party/java:__subpackages__"
@@ -56,7 +58,9 @@ java_library(
 java_library(
     name = "google_http_client_protobuf",
     exports = [
-        "//external:jar/com/google/http_client/google_http_client_protobuf"
+        "//external:jar/com/google/http_client/google_http_client_protobuf",
+        "//third_party/java/com/google/protobuf:protobuf_java",
+        ":google_http_client"
     ],
     visibility = [
         "//third_party/java:__subpackages__"

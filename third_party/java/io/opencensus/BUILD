@@ -30,7 +30,11 @@ java_library(
 java_library(
     name = "opencensus_contrib_http_util",
     exports = [
-        "//external:jar/io/opencensus/opencensus_contrib_http_util"
+        "//external:jar/io/opencensus/opencensus_contrib_http_util",
+        "//third_party/java/com/google/code/findbugs:jsr305",
+        "//third_party/java/com/google/errorprone:error_prone_annotations",
+        "//third_party/java/com/google/guava:guava",
+        ":opencensus_api"
     ],
     visibility = [
         "//third_party/java:__subpackages__"

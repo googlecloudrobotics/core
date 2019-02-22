@@ -18,7 +18,8 @@ java_library(
     name = "sundr_codegen",
     exports = [
         "//external:jar/io/sundr/sundr_codegen",
-        "//third_party/java/org/apache/velocity:velocity"
+        "//third_party/java/org/apache/velocity:velocity",
+        ":sundr_core"
     ],
     visibility = [
         "//third_party/java:__subpackages__"

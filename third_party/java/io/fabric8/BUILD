@@ -70,7 +70,9 @@ java_library(
 java_library(
     name = "zjsonpatch",
     exports = [
-        "//external:jar/io/fabric8/zjsonpatch"
+        "//external:jar/io/fabric8/zjsonpatch",
+        "//third_party/java/com/fasterxml/jackson/core:jackson_core",
+        "//third_party/java/com/fasterxml/jackson/core:jackson_databind"
     ],
     visibility = [
         "//third_party/java:__subpackages__"

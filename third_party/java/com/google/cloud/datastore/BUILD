@@ -4,7 +4,13 @@ java_library(
     name = "datastore_v1_proto_client",
     exports = [
         "//external:jar/com/google/cloud/datastore/datastore_v1_proto_client",
-        "//third_party/java/com/google/http_client:google_http_client_protobuf"
+        "//third_party/java/com/google/api/grpc:proto_google_cloud_datastore_v1",
+        "//third_party/java/com/google/api_client:google_api_client",
+        "//third_party/java/com/google/guava:guava",
+        "//third_party/java/com/google/http_client:google_http_client",
+        "//third_party/java/com/google/http_client:google_http_client_jackson",
+        "//third_party/java/com/google/http_client:google_http_client_protobuf",
+        "//third_party/java/com/google/oauth_client:google_oauth_client"
     ],
     visibility = [
         "//third_party/java:__subpackages__"

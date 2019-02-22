@@ -4,7 +4,9 @@ java_library(
     name = "proto_google_cloud_datastore_v1",
     exports = [
         "//external:jar/com/google/api/grpc/proto_google_cloud_datastore_v1",
-        "//third_party/java/com/google/protobuf:protobuf_java"
+        "//third_party/java/com/google/api:api_common",
+        "//third_party/java/com/google/protobuf:protobuf_java",
+        ":proto_google_common_protos"
     ],
     visibility = [
         "//third_party/java:__subpackages__"
@@ -16,7 +18,8 @@ java_library(
 java_library(
     name = "proto_google_common_protos",
     exports = [
-        "//external:jar/com/google/api/grpc/proto_google_common_protos"
+        "//external:jar/com/google/api/grpc/proto_google_common_protos",
+        "//third_party/java/com/google/protobuf:protobuf_java"
     ],
     visibility = [
         "//third_party/java:__subpackages__"
@@ -28,7 +31,10 @@ java_library(
 java_library(
     name = "proto_google_iam_v1",
     exports = [
-        "//external:jar/com/google/api/grpc/proto_google_iam_v1"
+        "//external:jar/com/google/api/grpc/proto_google_iam_v1",
+        "//third_party/java/com/google/api:api_common",
+        "//third_party/java/com/google/protobuf:protobuf_java",
+        ":proto_google_common_protos"
     ],
     visibility = [
         "//third_party/java:__subpackages__"

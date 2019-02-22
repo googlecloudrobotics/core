@@ -67,7 +67,9 @@ java_library(
 java_library(
     name = "grpc_protobuf_lite",
     exports = [
-        "//external:jar/io/grpc/grpc_protobuf_lite"
+        "//external:jar/io/grpc/grpc_protobuf_lite",
+        "//third_party/java/com/google/guava:guava",
+        ":grpc_core"
     ],
     visibility = [
         "//third_party/java:__subpackages__"
@@ -95,7 +97,8 @@ java_library(
 java_library(
     name = "grpc_stub",
     exports = [
-        "//external:jar/io/grpc/grpc_stub"
+        "//external:jar/io/grpc/grpc_stub",
+        ":grpc_core"
     ],
     visibility = [
         "//third_party/java:__subpackages__"

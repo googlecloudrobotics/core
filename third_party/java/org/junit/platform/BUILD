@@ -3,7 +3,8 @@ licenses(["notice"])
 java_library(
     name = "junit_platform_commons",
     exports = [
-        "//external:jar/org/junit/platform/junit_platform_commons"
+        "//external:jar/org/junit/platform/junit_platform_commons",
+        "//third_party/java/org/apiguardian:apiguardian_api"
     ],
     visibility = [
         "//third_party/java:__subpackages__"

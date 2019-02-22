@@ -3,7 +3,8 @@ licenses(["notice"])
 java_library(
     name = "logging_interceptor",
     exports = [
-        "//external:jar/com/squareup/okhttp3/logging_interceptor"
+        "//external:jar/com/squareup/okhttp3/logging_interceptor",
+        ":okhttp"
     ],
     visibility = [
         "//third_party/java:__subpackages__"

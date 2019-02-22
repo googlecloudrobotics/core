@@ -15,7 +15,8 @@ java_library(
 java_library(
     name = "simpleclient_common",
     exports = [
-        "//external:jar/io/prometheus/simpleclient_common"
+        "//external:jar/io/prometheus/simpleclient_common",
+        ":simpleclient"
     ],
     visibility = [
         "//third_party/java:__subpackages__"
