@@ -571,7 +571,7 @@ func main() {
 	var port int
 
 	flag.StringVar(&kubeconfig, "k", "", "absolute path to the kubeconfig file")
-	flag.IntVar(&port, "p", 50051, "Listening port of gRPC server")
+	flag.IntVar(&port, "p", 50053, "listening port of gRPC server")
 	flag.StringVar(&master, "m", "", "master URL")
 
 	flag.Parse()
