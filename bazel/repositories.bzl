@@ -605,10 +605,10 @@ cc_library(
     _maybe(
         http_archive,
         name = "com_github_bazelbuild_buildtools",
-        sha256 = "d42e4c9727958bc5814d3bc44f19db5a24f419436cbba09f1e8913eb4a09da31",
-        strip_prefix = "buildtools-0.19.2.1",
+        sha256 = "7525deb4d74e3aa4cb2b960da7d1c400257a324be4e497f75d265f2f508c518f",
+        strip_prefix = "buildtools-0.22.0",
         urls = [
-            "https://github.com/bazelbuild/buildtools/archive/0.19.2.1.tar.gz",
+            "https://github.com/bazelbuild/buildtools/archive/0.22.0.tar.gz",
         ],
     )
 
