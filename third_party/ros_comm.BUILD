@@ -163,6 +163,35 @@ cc_library(
     ],
 )
 
+rosmsg(
+    name = "topic_tools",
+    srcs = glob([
+        "tools/topic_tools/srv/*.srv",
+    ]),
+    deps = [
+        "@com_github_ros_std_msgs//:std_msgs",
+    ],
+)
+
+cc_library(
+    name = "topic_tools",
+    srcs = glob([
+        "tools/topic_tools/src/*.cpp",
+    ]),
+    hdrs = glob([
+        "tools/topic_tools/include/topic_tools/*.h",
+    ]),
+    includes = ["tools/topic_tools/include"],
+    deps = [
+        ":roscpp_lib",
+        ":topic_tools_cpp",
+        "@com_github_ros_roscpp_core//:cpp_common",
+        "@com_github_ros_roscpp_core//:roscpp_serialization",
+        "@com_github_ros_roscpp_core//:roscpp_traits",
+        "@com_github_ros_roscpp_core//:rostime",
+    ],
+)
+
 filegroup(
     name = "rosout_files",
     srcs = [
