@@ -251,13 +251,16 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 		// We didn't update successfully but the malformed chart is a permanent
 		// failure, so we won't reapply the chart next time.
 		setCondition(as, apps.ChartAssignmentConditionMalformedChart, core.ConditionTrue, err.Error())
+		setCondition(as, apps.ChartAssignmentConditionUpdated, updatedCond, "Malformed Chart")
+	} else if err == errChartSkipped {
+		setCondition(as, apps.ChartAssignmentConditionMalformedChart, core.ConditionFalse, "Chart OK")
 		setCondition(as, apps.ChartAssignmentConditionUpdated, updatedCond, "")
 	} else if err != nil {
-		setCondition(as, apps.ChartAssignmentConditionMalformedChart, core.ConditionFalse, "")
+		setCondition(as, apps.ChartAssignmentConditionMalformedChart, core.ConditionFalse, "Chart OK")
 		setCondition(as, apps.ChartAssignmentConditionUpdated, updatedCond, err.Error())
 	} else {
-		setCondition(as, apps.ChartAssignmentConditionMalformedChart, core.ConditionFalse, "")
-		setCondition(as, apps.ChartAssignmentConditionMalformedChart, updatedCond, "")
+		setCondition(as, apps.ChartAssignmentConditionMalformedChart, core.ConditionFalse, "Chart OK")
+		setCondition(as, apps.ChartAssignmentConditionUpdated, updatedCond, "Chart up to date")
 	}
 
 	if serr := r.setStatus(ctx, as); serr != nil {
@@ -333,10 +336,14 @@ type errMalformedChart struct {
 	error
 }
 
+var errChartSkipped = fmt.Errorf("skipped chart")
+
 // applyChart installs or updates the chart. It returns true if the Chart could be applied
 // to helm irrespective of whether its deployment failed.
 // It returns an errMalformedChart, if the chart was broken so that deployment could
 // not even be attempted.
+// It returns errChartSkipped if the most recent release revision already matches the
+// intended one.
 func (r *Reconciler) applyChart(as *apps.ChartAssignment) (updated bool, err error) {
 	var (
 		cspec   = as.Spec.Chart
@@ -399,7 +406,7 @@ func (r *Reconciler) applyChart(as *apps.ChartAssignment) (updated bool, err err
 		// Skip upgrade if contents didn't change. This allows us to retry applyChart
 		// on any kind of error without creating an indefinite amount of new releases.
 		log.Printf("Chart for ChartAssignment %q did not change, skipping", as.Name)
-		return true, nil
+		return true, errChartSkipped
 	} else {
 		_, applyErr = r.helm.UpdateReleaseFromChart(as.Name, c,
 			hclient.UpgradeForce(true),
