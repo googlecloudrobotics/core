@@ -364,14 +364,16 @@ func generateChartAssignments(
 		if err != nil {
 			return nil, errors.Wrap(err, "select robots")
 		}
-		for _, r := range robots {
+		for i := range robots {
+			// Ensure we don't pass a pointer to the most recent loop item.
+			r := &robots[i]
 			// No robot must be selected multiple times.
 			if _, ok := selectedRobots[r.Name]; ok {
 				return nil, errRobotSelectorOverlap(r.Name)
 			}
-			selectedRobots[r.Name] = &r
+			selectedRobots[r.Name] = r
 
-			cas = append(cas, newRobotChartAssignment(&r, app, rollout, &rcomp, baseValues))
+			cas = append(cas, newRobotChartAssignment(r, app, rollout, &rcomp, baseValues))
 		}
 	}
 	if comps.Cloud.Name != "" || comps.Cloud.Inline != "" {
