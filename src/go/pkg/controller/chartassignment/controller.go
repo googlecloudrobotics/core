@@ -39,6 +39,7 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	record "k8s.io/client-go/tools/record"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/downloader"
 	"k8s.io/helm/pkg/getter"
@@ -71,9 +72,10 @@ func Add(mgr manager.Manager, cluster, tillerHost string) error {
 	}
 	c, err := controller.New("chartassignment", mgr, controller.Options{
 		Reconciler: &Reconciler{
-			kube:    mgr.GetClient(),
-			helm:    hclient.NewClient(hclient.Host(tillerHost)),
-			cluster: cluster,
+			kube:     mgr.GetClient(),
+			helm:     hclient.NewClient(hclient.Host(tillerHost)),
+			recorder: mgr.GetRecorder("chartassignment-controller"),
+			cluster:  cluster,
 		},
 	})
 	if err != nil {
@@ -92,9 +94,10 @@ func Add(mgr manager.Manager, cluster, tillerHost string) error {
 // Reconciler provides an idempotent function that brings the cluster into a
 // state consistent with the specification of a ChartAssignment.
 type Reconciler struct {
-	kube    kclient.Client
-	helm    hclient.Interface
-	cluster string // Cluster for which to handle AppAssignments.
+	kube     kclient.Client
+	helm     hclient.Interface
+	recorder record.EventRecorder
+	cluster  string // Cluster for which to handle AppAssignments.
 }
 
 // Reconcile creates and updates a Helm release for the given chart assignment.
@@ -223,8 +226,6 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 			return reconcile.Result{}, fmt.Errorf("fetch history: %s", err)
 		}
 		if failed, rev := releaseFailed(history.Releases); failed && rev >= 0 {
-			log.Printf("Rollback ChartAssignment %q", as.Name)
-			// Permanent failure and no revision we can rollback to.
 			if err := r.rollbackChart(as, rev); err != nil {
 				return reconcile.Result{}, fmt.Errorf("rollback to revision %d failed: %s", rev, err)
 			}
@@ -324,11 +325,18 @@ func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) er
 // rollbackChart will rollback the chart to the previous revision if it exists
 // and wasn't a rollback itself.
 func (r *Reconciler) rollbackChart(as *apps.ChartAssignment, rev int32) error {
+	r.recorder.Eventf(as, core.EventTypeNormal, "RollbackChart", "rolling back chart to revision %d", rev)
+
 	_, err := r.helm.RollbackRelease(as.Name,
 		hclient.RollbackForce(true),
 		hclient.RollbackTimeout(tillerTimeout),
 		hclient.RollbackVersion(rev),
 	)
+	if err != nil {
+		r.recorder.Eventf(as, core.EventTypeWarning, "Failure", "chart rollback failed: %s", err)
+	} else {
+		r.recorder.Event(as, core.EventTypeNormal, "Success", "chart rolled back successfully")
+	}
 	return err
 }
 
@@ -342,8 +350,6 @@ var errChartSkipped = fmt.Errorf("skipped chart")
 // to helm irrespective of whether its deployment failed.
 // It returns an errMalformedChart, if the chart was broken so that deployment could
 // not even be attempted.
-// It returns errChartSkipped if the most recent release revision already matches the
-// intended one.
 func (r *Reconciler) applyChart(as *apps.ChartAssignment) (updated bool, err error) {
 	var (
 		cspec   = as.Spec.Chart
@@ -393,6 +399,7 @@ func (r *Reconciler) applyChart(as *apps.ChartAssignment) (updated bool, err err
 		if !strings.Contains(err.Error(), "not found") {
 			return false, fmt.Errorf("getting release status failed: %s", err)
 		}
+		r.recorder.Event(as, core.EventTypeNormal, "InstallChart", "installing chart for the first time")
 		// First instance of this release for the namespace.
 		_, applyErr = r.helm.InstallReleaseFromChart(c, as.Spec.NamespaceName,
 			hclient.ReleaseName(as.Name),
@@ -401,20 +408,28 @@ func (r *Reconciler) applyChart(as *apps.ChartAssignment) (updated bool, err err
 		)
 		if applyErr != nil {
 			applyErr = fmt.Errorf("chart installation failed: %s", applyErr)
+			r.recorder.Event(as, core.EventTypeWarning, "Failure", applyErr.Error())
+		} else {
+			r.recorder.Event(as, core.EventTypeNormal, "Success", "chart installed successfully")
 		}
 	} else if proto.Equal(cur.Release.Chart, c) && cur.Release.Config.Raw == valsRaw {
 		// Skip upgrade if contents didn't change. This allows us to retry applyChart
 		// on any kind of error without creating an indefinite amount of new releases.
-		log.Printf("Chart for ChartAssignment %q did not change, skipping", as.Name)
+		r.recorder.Event(as, core.EventTypeNormal, "Skipping", "chart did not change")
 		return true, errChartSkipped
 	} else {
+		r.recorder.Event(as, core.EventTypeNormal, "UpgradeChart", "upgrade chart")
+
 		_, applyErr = r.helm.UpdateReleaseFromChart(as.Name, c,
 			hclient.UpgradeForce(true),
 			hclient.UpgradeTimeout(tillerTimeout),
 			hclient.UpdateValueOverrides([]byte(valsRaw)),
 		)
-		if err != nil {
-			applyErr = fmt.Errorf("chart update failed: %s", applyErr)
+		if applyErr != nil {
+			applyErr = fmt.Errorf("chart upgrade failed: %s", applyErr)
+			r.recorder.Event(as, core.EventTypeWarning, "Failure", applyErr.Error())
+		} else {
+			r.recorder.Event(as, core.EventTypeNormal, "Success", "chart upgraded successfully")
 		}
 	}
 	// Check Helm again whether the update went through.

@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/helm"
 	"sigs.k8s.io/yaml"
@@ -93,7 +94,8 @@ spec:
 	as.Spec.Chart.Inline = chart
 
 	r := &Reconciler{
-		helm: &helm.FakeClient{},
+		helm:     &helm.FakeClient{},
+		recorder: &record.FakeRecorder{},
 	}
 	wantValues := chartutil.Values{
 		"bar1": 4,
@@ -132,7 +134,8 @@ spec:
 	as.Spec.Chart.Inline = chart
 
 	r := &Reconciler{
-		helm: &helm.FakeClient{},
+		helm:     &helm.FakeClient{},
+		recorder: &record.FakeRecorder{},
 	}
 
 	// First apply, the chart should be installed.
