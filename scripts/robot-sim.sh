@@ -55,13 +55,9 @@ function create {
   gcloud container clusters get-credentials "${ROBOT_NAME}" \
     --zone=${GCP_ZONE} --project=${GCP_PROJECT_ID}
 
-  IMAGE_REFERENCE=$(bazel run //src/go/cmd/setup-robot:setup-robot.push | cut -d ' ' -f 1)
-
-  ACCESS_TOKEN=$(gcloud auth application-default print-access-token)
-
-  kubectl --context "${GKE_SIM_CONTEXT}" run --attach --rm --restart=Never \
-    setup-robot --image=${IMAGE_REFERENCE} \
-    --env="ACCESS_TOKEN=${ACCESS_TOKEN}" -- \
+  KUBE_CONTEXT=${GKE_SIM_CONTEXT} \
+  ACCESS_TOKEN=$(gcloud auth application-default print-access-token) \
+    $DIR/../src/bootstrap/robot/setup_robot.sh \
     ${ROBOT_NAME} \
     --domain ${PROJECT_DOMAIN} --project ${GCP_PROJECT_ID} \
     --robot-role "${ROBOT_ROLE}" \

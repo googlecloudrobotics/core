@@ -56,6 +56,10 @@ if [[ -z "$PROJECT" ]] ; then
   exit 1
 fi
 
+if [[ -z "${KUBE_CONTEXT}" ]] ; then
+  KUBE_CONTEXT=kubernetes-admin@kubernetes
+fi
+
 # Full reference to the setup-robot image. The default is filled in by a genrule.
 IMAGE_REFERENCE=$(curl -fsSL \
   "https://storage.googleapis.com/${PROJECT}-robot/setup_robot_image_reference.txt") || \
@@ -94,6 +98,6 @@ fi
 docker logout https://${REGISTRY}
 
 # Explicitly specify the context to not run this against the cloud cluster.
-kubectl --context=kubernetes-admin@kubernetes run setup-robot --restart=Never -i --rm \
+kubectl --context="${KUBE_CONTEXT}" run setup-robot --restart=Never -i --rm \
   --image=${IMAGE_REFERENCE} --env="ACCESS_TOKEN=${ACCESS_TOKEN}" -- \
    ${APP_MANAGEMENT} "$@"
