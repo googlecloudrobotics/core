@@ -54,7 +54,7 @@ if [[ ! -r $configbzl ]] ; then
   exit 1
 fi
 if [[ ! -r $configsh ]] ; then
-  echo "ERROR: $CONFIG does not exist or is not readable" >&2
+  echo "ERROR: ${configsh} does not exist or is not readable" >&2
   exit 1
 fi
 

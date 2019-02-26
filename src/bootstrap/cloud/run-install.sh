@@ -18,23 +18,20 @@ set -o pipefail -o errexit
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Usage: ./run-install.sh [cloud-storage-bucket-url] [versioned-tarball]
-if [[ $# -ge 2 ]]; then
-  GCP_BUCKET=${1%/}
-  TARBALL=$2
-elif [[ $# -eq 1 ]]; then
-  if [[ $1 =~ ^https?://.* ]]; then
-    # User entered a url.
-    GCP_BUCKET=${1%/}
-  else
-    TARBALL=$1
-  fi
+BUCKET_URI=${BUCKET_URI:-"https://storage.googleapis.com/cloud-robotics-releases"}
+
+if [[ -e "${CONFIG}" && ! "${CONFIG}" = /* ]]; then
+  # Make config path absolute so deploy.sh will find it.
+  CONFIG="${DIR}/${CONFIG}"
 fi
 
-GCP_BUCKET=${GCP_BUCKET:-"https://storage.googleapis.com/cloud-robotics-releases"}
-TARBALL=${TARBALL:-"crc-rc-latest.tar.gz"}
+# Usage: ./run-install.sh [version-file|versioned-tarball]
+TARGET=${$1:-"latest"}
+if [[ ! TARGET = *.tar.gz ]]; then
+  TARGET=$( curl --silent --show-error --fail "${BUCKET_URI}/${TARGET}" )
+fi
 
-echo "Downloading ${GCP_BUCKET}/${TARBALL}"
-curl --silent --show-error --fail "${GCP_BUCKET}/${TARBALL}" | tar xz
+echo "Downloading ${BUCKET_URI}/${TARGET}"
+curl --silent --show-error --fail "${BUCKET_URI}/${TARGET}" | tar xz
 
 (cd ${DIR}/cloud-robotics-core && ./deploy.sh create)
