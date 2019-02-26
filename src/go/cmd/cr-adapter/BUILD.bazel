@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["main.go"],
+    srcs = [
+        "main.go",
+        "resource_info.go",
+    ],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/cr-adapter",
     visibility = ["//visibility:private"],
     deps = [
