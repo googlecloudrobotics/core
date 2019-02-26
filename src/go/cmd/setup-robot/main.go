@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -53,6 +54,7 @@ var (
 	project             = flag.String("project", "", "Project ID for the Google Cloud Platform")
 	robotRole           = flag.String("robot-role", "", "Robot role. Optional if the robot is already registered.")
 	robotType           = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
+	labels              = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
 	robotAuthentication = flag.Bool("robot-authentication", true, "Set up robot authentication.")
 	appManagement       = flag.Bool("app-management", true, "Set up app management.")
 )
@@ -134,6 +136,10 @@ func main() {
 	if envToken == "" {
 		log.Fatal("ACCESS_TOKEN environment variable is required.")
 	}
+	parsedLabels, err := parseLabels(*labels)
+	if err != nil {
+		log.Fatalf("Invalid labels %q: %s", *labels, err)
+	}
 
 	if err := waitForDNS(); err != nil {
 		log.Fatalf("Failed to resolve cloud cluster: %s. Please retry in 5 minutes.", err)
@@ -143,8 +149,8 @@ func main() {
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: envToken})
 	client := oauth2.NewClient(context.Background(), tokenSource)
 
-	if *robotRole != "" || *robotType != "" {
-		if err := createOrUpdateRobot(tokenSource); err != nil {
+	if *robotRole != "" || *robotType != "" || *labels != "" {
+		if err := createOrUpdateRobot(tokenSource, parsedLabels); err != nil {
 			log.Fatalf("Failed to update robot CR %v: %v", *robotName, err)
 		}
 	}
@@ -280,7 +286,8 @@ func installChartOrDie(name string, chartPath string, projectNumber int64) {
 	}
 }
 
-func createOrUpdateRobot(tokenSource oauth2.TokenSource) error {
+func createOrUpdateRobot(tokenSource oauth2.TokenSource, labels map[string]string) error {
+	labels["cloudrobotics.com/robot-name"] = *robotName
 	// Set up client for cloud k8s cluster (needed only to obtain list of robots).
 	k8sCloudCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, *domain)
 	k8sDynamicClient, err := dynamic.NewForConfig(k8sCloudCfg)
@@ -299,7 +306,7 @@ func createOrUpdateRobot(tokenSource oauth2.TokenSource) error {
 			robot.SetKind("Robot")
 			robot.SetAPIVersion("registry.cloudrobotics.com/v1alpha1")
 			robot.SetName(*robotName)
-			robot.SetLabels(map[string]string{"cloudrobotics.com/robot-name": *robotName})
+			robot.SetLabels(labels)
 			robot.Object["spec"] = map[string]string{
 				"role":    *robotRole,
 				"type":    *robotType,
@@ -321,4 +328,17 @@ func createOrUpdateRobot(tokenSource oauth2.TokenSource) error {
 	spec["project"] = *project
 	_, err = robotClient.Update(robot, metav1.UpdateOptions{})
 	return err
+}
+
+func parseLabels(s string) (map[string]string, error) {
+	lset := map[string]string{}
+
+	for _, l := range strings.Split(s, ",") {
+		parts := strings.SplitN(l, "=", 2)
+		if len(parts) != 2 {
+			return nil, errors.New("not a key/value pair")
+		}
+		lset[parts[0]] = parts[1]
+	}
+	return lset, nil
 }
