@@ -12,7 +12,7 @@ proto_library(
 go_proto_library(
     name = "runtime_go_proto",
     compilers = ["@io_bazel_rules_go//proto:go_grpc"],
-    importpath = "k8s.io/apimachinery/pkg/runtime",
+    importpath = "github.com/googlecloudrobotics/core/third_party/kubernetes_proto/runtime",
     proto = ":runtime_proto",
     visibility = ["//visibility:public"],
 )
@@ -20,7 +20,7 @@ go_proto_library(
 go_library(
     name = "go_default_library",
     embed = [":runtime_go_proto"],
-    importpath = "k8s.io/apimachinery/pkg/runtime",
+    importpath = "github.com/googlecloudrobotics/core/third_party/kubernetes_proto/runtime",
     visibility = ["//visibility:public"],
 )
 
