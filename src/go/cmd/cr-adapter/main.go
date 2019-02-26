@@ -148,22 +148,19 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 
 func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *ResourceInfo) error {
 
-	// Create instance of dynamic message.
-	messageDesc := resource.FileDescriptor.FindMessage(params.InMessageName)
-	if messageDesc == nil {
-		return fmt.Errorf("unknown message: %s", params.InMessageName)
+	inMessage, err := resource.GetMessage(params.InMessageName)
+	if err != nil {
+		return err
 	}
-	message := dynamic.NewMessageWithMessageFactory(messageDesc, messageFactory)
 
 	// Receive proto message.
-	err := stream.RecvMsg(message)
-	if err != nil {
+	if err := stream.RecvMsg(inMessage); err != nil {
 		return fmt.Errorf("error receiving message: %v", err)
 	}
 
 	// Add Kind and ApiGroup if necessary.
 	if params.SetKindAndApiGroup {
-		objectInterface, err := message.TryGetFieldByName("object")
+		objectInterface, err := inMessage.TryGetFieldByName("object")
 		if err != nil {
 			return errors.New("unknown field: object")
 		}
@@ -184,7 +181,7 @@ func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *Res
 	// Set resource name.
 	var name string
 	if params.NameInPath {
-		name, err = getName(message)
+		name, err = getName(inMessage)
 		if err != nil {
 			return fmt.Errorf("unable to determine resource name: %v", err)
 		}
@@ -192,7 +189,7 @@ func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *Res
 	}
 	// Set query params.
 	if params.OptionsAsQueryParams {
-		queryParams, err := getQueryParams(message)
+		queryParams, err := getQueryParams(inMessage)
 		if err != nil {
 			return fmt.Errorf("error determining query parameters: %v", err)
 		}
@@ -202,7 +199,7 @@ func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *Res
 	}
 	// Set body.
 	if params.BodyFieldName != "" {
-		body, err := getBody(message, params.BodyFieldName)
+		body, err := getBody(inMessage, params.BodyFieldName)
 		if err != nil {
 			return fmt.Errorf("unable to create request body: %v", err)
 		}
@@ -221,21 +218,18 @@ func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *Res
 	}
 
 	// Create instance of dynamic message for received data.
-	messageDesc = resource.FileDescriptor.FindMessage(params.OutMessageName)
-	if messageDesc == nil {
-		return fmt.Errorf("unknown message: %s", params.OutMessageName)
+	outMessage, err := resource.GetMessage(params.OutMessageName)
+	if err != nil {
+		return err
 	}
-	message = dynamic.NewMessageWithMessageFactory(messageDesc, messageFactory)
 
 	// Unmarshal kubernetes response to proto message.
-	err = message.UnmarshalJSONPB(unmarshaler, res)
-	if err != nil {
+	if err = outMessage.UnmarshalJSONPB(unmarshaler, res); err != nil {
 		return fmt.Errorf("error unmarshaling response from Kubernetes: %v\n%s", err, string(res))
 	}
 
 	// Send proto message.
-	err = stream.SendMsg(message)
-	if err != nil {
+	if err = stream.SendMsg(outMessage); err != nil {
 		return fmt.Errorf("error sending message: %v", err)
 	}
 
@@ -244,23 +238,18 @@ func unaryCall(stream grpc.ServerStream, params *K8sRequestParams, resource *Res
 
 func streamingCall(stream grpc.ServerStream, params *K8sRequestParams, resource *ResourceInfo) error {
 
-	// Create instance of dynamic message for input.
-	inMessageDesc := resource.FileDescriptor.FindMessage(params.InMessageName)
-	if inMessageDesc == nil {
-		return fmt.Errorf("unknown message: %s", params.InMessageName)
+	// Create dynamic proto message instances for i/o.
+	inMessage, err := resource.GetMessage(params.InMessageName)
+	if err != nil {
+		return err
 	}
-	inMessage := dynamic.NewMessage(inMessageDesc)
-
-	// Create instance of dynamic message for output.
-	outMessageDesc := resource.FileDescriptor.FindMessage(params.OutMessageName)
-	if outMessageDesc == nil {
-		return fmt.Errorf("unknown message: %s", params.OutMessageName)
+	outMessage, err := resource.GetMessage(params.OutMessageName)
+	if err != nil {
+		return err
 	}
-	outMessage := dynamic.NewMessage(outMessageDesc)
 
 	// Receive proto message.
-	err := stream.RecvMsg(inMessage)
-	if err != nil {
+	if err := stream.RecvMsg(inMessage); err != nil {
 		return fmt.Errorf("error receiving message: %v", err)
 	}
 
@@ -295,8 +284,7 @@ func streamingCall(stream grpc.ServerStream, params *K8sRequestParams, resource 
 			}
 			return fmt.Errorf("error unmarshaling response from kubernetes: %v", err)
 		}
-		err = stream.SendMsg(outMessage)
-		if err != nil {
+		if err = stream.SendMsg(outMessage); err != nil {
 			return fmt.Errorf("error sending message: %v", err)
 		}
 		outMessage.Reset()

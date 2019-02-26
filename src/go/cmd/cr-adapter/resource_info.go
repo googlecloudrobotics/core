@@ -8,6 +8,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/jhump/protoreflect/desc"
+	"github.com/jhump/protoreflect/dynamic"
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdinformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
@@ -19,11 +20,19 @@ import (
 )
 
 type ResourceInfo struct {
-	FileDescriptor *desc.FileDescriptor
+	fileDescriptor *desc.FileDescriptor
 	APIVersion     string
 	Kind           string
 	KindPlural     string
 	Client         *rest.RESTClient
+}
+
+func (ri *ResourceInfo) GetMessage(name string) (*dynamic.Message, error) {
+	md := ri.fileDescriptor.FindMessage(name)
+	if md == nil {
+		return nil, fmt.Errorf("unknown message: %s", name)
+	}
+	return dynamic.NewMessage(md), nil
 }
 
 type ResourceInfoRepository struct {
@@ -124,7 +133,7 @@ func (r *ResourceInfoRepository) insertResourceInfo(obj *crdtypes.CustomResource
 	}
 
 	r.resources[name] = &ResourceInfo{
-		FileDescriptor: fd,
+		fileDescriptor: fd,
 		APIVersion:     c.GroupVersion.String(),
 		Kind:           obj.Spec.Names.Kind,
 		KindPlural:     obj.Spec.Names.Plural,
