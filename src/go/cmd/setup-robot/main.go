@@ -226,7 +226,7 @@ func main() {
 			Name:      "tiller",
 			Namespace: "kube-system",
 		},
-	}); err != nil {
+	}); err != nil && !apierrors.IsAlreadyExists(err) {
 		log.Println("Failed to create tiller service account: ", err)
 	}
 	if _, err := k8sLocalClientSet.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
@@ -244,7 +244,7 @@ func main() {
 			Name:      "tiller",
 			Namespace: "kube-system",
 		}},
-	}); err != nil {
+	}); err != nil && !apierrors.IsAlreadyExists(err) {
 		log.Println("Failed to create tiller role binding: ", err)
 	}
 
@@ -282,7 +282,9 @@ func deleteReleaseIfPresent(name string) {
 		"--purge",
 		name).CombinedOutput()
 	if err != nil {
-		log.Printf("Helm delete of %s failed: %v. Helm output:\n%s\n", name, err, output)
+		if !strings.Contains(string(output), "Error: release: \""+name+"\" not found") {
+			log.Printf("Helm delete of %s failed: %v. Helm output:\n%s\n", name, err, output)
+		}
 	} else {
 		log.Printf("%s\nSuccessfully removed %s Helm release", output, name)
 	}
