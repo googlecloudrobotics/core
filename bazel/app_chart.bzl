@@ -138,3 +138,15 @@ EOF
             extra_values_yaml = extra_values_yaml,
         ),
     )
+
+    if chart != "cloud-per-robot":
+        native.genrule(
+            name = name + ".snippet-v2-yaml",
+            srcs = [name],
+            outs = [name + ".snippet-v2.yaml"],
+            cmd = """cat <<EOF > $@
+    {target}:
+      inline: $$(base64 -w 0 $<)
+EOF
+""".format(name = name, target = chart),
+        )
