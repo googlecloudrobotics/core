@@ -29,6 +29,7 @@ import (
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/jhump/protoreflect/dynamic"
 	"google.golang.org/grpc"
+	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -45,7 +46,7 @@ type K8sRequestParams struct {
 
 var (
 	methodRE               = regexp.MustCompile("^/(.*)\\.K8s([^.]*)/([^/]*)$")
-	resourceInfoRepository = ResourceInfoRepository{resources: make(map[string]*ResourceInfo)}
+	resourceInfoRepository *ResourceInfoRepository
 	messageFactory         = dynamic.NewMessageFactoryWithDefaults()
 	// Global options for unmarshaling JSON to proto messages.
 	// Allow unknown fields as a safety measure (in case the Kubernetes API server's version does
@@ -61,7 +62,7 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 		return fmt.Errorf("unable to parse method name: %v", err)
 	}
 
-	resourceInfo, err := LookupRepository(streamPkg, streamKind)
+	resourceInfo, err := resourceInfoRepository.Lookup(streamPkg, streamKind)
 	if err != nil {
 		return err
 	}
@@ -424,11 +425,23 @@ func main() {
 		log.Fatalf("error building Kubernetes config: %v", err)
 	}
 
+	resourceInfoRepository = NewResourceInfoRepository(config)
 	go func() {
 		done := make(chan struct{})
-		err := updateResourceInfoRepository(done, config)
+		clientset, err := crdclientset.NewForConfig(config)
 		if err != nil {
+			log.Fatalf("error building CRD clientset: %v", err)
+		}
+		if err := resourceInfoRepository.Update(done, clientset); err != nil {
 			log.Fatalf("error building resource info repository: %v", err)
+		}
+	}()
+	go func() {
+		select {
+		case err := <-resourceInfoRepository.ErrorChannel():
+			log.Printf("error in CR definition: %v", err)
+		case msg := <-resourceInfoRepository.LogChannel():
+			log.Print(msg)
 		}
 	}()
 

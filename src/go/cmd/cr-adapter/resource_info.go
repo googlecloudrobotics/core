@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
@@ -28,15 +27,35 @@ type ResourceInfo struct {
 }
 
 type ResourceInfoRepository struct {
+	config    *rest.Config
+	logs      chan string
+	errors    chan error
 	mutex     sync.RWMutex
 	resources map[string]*ResourceInfo
 }
 
-func LookupRepository(protoPackage string, messageName string) (*ResourceInfo, error) {
+func NewResourceInfoRepository(config *rest.Config) *ResourceInfoRepository {
+	return &ResourceInfoRepository{
+		config:    config,
+		logs:      make(chan string),
+		errors:    make(chan error),
+		resources: make(map[string]*ResourceInfo),
+	}
+}
+
+func (r *ResourceInfoRepository) LogChannel() <-chan string {
+	return r.logs
+}
+
+func (r *ResourceInfoRepository) ErrorChannel() <-chan error {
+	return r.errors
+}
+
+func (r *ResourceInfoRepository) Lookup(protoPackage string, messageName string) (*ResourceInfo, error) {
 	key := fmt.Sprintf("%s.K8s%s", protoPackage, messageName)
-	resourceInfoRepository.mutex.RLock()
-	defer resourceInfoRepository.mutex.RUnlock()
-	if v, ok := resourceInfoRepository.resources[key]; ok {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if v, ok := r.resources[key]; ok {
 		return v, nil
 	}
 	return nil, fmt.Errorf("didn't find a CR matching %s", key)
@@ -49,12 +68,12 @@ func getFileDescriptor(obj *crdtypes.CustomResourceDefinition) (*desc.FileDescri
 	}
 	b, err := base64.StdEncoding.DecodeString(annotation)
 	if err != nil {
-		return nil, fmt.Errorf("unable to decode base64 in proto-descriptor annotation on %s: %v", err)
+		return nil, fmt.Errorf("unable to decode base64 in proto-descriptor annotation on %s: %v", obj.ObjectMeta.Name, err)
 	}
 	// Unmarshal file descriptor set.
 	fds := &descriptor.FileDescriptorSet{}
 	if err := proto.Unmarshal(b, fds); err != nil {
-		return nil, fmt.Errorf("unable to unmarshal FileDescriptorSet from proto-descriptor annotation on %s: %v", err)
+		return nil, fmt.Errorf("unable to unmarshal FileDescriptorSet from proto-descriptor annotation on %s: %v", obj.ObjectMeta.Name, err)
 	}
 
 	// Create dynamic file descriptor.
@@ -78,36 +97,22 @@ func getServiceName(fd *desc.FileDescriptor, kind string) (string, error) {
 	return "", fmt.Errorf("no service with name %s found in proto descriptor for %s", serviceName, kind)
 }
 
-func deleteResourceInfo(obj *crdtypes.CustomResourceDefinition) {
+func (r *ResourceInfoRepository) insertResourceInfo(obj *crdtypes.CustomResourceDefinition) error {
 	fd, err := getFileDescriptor(obj)
 	if err != nil {
-		return
+		return err
 	}
 	name, err := getServiceName(fd, obj.Spec.Names.Kind)
 	if err != nil {
-		return
-	}
-	log.Printf("removing descriptor for service %s", name)
-	delete(resourceInfoRepository.resources, name)
-}
-
-func insertResourceInfo(obj *crdtypes.CustomResourceDefinition, config *rest.Config) {
-	fd, err := getFileDescriptor(obj)
-	if err != nil {
-		return
-	}
-	name, err := getServiceName(fd, obj.Spec.Names.Kind)
-	if err != nil {
-		return
+		return err
 	}
 
 	if len(obj.Spec.Versions) != 1 {
-		log.Printf("ignoring CRD %s with multiple versions", obj.ObjectMeta.Name)
-		return
+		return fmt.Errorf("ignoring CRD %s with multiple versions", obj.ObjectMeta.Name)
 	}
 	version := obj.Spec.Versions[0].Name
 
-	c := *config
+	c := *r.config
 	c.APIPath = "/apis"
 	c.GroupVersion = &schema.GroupVersion{obj.Spec.Group, version}
 	c.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
@@ -115,24 +120,36 @@ func insertResourceInfo(obj *crdtypes.CustomResourceDefinition, config *rest.Con
 	// Build Kubernetes REST client.
 	client, err := rest.RESTClientFor(&c)
 	if err != nil {
-		log.Fatalf("error building Kubernetes client: %v", err)
+		return fmt.Errorf("error building Kubernetes client: %v", err)
 	}
 
-	log.Printf("adding descriptor for service %s", name)
-	resourceInfoRepository.resources[name] = &ResourceInfo{
+	r.resources[name] = &ResourceInfo{
 		FileDescriptor: fd,
 		APIVersion:     c.GroupVersion.String(),
 		Kind:           obj.Spec.Names.Kind,
 		KindPlural:     obj.Spec.Names.Plural,
 		Client:         client,
 	}
+
+	r.logs <- fmt.Sprintf("adding descriptor for service %s", name)
+	return nil
 }
 
-func updateResourceInfoRepository(done <-chan struct{}, config *rest.Config) error {
-	clientset, err := crdclientset.NewForConfig(config)
+func (r *ResourceInfoRepository) deleteResourceInfo(obj *crdtypes.CustomResourceDefinition) error {
+	fd, err := getFileDescriptor(obj)
 	if err != nil {
 		return err
 	}
+	name, err := getServiceName(fd, obj.Spec.Names.Kind)
+	if err != nil {
+		return err
+	}
+	r.logs <- fmt.Sprintf("removing descriptor for service %s", name)
+	delete(r.resources, name)
+	return nil
+}
+
+func (r *ResourceInfoRepository) Update(done <-chan struct{}, clientset crdclientset.Interface) error {
 	factory := crdinformer.NewSharedInformerFactory(clientset, 0)
 	informer := factory.Apiextensions().V1beta1().CustomResourceDefinitions().Informer()
 
@@ -145,20 +162,28 @@ func updateResourceInfoRepository(done <-chan struct{}, config *rest.Config) err
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			resourceInfoRepository.mutex.Lock()
-			defer resourceInfoRepository.mutex.Unlock()
-			insertResourceInfo(obj.(*crdtypes.CustomResourceDefinition), config)
+			r.mutex.Lock()
+			defer r.mutex.Unlock()
+			if err := r.insertResourceInfo(obj.(*crdtypes.CustomResourceDefinition)); err != nil {
+				r.errors <- err
+			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
-			resourceInfoRepository.mutex.Lock()
-			defer resourceInfoRepository.mutex.Unlock()
-			deleteResourceInfo(oldObj.(*crdtypes.CustomResourceDefinition))
-			insertResourceInfo(newObj.(*crdtypes.CustomResourceDefinition), config)
+			r.mutex.Lock()
+			defer r.mutex.Unlock()
+			if err := r.deleteResourceInfo(oldObj.(*crdtypes.CustomResourceDefinition)); err != nil {
+				r.errors <- err
+			}
+			if err := r.insertResourceInfo(newObj.(*crdtypes.CustomResourceDefinition)); err != nil {
+				r.errors <- err
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			resourceInfoRepository.mutex.Lock()
-			defer resourceInfoRepository.mutex.Unlock()
-			deleteResourceInfo(obj.(*crdtypes.CustomResourceDefinition))
+			r.mutex.Lock()
+			defer r.mutex.Unlock()
+			if err := r.deleteResourceInfo(obj.(*crdtypes.CustomResourceDefinition)); err != nil {
+				r.errors <- err
+			}
 		},
 	})
 

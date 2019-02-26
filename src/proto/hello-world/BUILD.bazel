@@ -18,6 +18,7 @@ proto_k8s_service(
     group = "hello-world.cloudrobotics.com",
     message = "cloudrobotics.hello_world.v1alpha1.HelloWorld",
     spec = ":spec_proto",
+    visibility = ["//visibility:public"],
 )
 
 # language bindings
