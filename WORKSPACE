@@ -153,7 +153,7 @@ go_repository(
 
 go_repository(
     name = "com_github_puerkitobio_purell",
-    commit = "0bcb03f4b4d0a9428594752bd2a3b9aa0a9d4bd4",
+    commit = "44968752391892e1b0d0b821ee79e9a85fa13049",
     importpath = "github.com/PuerkitoBio/purell",
 )
 
@@ -161,6 +161,12 @@ go_repository(
     name = "com_github_puerkitobio_urlesc",
     commit = "de5bf2ad457846296e2031421a34e2568e304e35",
     importpath = "github.com/PuerkitoBio/urlesc",
+)
+
+go_repository(
+    name = "com_github_apcera_libretto",
+    commit = "3178799fbb1e39c74b02e3ecf46330b3ef0ed486",
+    importpath = "github.com/apcera/libretto",
 )
 
 go_repository(
@@ -249,7 +255,7 @@ go_repository(
 
 go_repository(
     name = "com_github_jhump_protoreflect",
-    commit = "d0f5a643a7920db0ccead732682f4053fbc32834",
+    commit = "f90aa080ba36727321f2bc4c61f2a282f756bfab",
     importpath = "github.com/jhump/protoreflect",
 )
 
@@ -267,7 +273,7 @@ go_repository(
 
 go_repository(
     name = "com_github_mailru_easyjson",
-    commit = "60711f1a8329503b04e1c88535f419d0bb440bff",
+    commit = "6243d8e04c3f819e79757e8bc3faa15c3cb27003",
     importpath = "github.com/mailru/easyjson",
 )
 
@@ -843,7 +849,10 @@ http_archive(
     ],
 )
 
-load("//bazel/proto_crd:repositories.bzl", proto_crd_repositories = "repositories")
+load(
+    "//bazel/proto_crd:repositories.bzl",
+    proto_crd_repositories = "repositories",
+)
 
 proto_crd_repositories()
 
