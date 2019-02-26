@@ -30,6 +30,10 @@ GKE_CLOUD_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
 PROJECT_DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
 APP_MANAGEMENT=${APP_MANAGEMENT:-true}
 
+if [[ -z "${ROBOT_LABELS}" ]]; then
+  ROBOT_LABELS="simluated=true"
+fi
+
 function restore_initial_context {
   kubectl config use-context "${INITIAL_KUBECTL_CONTEXT}"
 }
@@ -62,6 +66,7 @@ function create {
     --domain ${PROJECT_DOMAIN} --project ${GCP_PROJECT_ID} \
     --robot-role "${ROBOT_ROLE}" \
     --robot-type "${ROBOT_TYPE}" --robot-authentication=false \
+    --labels "${ROBOT_LABELS}" \
     --app-management="${APP_MANAGEMENT}"
 }
 
