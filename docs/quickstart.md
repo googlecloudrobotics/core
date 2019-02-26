@@ -101,8 +101,7 @@ In addition to the cluster, `deploy.sh` also created:
 * the [-robot Cloud Storage bucket](https://console.cloud.google.com/storage/browser), containing the scripts that connect robots to the cloud, and
 * the [Identity & Access Management policies](https://console.cloud.google.com/iam-admin/iam) that authorize robots and humans to communicate with GCP.
 
-With the project deployed, you're ready to [connect a robot to the
-cloud](how-to/connecting-robot.md).
+With the project deployed, you're ready to [connect a robot to the cloud](how-to/connecting-robot.md).
 
 ## Update the project
 
