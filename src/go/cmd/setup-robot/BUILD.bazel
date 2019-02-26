@@ -1,5 +1,5 @@
 load("//:config.bzl", "CLOUD_ROBOTICS_CONTAINER_REGISTRY", "DOCKER_TAG")
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 load("@io_bazel_rules_docker//container:container.bzl", "container_push", "container_image")
 
@@ -26,6 +26,14 @@ go_library(
         "@org_golang_google_api//cloudresourcemanager/v1:go_default_library",
         "@org_golang_x_oauth2//:go_default_library",
     ],
+)
+
+go_test(
+    name = "go_default_test",
+    size = "small",
+    srcs = ["main_test.go"],
+    embed = [":go_default_library"],
+    visibility = ["//visibility:private"],
 )
 
 container_image(

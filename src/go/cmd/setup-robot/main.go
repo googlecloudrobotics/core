@@ -60,9 +60,10 @@ var (
 )
 
 const (
-	filesDir      = "/setup-robot-files"
-	helmPath      = filesDir + "/helm"
-	numDNSRetries = 6
+	filesDir          = "/setup-robot-files"
+	helmPath          = filesDir + "/helm"
+	numDNSRetries     = 6
+	numServiceRetries = 6
 )
 
 func getProjectNumber(client *http.Client, projectID string) (int64, error) {
@@ -109,11 +110,13 @@ func parseFlags() {
 
 // Since this might be the first interaction with the cluster, manually resolve the
 // domain name with retries to give a better error in the case of failure.
-func waitForDNS() error {
-	log.Printf("DNS lookup for %q", *domain)
+func waitForDNS(domain string, retries int) error {
+	log.Printf("DNS lookup for %q", domain)
 	delay := time.Second
-	for i := 0; i < numDNSRetries; i++ {
-		ips, err := net.LookupIP(*domain)
+	var err error
+	for i := 0; i < retries; i++ {
+		var ips []net.IP
+		ips, err = net.LookupIP(domain)
 		if err == nil {
 			// Check that the results contain an ipv4 addr. Initially, coredns may only
 			// return ipv6 addresses in which case helm will fail.
@@ -123,11 +126,28 @@ func waitForDNS() error {
 				}
 			}
 		}
-		log.Printf("... Retry dns for %q", *domain)
+		log.Printf("... Retry dns for %q", domain)
 		time.Sleep(delay)
 		delay += delay
 	}
-	return fmt.Errorf("DNS lookup for %q failed", *domain)
+	return fmt.Errorf("DNS lookup for %q failed: %v", domain, err)
+}
+
+// Tests a given cloud endpoint with a HEAD request a few times. This lets us wait for the service
+// to be available or error with a better message
+func waitForService(client *http.Client, url string, retries int) error {
+	log.Printf("Service probe for %q", url)
+	delay := time.Second
+	var err error
+	for i := 0; i < retries; i++ {
+		if _, err = client.Head(url); err == nil {
+			return nil
+		}
+		log.Printf("... Retry service for %q", url)
+		time.Sleep(delay)
+		delay += delay
+	}
+	return fmt.Errorf("service probe for %q failed: %v", url, err)
 }
 
 func main() {
@@ -141,7 +161,8 @@ func main() {
 		log.Fatalf("Invalid labels %q: %s", *labels, err)
 	}
 
-	if err := waitForDNS(); err != nil {
+	// Make sure the local cluster is ready and can resolve the cloud project
+	if err := waitForDNS(*domain, numDNSRetries); err != nil {
 		log.Fatalf("Failed to resolve cloud cluster: %s. Please retry in 5 minutes.", err)
 	}
 
@@ -173,6 +194,13 @@ func main() {
 			Domain:              *domain,
 			PublicKeyRegistryId: fmt.Sprintf("robot-%s", *robotName),
 		}
+
+		// Make sure the cloud cluster take requests
+		url := fmt.Sprintf("https://%s/apis/core.token-vendor/v1/public-key.read", *domain)
+		if err := waitForService(client, url, numServiceRetries); err != nil {
+			log.Fatalf("Failed to connect to the cloud cluster: %s. Please retry in 5 minutes.", err)
+		}
+
 		if err := setup.CreateAndPublishCredentialsToCloud(client, auth); err != nil {
 			log.Fatal(err)
 		}
