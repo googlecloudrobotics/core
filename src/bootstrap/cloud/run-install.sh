@@ -26,7 +26,7 @@ if [[ -e "${CONFIG}" && ! "${CONFIG}" = /* ]]; then
 fi
 
 # Usage: ./run-install.sh [version-file|versioned-tarball]
-TARGET=${$1:-"latest"}
+TARGET=${1:-"latest"}
 if [[ ! TARGET = *.tar.gz ]]; then
   TARGET=$( curl --silent --show-error --fail "${BUCKET_URI}/${TARGET}" )
 fi
