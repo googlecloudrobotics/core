@@ -12,7 +12,7 @@ exports_files([
 load("@bazel_gazelle//:def.bzl", "gazelle")
 
 # Gazelle uses this to build importpath attributes.
-# gazelle:prefix cloud-robotics.googlesource.com/cloud-robotics
+# gazelle:prefix github.com/googlecloudrobotics/core
 
 # Gazelle is used to generate BUILD.bazel files for WORKSPACE dependencies
 # running this manually via "bazel run //:gazelle" will regenerate BUILD.bazel files that

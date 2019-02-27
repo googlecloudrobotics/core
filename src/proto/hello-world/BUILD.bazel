@@ -45,7 +45,7 @@ java_grpc_library(
 go_proto_library(
     name = "k8s_service_go",
     compilers = ["@io_bazel_rules_go//proto:go_grpc"],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/src/proto/hello-world",
+    importpath = "github.com/googlecloudrobotics/core/src/proto/hello-world",
     protos = [
         ":service_proto",
         ":spec_proto",

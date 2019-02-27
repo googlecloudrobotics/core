@@ -15,12 +15,12 @@ java_proto_library(
 
 go_proto_library(
     name = "cloudrobotics_config_v1alpha1_go_proto",
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/src/proto/framework",
+    importpath = "github.com/googlecloudrobotics/core/src/proto/framework",
     proto = ":cloudrobotics_config_v1alpha1_proto",
 )
 
 go_library(
     name = "go_default_library",
     embed = [":cloudrobotics_config_v1alpha1_go_proto"],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/src/proto/framework",
+    importpath = "github.com/googlecloudrobotics/core/src/proto/framework",
 )

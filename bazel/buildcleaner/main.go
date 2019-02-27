@@ -15,7 +15,7 @@
 package main
 
 import (
-	"cloud-robotics.googlesource.com/cloud-robotics/bazel/buildcleaner/cmd"
+	"github.com/googlecloudrobotics/core/bazel/buildcleaner/cmd"
 )
 
 func main() {
