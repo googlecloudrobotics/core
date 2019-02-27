@@ -29,3 +29,10 @@ func TestWaitForService_OkIfServiceResponds(t *testing.T) {
 		t.Errorf("waitForService returned error: %v", err)
 	}
 }
+
+func TestParseLabels_ReturnsEmptyMapOnEmptyInput(t *testing.T) {
+	_, err := parseLabels("")
+	if err != nil {
+		t.Errorf("Empty should be okay, but returned %v", err)
+	}
+}

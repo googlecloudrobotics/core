@@ -363,6 +363,10 @@ func createOrUpdateRobot(tokenSource oauth2.TokenSource, labels map[string]strin
 func parseLabels(s string) (map[string]string, error) {
 	lset := map[string]string{}
 
+	if s == "" {
+		return lset, nil
+	}
+
 	for _, l := range strings.Split(s, ",") {
 		parts := strings.SplitN(l, "=", 2)
 		if len(parts) != 2 {
