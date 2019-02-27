@@ -59,6 +59,7 @@ function create {
   gcloud container clusters get-credentials "${ROBOT_NAME}" \
     --zone=${GCP_ZONE} --project=${GCP_PROJECT_ID}
 
+  APP_MANAGEMENT="" \
   KUBE_CONTEXT=${GKE_SIM_CONTEXT} \
   ACCESS_TOKEN=$(gcloud auth application-default print-access-token) \
     $DIR/../src/bootstrap/robot/setup_robot.sh \

@@ -50,6 +50,7 @@ core_app_chart(
     name = "prometheus-robot",
     extra_templates = [
         ":cloud/prometheus-operator.yaml",
+        ":cloud/defer-install.yaml",
     ],
     files = [
         ":prometheus-chart",
@@ -59,16 +60,12 @@ core_app_chart(
     images = {"http-relay-client": "//src/go/cmd/http-relay-client"},
 )
 
-core_app_chart(
-    name = "prometheus-cloud-per-robot",
-)
-
 app(
     name = "prometheus",
     charts = [
         ":prometheus-cloud",
-        ":prometheus-cloud-per-robot",
         ":prometheus-robot",
     ],
+    v2 = True,
     visibility = ["//visibility:public"],
 )

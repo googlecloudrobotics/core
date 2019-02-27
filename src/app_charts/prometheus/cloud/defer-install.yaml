@@ -1,0 +1,26 @@
+# This pre-install hook defers installation of the Prometheus app with app layer v2
+# by a minute to ensure the cluster-scoped resources from v1 have been removed properly
+# beforehand.
+# Otherwise we end up with a create/delete race and the chart installation may
+# fail until the user intevenes.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: defer-install
+  labels:
+    helm.sh/chart: "{{.Chart.Name}}-{{.Chart.Version}}"
+  annotations:
+    helm.sh/hook: pre-install
+    helm.sh/hook-delete-policy: hook-succeeded
+spec:
+  template:
+    metadata:
+      name: defer-install
+      labels:
+        helm.sh/chart: "{{.Chart.Name}}-{{.Chart.Version}}"
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: sleep
+        image: "alpine:3.3"
+        command: ["/bin/sleep", "60"]

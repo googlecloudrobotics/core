@@ -1,13 +1,14 @@
+{{ range .Values.robots }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: prometheus-federation-{{ .Values.robot.name }}
+  name: prometheus-federation-{{ .name }}
   labels:
     prometheus: kube-prometheus
 spec:
   endpoints:
   - port: http
-    path: /client/{{ .Values.robot.name }}/federate
+    path: /client/{{ .name }}/federate
     params:
       'match[]':
       - '{namespace="default",job!~"apiserver|kube-state|prometheus"}'
@@ -17,15 +18,15 @@ spec:
   selector:
     matchLabels:
       app: prometheus-federation
-      robot: "{{ .Values.robot.name }}"
+      robot: "{{ .name }}"
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: prometheus-federation-{{ .Values.robot.name }}
+  name: prometheus-federation-{{ .name }}
   labels:
     app: prometheus-federation
-    robot: "{{ .Values.robot.name }}"
+    robot: "{{ .name }}"
 spec:
   ports:
   - port: 80
@@ -35,3 +36,5 @@ spec:
   selector:
     app: prometheus-relay-server
   type: ClusterIP
+---
+{{ end }}
