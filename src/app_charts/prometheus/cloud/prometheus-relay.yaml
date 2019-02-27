@@ -59,7 +59,6 @@ spec:
   tls:
   - hosts:
     - {{ .Values.domain }}
-    secretName: tls
   rules:
   - host: {{ .Values.domain }}
     http:

@@ -45,3 +45,4 @@ spec:
         - --v=3
         - --default-backend-service=kube-system/default-http-backend
         - --publish-service=$(POD_NAMESPACE)/nginx-ingress-lb
+        - --default-ssl-certificate=default/tls
