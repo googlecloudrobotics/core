@@ -425,11 +425,13 @@ func main() {
 		}
 	}()
 	go func() {
-		select {
-		case err := <-resourceInfoRepository.ErrorChannel():
-			log.Printf("error in CR definition: %v", err)
-		case msg := <-resourceInfoRepository.LogChannel():
-			log.Print(msg)
+		for {
+			select {
+			case err := <-resourceInfoRepository.ErrorChannel():
+				log.Printf("error in CR definition: %v", err)
+			case msg := <-resourceInfoRepository.LogChannel():
+				log.Print(msg)
+			}
 		}
 	}()
 
