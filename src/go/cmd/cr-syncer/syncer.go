@@ -290,7 +290,7 @@ func (s *crSyncer) syncDownstream(key string) error {
 			if isNotFoundError(err) {
 				return nil
 			}
-			return err
+			return fmt.Errorf("remove finalizer: %s", err)
 		}
 		if src.GetDeletionTimestamp() != nil {
 			return nil // Already deleted.
@@ -299,7 +299,7 @@ func (s *crSyncer) syncDownstream(key string) error {
 			if isNotFoundError(err) {
 				return nil
 			}
-			return err
+			return fmt.Errorf("delete resource: %s", err)
 		}
 		return nil
 	}
@@ -335,15 +335,17 @@ func (s *crSyncer) syncDownstream(key string) error {
 		if dst.Object["status"] == nil {
 			dst.Object["status"] = struct{}{}
 		}
-		dst, err = s.upstream.UpdateStatus(dst, metav1.UpdateOptions{})
+		updated, err := s.upstream.UpdateStatus(dst, metav1.UpdateOptions{})
 		if err != nil {
 			return newAPIErrorf(dst, "update status failed: %s", err)
 		}
+		dst = updated
 	} else {
-		dst, err = s.upstream.Update(dst, metav1.UpdateOptions{})
+		updated, err := s.upstream.Update(dst, metav1.UpdateOptions{})
 		if err != nil {
 			return newAPIErrorf(dst, "update failed: %s", err)
 		}
+		dst = updated
 	}
 	log.Printf("Copied %s %s status@v%s to upstream@v%s",
 		src.GetKind(), src.GetName(), src.GetResourceVersion(), src.GetResourceVersion())
@@ -433,10 +435,12 @@ func (s *crSyncer) syncUpstream(key string) error {
 	}
 	// Now we can safely create/update the resource downstream and the upstream
 	// resource will not go away until we've deleted it again.
-	dst, err = upsert(dst)
+	updated, err := upsert(dst)
 	if err != nil {
 		return newAPIErrorf(dst, "failed to upsert downstream: %s", err)
 	}
+	dst = updated
+
 	// Mark downstream resource deleted if upstream resource is being deleted.
 	if src.GetDeletionTimestamp() != nil && dst.GetDeletionTimestamp() == nil {
 		if err := s.downstream.Delete(dst.GetName(), nil); err != nil {
