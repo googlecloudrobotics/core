@@ -1,16 +1,17 @@
+{{ range .Values.robots }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: roscore-cloud-{{ .Values.robot.name }}
+  name: roscore-cloud-{{ .name }}
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: roscore-cloud-{{ .Values.robot.name }}
-        id: "{{ .Values.robot.name }}"
+        app: roscore-cloud-{{ .name }}
+        id: {{ .name }}
     spec:
-      hostname: roscore-cloud-{{ .Values.robot.name }}
+      hostname: roscore-cloud-{{ .name }}
       containers:
       - env:
         - name: ROSOUT_DISABLE_FILE_LOGGING
@@ -21,10 +22,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: "status.podIP"
-{{ if eq .Values.app.sim_suffix "-sim" }}
-        image: {{ .Values.images.roscore_sim }}
+{{ if eq $.Values.app.sim_suffix "-sim" }}
+        image: {{ $.Values.images.roscore_sim }}
 {{ else }}
-        image: {{ .Values.images.roscore }}
+        image: {{ $.Values.images.roscore }}
 {{ end }}
         name: roscore
         ports:
@@ -33,13 +34,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: roscore-cloud-{{ .Values.robot.name }}
+  name: roscore-cloud-{{ .name }}
 spec:
   clusterIP: None
   ports:
   - name: roscore
     port: 11311
   selector:
-    app: roscore-cloud-{{ .Values.robot.name }}
+    app: roscore-cloud-{{ .name }}
   type: ClusterIP
-
+---
+{{ end }}

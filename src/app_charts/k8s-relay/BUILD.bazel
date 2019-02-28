@@ -17,5 +17,6 @@ app(
         ":k8s-relay-cloud",
         ":k8s-relay-robot",
     ],
+    v2 = True,
     visibility = ["//visibility:public"],
 )

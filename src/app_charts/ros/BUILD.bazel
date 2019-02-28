@@ -7,8 +7,10 @@ core_app_chart(
 )
 
 core_app_chart(
-    name = "ros-cloud-per-robot",
+    name = "ros-cloud",
+    files = [":dashboard.json"],
     images = {
+        "cloud-tunnel": "//src/go/cmd/cloud-tunnel",
         "ros-adapter": "//src/docker/ros_adapter:ros_adapter",
         "ros-log": "//src/docker/ros_log",
         "ros-websocket": "//src/docker/ros_websocket",
@@ -18,18 +20,12 @@ core_app_chart(
     values = "values.yaml",
 )
 
-core_app_chart(
-    name = "ros-cloud",
-    files = [":dashboard.json"],
-    images = {"cloud-tunnel": "//src/go/cmd/cloud-tunnel"},
-)
-
 app(
     name = "ros",
     charts = [
         ":ros-cloud",
-        ":ros-cloud-per-robot",
         ":ros-robot",
     ],
+    v2 = True,
     visibility = ["//visibility:public"],
 )
