@@ -36,11 +36,10 @@ def cloud_robotics_repositories():
     _maybe(
         http_archive,
         name = "bazel_rules",
-        sha256 = "b6e1b6cfc17f676c70045deb6d46bb330490693e65c8d541aae265ea34a48c8c",
-        strip_prefix = "bazel_rules-0394a3b108412b8e543fd90255daa416e988c4a1",
+        sha256 = "2f5327a2dc9a0cc8ead93953a5d2ae2e0308aece685e46cc89c27538a7e9a73a",
+        strip_prefix = "bazel_rules-c76e47ebe6f0a03b9dd99e245d5a0611813c36f9",
         urls = [
-            "https://mirror.bazel.build/github.com/drigz/bazel_rules/archive/0394a3b108412b8e543fd90255daa416e988c4a1.tar.gz",
-            "https://github.com/drigz/bazel_rules/archive/0394a3b108412b8e543fd90255daa416e988c4a1.tar.gz",
+            "https://github.com/drigz/bazel_rules/archive/c76e47ebe6f0a03b9dd99e245d5a0611813c36f9.tar.gz",
         ],
     )
 

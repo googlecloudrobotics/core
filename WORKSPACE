@@ -225,7 +225,7 @@ go_repository(
 
 go_repository(
     name = "bazel_gomock",
-    commit = "38c805849d06a1dd67edb30576f963eb56e9154a",
+    commit = "76ed30b11d0071841ba258f009178407b1a13d68",
     importpath = "github.com/jmhodges/bazel_gomock",
 )
 
