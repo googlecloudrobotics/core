@@ -25,36 +25,22 @@ var (
 	methodRE = regexp.MustCompile("^/(.*)\\.K8s([^.]*)/([^/]*)$")
 )
 
-type resourceInfo struct {
-	fileDescriptor *desc.FileDescriptor
-	APIVersion     string
-	Kind           string
-	KindPlural     string
-	Client         *rest.RESTClient
-}
-
-func (ri *resourceInfo) GetMessage(name string) (*dynamic.Message, error) {
-	md := ri.fileDescriptor.FindMessage(name)
-	if md == nil {
-		return nil, fmt.Errorf("unknown message: %s", name)
-	}
-	return dynamic.NewMessage(md), nil
-}
-
 type ResourceInfoRepository struct {
-	config    *rest.Config
-	logs      chan string
-	errors    chan error
-	mutex     sync.RWMutex
-	resources map[string]*resourceInfo
+	config      *rest.Config
+	logs        chan string
+	errors      chan error
+	mutex       sync.RWMutex
+	grpcMethods map[string]Method
+	methodsByCR map[string][]string
 }
 
 func NewResourceInfoRepository(config *rest.Config) *ResourceInfoRepository {
 	return &ResourceInfoRepository{
-		config:    config,
-		logs:      make(chan string),
-		errors:    make(chan error),
-		resources: make(map[string]*resourceInfo),
+		config:      config,
+		logs:        make(chan string),
+		errors:      make(chan error),
+		grpcMethods: make(map[string]Method),
+		methodsByCR: make(map[string][]string),
 	}
 }
 
@@ -66,34 +52,22 @@ func (r *ResourceInfoRepository) ErrorChannel() <-chan error {
 	return r.errors
 }
 
-func (r *ResourceInfoRepository) lookup(protoPackage string, messageName string) (*resourceInfo, error) {
-	key := fmt.Sprintf("%s.K8s%s", protoPackage, messageName)
+func (r *ResourceInfoRepository) GetMethod(fullMethodName string) (Method, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	if v, ok := r.resources[key]; ok {
-		return v, nil
+	m, ok := r.grpcMethods[fullMethodName]
+	if !ok {
+		return nil, fmt.Errorf("didn't find a CR with method %s", fullMethodName)
 	}
-	return nil, fmt.Errorf("didn't find a CR matching %s", key)
+	return m, nil
 }
 
-func (r *ResourceInfoRepository) BuildMethod(fullMethodName string) (Method, error) {
-	streamPkg, streamKind, method, err := parseMethodName(fullMethodName)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse method name: %v", err)
-	}
-
-	resourceInfo, err := r.lookup(streamPkg, streamKind)
-	if err != nil {
-		return nil, err
-	}
-
+func createRequestParams(method string) (*k8sRequestParams, error) {
 	var params *k8sRequestParams
 
 	switch method {
 	case "Get":
 		params = &k8sRequestParams{
-			inMessageName:        fmt.Sprintf("%s.Get%sRequest", streamPkg, streamKind),
-			outMessageName:       fmt.Sprintf("%s.%s", streamPkg, streamKind),
 			verb:                 "GET",
 			optionsAsQueryParams: true,
 			setWatchParam:        false,
@@ -104,8 +78,6 @@ func (r *ResourceInfoRepository) BuildMethod(fullMethodName string) (Method, err
 		}
 	case "List":
 		params = &k8sRequestParams{
-			inMessageName:        fmt.Sprintf("%s.List%sRequest", streamPkg, streamKind),
-			outMessageName:       fmt.Sprintf("%s.%sList", streamPkg, streamKind),
 			verb:                 "GET",
 			optionsAsQueryParams: true,
 			setWatchParam:        false,
@@ -116,8 +88,6 @@ func (r *ResourceInfoRepository) BuildMethod(fullMethodName string) (Method, err
 		}
 	case "Watch":
 		params = &k8sRequestParams{
-			inMessageName:        fmt.Sprintf("%s.Watch%sRequest", streamPkg, streamKind),
-			outMessageName:       fmt.Sprintf("%s.%sEvent", streamPkg, streamKind),
 			verb:                 "GET",
 			optionsAsQueryParams: true,
 			setWatchParam:        true,
@@ -128,8 +98,6 @@ func (r *ResourceInfoRepository) BuildMethod(fullMethodName string) (Method, err
 		}
 	case "Create":
 		params = &k8sRequestParams{
-			inMessageName:        fmt.Sprintf("%s.Create%sRequest", streamPkg, streamKind),
-			outMessageName:       fmt.Sprintf("%s.%s", streamPkg, streamKind),
 			verb:                 "POST",
 			optionsAsQueryParams: true,
 			setWatchParam:        false,
@@ -140,8 +108,6 @@ func (r *ResourceInfoRepository) BuildMethod(fullMethodName string) (Method, err
 		}
 	case "Update":
 		params = &k8sRequestParams{
-			inMessageName:        fmt.Sprintf("%s.Update%sRequest", streamPkg, streamKind),
-			outMessageName:       fmt.Sprintf("%s.%s", streamPkg, streamKind),
 			verb:                 "PUT",
 			optionsAsQueryParams: true,
 			setWatchParam:        false,
@@ -154,8 +120,6 @@ func (r *ResourceInfoRepository) BuildMethod(fullMethodName string) (Method, err
 		return nil, errors.New("UpdateStatus is not yet implemented")
 	case "Delete":
 		params = &k8sRequestParams{
-			inMessageName:        fmt.Sprintf("%s.Delete%sRequest", streamPkg, streamKind),
-			outMessageName:       fmt.Sprintf("%s.Delete%sResponse", streamPkg, streamKind),
 			verb:                 "DELETE",
 			optionsAsQueryParams: false,
 			setWatchParam:        false,
@@ -167,19 +131,7 @@ func (r *ResourceInfoRepository) BuildMethod(fullMethodName string) (Method, err
 	default:
 		return nil, fmt.Errorf("unsupported method: %v", method)
 	}
-
-	params.resource = resourceInfo
 	return params, nil
-}
-
-func parseMethodName(methodName string) (streamPkg string, streamKind string, method string, err error) {
-	matches := methodRE.FindStringSubmatch(methodName)
-	if len(matches) != 4 {
-		err = fmt.Errorf("expected 4 matches in %s", methodName)
-		return
-	}
-	streamPkg, streamKind, method = matches[1], matches[2], matches[3]
-	return
 }
 
 func getFileDescriptor(obj *crdtypes.CustomResourceDefinition) (*desc.FileDescriptor, error) {
@@ -206,16 +158,16 @@ func getFileDescriptor(obj *crdtypes.CustomResourceDefinition) (*desc.FileDescri
 	return fd, nil
 }
 
-func getServiceName(fd *desc.FileDescriptor, kind string) (string, error) {
+func getService(fd *desc.FileDescriptor, kind string) (*desc.ServiceDescriptor, error) {
 	// Determine kind and kindPlural.
 	serviceName := fmt.Sprintf("K8s%s", kind)
 	svcs := fd.GetServices()
 	for _, svc := range svcs {
 		if svc.GetName() == serviceName {
-			return svc.GetFullyQualifiedName(), nil
+			return svc, nil
 		}
 	}
-	return "", fmt.Errorf("no service with name %s found in proto descriptor for %s", serviceName, kind)
+	return nil, fmt.Errorf("no service with name %s found in proto descriptor for %s", serviceName, kind)
 }
 
 func (r *ResourceInfoRepository) insertResourceInfo(obj *crdtypes.CustomResourceDefinition) error {
@@ -223,7 +175,7 @@ func (r *ResourceInfoRepository) insertResourceInfo(obj *crdtypes.CustomResource
 	if err != nil {
 		return err
 	}
-	name, err := getServiceName(fd, obj.Spec.Names.Kind)
+	svc, err := getService(fd, obj.Spec.Names.Kind)
 	if err != nil {
 		return err
 	}
@@ -244,29 +196,37 @@ func (r *ResourceInfoRepository) insertResourceInfo(obj *crdtypes.CustomResource
 		return fmt.Errorf("error building Kubernetes client: %v", err)
 	}
 
-	r.resources[name] = &resourceInfo{
-		fileDescriptor: fd,
-		APIVersion:     c.GroupVersion.String(),
-		Kind:           obj.Spec.Names.Kind,
-		KindPlural:     obj.Spec.Names.Plural,
-		Client:         client,
+	methods := make(map[string]Method)
+	for _, method := range svc.GetMethods() {
+		requestParams, err := createRequestParams(method.GetName())
+		if err != nil {
+			return fmt.Errorf("unrecognized method for %s: %v", method.GetName(), err)
+		}
+		requestParams.inMessage = dynamic.NewMessage(method.GetInputType())
+		requestParams.outMessage = dynamic.NewMessage(method.GetOutputType())
+		requestParams.apiVersion = c.GroupVersion.String()
+		requestParams.kind = obj.Spec.Names.Kind
+		requestParams.kindPlural = obj.Spec.Names.Plural
+		requestParams.client = client
+		grpcPath := fmt.Sprintf("/%s/%s", svc.GetFullyQualifiedName(), method.GetName())
+		methods[grpcPath] = requestParams
 	}
 
-	r.logs <- fmt.Sprintf("adding descriptor for service %s", name)
+	r.logs <- fmt.Sprintf("adding %d methods for service %s", len(methods), svc.GetFullyQualifiedName())
+	names := []string{}
+	for k, v := range methods {
+		r.grpcMethods[k] = v
+		names = append(names, k)
+	}
+	r.methodsByCR[obj.GetName()] = names
 	return nil
 }
 
 func (r *ResourceInfoRepository) deleteResourceInfo(obj *crdtypes.CustomResourceDefinition) error {
-	fd, err := getFileDescriptor(obj)
-	if err != nil {
-		return err
+	for _, m := range r.methodsByCR[obj.GetName()] {
+		delete(r.grpcMethods, m)
 	}
-	name, err := getServiceName(fd, obj.Spec.Names.Kind)
-	if err != nil {
-		return err
-	}
-	r.logs <- fmt.Sprintf("removing descriptor for service %s", name)
-	delete(r.resources, name)
+	delete(r.methodsByCR, obj.GetName())
 	return nil
 }
 

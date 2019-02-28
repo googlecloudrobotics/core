@@ -86,7 +86,7 @@ func SetUpValidCrd() (*ResourceInfoRepository, *mockTransport) {
 
 func TestEmptyRepositoryIsError(t *testing.T) {
 	r, _, _ := SetUpEmpty()
-	_, err := r.lookup("my.namespace", "Foo")
+	_, err := r.GetMethod("/my.namespace/Foo")
 	if err == nil {
 		t.Errorf("received non-error resource info from empty repository")
 	}
@@ -144,7 +144,7 @@ func TestHandlesMultipleVersions(t *testing.T) {
 
 func CreateMethodOrDie(name string) (Method, *mockTransport) {
 	r, transport := SetUpValidCrd()
-	m, err := r.BuildMethod(fmt.Sprintf("/cloudrobotics.hello_world.v1alpha1.K8sHelloWorld/%s", name))
+	m, err := r.GetMethod(fmt.Sprintf("/cloudrobotics.hello_world.v1alpha1.K8sHelloWorld/%s", name))
 	if err != nil {
 		log.Fatalf("unexpected error %v", err)
 	}

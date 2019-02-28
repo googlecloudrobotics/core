@@ -42,7 +42,7 @@ var (
 func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 	fullMethodName, _ := grpc.MethodFromServerStream(stream)
 
-	method, err := resourceInfoRepository.BuildMethod(fullMethodName)
+	method, err := resourceInfoRepository.GetMethod(fullMethodName)
 	if err != nil {
 		return err
 	}

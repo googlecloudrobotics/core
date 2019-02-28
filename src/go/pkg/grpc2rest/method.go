@@ -14,6 +14,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/jhump/protoreflect/dynamic"
+	"k8s.io/client-go/rest"
 )
 
 // Request is an interface for the subset of k8s.io/client-go/rest.Request
@@ -47,9 +48,8 @@ type Method interface {
 }
 
 type k8sRequestParams struct {
-	resource             *resourceInfo
-	inMessageName        string
-	outMessageName       string
+	inMessage            proto.Message
+	outMessage           proto.Message
 	verb                 string
 	optionsAsQueryParams bool
 	setWatchParam        bool
@@ -57,27 +57,22 @@ type k8sRequestParams struct {
 	setKindAndApiGroup   bool
 	isStreaming          bool
 	bodyFieldName        string
+	kind                 string
+	kindPlural           string
+	apiVersion           string
+	client               rest.Interface
 }
 
 func (params *k8sRequestParams) GetInputMessage() proto.Message {
-	msg, err := params.resource.GetMessage(params.inMessageName)
-	if err != nil {
-		log.Fatal("Invalid CR: Missing message %s", params.inMessageName)
-	}
-	return msg
+	return proto.Clone(params.inMessage)
 }
 
 func (params *k8sRequestParams) GetOutputMessage() proto.Message {
-	msg, err := params.resource.GetMessage(params.outMessageName)
-	if err != nil {
-		log.Fatal("Invalid CR: Missing message %s", params.outMessageName)
-	}
-	return msg
+	return proto.Clone(params.outMessage)
 }
 
 func (params *k8sRequestParams) BuildKubernetesRequest(msg proto.Message) (Request, error) {
 	inMessage := msg.(*dynamic.Message)
-	resource := params.resource
 
 	// Add Kind and ApiGroup if necessary.
 	if params.setKindAndApiGroup {
@@ -89,16 +84,16 @@ func (params *k8sRequestParams) BuildKubernetesRequest(msg proto.Message) (Reque
 		if !ok {
 			return nil, errors.New("object is not a message")
 		}
-		if err := object.TrySetFieldByName("kind", resource.Kind); err != nil {
+		if err := object.TrySetFieldByName("kind", params.kind); err != nil {
 			return nil, errors.New("object has no 'kind' field")
 		}
-		if err := object.TrySetFieldByName("apiVersion", resource.APIVersion); err != nil {
+		if err := object.TrySetFieldByName("apiVersion", params.apiVersion); err != nil {
 			return nil, errors.New("object has no 'apiVersion' field")
 		}
 	}
 
 	// Create Kubernetes request.
-	req := resource.Client.Verb(params.verb).Resource(resource.KindPlural).Namespace("default")
+	req := params.client.Verb(params.verb).Resource(params.kindPlural).Namespace("default")
 	// Set resource name.
 	if params.nameInPath {
 		name, err := getName(inMessage)
