@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/url"
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
@@ -30,8 +29,6 @@ type Request interface {
 	// in the WatchEvent may either be a regular object (in which case the
 	// GetOutputMessage() can parse the entire JSON), or an meta/v1.Status.
 	Stream() (io.ReadCloser, error)
-	// URL returns the URL that the request would query.
-	URL() *url.URL
 }
 
 // Method abstracts the semantics of a Kubernetes gRPC method.
@@ -107,6 +104,9 @@ func (params *k8sRequestParams) BuildKubernetesRequest(msg proto.Message) (Reque
 		name, err := getName(inMessage)
 		if err != nil {
 			return nil, fmt.Errorf("unable to determine resource name: %v", err)
+		}
+		if name == "" {
+			return nil, fmt.Errorf("empty name is not allowed for this method")
 		}
 		req = req.Name(name)
 	}

@@ -73,7 +73,6 @@ func unaryCall(stream grpc.ServerStream, method grpc2rest.Method) error {
 	}
 
 	// Perform Kubernetes request.
-	log.Printf("Performing request to %s", req.URL().String())
 	res, err := req.DoRaw()
 	if err != nil {
 		return fmt.Errorf("Kubernetes request failed: %v. Response body: %s", err, res)
@@ -111,7 +110,6 @@ func streamingCall(stream grpc.ServerStream, method grpc2rest.Method) error {
 	}
 
 	// Send kubernetes request.
-	log.Printf("Performing request to %s", req.URL().String())
 	str, err := req.Stream()
 	if err != nil {
 		return fmt.Errorf("kubernetes request failed: %v", err)
