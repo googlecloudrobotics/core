@@ -155,10 +155,10 @@ func CreateMethodOrDie(name string, scope crdtypes.ResourceScope) (Method, *mock
 }
 
 var messageTypeTests = []struct {
-	method      string
-	request     string
-	response    string
-	isStreaming bool
+	method   string
+	request  string
+	response string
+	isWatch  bool
 }{
 	{"Get", "GetHelloWorldRequest", "HelloWorld", false},
 	{"List", "ListHelloWorldRequest", "HelloWorldList", false},
@@ -176,7 +176,7 @@ func TestRequestHasCorrectMessageTypes(t *testing.T) {
 		g.Expect(*id.Name).To(Equal(tt.request))
 		_, od := descriptor.ForMessage(m.GetOutputMessage().(descriptor.Message))
 		g.Expect(*od.Name).To(Equal(tt.response))
-		g.Expect(m.IsStreamingCall()).To(Equal(tt.isStreaming))
+		g.Expect(m.IsWatchCall()).To(Equal(tt.isWatch))
 	}
 }
 

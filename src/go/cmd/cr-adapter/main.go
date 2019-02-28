@@ -27,6 +27,8 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/pkg/grpc2rest"
 	"google.golang.org/grpc"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -47,8 +49,8 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 		return err
 	}
 
-	if method.IsStreamingCall() {
-		err = streamingCall(stream, method)
+	if method.IsWatchCall() {
+		err = watchCall(stream, method)
 	} else {
 		err = unaryCall(stream, method)
 	}
@@ -94,7 +96,12 @@ func unaryCall(stream grpc.ServerStream, method grpc2rest.Method) error {
 	return nil
 }
 
-func streamingCall(stream grpc.ServerStream, method grpc2rest.Method) error {
+type WatchEvent struct {
+	Type   string
+	Object json.RawMessage
+}
+
+func watchCall(stream grpc.ServerStream, method grpc2rest.Method) error {
 	// Create dynamic proto message instances for i/o.
 	inMessage := method.GetInputMessage()
 	outMessage := method.GetOutputMessage()
@@ -119,13 +126,28 @@ func streamingCall(stream grpc.ServerStream, method grpc2rest.Method) error {
 	// Process response stream.
 	dec := json.NewDecoder(str)
 	for {
-		if err := unmarshaler.UnmarshalNext(dec, outMessage); err != nil {
+		msg := json.RawMessage{}
+		if err := dec.Decode(&msg); err != nil {
 			if err == io.EOF {
 				return nil
 			}
-			return fmt.Errorf("error unmarshaling response from kubernetes: %v", err)
+			return fmt.Errorf("error getting JSON message from Kubernetes: %v", err)
 		}
-		if err = stream.SendMsg(outMessage); err != nil {
+		event := WatchEvent{}
+		if err := json.Unmarshal(msg, &event); err != nil {
+			return fmt.Errorf("error unmarshaling watch event: %v", err)
+		}
+		if event.Type == string(watch.Error) {
+			status := metav1.Status{}
+			if err := json.Unmarshal(event.Object, &status); err != nil {
+				return fmt.Errorf("error unmarshaling status: %v", err)
+			}
+			return k8sStatusToGRPCStatus(status).Err()
+		}
+		if err := unmarshaler.Unmarshal(bytes.NewReader(msg), outMessage); err != nil {
+			return fmt.Errorf("error parsing Kubernetes message: %v", err)
+		}
+		if err := stream.SendMsg(outMessage); err != nil {
 			return fmt.Errorf("error sending message: %v", err)
 		}
 		outMessage.Reset()

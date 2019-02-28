@@ -9,6 +9,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	// Necessary because one of the mocks needs the metadata package.
 	_ "google.golang.org/grpc/metadata"
@@ -53,7 +55,7 @@ func TestUnaryCall(t *testing.T) {
 	g.Expect(*response.Metadata.Name).To(Equal("foo"))
 }
 
-func TestStreamingCall(t *testing.T) {
+func TestWatchCall(t *testing.T) {
 	g := NewGomegaWithT(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -102,6 +104,18 @@ func TestStreamingCall(t *testing.T) {
 					"hellosGiven": 10
 				}
 			}
+		}
+		{
+			"type": "ERROR",
+			"object": {
+				"kind": "Status",
+				"apiVersion": "v1",
+				"metadata": {},
+				"status": "Failure",
+				"message": "api server down",
+				"reason": "ServiceUnavailable",
+				"code": 503
+			}
 		}`
 	restRequest.EXPECT().
 		Stream().
@@ -115,10 +129,8 @@ func TestStreamingCall(t *testing.T) {
 			return nil
 		})
 
-	err := streamingCall(stream, method)
-	if err != nil {
-		t.Errorf("Expected no error; got %v", err)
-	}
+	err := watchCall(stream, method)
+	g.Expect(status.Code(err)).To(Equal(codes.Unavailable))
 	g.Expect(len(responses)).To(Equal(2))
 	g.Expect(*responses[0].Object.Metadata.Name).To(Equal("foo"))
 	// Ensure there's no cross-bleed between the two messages.

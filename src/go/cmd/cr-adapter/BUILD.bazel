@@ -4,16 +4,23 @@ load("@bazel_gomock//:gomock.bzl", "gomock")
 
 go_library(
     name = "go_default_library",
-    srcs = ["main.go"],
+    srcs = [
+        "main.go",
+        "util.go",
+    ],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/cr-adapter",
     visibility = ["//visibility:private"],
     deps = [
         "//src/go/pkg/grpc2rest:go_default_library",
         "@com_github_golang_protobuf//jsonpb:go_default_library_gen",
         "@io_k8s_apiextensions_apiserver//pkg/client/clientset/clientset:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/watch:go_default_library",
         "@io_k8s_client_go//plugin/pkg/client/auth/gcp:go_default_library",
         "@io_k8s_client_go//tools/clientcmd:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
     ],
 )
 
@@ -67,6 +74,8 @@ go_test(
         "@com_github_golang_mock//gomock:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_onsi_gomega//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//metadata:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
     ],
 )

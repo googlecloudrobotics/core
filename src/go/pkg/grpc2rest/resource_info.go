@@ -76,7 +76,7 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 			setKindAndApiGroup:   false,
 			namespacePath:        "namespace",
 			namespaceDefaults:    true,
-			isStreaming:          false,
+			isWatch:              false,
 			bodyFieldName:        "",
 		}
 	case "List":
@@ -88,7 +88,7 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 			setKindAndApiGroup:   false,
 			namespacePath:        "namespace",
 			namespaceDefaults:    false,
-			isStreaming:          false,
+			isWatch:              false,
 			bodyFieldName:        "",
 		}
 	case "Watch":
@@ -100,7 +100,7 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 			setKindAndApiGroup:   false,
 			namespacePath:        "namespace",
 			namespaceDefaults:    false,
-			isStreaming:          true,
+			isWatch:              true,
 			bodyFieldName:        "",
 		}
 	case "Create":
@@ -112,7 +112,7 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 			setKindAndApiGroup:   true,
 			namespacePath:        "object.metadata.namespace",
 			namespaceDefaults:    true,
-			isStreaming:          false,
+			isWatch:              false,
 			bodyFieldName:        "object",
 		}
 	case "Update":
@@ -125,7 +125,7 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 			setKindAndApiGroup:   true,
 			namespacePath:        "object.metadata.namespace",
 			namespaceDefaults:    true,
-			isStreaming:          false,
+			isWatch:              false,
 			bodyFieldName:        "object",
 		}
 	case "UpdateStatus":
@@ -140,7 +140,7 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 			setKindAndApiGroup:   false,
 			namespacePath:        "namespace",
 			namespaceDefaults:    true,
-			isStreaming:          false,
+			isWatch:              false,
 			bodyFieldName:        "options",
 		}
 	default:
