@@ -19,6 +19,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -64,4 +65,14 @@ func k8sStatusToGRPCStatus(in metav1.Status) *status.Status {
 	}
 
 	return status.New(code, in.Message)
+}
+
+func k8sErrorToGRPCError(err error) error {
+	// Try reading the Kubernetes-generated error that DoRaw()
+	// auto-generated from the response code.
+	statusError, ok := err.(*errors.StatusError)
+	if ok {
+		return k8sStatusToGRPCStatus(statusError.ErrStatus).Err()
+	}
+	return status.Errorf(codes.Unknown, err.Error())
 }

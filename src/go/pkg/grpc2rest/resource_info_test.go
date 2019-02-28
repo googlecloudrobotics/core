@@ -29,6 +29,7 @@ import (
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/rest"
 )
@@ -381,6 +382,20 @@ func TestBuildKubernetesRequestCatchesEmptyName(t *testing.T) {
 	}
 }
 
+func TestKubernetesRequestHandlesHttpError(t *testing.T) {
+	g := NewGomegaWithT(t)
+	m, transport := CreateMethodOrDie("List", crdtypes.NamespaceScoped)
+	k8sreq, err := m.BuildKubernetesRequest(m.GetInputMessage())
+	transport.responseCode = http.StatusGone
+	transport.responseBody = `{ "apiVersion": "v1", "kind": "Status", "message": "Foo" }`
+
+	body, err := k8sreq.DoRaw()
+	g.Expect(err).ToNot(BeNil())
+	g.Expect(err.(*errors.StatusError).Status().Code).To(Equal(int32(http.StatusGone)))
+	g.Expect(err.(*errors.StatusError).Error()).To(ContainSubstring("did not return more information"))
+	g.Expect(body).To(ContainSubstring("Foo"))
+}
+
 func TestStreamWorks(t *testing.T) {
 	g := NewGomegaWithT(t)
 	m, transport := CreateMethodOrDie("Watch", crdtypes.NamespaceScoped)
@@ -394,4 +409,19 @@ func TestStreamWorks(t *testing.T) {
 
 	g.Expect(err).To(BeNil())
 	g.Expect(string(b)).To(Equal("foo"))
+}
+
+func TestStreamHandlesHttpError(t *testing.T) {
+	g := NewGomegaWithT(t)
+	m, transport := CreateMethodOrDie("Watch", crdtypes.NamespaceScoped)
+	req, err := m.BuildKubernetesRequest(m.GetInputMessage())
+	transport.responseCode = http.StatusGone
+	transport.responseBody = "ignored"
+
+	str, err := req.Stream()
+
+	g.Expect(str).To(BeNil())
+	g.Expect(err).ToNot(BeNil())
+	g.Expect(err.(*errors.StatusError).Status().Code).To(Equal(int32(http.StatusGone)))
+	g.Expect(err.(*errors.StatusError).Error()).To(ContainSubstring("did not return more information"))
 }

@@ -26,6 +26,8 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/googlecloudrobotics/core/src/go/pkg/grpc2rest"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -46,7 +48,7 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 
 	method, err := resourceInfoRepository.GetMethod(fullMethodName)
 	if err != nil {
-		return err
+		return status.Errorf(codes.InvalidArgument, "no message %s: %v", fullMethodName, err)
 	}
 
 	if method.IsWatchCall() {
@@ -66,18 +68,26 @@ func unaryCall(stream grpc.ServerStream, method grpc2rest.Method) error {
 
 	// Receive proto message.
 	if err := stream.RecvMsg(inMessage); err != nil {
-		return fmt.Errorf("error receiving message: %v", err)
+		if err == io.EOF {
+			return status.Errorf(codes.InvalidArgument, "received no message for unary call")
+		}
+		return err
 	}
 
 	req, err := method.BuildKubernetesRequest(inMessage)
 	if err != nil {
-		return err
+		return status.Errorf(codes.InvalidArgument, "failed to build REST request: %v", err)
 	}
 
 	// Perform Kubernetes request.
 	res, err := req.DoRaw()
 	if err != nil {
-		return fmt.Errorf("Kubernetes request failed: %v. Response body: %s", err, res)
+		// Try reading the status from the response body
+		statusMsg := metav1.Status{}
+		if err := json.Unmarshal(res, &statusMsg); err == nil {
+			return k8sStatusToGRPCStatus(statusMsg).Err()
+		}
+		return k8sErrorToGRPCError(err)
 	}
 
 	// Create instance of dynamic message for received data.
@@ -85,12 +95,12 @@ func unaryCall(stream grpc.ServerStream, method grpc2rest.Method) error {
 
 	// Unmarshal kubernetes response to proto message.
 	if err := unmarshaler.Unmarshal(bytes.NewReader(res), outMessage); err != nil {
-		return fmt.Errorf("error unmarshaling response from Kubernetes: %v\n%s", err, string(res))
+		return status.Errorf(codes.Internal, "error unmarshaling response from Kubernetes: %v\n%s", err, string(res))
 	}
 
 	// Send proto message.
 	if err := stream.SendMsg(outMessage); err != nil {
-		return fmt.Errorf("error sending message: %v", err)
+		return err
 	}
 
 	return nil
@@ -108,18 +118,20 @@ func watchCall(stream grpc.ServerStream, method grpc2rest.Method) error {
 
 	// Receive proto message.
 	if err := stream.RecvMsg(inMessage); err != nil {
-		return fmt.Errorf("error receiving message: %v", err)
+		return err
 	}
 
 	req, err := method.BuildKubernetesRequest(inMessage)
 	if err != nil {
-		return err
+		return status.Errorf(codes.InvalidArgument, "failed to build REST request: %v", err)
 	}
 
 	// Send kubernetes request.
 	str, err := req.Stream()
 	if err != nil {
-		return fmt.Errorf("kubernetes request failed: %v", err)
+		// According to client-go code, Stream() returns no response
+		// body on error.
+		return k8sErrorToGRPCError(err)
 	}
 	defer str.Close()
 
@@ -131,24 +143,24 @@ func watchCall(stream grpc.ServerStream, method grpc2rest.Method) error {
 			if err == io.EOF {
 				return nil
 			}
-			return fmt.Errorf("error getting JSON message from Kubernetes: %v", err)
+			return status.Errorf(codes.Internal, "error getting JSON message from Kubernetes: %v", err)
 		}
 		event := WatchEvent{}
 		if err := json.Unmarshal(msg, &event); err != nil {
-			return fmt.Errorf("error unmarshaling watch event: %v", err)
+			return status.Errorf(codes.Internal, "error unmarshaling watch event: %v", err)
 		}
 		if event.Type == string(watch.Error) {
-			status := metav1.Status{}
-			if err := json.Unmarshal(event.Object, &status); err != nil {
-				return fmt.Errorf("error unmarshaling status: %v", err)
+			statusMsg := metav1.Status{}
+			if err := json.Unmarshal(event.Object, &statusMsg); err != nil {
+				return status.Errorf(codes.Internal, "error unmarshaling status: %v", err)
 			}
-			return k8sStatusToGRPCStatus(status).Err()
+			return k8sStatusToGRPCStatus(statusMsg).Err()
 		}
 		if err := unmarshaler.Unmarshal(bytes.NewReader(msg), outMessage); err != nil {
-			return fmt.Errorf("error parsing Kubernetes message: %v", err)
+			return status.Errorf(codes.Internal, "error parsing Kubernetes message: %v", err)
 		}
 		if err := stream.SendMsg(outMessage); err != nil {
-			return fmt.Errorf("error sending message: %v", err)
+			return err
 		}
 		outMessage.Reset()
 	}

@@ -25,13 +25,13 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	// Necessary because one of the mocks needs the metadata package.
 	_ "google.golang.org/grpc/metadata"
 )
 
-func TestUnaryCall(t *testing.T) {
-	g := NewGomegaWithT(t)
+func doGetCall(t *testing.T, restResponse string, restError error) (*helloworld.HelloWorld, error) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	stream := NewMockServerStream(ctrl)
@@ -53,24 +53,52 @@ func TestUnaryCall(t *testing.T) {
 		Return(restRequest, nil)
 	method.EXPECT().
 		GetOutputMessage().
+		AnyTimes().
 		Return(response)
-	restResponse := `{ "apiVersion": "hello-world.cloudrobotics.com/v1alpha1", "kind": "HelloWorld", "metadata": { "name": "foo" } }`
 	restRequest.EXPECT().
 		DoRaw().
-		Return([]byte(restResponse), nil)
+		Return([]byte(restResponse), restError)
+	expectedResponses := 1
+	if restError != nil {
+		expectedResponses = 0
+	}
 	stream.EXPECT().
 		SendMsg(gomock.Any()).
+		Times(expectedResponses).
 		Return(nil)
 
 	err := unaryCall(stream, method)
+	return response, err
+}
+
+func TestHappyUnaryCall(t *testing.T) {
+	g := NewGomegaWithT(t)
+	response, err := doGetCall(t, `{ "apiVersion": "hello-world.cloudrobotics.com/v1alpha1", "kind": "HelloWorld", "metadata": { "name": "foo" } }`, nil)
 	if err != nil {
 		t.Errorf("Expected no error; got %v", err)
 	}
 	g.Expect(*response.Metadata.Name).To(Equal("foo"))
 }
 
-func TestWatchCall(t *testing.T) {
+func TestUnaryCallHttpError(t *testing.T) {
 	g := NewGomegaWithT(t)
+	_, err := doGetCall(t, ``, errors.NewBadRequest("reason"))
+	if err == nil {
+		t.Errorf("Expected an error")
+	}
+	g.Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+}
+
+func TestUnaryCallKubernetesErrorTrumpsHttpError(t *testing.T) {
+	g := NewGomegaWithT(t)
+	_, err := doGetCall(t, `{ "apiVersion": "v1", "kind": "Status", "reason": "InternalError", "message": "FooBar" }`, errors.NewBadRequest("reason"))
+	if err == nil {
+		t.Errorf("Expected an error")
+	}
+	g.Expect(status.Code(err)).To(Equal(codes.Internal))
+}
+
+func doWatchCall(t *testing.T, restResponse string, restError error) ([]*helloworld.HelloWorldEvent, error) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	stream := NewMockServerStream(ctrl)
@@ -93,7 +121,32 @@ func TestWatchCall(t *testing.T) {
 	method.EXPECT().
 		GetOutputMessage().
 		Return(response)
-	restResponse := `{
+	restRequest.EXPECT().
+		Stream().
+		Return(ioutil.NopCloser(strings.NewReader(restResponse)), restError)
+	responses := []*helloworld.HelloWorldEvent{}
+	stream.EXPECT().
+		SendMsg(gomock.Any()).
+		AnyTimes().
+		DoAndReturn(func(msg proto.Message) error {
+			responses = append(responses, proto.Clone(msg).(*helloworld.HelloWorldEvent))
+			return nil
+		})
+
+	err := watchCall(stream, method)
+	return responses, err
+}
+
+func TestEmptyWatchCall(t *testing.T) {
+	g := NewGomegaWithT(t)
+	responses, err := doWatchCall(t, ``, nil)
+	g.Expect(err).To(BeNil())
+	g.Expect(len(responses)).To(Equal(0))
+}
+
+func TestHappyWatchCall(t *testing.T) {
+	g := NewGomegaWithT(t)
+	responses, err := doWatchCall(t, `{
 			"type": "ADDED",
 			"object": {
 				"apiVersion": "hello-world.cloudrobotics.com/v1alpha1",
@@ -119,6 +172,25 @@ func TestWatchCall(t *testing.T) {
 				}
 			}
 		}
+		`, nil)
+
+	g.Expect(err).To(BeNil())
+	g.Expect(len(responses)).To(Equal(2))
+	g.Expect(*responses[0].Object.Metadata.Name).To(Equal("foo"))
+	// Ensure there's no cross-bleed between the two messages.
+	g.Expect(responses[0].Object.Spec.ShouldHello).To(Equal(true))
+	g.Expect(responses[0].Object.Spec.HellosGiven).To(Equal(int32(0)))
+	g.Expect(*responses[1].Object.Metadata.Name).To(Equal("bar"))
+	g.Expect(responses[1].Object.Spec.ShouldHello).To(Equal(false))
+	g.Expect(responses[1].Object.Spec.HellosGiven).To(Equal(int32(10)))
+}
+
+func TestKubernetesErrorWatchCall(t *testing.T) {
+	g := NewGomegaWithT(t)
+	responses, err := doWatchCall(t, `{
+			"type": "ADDED",
+			"object": {}
+		}
 		{
 			"type": "ERROR",
 			"object": {
@@ -130,27 +202,16 @@ func TestWatchCall(t *testing.T) {
 				"reason": "ServiceUnavailable",
 				"code": 503
 			}
-		}`
-	restRequest.EXPECT().
-		Stream().
-		Return(ioutil.NopCloser(strings.NewReader(restResponse)), nil)
-	responses := []*helloworld.HelloWorldEvent{}
-	stream.EXPECT().
-		SendMsg(gomock.Any()).
-		Times(2).
-		DoAndReturn(func(msg proto.Message) error {
-			responses = append(responses, proto.Clone(msg).(*helloworld.HelloWorldEvent))
-			return nil
-		})
+		}`, nil)
 
-	err := watchCall(stream, method)
 	g.Expect(status.Code(err)).To(Equal(codes.Unavailable))
-	g.Expect(len(responses)).To(Equal(2))
-	g.Expect(*responses[0].Object.Metadata.Name).To(Equal("foo"))
-	// Ensure there's no cross-bleed between the two messages.
-	g.Expect(responses[0].Object.Spec.ShouldHello).To(Equal(true))
-	g.Expect(responses[0].Object.Spec.HellosGiven).To(Equal(int32(0)))
-	g.Expect(*responses[1].Object.Metadata.Name).To(Equal("bar"))
-	g.Expect(responses[1].Object.Spec.ShouldHello).To(Equal(false))
-	g.Expect(responses[1].Object.Spec.HellosGiven).To(Equal(int32(10)))
+	g.Expect(len(responses)).To(Equal(1))
+}
+
+func TestHttpErrorWatchCall(t *testing.T) {
+	g := NewGomegaWithT(t)
+	responses, err := doWatchCall(t, "", errors.NewBadRequest("reason"))
+
+	g.Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+	g.Expect(len(responses)).To(Equal(0))
 }
