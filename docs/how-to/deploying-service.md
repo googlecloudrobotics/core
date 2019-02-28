@@ -18,6 +18,20 @@ mkdir hello-service
 cd hello-service
 ```
 
+Set your GCP project ID as an environment variable:
+
+```
+export PROJECT_ID=[YOUR_GCP_PROJECT_ID]
+```
+
+All files created in this tutorial can be found in
+[docs/how-to/examples/hello-service/](https://github.com/googlecloudrobotics/core/tree/master/docs/how-to/examples/hello-service).
+If you download the files, you have to replace the placeholders `[PROJECT_ID]` with your GCP project ID:
+
+```
+sed -i "s/\[PROJECT_ID\]/$PROJECT_ID/g" client/client.py server/hello-server.yaml
+```
+
 ## A simple HTTP server
 
 Create a subdirectory for the server code:
@@ -29,24 +43,8 @@ cd server
 
 Paste the following into a file called `server.py`:
 
-```py
-from http import server
-
-class MyRequestHandler(server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        print('Received a request')
-        self.send_response(200)
-        self.send_header('Content-Type', 'text/plain')
-        self.end_headers()
-        self.wfile.write(b'Server says hello!\n')
-
-def main():
-    server_address = ('', 8000)
-    httpd = server.HTTPServer(server_address, MyRequestHandler)
-    httpd.serve_forever()
-
-if __name__ == '__main__':
-    main()
+``` python
+{% include_relative examples/hello-service/server/server.py -%}
 ```
 
 This Python program implements a server that listens on port 8000 for incoming HTTP GET requests. When such a request is received, it prints a line to stdout and responds to the request with a short message.
@@ -81,14 +79,8 @@ If this command fails, make sure Docker is installed according to the [installat
 
 In the same directory as `server.py`, create a `Dockerfile` with the following contents:
 
-```
-FROM python:alpine
-
-WORKDIR /data
-
-COPY server.py ./
-
-CMD [ "python", "-u", "./server.py" ]
+``` dockerfile
+{% include_relative examples/hello-service/server/Dockerfile -%}
 ```
 
 (Note: the `-u` option disables line-buffering; Python's line-buffering can prevent output from appearing immediately in the Docker logs.)
@@ -126,8 +118,8 @@ gcloud auth configure-docker
 Tag the image and push it to the registry:
 
 ```
-docker tag hello-server gcr.io/[PROJECT_ID]/hello-server
-docker push gcr.io/[PROJECT_ID]/hello-server
+docker tag hello-server gcr.io/$PROJECT_ID/hello-server
+docker push gcr.io/$PROJECT_ID/hello-server
 ```
 
 The image should now show up in the [Container Registry](https://console.cloud.google.com/gcr).
@@ -136,57 +128,8 @@ The image should now show up in the [Container Registry](https://console.cloud.g
 
 Create a file called `hello-server.yaml` with the following contents:
 
-```
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: hello-server-ingress
-  annotations:
-    kubernetes.io/ingress.class: "nginx"
-    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
-spec:
-  rules:
-  - host: www.endpoints.[PROJECT_ID].cloud.goog
-    http:
-      paths:
-      - path: /apis/hello-server
-        backend:
-          serviceName: hello-server-service
-          servicePort: 8000
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: hello-server-service
-spec:
-  ports:
-  - name: hello-server-port
-    port: 8000
-  # the selector is used to link pods to services
-  selector:
-    app: hello-server-app
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: hello-server
-spec:
-  # all pods matching this selector belong to this deployment
-  selector:
-    matchLabels:
-      app: hello-server-app
-  template:
-    metadata:
-      # the other side of the link between services and pods
-      labels:
-        app: hello-server-app
-    spec:
-      containers:
-      - name: hello-server
-        image: gcr.io/[PROJECT_ID]/hello-server:latest
-        ports:
-        # must match the port of the service
-        - containerPort: 8000
+``` yaml
+{% include_relative examples/hello-service/server/hello-server.yaml -%}
 ```
 
 This file contains the information needed by Kubernetes to run our HTTP service in our cloud cluster. In the following, we will go over it bit by bit assuming basic familiarity with the [YAML format](https://en.wikipedia.org/wiki/YAML).
@@ -233,8 +176,8 @@ If you make a change to `server.py`, you need to rebuild and push the Docker ima
 
 ```
 docker build -t hello-server .
-docker tag hello-server gcr.io/[PROJECT_ID]/hello-server
-docker push gcr.io/[PROJECT_ID]/hello-server
+docker tag hello-server gcr.io/$PROJECT_ID/hello-server
+docker push gcr.io/$PROJECT_ID/hello-server
 ```
 
 The easiest way to get Kubernetes to restart the workload with the latest version of the container is to delete the pod:
@@ -256,7 +199,7 @@ kubectl apply -f hello-server.yaml
 Let's try to access our server as we did before:
 
 ```
-curl -i https://www.endpoints.[PROJECT_ID].cloud.goog/apis/hello-server
+curl -i https://www.endpoints.$PROJECT_ID.cloud.goog/apis/hello-server
 ```
 
 This should result in a `401 Unauthorized` error because we did not supply any authorization information with the request.
@@ -266,7 +209,7 @@ We can, however, easily obtain credentials from `gcloud` and attach them to our 
 
 ```
 token=$(gcloud auth application-default print-access-token)
-curl -i -H "Authorization: Bearer $token" https://www.endpoints.[PROJECT_ID].cloud.goog/apis/hello-server
+curl -i -H "Authorization: Bearer $token" https://www.endpoints.$PROJECT_ID.cloud.goog/apis/hello-server
 ```
 
 If this command fails because "Application Default Credentials are not available", you need to first run:
@@ -303,17 +246,8 @@ pip install --upgrade google-auth requests
 
 Create `client.py` with the following contents:
 
-```
-import google.auth
-import google.auth.transport.requests as requests
-
-credentials, project_id = google.auth.default()
-
-authed_session = requests.AuthorizedSession(credentials)
-
-response = authed_session.request("GET", "https://www.endpoints.[PROJECT_ID].cloud.goog/apis/hello-server")
-
-print(response.status_code, response.reason, response.text)
+``` python
+{% include_relative examples/hello-service/client/client.py -%}
 ```
 
 Replace `[PROJECT_ID]` with your GCP project ID.
@@ -338,30 +272,22 @@ In order to run this script on the robot's Kubernetes cluster, we again package 
 
 Create a `Dockerfile` containing:
 
-```
-FROM python:alpine
-
-RUN pip install --no-cache-dir google-auth requests
-
-WORKDIR /data
-
-COPY client.py ./
-
-CMD [ "python", "-u", "./client.py" ]
+``` dockerfile
+{% include_relative examples/hello-service/client/Dockerfile -%}
 ```
 
 Build, tag, and push the image:
 
 ```
 docker build -t hello-client .
-docker tag hello-client gcr.io/[PROJECT_ID]/hello-client
-docker push gcr.io/[PROJECT_ID]/hello-client
+docker tag hello-client gcr.io/$PROJECT_ID/hello-client
+docker push gcr.io/$PROJECT_ID/hello-client
 ```
 
 And finally, to execute the script, SSH into robot and run:
 
 ```
-kubectl run -ti --rm --restart=Never --image=gcr.io/[PROJECT_ID]/hello-client hello-client
+kubectl run -ti --rm --restart=Never --image=gcr.io/$PROJECT_ID/hello-client hello-client
 ```
 
 You should see the server's message.

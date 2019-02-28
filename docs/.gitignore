@@ -1,0 +1,6 @@
+# Files created when running Jekyll locally, following
+# https://help.github.com/en/articles/setting-up-your-github-pages-site-locally-with-jekyll
+.sass-cache/
+_site/
+Gemfile
+Gemfile.lock
