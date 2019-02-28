@@ -1,4 +1,8 @@
-package main
+// grpc2rest contains methods for converting Kubernetes-style REST to gRPC.
+//
+// It contains a Method class that has all request-time information, and
+// a ResourceInfoRepository class responsible for creating Method instances.
+package grpc2rest
 
 import (
 	"errors"
@@ -46,7 +50,7 @@ type Method interface {
 }
 
 type k8sRequestParams struct {
-	resource             *ResourceInfo
+	resource             *resourceInfo
 	inMessageName        string
 	outMessageName       string
 	verb                 string

@@ -1,0 +1,42 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "method.go",
+        "resource_info.go",
+    ],
+    importpath = "github.com/googlecloudrobotics/core/src/go/pkg/grpc2rest",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_jhump_protoreflect//desc:go_default_library",
+        "@com_github_jhump_protoreflect//dynamic:go_default_library",
+        "@io_bazel_rules_go//proto/wkt:descriptor_go_proto",
+        "@io_k8s_apiextensions_apiserver//pkg/apis/apiextensions/v1beta1:go_default_library",
+        "@io_k8s_apiextensions_apiserver//pkg/client/clientset/clientset:go_default_library",
+        "@io_k8s_apiextensions_apiserver//pkg/client/informers/externalversions:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/serializer:go_default_library",
+        "@io_k8s_client_go//kubernetes/scheme:go_default_library",
+        "@io_k8s_client_go//rest:go_default_library",
+        "@io_k8s_client_go//tools/cache:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["resource_info_test.go"],
+    data = ["//src/proto/hello-world:service_crd.yaml"],
+    embed = [":go_default_library"],
+    deps = [
+        "@com_github_golang_protobuf//descriptor:go_default_library_gen",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_onsi_gomega//:go_default_library",
+        "@io_k8s_apiextensions_apiserver//pkg/apis/apiextensions/v1beta1:go_default_library",
+        "@io_k8s_apiextensions_apiserver//pkg/client/clientset/clientset:go_default_library",
+        "@io_k8s_apiextensions_apiserver//pkg/client/clientset/clientset/fake:go_default_library",
+        "@io_k8s_apimachinery//pkg/util/yaml:go_default_library",
+        "@io_k8s_client_go//rest:go_default_library",
+    ],
+)

@@ -1,4 +1,4 @@
-package main
+package grpc2rest
 
 import (
 	"encoding/base64"
@@ -25,7 +25,7 @@ var (
 	methodRE = regexp.MustCompile("^/(.*)\\.K8s([^.]*)/([^/]*)$")
 )
 
-type ResourceInfo struct {
+type resourceInfo struct {
 	fileDescriptor *desc.FileDescriptor
 	APIVersion     string
 	Kind           string
@@ -33,7 +33,7 @@ type ResourceInfo struct {
 	Client         *rest.RESTClient
 }
 
-func (ri *ResourceInfo) GetMessage(name string) (*dynamic.Message, error) {
+func (ri *resourceInfo) GetMessage(name string) (*dynamic.Message, error) {
 	md := ri.fileDescriptor.FindMessage(name)
 	if md == nil {
 		return nil, fmt.Errorf("unknown message: %s", name)
@@ -46,7 +46,7 @@ type ResourceInfoRepository struct {
 	logs      chan string
 	errors    chan error
 	mutex     sync.RWMutex
-	resources map[string]*ResourceInfo
+	resources map[string]*resourceInfo
 }
 
 func NewResourceInfoRepository(config *rest.Config) *ResourceInfoRepository {
@@ -54,7 +54,7 @@ func NewResourceInfoRepository(config *rest.Config) *ResourceInfoRepository {
 		config:    config,
 		logs:      make(chan string),
 		errors:    make(chan error),
-		resources: make(map[string]*ResourceInfo),
+		resources: make(map[string]*resourceInfo),
 	}
 }
 
@@ -66,7 +66,7 @@ func (r *ResourceInfoRepository) ErrorChannel() <-chan error {
 	return r.errors
 }
 
-func (r *ResourceInfoRepository) lookup(protoPackage string, messageName string) (*ResourceInfo, error) {
+func (r *ResourceInfoRepository) lookup(protoPackage string, messageName string) (*resourceInfo, error) {
 	key := fmt.Sprintf("%s.K8s%s", protoPackage, messageName)
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
@@ -244,7 +244,7 @@ func (r *ResourceInfoRepository) insertResourceInfo(obj *crdtypes.CustomResource
 		return fmt.Errorf("error building Kubernetes client: %v", err)
 	}
 
-	r.resources[name] = &ResourceInfo{
+	r.resources[name] = &resourceInfo{
 		fileDescriptor: fd,
 		APIVersion:     c.GroupVersion.String(),
 		Kind:           obj.Spec.Names.Kind,

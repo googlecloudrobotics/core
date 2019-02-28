@@ -24,6 +24,7 @@ import (
 	"net"
 
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/googlecloudrobotics/core/src/go/pkg/grpc2rest"
 	"google.golang.org/grpc"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -31,7 +32,7 @@ import (
 )
 
 var (
-	resourceInfoRepository *ResourceInfoRepository
+	resourceInfoRepository *grpc2rest.ResourceInfoRepository
 	// Global options for unmarshaling JSON to proto messages.
 	// Allow unknown fields as a safety measure (in case the Kubernetes API server's version does
 	// not match the version used to generate the proto descriptor).
@@ -57,7 +58,7 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 	return err
 }
 
-func unaryCall(stream grpc.ServerStream, method Method) error {
+func unaryCall(stream grpc.ServerStream, method grpc2rest.Method) error {
 
 	inMessage := method.GetInputMessage()
 
@@ -94,7 +95,7 @@ func unaryCall(stream grpc.ServerStream, method Method) error {
 	return nil
 }
 
-func streamingCall(stream grpc.ServerStream, method Method) error {
+func streamingCall(stream grpc.ServerStream, method grpc2rest.Method) error {
 	// Create dynamic proto message instances for i/o.
 	inMessage := method.GetInputMessage()
 	outMessage := method.GetOutputMessage()
@@ -150,7 +151,7 @@ func main() {
 		log.Fatalf("error building Kubernetes config: %v", err)
 	}
 
-	resourceInfoRepository = NewResourceInfoRepository(config)
+	resourceInfoRepository = grpc2rest.NewResourceInfoRepository(config)
 	go func() {
 		done := make(chan struct{})
 		clientset, err := crdclientset.NewForConfig(config)

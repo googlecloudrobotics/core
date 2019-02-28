@@ -1,4 +1,4 @@
-package main
+package grpc2rest
 
 import (
 	"fmt"
