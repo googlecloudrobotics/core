@@ -200,6 +200,11 @@ func getService(fd *desc.FileDescriptor, kind string) (*desc.ServiceDescriptor, 
 }
 
 func (r *ResourceInfoRepository) insertResourceInfo(obj *crdtypes.CustomResourceDefinition) error {
+	// Ignore resource without proto descriptors
+	if obj.ObjectMeta.Annotations["crc.cloudrobotics.com/proto-descriptor"] == "" {
+		return nil
+	}
+
 	fd, err := getFileDescriptor(obj)
 	if err != nil {
 		return err

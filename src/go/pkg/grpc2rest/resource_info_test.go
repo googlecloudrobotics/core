@@ -22,6 +22,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/descriptor"
 	"github.com/golang/protobuf/proto"
@@ -111,13 +112,16 @@ func TestEmptyRepositoryIsError(t *testing.T) {
 }
 
 func TestRequiresNonEmptyProtoDescriptor(t *testing.T) {
-	g := NewGomegaWithT(t)
 	r, crds, _ := SetUpEmpty()
 	crd := ValidCrd()
 	crd.ObjectMeta.Annotations["crc.cloudrobotics.com/proto-descriptor"] = ""
 	crds.ApiextensionsV1beta1().CustomResourceDefinitions().Create(&crd)
-	err := <-r.ErrorChannel()
-	g.Expect(err.Error()).To(ContainSubstring("no proto-descriptor"))
+	select {
+	case err := <-r.ErrorChannel():
+		t.Errorf("unexpected error: %v", err)
+	case <-time.After(100 * time.Millisecond):
+		return
+	}
 }
 
 func TestHandlesBrokenBase64(t *testing.T) {
