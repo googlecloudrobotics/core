@@ -15,6 +15,7 @@
 package layer_0
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -39,11 +40,6 @@ import (
 
 const (
 	alphanum = "abcdefghijklmnopqrstuvwxyz0123456789"
-
-	// Together, these identify the public image used for the VM, without
-	// pinning a specific version.
-	imageProject = "ubuntu-os-cloud"
-	imageFamily  = "ubuntu-1804-lts"
 
 	// Note: to use a workspace-relative path, the go_test() must have `rundir = "."`.
 	clusterInstallScript = "./src/bootstrap/robot/install_k8s_on_robot.sh"
@@ -158,7 +154,7 @@ func isStartedByKokoro() (bool, error) {
 
 // getSSH gets a connected SSH client, connecting to the public or private IP
 // depending on how the test was started.
-func getSSH(vm *gcp.VM) (ssh.Client, error) {
+func getSSH(t *testing.T, vm *gcp.VM) (ssh.Client, error) {
 	ips, err := vm.GetIPs()
 	if err != nil {
 		return nil, err
@@ -173,10 +169,10 @@ func getSSH(vm *gcp.VM) (ssh.Client, error) {
 		return nil, err
 	} else if onKokoro {
 		client.IP = ips[gcp.PrivateIP]
-		log.Printf("Detected that VM is started by Kokoro, so using private IP: %v", client.IP)
+		t.Logf("Detected that VM is started by Kokoro, so using private IP: %v", client.IP)
 	} else {
 		client.IP = ips[gcp.PublicIP]
-		log.Printf("Using public VM IP: %v", client.IP)
+		t.Logf("Using public VM IP: %v", client.IP)
 	}
 
 	if err := client.WaitForSSH(5 * time.Minute); err != nil {
@@ -203,7 +199,7 @@ func uploadLocalFile(client ssh.Client, localPath string, remotePath string, mod
 }
 
 // uploadAndRun uploads a local executable script over SSH and runs it.
-func uploadAndRun(client ssh.Client, localPath string, args ...string) error {
+func uploadAndRun(t *testing.T, client ssh.Client, localPath string, args ...string) error {
 	remotePath := "~/" + path.Base(localPath)
 	if err := uploadLocalFile(client, localPath, remotePath, 0755); err != nil {
 		return err
@@ -212,8 +208,13 @@ func uploadAndRun(client ssh.Client, localPath string, args ...string) error {
 	for i, arg := range args {
 		quotedArgs[i] = strconv.Quote(arg)
 	}
-	command := fmt.Sprintf("%s %s", remotePath, strings.Join(quotedArgs, " "))
-	if err := client.Run(command, os.Stdout, os.Stderr); err != nil {
+	// To avoid mixing the output streams of multiple commands running in
+	// parallel tests, we combine stdout and stderr on the remote host, and
+	// capture stdout and write it to the test log here.
+	command := fmt.Sprintf("%s %s 2>&1", remotePath, strings.Join(quotedArgs, " "))
+	stdout := new(bytes.Buffer)
+	if err := client.Run(command, stdout, os.Stderr); err != nil {
+		t.Logf("`%s` failed with %v:\n%s", command, err, stdout.String())
 		return fmt.Errorf("failed to run `%s` on VM: %v", remotePath, err)
 	}
 	return nil
@@ -221,34 +222,51 @@ func uploadAndRun(client ssh.Client, localPath string, args ...string) error {
 
 // TestInstallLayerZero creates a new VM and installs a Kubernetes cluster on it.
 func TestInstallLayerZero(t *testing.T) {
-	log.Print("Generating SSH keypair...")
 	privatePEM, publicPEM, err := generateKeypair()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	vm, err := newVM(privatePEM, publicPEM, imageProject, imageFamily)
-
-	defer func() {
-		log.Print("Deleting VM...")
-		if err := vm.Destroy(); err != nil {
-			t.Error("Failed to delete VM:", err)
+	// Together, these identify the public image used for the VM, without
+	// pinning a specific version. We test each image in parallel as the tests
+	// are independent and take 3-4 minutes.
+	testCases := []struct {
+		imageProject string
+		imageFamily  string
+	}{
+		{"ubuntu-os-cloud", "ubuntu-1404-lts"},
+		{"ubuntu-os-cloud", "ubuntu-1604-lts"},
+		{"ubuntu-os-cloud", "ubuntu-1804-lts"},
+	}
+	for _, tc := range testCases {
+		vm, err := newVM(privatePEM, publicPEM, tc.imageProject, tc.imageFamily)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}()
+		t.Run(tc.imageFamily, func(t *testing.T) {
+			t.Parallel()
+			defer func() {
+				t.Log("Deleting VM...")
+				if err := vm.Destroy(); err != nil {
+					t.Error("Failed to delete VM:", err)
+				}
+			}()
 
-	log.Printf("Provisioning VM %s...", vm.Name)
-	if err := vm.Provision(); err != nil {
-		t.Fatal("Failed to provision VM:", err)
-	}
+			t.Logf("Provisioning VM %s...", vm.Name)
+			if err := vm.Provision(); err != nil {
+				t.Fatal("Failed to provision VM:", err)
+			}
 
-	log.Printf("Establishing SSH connection to VM...")
-	client, err := getSSH(vm)
-	if err != nil {
-		t.Fatal("Failed to SSH to VM:", err)
-	}
+			t.Log("Establishing SSH connection to VM...")
+			client, err := getSSH(t, vm)
+			if err != nil {
+				t.Fatal("Failed to SSH to VM:", err)
+			}
 
-	log.Printf("Installing cluster on VM...")
-	if err := uploadAndRun(client, clusterInstallScript); err != nil {
-		t.Fatal("Failed to install cluster:", err)
+			t.Log("Installing cluster on VM...")
+			if err := uploadAndRun(t, client, clusterInstallScript); err != nil {
+				t.Fatal("Failed to install cluster:", err)
+			}
+		})
 	}
 }
