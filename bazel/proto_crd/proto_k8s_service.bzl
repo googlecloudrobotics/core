@@ -18,6 +18,7 @@ def _impl(ctx):
             "${KIND}": ctx.attr.message.rsplit(".", 1)[1],
             "${NAMESPACE}": ctx.attr.message.rsplit(".", 1)[0],
             "${IMPORTS}": "\n".join(imports),
+            "${NAMESPACE_FIELD}": ("string namespace = 3;" if ctx.attr.namespaced else ""),
         },
     )
 
@@ -30,6 +31,7 @@ proto_k8s_service_proto = rule(
             mandatory = False,
         ),
         "message": attr.string(mandatory = True),
+        "namespaced": attr.bool(mandatory = True),
         "file_options": attr.string_dict(mandatory = True),
         "spec": attr.label(mandatory = True, allow_files = True),
     },
@@ -37,7 +39,7 @@ proto_k8s_service_proto = rule(
     outputs = {"proto_file": "%{name}.proto"},
 )
 
-def proto_k8s_service(name, message, group, spec, file_options = {}, visibility = None):
+def proto_k8s_service(name, message, group, spec, namespaced = True, file_options = {}, visibility = None):
     """Generates a proto service for the K8s adapter.
 
     A proto_k8s_service named foo generates:
@@ -54,6 +56,7 @@ def proto_k8s_service(name, message, group, spec, file_options = {}, visibility 
       message: string. Fully qualified name of the message.
       group: string. Kubernetes API group for the CRD.
       spec: label. a proto_library rule with `message`Spec and `message`Status.
+      namespaced: bool. Set to false to make the CR cluster-scoped.
       file_options: dict of string. File-level options for the generated
         proto file.
     """
@@ -61,6 +64,7 @@ def proto_k8s_service(name, message, group, spec, file_options = {}, visibility 
         name = name,
         message = message,
         spec = spec,
+        namespaced = namespaced,
         file_options = file_options,
     )
 
@@ -92,6 +96,7 @@ def proto_k8s_service(name, message, group, spec, file_options = {}, visibility 
         descriptor = name + "_proto_descriptor",
         group = group,
         message = message,
+        namespaced = namespaced,
         openapi_spec = name + "_swagger",
         visibility = visibility,
     )

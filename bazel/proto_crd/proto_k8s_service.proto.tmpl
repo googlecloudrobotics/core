@@ -55,14 +55,17 @@ message ${KIND}Event {
 
 message Get${KIND}Request {
   string name = 1;
+  ${NAMESPACE_FIELD}
   k8s.io.apimachinery.pkg.apis.meta.v1.GetOptions options = 2;
 }
 
 message List${KIND}Request {
+  ${NAMESPACE_FIELD}
   k8s.io.apimachinery.pkg.apis.meta.v1.ListOptions options = 1;
 }
 
 message Watch${KIND}Request {
+  ${NAMESPACE_FIELD}
   k8s.io.apimachinery.pkg.apis.meta.v1.ListOptions options = 1;
 }
 
@@ -78,6 +81,7 @@ message Update${KIND}Request {
 
 message Delete${KIND}Request {
   string name = 1;
+  ${NAMESPACE_FIELD}
   k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions options = 2;
 }
 

@@ -19,6 +19,8 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+var crdScope = crdtypes.ClusterScoped
+
 type mockTransport struct {
 	handler func(req *http.Request) (*http.Response, error)
 
@@ -71,9 +73,10 @@ func SetUpEmpty() (*ResourceInfoRepository, crdclientset.Interface, *mockTranspo
 	return r, crds, transport
 }
 
-func SetUpValidCrd() (*ResourceInfoRepository, *mockTransport) {
+func SetUpValidCrd(scope crdtypes.ResourceScope) (*ResourceInfoRepository, *mockTransport) {
 	r, crds, transport := SetUpEmpty()
 	crd := ValidCrd()
+	crd.Spec.Scope = scope
 	crds.ApiextensionsV1beta1().CustomResourceDefinitions().Create(&crd)
 	select {
 	case <-r.LogChannel():
@@ -142,8 +145,8 @@ func TestHandlesMultipleVersions(t *testing.T) {
 	g.Expect(err.Error()).To(ContainSubstring("multiple versions"))
 }
 
-func CreateMethodOrDie(name string) (Method, *mockTransport) {
-	r, transport := SetUpValidCrd()
+func CreateMethodOrDie(name string, scope crdtypes.ResourceScope) (Method, *mockTransport) {
+	r, transport := SetUpValidCrd(scope)
 	m, err := r.GetMethod(fmt.Sprintf("/cloudrobotics.hello_world.v1alpha1.K8sHelloWorld/%s", name))
 	if err != nil {
 		log.Fatalf("unexpected error %v", err)
@@ -168,7 +171,7 @@ var messageTypeTests = []struct {
 func TestRequestHasCorrectMessageTypes(t *testing.T) {
 	g := NewGomegaWithT(t)
 	for _, tt := range messageTypeTests {
-		m, _ := CreateMethodOrDie(tt.method)
+		m, _ := CreateMethodOrDie(tt.method, crdtypes.NamespaceScoped)
 		_, id := descriptor.ForMessage(m.GetInputMessage().(descriptor.Message))
 		g.Expect(*id.Name).To(Equal(tt.request))
 		_, od := descriptor.ForMessage(m.GetOutputMessage().(descriptor.Message))
@@ -182,6 +185,7 @@ var happyCaseTests = []struct {
 	message string
 	url     string
 	body    string
+	scope   crdtypes.ResourceScope
 }{
 	// Empty resourceVersion should set no parameter.
 	{
@@ -189,31 +193,60 @@ var happyCaseTests = []struct {
 		`name: "foo"`,
 		"http://www.server.com/apis/hello-world.cloudrobotics.com/v1alpha1/namespaces/default/helloworlds/foo",
 		"",
+		crdtypes.NamespaceScoped,
 	},
 	{
 		"Get",
 		`name: "foo" options: <resourceVersion: "28">`,
 		"http://www.server.com/apis/hello-world.cloudrobotics.com/v1alpha1/namespaces/default/helloworlds/foo?resourceVersion=28",
 		"",
+		crdtypes.NamespaceScoped,
 	},
+	// Test whether get in a different namespace works
+	{
+		"Get",
+		`name: "foo" namespace: "nsp" options: <resourceVersion: "28">`,
+		"http://www.server.com/apis/hello-world.cloudrobotics.com/v1alpha1/namespaces/nsp/helloworlds/foo?resourceVersion=28",
+		"",
+		crdtypes.NamespaceScoped,
+	},
+	// Test whether get works for a cluster-scoped resource
+	{
+		"Get",
+		`name: "foo" options: <resourceVersion: "28">`,
+		"http://www.server.com/apis/hello-world.cloudrobotics.com/v1alpha1/helloworlds/foo?resourceVersion=28",
+		"",
+		crdtypes.ClusterScoped,
+	},
+	// List with an empty namespace should list all namespaces.
 	{
 		"List",
 		`options: <resourceVersion: "28">`,
+		"http://www.server.com/apis/hello-world.cloudrobotics.com/v1alpha1/helloworlds?resourceVersion=28",
+		"",
+		crdtypes.NamespaceScoped,
+	},
+	{
+		"List",
+		`namespace: "default" options: <resourceVersion: "28">`,
 		"http://www.server.com/apis/hello-world.cloudrobotics.com/v1alpha1/namespaces/default/helloworlds?resourceVersion=28",
 		"",
+		crdtypes.NamespaceScoped,
 	},
 	{
 		"Watch",
-		`options: <resourceVersion: "28">`,
+		`namespace: "default" options: <resourceVersion: "28">`,
 		"http://www.server.com/apis/hello-world.cloudrobotics.com/v1alpha1/namespaces/default/helloworlds?resourceVersion=28&watch=true",
 		"",
+		crdtypes.NamespaceScoped,
 	},
 	// Setting watch: true should make no difference.
 	{
 		"Watch",
-		`options: <resourceVersion: "28" watch: true>`,
+		`namespace: "default" options: <resourceVersion: "28" watch: true>`,
 		"http://www.server.com/apis/hello-world.cloudrobotics.com/v1alpha1/namespaces/default/helloworlds?resourceVersion=28&watch=true",
 		"",
+		crdtypes.NamespaceScoped,
 	},
 	{
 		"Create",
@@ -226,6 +259,36 @@ var happyCaseTests = []struct {
 				"name": "foo"
 			}
 		 }`,
+		crdtypes.NamespaceScoped,
+	},
+	// Test whether create in a different namespace works
+	{
+		"Create",
+		`object: <metadata: <name: "foo" namespace: "nsp"> >`,
+		"http://www.server.com/apis/hello-world.cloudrobotics.com/v1alpha1/namespaces/nsp/helloworlds",
+		`{
+			"apiVersion": "hello-world.cloudrobotics.com/v1alpha1",
+			"kind": "HelloWorld",
+			"metadata": {
+				"name": "foo",
+				"namespace": "nsp"
+			}
+		 }`,
+		crdtypes.NamespaceScoped,
+	},
+	// Test whether creating a cluster-scoped resource works
+	{
+		"Create",
+		`object: <metadata: <name: "foo"> >`,
+		"http://www.server.com/apis/hello-world.cloudrobotics.com/v1alpha1/helloworlds",
+		`{
+			"apiVersion": "hello-world.cloudrobotics.com/v1alpha1",
+			"kind": "HelloWorld",
+			"metadata": {
+				"name": "foo"
+			}
+		 }`,
+		crdtypes.ClusterScoped,
 	},
 	// apiVersion/kind on the input should be ignored.
 	{
@@ -239,6 +302,7 @@ var happyCaseTests = []struct {
 				"name": "foo"
 			}
 		 }`,
+		crdtypes.NamespaceScoped,
 	},
 	{
 		"Update",
@@ -251,6 +315,7 @@ var happyCaseTests = []struct {
 				"name": "foo"
 			}
 		 }`,
+		crdtypes.NamespaceScoped,
 	},
 	{
 		"Delete",
@@ -259,13 +324,14 @@ var happyCaseTests = []struct {
 		`{
 			"propagationPolicy": "Foreground"
 		}`,
+		crdtypes.NamespaceScoped,
 	},
 }
 
 func TestBuildKubernetesRequestHappyCase(t *testing.T) {
 	g := NewGomegaWithT(t)
 	for _, tt := range happyCaseTests {
-		m, transport := CreateMethodOrDie(tt.method)
+		m, transport := CreateMethodOrDie(tt.method, tt.scope)
 		msg := m.GetInputMessage()
 		g.Expect(proto.UnmarshalText(tt.message, msg)).To(BeNil())
 		k8sreq, err := m.BuildKubernetesRequest(msg)
@@ -293,7 +359,7 @@ var emptyNameTests = []struct {
 func TestBuildKubernetesRequestCatchesEmptyName(t *testing.T) {
 	g := NewGomegaWithT(t)
 	for _, tt := range emptyNameTests {
-		m, _ := CreateMethodOrDie(tt.method)
+		m, _ := CreateMethodOrDie(tt.method, crdtypes.NamespaceScoped)
 		msg := m.GetInputMessage()
 		g.Expect(proto.UnmarshalText(tt.message, msg)).To(BeNil())
 		_, err := m.BuildKubernetesRequest(msg)
@@ -303,7 +369,7 @@ func TestBuildKubernetesRequestCatchesEmptyName(t *testing.T) {
 
 func TestStreamWorks(t *testing.T) {
 	g := NewGomegaWithT(t)
-	m, transport := CreateMethodOrDie("Watch")
+	m, transport := CreateMethodOrDie("Watch", crdtypes.NamespaceScoped)
 	transport.responseCode = http.StatusOK
 	transport.responseBody = "foo"
 	req, _ := m.BuildKubernetesRequest(m.GetInputMessage())

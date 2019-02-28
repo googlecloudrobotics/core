@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"strconv"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
@@ -50,16 +51,20 @@ type Method interface {
 type k8sRequestParams struct {
 	inMessage            proto.Message
 	outMessage           proto.Message
-	verb                 string
-	optionsAsQueryParams bool
-	setWatchParam        bool
-	nameInPath           bool
-	setKindAndApiGroup   bool
-	isStreaming          bool
-	bodyFieldName        string
-	kind                 string
-	kindPlural           string
-	apiVersion           string
+	verb                 string // HTTP verb for REST ("POST")
+	optionsAsQueryParams bool   // copy options from proto to ? URL params
+	setWatchParam        bool   // force ?watch to true
+	nameInPath           bool   // put the resource's name into the URL path
+	namePath             string // proto path (a.b.c) to the name field
+	setKindAndApiGroup   bool   // override kind/apiVersion in object field
+	namespacePath        string // proto path (a.b.c) to the namespace field
+	namespaceDefaults    bool   // whether empty namespace is "default" (true) or all namespaces (false)
+	isStreaming          bool   // whether the response is streaming
+	isNamespacedResource bool   // whether this resource is namespaced (vs cluster-scoped)
+	bodyFieldName        string // name of the field that goes into the body
+	kind                 string // camel-case Kind ("HelloWorld")
+	kindPlural           string // lower-case plural of Kind ("helloworlds")
+	apiVersion           string // apiVersion including group ("foo.com/v1")
 	client               rest.Interface
 }
 
@@ -93,10 +98,20 @@ func (params *k8sRequestParams) BuildKubernetesRequest(msg proto.Message) (Reque
 	}
 
 	// Create Kubernetes request.
-	req := params.client.Verb(params.verb).Resource(params.kindPlural).Namespace("default")
+	req := params.client.Verb(params.verb).Resource(params.kindPlural)
+	if params.isNamespacedResource {
+		namespace, err := getStringField(params.namespacePath, inMessage)
+		if err != nil {
+			return nil, fmt.Errorf("unable to determine namespace: %v", err)
+		}
+		if params.namespaceDefaults && namespace == "" {
+			namespace = "default"
+		}
+		req = req.Namespace(namespace)
+	}
 	// Set resource name.
 	if params.nameInPath {
-		name, err := getName(inMessage)
+		name, err := getStringField(params.namePath, inMessage)
 		if err != nil {
 			return nil, fmt.Errorf("unable to determine resource name: %v", err)
 		}
@@ -136,37 +151,31 @@ func (params *k8sRequestParams) IsStreamingCall() bool {
 	return params.isStreaming
 }
 
-func getName(message *dynamic.Message) (string, error) {
-	// Try field name "name".
-	nameInterface, err := message.TryGetFieldByName("name")
-	if err != nil {
-		// Try field name "object".
-		objInterface, err := message.TryGetFieldByName("object")
+func getStringField(path string, msg *dynamic.Message) (string, error) {
+	var (
+		field interface{}
+		err   error
+		ok    bool
+	)
+	parts := strings.Split(path, ".")
+	submsg := msg
+	for i, p := range parts {
+		field, err = submsg.TryGetFieldByName(p)
 		if err != nil {
-			return "", fmt.Errorf("unable to extract field 'name' or 'object': %v", err)
+			return "", fmt.Errorf("unable to find field %q in %s", strings.Join(parts[0:i+1], "."), proto.MessageName(msg))
 		}
-		objMessage, ok := objInterface.(*dynamic.Message)
-		if !ok {
-			return "", errors.New("'object' is not a message")
-		}
-		metaInterface, err := objMessage.TryGetFieldByName("metadata")
-		if err != nil {
-			return "", fmt.Errorf("unable to extract field 'metadata': %v", err)
-		}
-		metaMessage, ok := metaInterface.(*dynamic.Message)
-		if !ok {
-			return "", errors.New("'metadata' is not a message")
-		}
-		nameInterface, err = metaMessage.TryGetFieldByName("name")
-		if err != nil {
-			return "", fmt.Errorf("unable to extract field 'name': %v", err)
+		if i < len(parts)-1 {
+			submsg, ok = field.(*dynamic.Message)
+			if !ok {
+				return "", fmt.Errorf("field %q of %s is not a message", strings.Join(parts[0:i+1], "."), proto.MessageName(msg))
+			}
 		}
 	}
-	name, ok := nameInterface.(string)
+	result, ok := field.(string)
 	if !ok {
-		return "", errors.New("'name' is not a string")
+		return "", fmt.Errorf("field %q of %s is not a string", path, proto.MessageName(msg))
 	}
-	return name, nil
+	return result, nil
 }
 
 func getBody(message *dynamic.Message, fieldName string) ([]byte, error) {

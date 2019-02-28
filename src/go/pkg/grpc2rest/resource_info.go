@@ -72,7 +72,10 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 			optionsAsQueryParams: true,
 			setWatchParam:        false,
 			nameInPath:           true,
+			namePath:             "name",
 			setKindAndApiGroup:   false,
+			namespacePath:        "namespace",
+			namespaceDefaults:    true,
 			isStreaming:          false,
 			bodyFieldName:        "",
 		}
@@ -83,6 +86,8 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 			setWatchParam:        false,
 			nameInPath:           false,
 			setKindAndApiGroup:   false,
+			namespacePath:        "namespace",
+			namespaceDefaults:    false,
 			isStreaming:          false,
 			bodyFieldName:        "",
 		}
@@ -93,6 +98,8 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 			setWatchParam:        true,
 			nameInPath:           false,
 			setKindAndApiGroup:   false,
+			namespacePath:        "namespace",
+			namespaceDefaults:    false,
 			isStreaming:          true,
 			bodyFieldName:        "",
 		}
@@ -103,6 +110,8 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 			setWatchParam:        false,
 			nameInPath:           false,
 			setKindAndApiGroup:   true,
+			namespacePath:        "object.metadata.namespace",
+			namespaceDefaults:    true,
 			isStreaming:          false,
 			bodyFieldName:        "object",
 		}
@@ -112,7 +121,10 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 			optionsAsQueryParams: true,
 			setWatchParam:        false,
 			nameInPath:           true,
+			namePath:             "object.metadata.name",
 			setKindAndApiGroup:   true,
+			namespacePath:        "object.metadata.namespace",
+			namespaceDefaults:    true,
 			isStreaming:          false,
 			bodyFieldName:        "object",
 		}
@@ -124,7 +136,10 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 			optionsAsQueryParams: false,
 			setWatchParam:        false,
 			nameInPath:           true,
+			namePath:             "name",
 			setKindAndApiGroup:   false,
+			namespacePath:        "namespace",
+			namespaceDefaults:    true,
 			isStreaming:          false,
 			bodyFieldName:        "options",
 		}
@@ -208,6 +223,7 @@ func (r *ResourceInfoRepository) insertResourceInfo(obj *crdtypes.CustomResource
 		requestParams.kind = obj.Spec.Names.Kind
 		requestParams.kindPlural = obj.Spec.Names.Plural
 		requestParams.client = client
+		requestParams.isNamespacedResource = (obj.Spec.Scope == crdtypes.NamespaceScoped)
 		grpcPath := fmt.Sprintf("/%s/%s", svc.GetFullyQualifiedName(), method.GetName())
 		methods[grpcPath] = requestParams
 	}
