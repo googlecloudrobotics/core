@@ -45,6 +45,9 @@ func doGetCall(t *testing.T, restResponse string, restError error) (*helloworld.
 	method.EXPECT().
 		GetInputMessage().
 		Return(request)
+	method.EXPECT().
+		IsWatchCall().
+		Return(false)
 	stream.EXPECT().
 		RecvMsg(gomock.Any()).
 		Return(nil)
@@ -67,7 +70,7 @@ func doGetCall(t *testing.T, restResponse string, restError error) (*helloworld.
 		Times(expectedResponses).
 		Return(nil)
 
-	err := unaryCall(stream, method)
+	err := handleStream(stream, method)
 	return response, err
 }
 
@@ -112,6 +115,9 @@ func doWatchCall(t *testing.T, restResponse string, restError error) ([]*hellowo
 	method.EXPECT().
 		GetInputMessage().
 		Return(request)
+	method.EXPECT().
+		IsWatchCall().
+		Return(true)
 	stream.EXPECT().
 		RecvMsg(gomock.Any()).
 		Return(nil)
@@ -133,7 +139,7 @@ func doWatchCall(t *testing.T, restResponse string, restError error) ([]*hellowo
 			return nil
 		})
 
-	err := watchCall(stream, method)
+	err := handleStream(stream, method)
 	return responses, err
 }
 

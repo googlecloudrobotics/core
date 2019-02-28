@@ -51,19 +51,10 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 		return status.Errorf(codes.InvalidArgument, "no message %s: %v", fullMethodName, err)
 	}
 
-	if method.IsWatchCall() {
-		err = watchCall(stream, method)
-	} else {
-		err = unaryCall(stream, method)
-	}
-	if err != nil {
-		log.Print(err)
-	}
-	return err
+	return handleStream(stream, method)
 }
 
-func unaryCall(stream grpc.ServerStream, method grpc2rest.Method) error {
-
+func handleStream(stream grpc.ServerStream, method grpc2rest.Method) error {
 	inMessage := method.GetInputMessage()
 
 	// Receive proto message.
@@ -80,6 +71,15 @@ func unaryCall(stream grpc.ServerStream, method grpc2rest.Method) error {
 	}
 
 	// Perform Kubernetes request.
+	if method.IsWatchCall() {
+		err = watchResponse(stream, method, req)
+	} else {
+		err = unaryResponse(stream, method, req)
+	}
+	return err
+}
+
+func unaryResponse(stream grpc.ServerStream, method grpc2rest.Method, req grpc2rest.Request) error {
 	res, err := req.DoRaw()
 	if err != nil {
 		// Try reading the status from the response body
@@ -111,22 +111,8 @@ type WatchEvent struct {
 	Object json.RawMessage
 }
 
-func watchCall(stream grpc.ServerStream, method grpc2rest.Method) error {
-	// Create dynamic proto message instances for i/o.
-	inMessage := method.GetInputMessage()
+func watchResponse(stream grpc.ServerStream, method grpc2rest.Method, req grpc2rest.Request) error {
 	outMessage := method.GetOutputMessage()
-
-	// Receive proto message.
-	if err := stream.RecvMsg(inMessage); err != nil {
-		return err
-	}
-
-	req, err := method.BuildKubernetesRequest(inMessage)
-	if err != nil {
-		return status.Errorf(codes.InvalidArgument, "failed to build REST request: %v", err)
-	}
-
-	// Send kubernetes request.
 	str, err := req.Stream()
 	if err != nil {
 		// According to client-go code, Stream() returns no response
