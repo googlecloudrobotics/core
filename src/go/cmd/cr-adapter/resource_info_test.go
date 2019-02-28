@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"testing"
 
+	"github.com/golang/protobuf/descriptor"
+	"github.com/golang/protobuf/proto"
 	. "github.com/onsi/gomega"
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -52,7 +55,7 @@ func SetUpValidCrd() *ResourceInfoRepository {
 
 func TestEmptyRepositoryIsError(t *testing.T) {
 	r, _ := SetUpEmpty()
-	_, err := r.Lookup("my.namespace", "Foo")
+	_, err := r.lookup("my.namespace", "Foo")
 	if err == nil {
 		t.Errorf("received non-error resource info from empty repository")
 	}
@@ -108,25 +111,35 @@ func TestHandlesMultipleVersions(t *testing.T) {
 	g.Expect(err.Error()).To(ContainSubstring("multiple versions"))
 }
 
-func TestSetsStringConstants(t *testing.T) {
-	g := NewGomegaWithT(t)
+func CreateMethodOrDie(name string) Method {
 	r := SetUpValidCrd()
-	ri, err := r.Lookup("cloudrobotics.hello_world.v1alpha1", "HelloWorld")
+	m, err := r.BuildMethod(fmt.Sprintf("/cloudrobotics.hello_world.v1alpha1.K8sHelloWorld/%s", name))
 	if err != nil {
-		t.Errorf("expected HelloWorld ResourceInfo; got %v", err)
+		log.Fatalf("unexpected error %v", err)
 	}
-	g.Expect(ri.APIVersion).To(Equal("hello-world.cloudrobotics.com/v1alpha1"))
-	g.Expect(ri.Kind).To(Equal("HelloWorld"))
-	g.Expect(ri.KindPlural).To(Equal("helloworlds"))
+	return m
 }
 
-func TestSetsUpClientCorrectly(t *testing.T) {
+func TestGetRequestHasCorrectMessageTypes(t *testing.T) {
 	g := NewGomegaWithT(t)
-	r := SetUpValidCrd()
-	ri, err := r.Lookup("cloudrobotics.hello_world.v1alpha1", "HelloWorld")
-	if err != nil {
-		t.Errorf("expected HelloWorld ResourceInfo; got %v", err)
+	m := CreateMethodOrDie("Get")
+	_, id := descriptor.ForMessage(m.GetInputMessage().(descriptor.Message))
+	g.Expect(*id.Name).To(Equal("GetHelloWorldRequest"))
+	_, od := descriptor.ForMessage(m.GetOutputMessage().(descriptor.Message))
+	g.Expect(*od.Name).To(Equal("HelloWorld"))
+	g.Expect(m.IsStreamingCall()).To(Equal(false))
+}
+
+func TestGetRequestBuildsKubernetesRequest(t *testing.T) {
+	g := NewGomegaWithT(t)
+	m := CreateMethodOrDie("Get")
+	msg := m.GetInputMessage()
+	if err := proto.UnmarshalText(`name: "foo" options: <resourceVersion: "28">`, msg); err != nil {
+		t.Errorf("unexpected error %v", err)
 	}
-	url := ri.Client.Get().Resource(ri.KindPlural).Namespace("default").Name("foo").URL()
-	g.Expect(url.String()).To(Equal("http://www.google.com/apis/hello-world.cloudrobotics.com/v1alpha1/namespaces/default/helloworlds/foo"))
+	req, err := m.BuildKubernetesRequest(msg)
+	if err != nil {
+		t.Errorf("unexpected error %v", err)
+	}
+	g.Expect(req.URL().String()).To(Equal("http://www.google.com/apis/hello-world.cloudrobotics.com/v1alpha1/namespaces/default/helloworlds/foo?resourceVersion=28"))
 }

@@ -5,6 +5,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "main.go",
+        "method.go",
         "resource_info.go",
     ],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/cr-adapter",
@@ -47,6 +48,8 @@ go_test(
     data = ["//src/proto/hello-world:service_crd.yaml"],
     embed = [":go_default_library"],
     deps = [
+        "@com_github_golang_protobuf//descriptor:go_default_library_gen",
+        "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_onsi_gomega//:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/apis/apiextensions/v1beta1:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/client/clientset/clientset:go_default_library",

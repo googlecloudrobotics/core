@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"regexp"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
@@ -17,6 +19,10 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+)
+
+var (
+	methodRE = regexp.MustCompile("^/(.*)\\.K8s([^.]*)/([^/]*)$")
 )
 
 type ResourceInfo struct {
@@ -60,7 +66,7 @@ func (r *ResourceInfoRepository) ErrorChannel() <-chan error {
 	return r.errors
 }
 
-func (r *ResourceInfoRepository) Lookup(protoPackage string, messageName string) (*ResourceInfo, error) {
+func (r *ResourceInfoRepository) lookup(protoPackage string, messageName string) (*ResourceInfo, error) {
 	key := fmt.Sprintf("%s.K8s%s", protoPackage, messageName)
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
@@ -68,6 +74,112 @@ func (r *ResourceInfoRepository) Lookup(protoPackage string, messageName string)
 		return v, nil
 	}
 	return nil, fmt.Errorf("didn't find a CR matching %s", key)
+}
+
+func (r *ResourceInfoRepository) BuildMethod(fullMethodName string) (Method, error) {
+	streamPkg, streamKind, method, err := parseMethodName(fullMethodName)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse method name: %v", err)
+	}
+
+	resourceInfo, err := r.lookup(streamPkg, streamKind)
+	if err != nil {
+		return nil, err
+	}
+
+	var params *k8sRequestParams
+
+	switch method {
+	case "Get":
+		params = &k8sRequestParams{
+			inMessageName:        fmt.Sprintf("%s.Get%sRequest", streamPkg, streamKind),
+			outMessageName:       fmt.Sprintf("%s.%s", streamPkg, streamKind),
+			verb:                 "GET",
+			optionsAsQueryParams: true,
+			setWatchParam:        false,
+			nameInPath:           true,
+			setKindAndApiGroup:   false,
+			isStreaming:          false,
+			bodyFieldName:        "",
+		}
+	case "List":
+		params = &k8sRequestParams{
+			inMessageName:        fmt.Sprintf("%s.List%sRequest", streamPkg, streamKind),
+			outMessageName:       fmt.Sprintf("%s.%sList", streamPkg, streamKind),
+			verb:                 "GET",
+			optionsAsQueryParams: true,
+			setWatchParam:        false,
+			nameInPath:           false,
+			setKindAndApiGroup:   false,
+			isStreaming:          false,
+			bodyFieldName:        "",
+		}
+	case "Watch":
+		params = &k8sRequestParams{
+			inMessageName:        fmt.Sprintf("%s.Watch%sRequest", streamPkg, streamKind),
+			outMessageName:       fmt.Sprintf("%s.%sEvent", streamPkg, streamKind),
+			verb:                 "GET",
+			optionsAsQueryParams: true,
+			setWatchParam:        true,
+			nameInPath:           false,
+			setKindAndApiGroup:   false,
+			isStreaming:          true,
+			bodyFieldName:        "",
+		}
+	case "Create":
+		params = &k8sRequestParams{
+			inMessageName:        fmt.Sprintf("%s.Create%sRequest", streamPkg, streamKind),
+			outMessageName:       fmt.Sprintf("%s.%s", streamPkg, streamKind),
+			verb:                 "POST",
+			optionsAsQueryParams: true,
+			setWatchParam:        false,
+			nameInPath:           false,
+			setKindAndApiGroup:   true,
+			isStreaming:          false,
+			bodyFieldName:        "object",
+		}
+	case "Update":
+		params = &k8sRequestParams{
+			inMessageName:        fmt.Sprintf("%s.Update%sRequest", streamPkg, streamKind),
+			outMessageName:       fmt.Sprintf("%s.%s", streamPkg, streamKind),
+			verb:                 "PUT",
+			optionsAsQueryParams: true,
+			setWatchParam:        false,
+			nameInPath:           true,
+			setKindAndApiGroup:   true,
+			isStreaming:          false,
+			bodyFieldName:        "object",
+		}
+	case "UpdateStatus":
+		return nil, errors.New("UpdateStatus is not yet implemented")
+	case "Delete":
+		params = &k8sRequestParams{
+			inMessageName:        fmt.Sprintf("%s.Delete%sRequest", streamPkg, streamKind),
+			outMessageName:       fmt.Sprintf("%s.Delete%sResponse", streamPkg, streamKind),
+			verb:                 "DELETE",
+			optionsAsQueryParams: false,
+			setWatchParam:        false,
+			nameInPath:           true,
+			setKindAndApiGroup:   false,
+			isStreaming:          false,
+			bodyFieldName:        "options",
+		}
+	default:
+		return nil, fmt.Errorf("unsupported method: %v", method)
+	}
+
+	params.resource = resourceInfo
+	return params, nil
+}
+
+func parseMethodName(methodName string) (streamPkg string, streamKind string, method string, err error) {
+	matches := methodRE.FindStringSubmatch(methodName)
+	if len(matches) != 4 {
+		err = fmt.Errorf("expected 4 matches in %s", methodName)
+		return
+	}
+	streamPkg, streamKind, method = matches[1], matches[2], matches[3]
+	return
 }
 
 func getFileDescriptor(obj *crdtypes.CustomResourceDefinition) (*desc.FileDescriptor, error) {
