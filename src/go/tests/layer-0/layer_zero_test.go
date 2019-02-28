@@ -198,7 +198,7 @@ func uploadLocalFile(client ssh.Client, localPath string, remotePath string, mod
 	return nil
 }
 
-// uploadAndRun uploads a local executable script over SSH and runs it.
+// uploadAndRun uploads a local bash script over SSH and runs it.
 func uploadAndRun(t *testing.T, client ssh.Client, localPath string, args ...string) error {
 	remotePath := "~/" + path.Base(localPath)
 	if err := uploadLocalFile(client, localPath, remotePath, 0755); err != nil {
@@ -211,7 +211,7 @@ func uploadAndRun(t *testing.T, client ssh.Client, localPath string, args ...str
 	// To avoid mixing the output streams of multiple commands running in
 	// parallel tests, we combine stdout and stderr on the remote host, and
 	// capture stdout and write it to the test log here.
-	command := fmt.Sprintf("%s %s 2>&1", remotePath, strings.Join(quotedArgs, " "))
+	command := fmt.Sprintf(`bash -x %s %s 2>&1`, remotePath, strings.Join(quotedArgs, " "))
 	stdout := new(bytes.Buffer)
 	if err := client.Run(command, stdout, os.Stderr); err != nil {
 		t.Logf("`%s` failed with %v:\n%s", command, err, stdout.String())
