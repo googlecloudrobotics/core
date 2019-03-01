@@ -97,7 +97,8 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 		params = &k8sRequestParams{
 			verb:                 "GET",
 			optionsAsQueryParams: true,
-			setWatchParam:        false,
+			setWatchParam:        true,
+			watchParamValue:      false,
 			nameInPath:           false,
 			setKindAndApiGroup:   false,
 			namespacePath:        "namespace",
@@ -110,6 +111,7 @@ func createRequestParams(method string) (*k8sRequestParams, error) {
 			verb:                 "GET",
 			optionsAsQueryParams: true,
 			setWatchParam:        true,
+			watchParamValue:      true,
 			nameInPath:           false,
 			setKindAndApiGroup:   false,
 			namespacePath:        "namespace",

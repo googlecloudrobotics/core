@@ -252,6 +252,14 @@ var happyCaseTests = []struct {
 		"",
 		crdtypes.NamespaceScoped,
 	},
+	// Setting watch: true on List should be ignored.
+	{
+		"List",
+		`namespace: "default" options: <resourceVersion: "28" watch: true>`,
+		"http://www.server.com/apis/hello-world.cloudrobotics.com/v1alpha1/namespaces/default/helloworlds?resourceVersion=28",
+		"",
+		crdtypes.NamespaceScoped,
+	},
 	{
 		"Watch",
 		`namespace: "default" options: <resourceVersion: "28">`,

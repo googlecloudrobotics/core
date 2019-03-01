@@ -69,7 +69,8 @@ type k8sRequestParams struct {
 	outMessage           proto.Message
 	verb                 string // HTTP verb for REST ("POST")
 	optionsAsQueryParams bool   // copy options from proto to ? URL params
-	setWatchParam        bool   // force ?watch to true
+	setWatchParam        bool   // force ?watch to watchParamValue
+	watchParamValue      bool   // forced value of watchParam
 	nameInPath           bool   // put the resource's name into the URL path
 	namePath             string // proto path (a.b.c) to the name field
 	setKindAndApiGroup   bool   // override kind/apiVersion in object field
@@ -137,18 +138,32 @@ func (params *k8sRequestParams) BuildKubernetesRequest(msg proto.Message) (Reque
 		req = req.Name(name)
 	}
 	// Set query params.
+	if params.setWatchParam {
+		optionsInterface, err := inMessage.TryGetFieldByName("options")
+		if err != nil {
+			return nil, errors.New("unknown field: options")
+		}
+		options, ok := optionsInterface.(*dynamic.Message)
+		if !ok {
+			return nil, errors.New("options is not a message")
+		}
+		if params.watchParamValue {
+			if err := options.TrySetFieldByName("watch", params.watchParamValue); err != nil {
+				return nil, errors.New("options has no watch parameter")
+			}
+		} else {
+			if err := options.TryClearFieldByName("watch"); err != nil {
+				return nil, errors.New("options has no watch parameter")
+			}
+		}
+	}
 	if params.optionsAsQueryParams {
 		queryParams, err := getQueryParams(inMessage)
 		if err != nil {
 			return nil, fmt.Errorf("error determining query parameters: %v", err)
 		}
 		for k, v := range queryParams {
-			if !(params.setWatchParam && k == "watch") {
-				req = req.Param(k, v)
-			}
-		}
-		if params.setWatchParam {
-			req = req.Param("watch", "true")
+			req = req.Param(k, v)
 		}
 	}
 	// Set body.
