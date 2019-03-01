@@ -341,7 +341,7 @@ func chartAssignmentChanged(prev, cur *apps.ChartAssignment) (bool, error) {
 type errRobotSelectorOverlap string
 
 func (r errRobotSelectorOverlap) Error() string {
-	return fmt.Sprintf("robot %q was selected multiple times", r)
+	return fmt.Sprintf("robot %q was selected multiple times", string(r))
 }
 
 // generateChartAssignments returns a list of all cloud and robot ChartAssignments

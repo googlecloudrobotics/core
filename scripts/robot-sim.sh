@@ -31,7 +31,7 @@ PROJECT_DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.g
 APP_MANAGEMENT=${APP_MANAGEMENT:-true}
 
 if [[ -z "${ROBOT_LABELS}" ]]; then
-  ROBOT_LABELS="simluated=true"
+  ROBOT_LABELS="simulated=true"
 fi
 
 function restore_initial_context {
