@@ -8,11 +8,11 @@ OUTPUT_PREFIX = "__rosmsg__"
 _COMMON_CMD_CODE = """
 # Find all directories with *.msg *.srv files. The names of these directories
 # are assumed to be the package names for the inclusion search paths.
-# _CopyMsgSrvFiles ensures all such files are within genfiles, although
+# _CopyMsgSrvFiles ensures all such files are within bindir, although
 # depending on the execution settings they may be found in the host or target
-# genfiles.
-# TODO(rodrigoq): use aspects for the include directories instead of find(1).
-ROS_INCLUDE_DIRS=( $$(find $(GENDIR) bazel-out/host/genfiles \\
+# bindir.
+# TODO(rodrigoq): use providers for the include directories instead of find(1).
+ROS_INCLUDE_DIRS=( $$(find $(GENDIR) bazel-out/host/bin \\
     \( -name "*.msg" -or -name "*.srv" \) \\
     -exec dirname {{}} \; | sort -u) )
 
@@ -131,6 +131,7 @@ def _CopyMsgSrvFiles(name, srcs, output_dir):
             srcs = [src],
             outs = [new_path],
             cmd = "cp $< $@",
+            output_to_bindir = True,
         )
         results.append(new_path)
     return results
