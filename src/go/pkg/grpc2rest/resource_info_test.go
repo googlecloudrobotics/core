@@ -285,13 +285,14 @@ var happyCaseTests = []struct {
 	},
 	{
 		"Create",
-		`object: <metadata: <name: "foo"> >`,
+		`object: <metadata: <name: "foo" creationTimestamp: <seconds: 1551710866> > >`,
 		"http://www.server.com/apis/hello-world.cloudrobotics.com/v1alpha1/namespaces/default/helloworlds",
 		`{
 			"apiVersion": "hello-world.cloudrobotics.com/v1alpha1",
 			"kind": "HelloWorld",
 			"metadata": {
-				"name": "foo"
+				"name": "foo",
+				"creationTimestamp": "2019-03-04T14:47:46Z"
 			}
 		 }`,
 		crdtypes.NamespaceScoped,
