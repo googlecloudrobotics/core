@@ -214,6 +214,14 @@ var happyCaseTests = []struct {
 		"",
 		crdtypes.NamespaceScoped,
 	},
+	// resourceVersion=0 should be propagated because it means "from cache".
+	{
+		"Get",
+		`name: "foo" options: <resourceVersion: "0">`,
+		"http://www.server.com/apis/hello-world.cloudrobotics.com/v1alpha1/namespaces/default/helloworlds/foo?resourceVersion=0",
+		"",
+		crdtypes.NamespaceScoped,
+	},
 	{
 		"Get",
 		`name: "foo" options: <resourceVersion: "28">`,
