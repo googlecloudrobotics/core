@@ -198,6 +198,31 @@ func uploadLocalFile(client ssh.Client, localPath string, remotePath string, mod
 	return nil
 }
 
+// testCommand runs a command that is expected to succeed. If it fails, it
+// logs the command's output and returns an error.
+func testCommand(t *testing.T, client ssh.Client, command string) error {
+	// To avoid mixing the output streams of multiple commands running in
+	// parallel tests, we combine stdout and stderr on the remote host, and
+	// capture stdout and write it to the test log here.
+	stdout := new(bytes.Buffer)
+	if err := client.Run(command+" 2>&1", stdout, os.Stderr); err != nil {
+		t.Logf("`%s` failed with %v:\n%s", command, err, stdout.String())
+		return err
+	}
+	return nil
+}
+
+// logCommand runs a command that could be helpful for debugging. The command's
+// output is written to the test log.
+func logCommand(t *testing.T, client ssh.Client, command string) {
+	stdout := new(bytes.Buffer)
+	err := client.Run(command+" 2>&1", stdout, os.Stderr)
+	t.Logf("+ %s\n%s", command, stdout.String())
+	if err != nil {
+		t.Logf("`%s` failed with %v:\n", command, err)
+	}
+}
+
 // uploadAndRun uploads a local bash script over SSH and runs it.
 func uploadAndRun(t *testing.T, client ssh.Client, localPath string, args ...string) error {
 	remotePath := "~/" + path.Base(localPath)
@@ -208,14 +233,43 @@ func uploadAndRun(t *testing.T, client ssh.Client, localPath string, args ...str
 	for i, arg := range args {
 		quotedArgs[i] = strconv.Quote(arg)
 	}
-	// To avoid mixing the output streams of multiple commands running in
-	// parallel tests, we combine stdout and stderr on the remote host, and
-	// capture stdout and write it to the test log here.
-	command := fmt.Sprintf(`bash -x %s %s 2>&1`, remotePath, strings.Join(quotedArgs, " "))
-	stdout := new(bytes.Buffer)
-	if err := client.Run(command, stdout, os.Stderr); err != nil {
-		t.Logf("`%s` failed with %v:\n%s", command, err, stdout.String())
+	command := fmt.Sprintf(`bash -x %s %s`, remotePath, strings.Join(quotedArgs, " "))
+	if err := testCommand(t, client, command); err != nil {
 		return fmt.Errorf("failed to run `%s` on VM: %v", remotePath, err)
+	}
+	return nil
+}
+
+// testClusterNetworking checks that the internet is reachable from the cluster.
+// It does this with a K8s Job that uses busybox to ping google.com.
+func testClusterNetworking(t *testing.T, client ssh.Client) error {
+	remotePath := "~/job.yaml"
+	jobFile := bytes.NewBufferString(`
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ping
+spec:
+  template:
+    spec:
+      containers:
+      - name: ping
+        image: busybox
+        command: ["ping",  "-c1", "google.com"]
+      restartPolicy: OnFailure
+`)
+
+	if err := client.Upload(jobFile, remotePath, jobFile.Len(), 0644); err != nil {
+		return fmt.Errorf("Failed to upload to %s: %v", remotePath, err)
+	}
+	if err := testCommand(t, client, "kubectl create -f "+remotePath); err != nil {
+		return fmt.Errorf("failed to create job on VM: %v", err)
+	}
+	waitCommand := "kubectl wait --for condition=Complete job/ping --timeout=5m"
+	if err := testCommand(t, client, waitCommand); err != nil {
+		t.Error("Job `ping` failed to complete on VM")
+		// Dump pod logs to help debug failure.
+		logCommand(t, client, "kubectl logs -l job-name=ping")
 	}
 	return nil
 }
@@ -266,6 +320,11 @@ func TestInstallLayerZero(t *testing.T) {
 			t.Log("Installing cluster on VM...")
 			if err := uploadAndRun(t, client, clusterInstallScript); err != nil {
 				t.Fatal("Failed to install cluster:", err)
+			}
+
+			t.Log("Testing networking on VM cluster...")
+			if err := testClusterNetworking(t, client); err != nil {
+				t.Fatal("Failed networking test:", err)
 			}
 		})
 	}
