@@ -585,20 +585,20 @@ cc_library(
     _maybe(
         http_archive,
         name = "io_bazel_rules_go",
-        sha256 = "b4b38b649354c882774d1a5589402e7874f1e38ddb9bb7dfdc2b3f9902b5b64e",
-        strip_prefix = "rules_go-0.17.0",
+        sha256 = "9d7d865b92cc1e16e7c1d53b3d0f6532252a512d7e09d6f074fe41423f036cca",
+        strip_prefix = "rules_go-0.17.1",
         urls = [
-            "https://github.com/bazelbuild/rules_go/archive/0.17.0.tar.gz",
+            "https://github.com/bazelbuild/rules_go/archive/0.17.1.tar.gz",
         ],
     )
 
     _maybe(
         http_archive,
         name = "bazel_gazelle",
-        sha256 = "1cae8a59e959ffd8359df1d898323236aeffa932de2e49c9639a75daf393af28",
-        strip_prefix = "bazel-gazelle-0.16.0",
+        sha256 = "960374b7977958b8626102d3512c7f4b1660d61b9668fea3d404ae9ca3d69083",
+        strip_prefix = "bazel-gazelle-0.17.0",
         urls = [
-            "https://github.com/bazelbuild/bazel-gazelle/archive/0.16.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-gazelle/archive/0.17.0.tar.gz",
         ],
     )
 

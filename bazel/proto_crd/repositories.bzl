@@ -1,5 +1,4 @@
-load("@bazel_gazelle//:def.bzl", "go_repository")
-load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
 load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains")
 load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies")

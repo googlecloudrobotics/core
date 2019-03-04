@@ -131,7 +131,7 @@ http_file(
 )
 
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains")
-load("@bazel_gazelle//:def.bzl", "go_repository")
+load("@bazel_gazelle//:deps.bzl", "go_repository")
 
 # Do not call go_rules_dependencies() until after all other go_repository
 # calls, or else the top-level definitions may be silently ignored.
