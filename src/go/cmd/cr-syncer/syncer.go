@@ -479,3 +479,25 @@ func keyFunc(obj interface{}) (string, bool) {
 	}
 	return k, true
 }
+
+func setAnnotation(o *unstructured.Unstructured, key, value string) {
+	annotations := o.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[key] = value
+	o.SetAnnotations(annotations)
+}
+
+func deleteAnnotation(o *unstructured.Unstructured, key string) {
+	annotations := o.GetAnnotations()
+	if annotations != nil {
+		delete(annotations, key)
+	}
+	if len(annotations) > 0 {
+		o.SetAnnotations(annotations)
+	} else {
+		o.SetAnnotations(nil)
+	}
+
+}

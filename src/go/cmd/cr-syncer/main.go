@@ -34,7 +34,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"reflect"
 	"strings"
 	"time"
 
@@ -45,7 +44,6 @@ import (
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdinformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
@@ -106,53 +104,6 @@ func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
 			return rt
 		},
 	}, nil
-}
-
-func setAnnotation(o *unstructured.Unstructured, key, value string) {
-	annotations := o.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-	annotations[key] = value
-	o.SetAnnotations(annotations)
-}
-
-func deleteAnnotation(o *unstructured.Unstructured, key string) {
-	annotations := o.GetAnnotations()
-	if annotations != nil {
-		delete(annotations, key)
-	}
-	if len(annotations) > 0 {
-		o.SetAnnotations(annotations)
-	} else {
-		o.SetAnnotations(nil)
-	}
-
-}
-
-// checkResourceVersionAnnotation checks if identical resource versions between the downstream CR and the
-// "cr-syncer.cloudrobotics.com/remote-resource-version" annotation in the upstream CR also results in
-// identical status fields. This is an attempt to detect when multiple CR-Syncer instances execute
-// write operation to the same upstream CR.
-func checkResourceVersionAnnotation(target, source *unstructured.Unstructured) {
-	sourceRV := source.GetResourceVersion()
-	if target == nil || source == nil {
-		return
-	}
-	targetAnnotations := target.GetAnnotations()
-	if targetAnnotations == nil {
-		return
-	}
-	targetRV, ok := targetAnnotations[annotationResourceVersion]
-	if !ok {
-		return
-	}
-	if sourceRV == targetRV && !reflect.DeepEqual(target.Object["status"], source.Object["status"]) {
-		log.Printf("The upstream status of %s %s doesn't match the downstream status. "+
-			"Maybe it has been overwritten by something else.",
-			sourceRV, targetRV)
-	}
-	return
 }
 
 type CrdChange struct {
