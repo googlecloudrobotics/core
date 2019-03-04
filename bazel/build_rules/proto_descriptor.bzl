@@ -2,7 +2,7 @@
 # services.
 
 def paths(files):
-    return [f.path for f in files]
+    return [f.path for f in files.to_list()]
 
 def _impl(ctx):
     descriptors = ctx.attr.proto_library.proto.transitive_descriptor_sets

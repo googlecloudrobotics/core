@@ -206,13 +206,14 @@ def _SynthesizePythonTargets(
             msg_or_srv_dirname,
         ))
 
-    generated_files = depset([output_dir + "/__init__.py"])
+    generated_files = [output_dir + "/__init__.py"]
     for src in srcs:
         extension = src[-3:]
-        init_file = "%s/%s/__init__.py" % (output_dir, extension)
-        py_file = "%s/%s/_%s.py" % (output_dir, extension, _Stem(src))
-        generated_files = generated_files.union([init_file, py_file])
-    generated_files = list(generated_files)
+        generated_files.append("%s/%s/__init__.py" % (output_dir, extension))
+        generated_files.append("%s/%s/_%s.py" % (output_dir, extension, _Stem(src)))
+
+    # Remove duplicate entries.
+    generated_files = depset(direct = generated_files).to_list()
 
     native.genrule(
         name = "_%s_message_generation_for_python" % name,

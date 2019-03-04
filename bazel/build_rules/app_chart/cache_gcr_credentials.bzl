@@ -6,9 +6,9 @@ def _get_runfile_path(ctx, f):
         return "${RUNFILES}/" + f.short_path
 
 def _impl(ctx):
-    runfiles = list(ctx.attr._sh_tpl.default_runfiles.files)
+    runfiles = ctx.attr._sh_tpl.default_runfiles.files.to_list()
     runfiles.append(ctx.attr.target.files_to_run.executable)
-    runfiles.extend(list(ctx.attr.target.default_runfiles.files))
+    runfiles.extend(ctx.attr.target.default_runfiles.files.to_list())
 
     variables = "PYTHON_RUNFILES=\"${RUNFILES}\" "
     ctx.actions.expand_template(
