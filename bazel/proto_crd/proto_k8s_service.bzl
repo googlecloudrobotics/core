@@ -6,7 +6,7 @@ load("@cloud_robotics//bazel/proto_crd:proto_crd.bzl", "proto_crd")
 load("@grpc_ecosystem_grpc_gateway//protoc-gen-swagger:defs.bzl", "protoc_gen_swagger")
 
 def _impl(ctx):
-    import_files = [f.path for f in ctx.attr.spec.proto.direct_sources]
+    import_files = [f.path for f in ctx.attr.spec[ProtoInfo].direct_sources]
     imports = ["import \"{}\";".format(f) for f in import_files]
     options = ["option {} = \"{}\";".format(k, v) for k, v in ctx.attr.file_options.items()]
 

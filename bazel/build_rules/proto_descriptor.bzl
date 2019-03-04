@@ -5,7 +5,7 @@ def paths(files):
     return [f.path for f in files.to_list()]
 
 def _impl(ctx):
-    descriptors = ctx.attr.proto_library.proto.transitive_descriptor_sets
+    descriptors = ctx.attr.proto_library[ProtoInfo].transitive_descriptor_sets
     ctx.actions.run_shell(
         inputs = descriptors,
         outputs = [ctx.outputs.out],
