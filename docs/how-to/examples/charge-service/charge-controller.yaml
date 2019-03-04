@@ -1,0 +1,44 @@
+apiVersion: metacontroller.k8s.io/v1alpha1
+kind: CompositeController
+metadata:
+  name: charge-controller
+spec:
+  generateSelector: true
+  parentResource:
+    apiVersion: example.com/v1
+    resource: chargeactions
+  resyncPeriodSeconds: 1
+  hooks:
+    sync:
+      webhook:
+        url: http://charge-controller:8000/sync
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: charge-controller
+spec:
+  selector:
+    app: charge-controller
+  ports:
+  - port: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: charge-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: charge-controller
+  template:
+    metadata:
+      labels:
+        app: charge-controller
+    spec:
+      containers:
+      - name: controller
+        image: gcr.io/[PROJECT_ID]/charge-controller
+        ports:
+        - containerPort: 8000

@@ -1,0 +1,4 @@
+apiVersion: example.com/v1
+kind: ChargeAction
+metadata:
+  name: my-charge-action
