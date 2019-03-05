@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+{ # this ensures the entire script is downloaded #
+
 set -o pipefail -o errexit
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -36,3 +38,5 @@ echo "Downloading tarball ${BUCKET_URI}/${TARGET}"
 curl --silent --show-error --fail "${BUCKET_URI}/${TARGET}" | tar xz
 
 (cd ${DIR}/cloud-robotics-core && ./deploy.sh create)
+
+} # this ensures the entire script is downloaded #
