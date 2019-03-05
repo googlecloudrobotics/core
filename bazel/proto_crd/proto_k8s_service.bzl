@@ -6,7 +6,15 @@ load("@cloud_robotics//bazel/proto_crd:proto_crd.bzl", "proto_crd")
 load("@grpc_ecosystem_grpc_gateway//protoc-gen-swagger:defs.bzl", "protoc_gen_swagger")
 
 def _impl(ctx):
-    import_files = [f.path for f in ctx.attr.spec[ProtoInfo].direct_sources]
+    import_files = []
+    for f in ctx.attr.spec[ProtoInfo].direct_sources:
+        paths = f.path.split("/")
+
+        # b/127456146 to support external repository dependencies
+        if len(paths) > 0 and paths[0] == "external":
+            paths = paths[2:]
+        import_files.append("/".join(paths))
+
     imports = ["import \"{}\";".format(f) for f in import_files]
     options = ["option {} = \"{}\";".format(k, v) for k, v in ctx.attr.file_options.items()]
 
