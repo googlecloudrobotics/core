@@ -180,16 +180,6 @@ func main() {
 			log.Fatalf("error building resource info repository: %v", err)
 		}
 	}()
-	go func() {
-		for {
-			select {
-			case err := <-resourceInfoRepository.ErrorChannel():
-				log.Printf("error in CR definition: %v", err)
-			case msg := <-resourceInfoRepository.LogChannel():
-				log.Print(msg)
-			}
-		}
-	}()
 
 	// Start gRPC server.
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))

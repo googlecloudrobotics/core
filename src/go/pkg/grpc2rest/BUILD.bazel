@@ -34,7 +34,6 @@ go_test(
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_onsi_gomega//:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/apis/apiextensions/v1beta1:go_default_library",
-        "@io_k8s_apiextensions_apiserver//pkg/client/clientset/clientset:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/client/clientset/clientset/fake:go_default_library",
         "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
         "@io_k8s_apimachinery//pkg/util/yaml:go_default_library",

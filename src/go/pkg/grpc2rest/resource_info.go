@@ -18,7 +18,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"regexp"
+	"log"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
@@ -35,14 +35,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-var (
-	methodRE = regexp.MustCompile("^/(.*)\\.K8s([^.]*)/([^/]*)$")
-)
-
 type ResourceInfoRepository struct {
 	config      *rest.Config
-	logs        chan string
-	errors      chan error
 	mutex       sync.RWMutex
 	grpcMethods map[string]Method
 	methodsByCR map[string][]string
@@ -51,19 +45,9 @@ type ResourceInfoRepository struct {
 func NewResourceInfoRepository(config *rest.Config) *ResourceInfoRepository {
 	return &ResourceInfoRepository{
 		config:      config,
-		logs:        make(chan string),
-		errors:      make(chan error),
 		grpcMethods: make(map[string]Method),
 		methodsByCR: make(map[string][]string),
 	}
-}
-
-func (r *ResourceInfoRepository) LogChannel() <-chan string {
-	return r.logs
-}
-
-func (r *ResourceInfoRepository) ErrorChannel() <-chan error {
-	return r.errors
 }
 
 func (r *ResourceInfoRepository) GetMethod(fullMethodName string) (Method, error) {
@@ -74,6 +58,57 @@ func (r *ResourceInfoRepository) GetMethod(fullMethodName string) (Method, error
 		return nil, fmt.Errorf("didn't find a CR with method %s", fullMethodName)
 	}
 	return m, nil
+}
+
+func buildMethods(obj *crdtypes.CustomResourceDefinition, config *rest.Config) (map[string]Method, error) {
+	// Ignore resource without proto descriptors
+	if obj.ObjectMeta.Annotations["crc.cloudrobotics.com/proto-descriptor"] == "" {
+		return map[string]Method{}, nil
+	}
+
+	fd, err := getFileDescriptor(obj)
+	if err != nil {
+		return nil, err
+	}
+	svc, err := getService(fd, obj.Spec.Names.Kind)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(obj.Spec.Versions) != 1 {
+		return nil, fmt.Errorf("ignoring CRD %s with multiple versions", obj.ObjectMeta.Name)
+	}
+	version := obj.Spec.Versions[0].Name
+
+	c := *config
+	c.APIPath = "/apis"
+	c.GroupVersion = &schema.GroupVersion{obj.Spec.Group, version}
+	c.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+
+	// Build Kubernetes REST client.
+	client, err := rest.RESTClientFor(&c)
+	if err != nil {
+		return nil, fmt.Errorf("error building Kubernetes client: %v", err)
+	}
+
+	methods := make(map[string]Method)
+	for _, method := range svc.GetMethods() {
+		requestParams, err := createRequestParams(method.GetName())
+		if err != nil {
+			return nil, fmt.Errorf("unrecognized method for %s: %v", method.GetName(), err)
+		}
+		requestParams.inMessage = dynamic.NewMessage(method.GetInputType())
+		requestParams.outMessage = dynamic.NewMessage(method.GetOutputType())
+		requestParams.apiVersion = c.GroupVersion.String()
+		requestParams.kind = obj.Spec.Names.Kind
+		requestParams.kindPlural = obj.Spec.Names.Plural
+		requestParams.client = client
+		requestParams.isNamespacedResource = (obj.Spec.Scope == crdtypes.NamespaceScoped)
+		grpcPath := fmt.Sprintf("/%s/%s", svc.GetFullyQualifiedName(), method.GetName())
+		methods[grpcPath] = requestParams
+	}
+
+	return methods, nil
 }
 
 func createRequestParams(method string) (*k8sRequestParams, error) {
@@ -201,70 +236,29 @@ func getService(fd *desc.FileDescriptor, kind string) (*desc.ServiceDescriptor, 
 	return nil, fmt.Errorf("no service with name %s found in proto descriptor for %s", serviceName, kind)
 }
 
-func (r *ResourceInfoRepository) insertResourceInfo(obj *crdtypes.CustomResourceDefinition) error {
-	// Ignore resource without proto descriptors
-	if obj.ObjectMeta.Annotations["crc.cloudrobotics.com/proto-descriptor"] == "" {
-		return nil
-	}
-
-	fd, err := getFileDescriptor(obj)
+func (r *ResourceInfoRepository) insertResourceInfo(obj *crdtypes.CustomResourceDefinition) {
+	methods, err := buildMethods(obj, r.config)
 	if err != nil {
-		return err
-	}
-	svc, err := getService(fd, obj.Spec.Names.Kind)
-	if err != nil {
-		return err
+		log.Printf("adding no methods for invalid CRD %s: %v", obj.GetName(), err)
+		return
 	}
 
-	if len(obj.Spec.Versions) != 1 {
-		return fmt.Errorf("ignoring CRD %s with multiple versions", obj.ObjectMeta.Name)
-	}
-	version := obj.Spec.Versions[0].Name
-
-	c := *r.config
-	c.APIPath = "/apis"
-	c.GroupVersion = &schema.GroupVersion{obj.Spec.Group, version}
-	c.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-
-	// Build Kubernetes REST client.
-	client, err := rest.RESTClientFor(&c)
-	if err != nil {
-		return fmt.Errorf("error building Kubernetes client: %v", err)
-	}
-
-	methods := make(map[string]Method)
-	for _, method := range svc.GetMethods() {
-		requestParams, err := createRequestParams(method.GetName())
-		if err != nil {
-			return fmt.Errorf("unrecognized method for %s: %v", method.GetName(), err)
-		}
-		requestParams.inMessage = dynamic.NewMessage(method.GetInputType())
-		requestParams.outMessage = dynamic.NewMessage(method.GetOutputType())
-		requestParams.apiVersion = c.GroupVersion.String()
-		requestParams.kind = obj.Spec.Names.Kind
-		requestParams.kindPlural = obj.Spec.Names.Plural
-		requestParams.client = client
-		requestParams.isNamespacedResource = (obj.Spec.Scope == crdtypes.NamespaceScoped)
-		grpcPath := fmt.Sprintf("/%s/%s", svc.GetFullyQualifiedName(), method.GetName())
-		methods[grpcPath] = requestParams
-	}
-
-	r.logs <- fmt.Sprintf("adding %d methods for service %s", len(methods), svc.GetFullyQualifiedName())
+	log.Printf("adding %d methods for CRD %s", len(methods), obj.GetName())
 	names := []string{}
 	for k, v := range methods {
 		r.grpcMethods[k] = v
 		names = append(names, k)
 	}
 	r.methodsByCR[obj.GetName()] = names
-	return nil
 }
 
-func (r *ResourceInfoRepository) deleteResourceInfo(obj *crdtypes.CustomResourceDefinition) error {
-	for _, m := range r.methodsByCR[obj.GetName()] {
+func (r *ResourceInfoRepository) deleteResourceInfo(obj *crdtypes.CustomResourceDefinition) {
+	methods := r.methodsByCR[obj.GetName()]
+	log.Printf("deleting %d methods for CRD %s", len(methods), obj.GetName())
+	for _, m := range methods {
 		delete(r.grpcMethods, m)
 	}
 	delete(r.methodsByCR, obj.GetName())
-	return nil
 }
 
 func (r *ResourceInfoRepository) Update(done <-chan struct{}, clientset crdclientset.Interface) error {
@@ -282,26 +276,18 @@ func (r *ResourceInfoRepository) Update(done <-chan struct{}, clientset crdclien
 		AddFunc: func(obj interface{}) {
 			r.mutex.Lock()
 			defer r.mutex.Unlock()
-			if err := r.insertResourceInfo(obj.(*crdtypes.CustomResourceDefinition)); err != nil {
-				r.errors <- err
-			}
+			r.insertResourceInfo(obj.(*crdtypes.CustomResourceDefinition))
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
 			r.mutex.Lock()
 			defer r.mutex.Unlock()
-			if err := r.deleteResourceInfo(oldObj.(*crdtypes.CustomResourceDefinition)); err != nil {
-				r.errors <- err
-			}
-			if err := r.insertResourceInfo(newObj.(*crdtypes.CustomResourceDefinition)); err != nil {
-				r.errors <- err
-			}
+			r.deleteResourceInfo(oldObj.(*crdtypes.CustomResourceDefinition))
+			r.insertResourceInfo(newObj.(*crdtypes.CustomResourceDefinition))
 		},
 		DeleteFunc: func(obj interface{}) {
 			r.mutex.Lock()
 			defer r.mutex.Unlock()
-			if err := r.deleteResourceInfo(obj.(*crdtypes.CustomResourceDefinition)); err != nil {
-				r.errors <- err
-			}
+			r.deleteResourceInfo(obj.(*crdtypes.CustomResourceDefinition))
 		},
 	})
 
