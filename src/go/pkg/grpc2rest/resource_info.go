@@ -15,22 +15,13 @@
 package grpc2rest
 
 import (
-	"encoding/base64"
-	"errors"
 	"fmt"
 	"log"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"github.com/jhump/protoreflect/desc"
-	"github.com/jhump/protoreflect/dynamic"
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdinformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
@@ -58,182 +49,6 @@ func (r *ResourceInfoRepository) GetMethod(fullMethodName string) (Method, error
 		return nil, fmt.Errorf("didn't find a CR with method %s", fullMethodName)
 	}
 	return m, nil
-}
-
-func buildMethods(obj *crdtypes.CustomResourceDefinition, config *rest.Config) (map[string]Method, error) {
-	// Ignore resource without proto descriptors
-	if obj.ObjectMeta.Annotations["crc.cloudrobotics.com/proto-descriptor"] == "" {
-		return map[string]Method{}, nil
-	}
-
-	fd, err := getFileDescriptor(obj)
-	if err != nil {
-		return nil, err
-	}
-	svc, err := getService(fd, obj.Spec.Names.Kind)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(obj.Spec.Versions) != 1 {
-		return nil, fmt.Errorf("ignoring CRD %s with multiple versions", obj.ObjectMeta.Name)
-	}
-	version := obj.Spec.Versions[0].Name
-
-	c := *config
-	c.APIPath = "/apis"
-	c.GroupVersion = &schema.GroupVersion{obj.Spec.Group, version}
-	c.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-
-	// Build Kubernetes REST client.
-	client, err := rest.RESTClientFor(&c)
-	if err != nil {
-		return nil, fmt.Errorf("error building Kubernetes client: %v", err)
-	}
-
-	methods := make(map[string]Method)
-	for _, method := range svc.GetMethods() {
-		requestParams, err := createRequestParams(method.GetName())
-		if err != nil {
-			return nil, fmt.Errorf("unrecognized method for %s: %v", method.GetName(), err)
-		}
-		requestParams.inMessage = dynamic.NewMessage(method.GetInputType())
-		requestParams.outMessage = dynamic.NewMessage(method.GetOutputType())
-		requestParams.apiVersion = c.GroupVersion.String()
-		requestParams.kind = obj.Spec.Names.Kind
-		requestParams.kindPlural = obj.Spec.Names.Plural
-		requestParams.client = client
-		requestParams.isNamespacedResource = (obj.Spec.Scope == crdtypes.NamespaceScoped)
-		grpcPath := fmt.Sprintf("/%s/%s", svc.GetFullyQualifiedName(), method.GetName())
-		methods[grpcPath] = requestParams
-	}
-
-	return methods, nil
-}
-
-func createRequestParams(method string) (*k8sRequestParams, error) {
-	var params *k8sRequestParams
-
-	switch method {
-	case "Get":
-		params = &k8sRequestParams{
-			verb:                 "GET",
-			optionsAsQueryParams: true,
-			setWatchParam:        false,
-			nameInPath:           true,
-			namePath:             "name",
-			setKindAndApiGroup:   false,
-			namespacePath:        "namespace",
-			namespaceDefaults:    true,
-			isWatch:              false,
-			bodyFieldName:        "",
-		}
-	case "List":
-		params = &k8sRequestParams{
-			verb:                 "GET",
-			optionsAsQueryParams: true,
-			setWatchParam:        true,
-			watchParamValue:      false,
-			nameInPath:           false,
-			setKindAndApiGroup:   false,
-			namespacePath:        "namespace",
-			namespaceDefaults:    false,
-			isWatch:              false,
-			bodyFieldName:        "",
-		}
-	case "Watch":
-		params = &k8sRequestParams{
-			verb:                 "GET",
-			optionsAsQueryParams: true,
-			setWatchParam:        true,
-			watchParamValue:      true,
-			nameInPath:           false,
-			setKindAndApiGroup:   false,
-			namespacePath:        "namespace",
-			namespaceDefaults:    false,
-			isWatch:              true,
-			bodyFieldName:        "",
-		}
-	case "Create":
-		params = &k8sRequestParams{
-			verb:                 "POST",
-			optionsAsQueryParams: true,
-			setWatchParam:        false,
-			nameInPath:           false,
-			setKindAndApiGroup:   true,
-			namespacePath:        "object.metadata.namespace",
-			namespaceDefaults:    true,
-			isWatch:              false,
-			bodyFieldName:        "object",
-		}
-	case "Update":
-		params = &k8sRequestParams{
-			verb:                 "PUT",
-			optionsAsQueryParams: true,
-			setWatchParam:        false,
-			nameInPath:           true,
-			namePath:             "object.metadata.name",
-			setKindAndApiGroup:   true,
-			namespacePath:        "object.metadata.namespace",
-			namespaceDefaults:    true,
-			isWatch:              false,
-			bodyFieldName:        "object",
-		}
-	case "UpdateStatus":
-		return nil, errors.New("UpdateStatus is not yet implemented")
-	case "Delete":
-		params = &k8sRequestParams{
-			verb:                 "DELETE",
-			optionsAsQueryParams: false,
-			setWatchParam:        false,
-			nameInPath:           true,
-			namePath:             "name",
-			setKindAndApiGroup:   false,
-			namespacePath:        "namespace",
-			namespaceDefaults:    true,
-			isWatch:              false,
-			bodyFieldName:        "options",
-		}
-	default:
-		return nil, fmt.Errorf("unsupported method: %v", method)
-	}
-	return params, nil
-}
-
-func getFileDescriptor(obj *crdtypes.CustomResourceDefinition) (*desc.FileDescriptor, error) {
-	annotation := obj.ObjectMeta.Annotations["crc.cloudrobotics.com/proto-descriptor"]
-	if annotation == "" {
-		return nil, fmt.Errorf("no proto-descriptor annotation on %s", obj.ObjectMeta.Name)
-	}
-	b, err := base64.StdEncoding.DecodeString(annotation)
-	if err != nil {
-		return nil, fmt.Errorf("unable to decode base64 in proto-descriptor annotation on %s: %v", obj.ObjectMeta.Name, err)
-	}
-	// Unmarshal file descriptor set.
-	fds := &descriptor.FileDescriptorSet{}
-	if err := proto.Unmarshal(b, fds); err != nil {
-		return nil, fmt.Errorf("unable to unmarshal FileDescriptorSet from proto-descriptor annotation on %s: %v", obj.ObjectMeta.Name, err)
-	}
-
-	// Create dynamic file descriptor.
-	fd, err := desc.CreateFileDescriptorFromSet(fds)
-	if err != nil {
-		return nil, err
-	}
-
-	return fd, nil
-}
-
-func getService(fd *desc.FileDescriptor, kind string) (*desc.ServiceDescriptor, error) {
-	// Determine kind and kindPlural.
-	serviceName := fmt.Sprintf("K8s%s", kind)
-	svcs := fd.GetServices()
-	for _, svc := range svcs {
-		if svc.GetName() == serviceName {
-			return svc, nil
-		}
-	}
-	return nil, fmt.Errorf("no service with name %s found in proto descriptor for %s", serviceName, kind)
 }
 
 func (r *ResourceInfoRepository) insertResourceInfo(obj *crdtypes.CustomResourceDefinition) {

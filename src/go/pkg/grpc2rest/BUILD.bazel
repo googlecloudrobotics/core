@@ -26,7 +26,10 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["resource_info_test.go"],
+    srcs = [
+        "method_test.go",
+        "resource_info_test.go",
+    ],
     data = ["//src/proto/hello-world:service_crd.yaml"],
     embed = [":go_default_library"],
     deps = [
