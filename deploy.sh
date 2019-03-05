@@ -55,12 +55,16 @@ function prepare_source_install {
       //src/app_charts/platform-apps:platform-apps-cloud \
       //src/app_charts:push \
       //src/bootstrap/robot:setup-robot-image-reference-txt \
+      //src/go/cmd/cr-adapter:cr-adapter.push \
       //src/go/cmd/setup-robot:setup-robot.push \
       //src/proto/map:proto_descriptor \
 
   # `setup-robot.push` is the first container push to avoid a GCR bug with parallel pushes on newly
   # created projects (see b/123625511).
   ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push
+
+  # The cr-adapter isn't packaged as a GCR app and hence pushed separately. 
+  ${DIR}/bazel-bin/src/go/cmd/cr-adapter:cr-adapter.push
   # Running :push outside the build system shaves ~3 seconds off an incremental build.
   ${DIR}/bazel-bin/src/app_charts/push
 }
