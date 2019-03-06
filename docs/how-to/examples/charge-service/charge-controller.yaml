@@ -11,7 +11,7 @@ spec:
   hooks:
     sync:
       webhook:
-        url: http://charge-controller:8000/sync
+        url: http://charge-controller.default:8000/sync
 ---
 apiVersion: v1
 kind: Service

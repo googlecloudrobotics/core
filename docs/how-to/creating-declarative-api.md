@@ -1,0 +1,395 @@
+# Creating a declarative API
+
+<!-- Estimated time: TODO -->
+
+In this guide we will use a Kubernetes-style declarative API to interface to an external Charge Service for a robot.
+This API is built around the concept of a ChargeAction resource, which instructs a robot to drive to a charger.
+While the robot is charging, the status of the ChargeAction resource is kept up-to-date and can be observed.
+<!-- We will show how to use the API from the workstation and how to access it from code running in the robot's Kubernetes cluster. -->
+
+## Motivation
+
+RPC-based systems like ROS's [actionlib](http://wiki.ros.org/actionlib), while proven to be scalable, maintainable and useful, leave a few things to be desired:
+
+1. **Synchronization**. The intent for a controller is stored in-memory in multiple components and we rely on correct synchronization.
+For example, the motion planner sends the "turn wheel 3 times per second" message to the wheel actuator, then trusts that the wheel actuator will have received the intent and waits for it to act on the shared intent.
+If a second process (such as an emergency stop) overwrites the intent of the wheel actuator, there's no standard channel to notify the motion planner.
+
+2. **Persistence**. Since the intent is stored in-memory, it is lost when any process restarts.
+This is the core reason that software in ROS systems can't be updated on the fly.
+
+3. **Inspection**. For debugging, a coherent view into the current system intent would be great.
+In RPC-based APIs, the intent is often updated differentially (eg "a little more to the left"), so our only hope of debugging is to log all messages ever sent.
+
+In a declarative API, all actions and feedback are stored in a shared database&mdash;an approach built on Kubernetes' experience building robust distributed systems&mdash;which addresses these issues.
+
+<!-- ## Concepts (describe resources, controllers, etc, and link to docs) -->
+
+## Prerequisites
+
+* Completed the [Quickstart Guide](../quickstart.md), after which the GCP project is set up and `gcloud-sdk` and `kubectl` are installed and configured.
+* `docker` is installed and configured on the workstation ([instructions](https://docs.docker.com/install/linux/docker-ce/ubuntu/)).
+<!-- * For the last part of the guide: A robot that has been successfully [connected to the cloud](connecting-robot.md). -->
+
+Create a directory for the code examples of this guide, e.g.:
+
+```
+mkdir charge-service
+cd charge-service
+```
+
+Set your GCP project ID as an environment variable:
+
+```
+export PROJECT_ID=[YOUR_GCP_PROJECT_ID]
+```
+
+All files created in this tutorial can be found in
+[docs/how-to/examples/charge-service](https://github.com/googlecloudrobotics/core/tree/master/docs/how-to/examples/charge-service).
+If you download the files, you have to replace the placeholder `[PROJECT_ID]` with your GCP project ID:
+
+```
+sed -i "s/\[PROJECT_ID\]/$PROJECT_ID/g" charge-controller.yaml
+```
+
+## Installing metacontroller
+
+This tutorial is based on [metacontroller](https://metacontroller.app/), an add-on for Kubernetes that makes it easy to write and deploy [custom controllers](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#custom-controllers).
+Custom controllers implement the logic behind a declarative API.
+
+First, make sure that `kubectl` points to the correct GCP project:
+
+```
+kubectl config get-contexts
+```
+
+If the correct cluster is not marked with an asterisk in the output, you can switch to it with `kubectl config use-context [...]`.)
+Then, follow the install instructions at https://metacontroller.app/guide/install/.
+
+## Defining the controller logic
+
+The core of a declarative API is the controller logic, which defines how the resources should be handled and reports the current status.
+For the Charge Service, we've implemented the logic in a Python script.
+Download [server.py](examples/charge-service/server.py):
+
+```
+curl -O https://raw.githubusercontent.com/googlecloudrobotics/core/master/docs/how-to/examples/charge-service/server.py
+```
+
+This Python program implements a server that listens on port 80 for incoming HTTP POST requests from metacontroller.
+The controller logic is contained in the `sync()` method, which handles new ChargeActions by calling `charge_service.start_charging()`, and handles in-progress ChargeActions by updating the status.
+
+[embedmd]:# (examples/charge-service/server.py python /.*state = current_status.get/ /return.*status.*/)
+```python
+    state = current_status.get("state", "CREATED")
+
+    if state == "CREATED":
+      # The ChargeAction has just been created. Use the external Charge Service
+      # to start charging. Store the request ID in the status so we can use it
+      # to check the state of the charge request.
+      request_id = self.charge_service.start_charging()
+      desired_status["state"] = "IN_PROGRESS"
+      desired_status["request_id"] = request_id
+
+    elif state == "IN_PROGRESS":
+      try:
+        # Get the progress of the charge request from the external service.
+        progress = self.charge_service.get_progress(
+            current_status["request_id"])
+        desired_status["charge_level_percent"] = progress
+
+        if progress == 100:
+          # Charging has completed.
+          desired_status["state"] = "OK"
+
+      except ValueError as e:
+        # The charge request was not found. This could be because the robot was
+        # restarted during a charge, and the request was forgotten.
+        desired_status["state"] = "ERROR"
+        desired_status["message"] = str(e)
+
+    elif state in ["OK", "CANCELLED", "ERROR"]:
+      # Terminal state, do nothing.
+      pass
+
+    else:
+      desired_status["state"] = "ERROR"
+      desired_status["message"] = "Unrecognized state: %r" % state
+
+    return {"status": desired_status, "children": []}
+```
+
+## Dockerizing the service
+
+Next, to prepare our controller logic for deployment in the cloud, we package it as a Docker image. Make sure that the docker daemon is running and that your user has the necessary privileges:
+
+```
+docker run --rm hello-world
+```
+
+If this command fails, make sure Docker is installed according to the [installation instructions](https://docs.docker.com/install/linux/docker-ce/ubuntu/).
+
+In the same directory as `server.py`, create a `Dockerfile` with the following contents:
+
+[embedmd]:# (examples/charge-service/Dockerfile dockerfile)
+```dockerfile
+FROM python:alpine
+
+WORKDIR /data
+
+COPY server.py ./
+
+CMD [ "python", "-u", "./server.py" ]
+```
+
+(Note: the `-u` option disables line-buffering; Python's line-buffering can prevent output from appearing immediately in the Docker logs.)
+
+To build the Docker image, run:
+
+```
+docker build -t charge-controller .
+```
+
+You should see `Successfully tagged charge-controller:latest`. You can run the container locally with:
+
+```
+docker run -ti --rm -p 8000:8000 charge-controller
+```
+
+Then, from another terminal on the same workstation, send a request with an empty `parent` object:
+
+```
+curl -X POST -d '{"parent": {}, "children": []}' http://localhost:8000/
+```
+
+You should see a response like:
+
+```
+{"status": {"state": "IN_PROGRESS", "request_id": "2423e70c-9dc7-47ac-abcb-b2ef0cbc676c"}, "children": []}
+```
+
+The response indicates that the controller would set `"state": "IN_PROGRESS"` on a newly-created ChargeAction.
+
+## Uploading the Docker image to the cloud
+
+In order to be able to run the server as a container in our cloud cluster, we need to upload the Docker image to our GCP project's private [container registry](https://cloud.google.com/container-registry/docs/pushing-and-pulling).
+
+Enable the Docker credential helper:
+
+```
+gcloud auth configure-docker
+```
+
+Tag the image and push it to the registry:
+
+```
+docker tag charge-controller gcr.io/$PROJECT_ID/charge-controller
+docker push gcr.io/$PROJECT_ID/charge-controller
+```
+
+The image should now show up in the [Container Registry](https://console.cloud.google.com/gcr).
+
+## Deploying the declarative API in the cloud
+
+Create a file called `charge-crd.yaml` with the following contents:
+
+[embedmd]:# (examples/charge-service/charge-crd.yaml yaml)
+```yaml
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: chargeactions.example.com
+spec:
+  group: example.com
+  version: v1
+  names:
+    kind: ChargeAction
+    plural: chargeactions
+    singular: chargeaction
+  scope: Namespaced
+```
+
+This is a [custom resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) definition (CRD) for a resource called ChargeAction.
+This simple example just describes the name and version of the API, but CRDs can also define schemas for the resources.
+
+Next, create a file called `charge-controller.yaml` with the following contents, replacing `[PROJECT_ID]` with your GCP project ID:
+
+[embedmd]:# (examples/charge-service/charge-controller.yaml yaml)
+```yaml
+apiVersion: metacontroller.k8s.io/v1alpha1
+kind: CompositeController
+metadata:
+  name: charge-controller
+spec:
+  generateSelector: true
+  parentResource:
+    apiVersion: example.com/v1
+    resource: chargeactions
+  resyncPeriodSeconds: 1
+  hooks:
+    sync:
+      webhook:
+        url: http://charge-controller.default:8000/sync
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: charge-controller
+spec:
+  selector:
+    app: charge-controller
+  ports:
+  - port: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: charge-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: charge-controller
+  template:
+    metadata:
+      labels:
+        app: charge-controller
+    spec:
+      containers:
+      - name: controller
+        image: gcr.io/[PROJECT_ID]/charge-controller
+        ports:
+        - containerPort: 8000
+```
+
+This file contains the information needed by Kubernetes and metacontroller to handle ChargeAction resources.
+In the following, we will go over it bit by bit assuming basic familiarity with the [YAML format](https://en.wikipedia.org/wiki/YAML).
+
+We define three Kubernetes resources:
+
+* The *CompositeController* tells metacontroller to send ChargeAction resources to the charge-controller Service.
+* The *Service* defines how the HTTP server is exposed within the cluster.
+* The *Deployment* describes the Docker container to run.
+
+Metadata, labels, and selectors are used to tie the three resources together.
+
+A detailed explanation of the Kubernetes resources is out of scope for this guide, check out the [Kubernetes docs](https://kubernetes.io/docs/home/) or [metacontroller User Guide](https://metacontroller.app/guide/) to get started.
+There are a few points worth mentioning, though:
+
+* In the Deployment, don't forget to replace `[PROJECT_ID]` with your GCP project ID.
+* The CompositeController sets `resyncPeriodSeconds: 1`.
+  This tells metacontroller to check each ChargeAction every second.
+  This allows `server.py` to update the progress every second while the action is in progress.
+* The CompositeController sets `url: http://charge-controller.default:8000/sync`.
+  This tells metacontroller that the ChargeAction resources are handled by a service called `charge-controller` in the `default` namespace.
+
+Deploy these resources by applying the configuration:
+
+```
+kubectl apply -f charge-crd.yaml
+kubectl apply -f charge-controller.yaml
+```
+
+You can explore the various resources that were created on your cluster as a result of this command in the [GKE Console](https://console.cloud.google.com/kubernetes/workload) or with `kubectl`, e.g.:
+
+```
+kubectl get pods
+```
+
+The resulting list should contain a running pod with a name like `charge-controller-xxxxxxxxxx-xxxxx`.
+
+## Redeploying after a change
+
+If you make a change to `server.py`, you need to rebuild and push the Docker image:
+
+```
+docker build -t charge-controller .
+docker tag charge-controller gcr.io/$PROJECT_ID/charge-controller
+docker push gcr.io/$PROJECT_ID/charge-controller
+```
+
+The easiest way to get Kubernetes to restart the workload with the latest version of the container is to delete the pod:
+
+```
+kubectl delete pod -l 'app=charge-controller'
+```
+
+Kubernetes will automatically pull the newest image and recreate the pod.
+
+If you make a change to `charge-controller.yaml`, all you have to do is apply it again:
+
+```
+kubectl apply -f charge-controller.yaml
+```
+
+## Accessing the API
+
+You can use `kubectl` to interact with the API.
+Create a file called `charge-action.yaml` with the following contents:
+
+[embedmd]:# (examples/charge-service/charge-action.yaml yaml)
+```yaml
+apiVersion: example.com/v1
+kind: ChargeAction
+metadata:
+  name: my-charge-action
+```
+
+Run the following command to create a ChargeAction and observe how its status changes:
+
+```
+kubectl apply -f charge-action.yaml \
+  && watch -n0 kubectl describe chargeaction my-charge-action
+```
+
+Over the next 10 seconds, you should see the "Charge Level Percent" increase to 100, and then the state should become "CHARGED".
+
+> **Troubleshooting**:
+> If the ChargeAction's status doesn't change, check that metacontroller is installed by running `kubectl --namespace metacontroller get pods`.
+> You should see `metacontroller-0   1/1    Running`.
+> You can also check the metacontroller logs with `kubectl --namespace metacontroller logs metacontroller-0`
+
+<!--
+## Using the API between cloud and robot
+
+Things get interesting when there are multiple clusters involved.
+We can run the charge-controller on the robot, while creating the ChargeAction in the cloud cluster.
+This means that the ChargeAction can be created even when the robot has no connectivity.
+As soon as connectivity returns, the ChargeAction will be transferred from the cloud to the robot.
+
+**Prerequisite**: you'll need a robot that has been successfully [connected to the cloud](connecting-robot.md).
+
+TODO(rodrigoq): finish example with cr-syncer
+-->
+
+## Cleaning up
+
+In order to stop the controller and remove the CRD you created, run:
+
+```
+kubectl delete -f charge-controller.yaml -f charge-crd.yaml
+```
+
+If you want to uninstall metacontroller too, run:
+
+```
+kubectl delete namespace metacontroller
+```
+
+<!--
+TODO(rodrigoq): define "What's Next" for declarative APIs
+
+## What's next
+
+There are a few inconvenient steps in this guide, e.g.:
+
+* manually replacing the project ID in all source files or
+* remotely logging in to the robot to start a workload.
+
+This is where the app management layer comes in; it provides, among other capabilities:
+
+* ways of bundling and parameterizing Kubernetes resources and
+* remote management of Kubernetes resources/workloads on the robot.
+
+Also note that both the server and the client side can be implemented with similar ease in other programming languages, such as [Java](https://developers.google.com/api-client-library/java/) or [Go](https://github.com/googleapis/google-api-go-client).
+-->
