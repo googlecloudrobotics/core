@@ -63,8 +63,8 @@ function prepare_source_install {
   # created projects (see b/123625511).
   ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push
 
-  # The cr-adapter isn't packaged as a GCR app and hence pushed separately. 
-  ${DIR}/bazel-bin/src/go/cmd/cr-adapter:cr-adapter.push
+  # The cr-adapter isn't packaged as a GCR app and hence pushed separately.
+  ${DIR}/bazel-bin/src/go/cmd/cr-adapter/cr-adapter.push
   # Running :push outside the build system shaves ~3 seconds off an incremental build.
   ${DIR}/bazel-bin/src/app_charts/push
 }
