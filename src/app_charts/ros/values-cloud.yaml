@@ -1,0 +1,7 @@
+domain: "example.com"
+project: "my-gcp-project"
+robots: []
+
+app:
+  sim_suffix: ""
+  ros_master: ""

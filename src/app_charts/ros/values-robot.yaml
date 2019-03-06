@@ -1,0 +1,6 @@
+domain: "example.com"
+project: "my-gcp-project"
+
+robot:
+  name: ""
+  ros_master: ""

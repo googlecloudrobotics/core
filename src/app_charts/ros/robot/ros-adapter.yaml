@@ -23,7 +23,7 @@ spec:
         - name: ROBOT_NAME
           value: "{{ .Values.robot.name }}"
         - name: ROS_MASTER_URI
-          value: http://ros-master.default.svc.cluster.local:11311
+          value: "http://{{ .Values.robot.ros_master }}:11311"
         - name: ROS_IP
           valueFrom:
             fieldRef:

@@ -3,6 +3,7 @@ load("//bazel:app.bzl", "app")
 
 core_app_chart(
     name = "ros-demo-robot",
+    values = "values.yaml",
 )
 
 core_app_chart(
