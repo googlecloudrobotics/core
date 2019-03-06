@@ -63,7 +63,7 @@ def app_chart(
     images = images or {}
     for key, value in images.items():
         image_label = Label(value)
-        digest = "@{}//{}:{}.digest".format(image_label.workspace_name, image_label.package, image_label.name)
+        digest = "//{}:{}.digest".format(image_label.package, image_label.name)
         cmds.append("  {nick}: {registry}/{image}@$$(cat $(location {digest}))".format(
             nick = key.replace("-", "_"),
             registry = registry,
