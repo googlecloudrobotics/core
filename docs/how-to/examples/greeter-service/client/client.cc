@@ -25,6 +25,7 @@
 #include "helloworld.grpc.pb.h"
 
 using grpc::Channel;
+using grpc::ChannelCredentials;
 using grpc::ClientContext;
 using grpc::Status;
 using helloworld::Greeter;
@@ -71,30 +72,43 @@ int main(int argc, char** argv) {
   if (argc < 2) {
     const std::string client_path(argv[0]);
     std::cout << "Usage:" << std::endl;
-    std::cout << "  " << client_path << " <address> [<port>]" << std::endl;
+    std::cout << "  " << client_path << " <address[:port]> [<name>]"
+              << std::endl;
     std::cout << "Example:" << std::endl;
     std::cout << "  " << client_path
-              << " www.endpoints.${PROJECT_ID}.cloud.goog 443" << std::endl;
+              << " www.endpoints.${PROJECT_ID}.cloud.goog:443" << std::endl;
     return 0;
   }
 
-  // The first parameter is the server's address.
-  const std::string address(argv[1]);
-
-  // The optional second parameter is the port.
-  std::string port("50051");
-  if (argc >= 3) {
-    port = argv[2];
+  // The first parameter is the server's address, optionally containing the
+  // port.
+  std::string grpc_endpoint(argv[1]);
+  if (grpc_endpoint.find(":") == std::string::npos) {
+    // Set the default port of the server.
+    grpc_endpoint += ":50051";
   }
 
-  const std::string grpc_endpoint = address + ":" + port;
+  // The optional second parameter is the name to be sent to the server.
+  std::string name("world");
+  if (argc >= 3) {
+    name = argv[2];
+  }
+
   std::cout << "Sending request to " << grpc_endpoint << " ..." << std::endl;
 
   // We are communicating via SSL to the endpoint service using the credentials
-  // of the user or robot running the client."
-  GreeterClient greeter(
-      grpc::CreateChannel(grpc_endpoint, grpc::GoogleDefaultCredentials()));
-  std::string user("world");
+  // of the user or robot running the client.
+  // We don't use credentials when connecting to localhost for testing.
+  std::shared_ptr<ChannelCredentials> channel_creds;
+  if (grpc_endpoint.find("localhost:") == 0 ||
+      grpc_endpoint.find("127.0.0.1:") == 0) {
+    channel_creds = grpc::InsecureChannelCredentials();
+  } else {
+    channel_creds = grpc::GoogleDefaultCredentials();
+  }
+
+  GreeterClient greeter(grpc::CreateChannel(grpc_endpoint, channel_creds));
+  std::string user(name);
   std::string reply = greeter.SayHello(user);
   std::cout << "Greeter received: " << reply << std::endl;
 

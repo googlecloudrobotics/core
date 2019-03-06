@@ -12,9 +12,11 @@ spec:
   - host: "www.endpoints.${PROJECT_ID}.cloud.goog"
     http:
       paths:
-      - path: /helloworld.Greeter/
+      - # must match the namespace and service name in the proto
+        path: /helloworld.Greeter/
         backend:
           serviceName: greeter-server-service
+          # must match the port used in server.cc
           servicePort: 50051
 ---
 apiVersion: v1
@@ -25,7 +27,7 @@ spec:
   ports:
     - # optional descriptive name for the service port
       name: grpc-port
-      # must match the servicePort specified in Ingress
+      # must match the service port specified in ingress
       port: 50051
   # the selector is used to link pods to services
   selector:

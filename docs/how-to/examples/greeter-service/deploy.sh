@@ -36,10 +36,6 @@ function create_config {
 }
 
 # public functions
-function push_server {
-  push_image server
-}
-
 function push_client {
   push_image client
 }
@@ -49,8 +45,14 @@ function update_config {
   kubectl apply -f greeter-server.yaml
 }
 
+function update_server {
+  push_image server
+  kubectl delete pod -l 'app=greeter-server-app'
+  update_config
+}
+
 function create {
-  push_server
+  push_image server
   push_client
   update_config
 }
@@ -65,8 +67,8 @@ if [[ -z ${PROJECT_ID} ]]; then
   die "Set PROJECT_ID first: export PROJECT_ID=[GCP project id]"
 fi
 
-if [[ ! "$1" =~ ^(create|delete|update_config|push_server|push_client)$ ]]; then
-  die "Usage: $0 {create|delete|update_config|push_server|push_client}"
+if [[ ! "$1" =~ ^(create|delete|update_config|update_server|push_client)$ ]]; then
+  die "Usage: $0 {create|delete|update_config|update_server|push_client}"
 fi
 
 # call arguments verbatim:
