@@ -89,7 +89,7 @@ REGISTRY=${IMAGE_REFERENCE%%/*}
 # TODO(daschmidt): Remove the login dance when the setup-robot image is available from a public registry.
 echo "Pulling image from ${REGISTRY}..."
 
-echo ${ACCESS_TOKEN} | docker login -u oauth2accesstoken --password-stdin https://${REGISTRY}
+echo ${ACCESS_TOKEN} | docker login -u oauth2accesstoken --password-stdin https://${REGISTRY} || true
 
 if ! docker pull ${IMAGE_REFERENCE}; then
   docker logout https://${REGISTRY}
