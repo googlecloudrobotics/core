@@ -360,15 +360,15 @@ func (h *Helm) buildPerRobotChart(robots []unstructured.Unstructured, target pb.
 	for _, r := range robots {
 		spec, ok := r.Object["spec"].(map[string]interface{})
 		if !ok {
-			return nil, fmt.Errorf("unmarshaling robot failed: spec is not a map")
+			return nil, fmt.Errorf("unmarshaling robot %q failed: spec is not a map", r.GetName())
 		}
 		robotType, ok := spec["type"].(string)
 		if !ok {
-			return nil, fmt.Errorf("unmarshaling robot failed: type is not a string")
+			return nil, fmt.Errorf("unmarshaling robot %q failed: type is not a string", r.GetName())
 		}
 		robotRole, ok := spec["role"].(string)
 		if !ok {
-			return nil, fmt.Errorf("unmarshaling robot failed: role is not a string")
+			return nil, fmt.Errorf("unmarshaling robot %q failed: role is not a string", r.GetName())
 		}
 		robotValues := map[string]interface{}{
 			"name": r.GetName(),
@@ -377,7 +377,7 @@ func (h *Helm) buildPerRobotChart(robots []unstructured.Unstructured, target pb.
 		}
 		roles, err := h.getMatchingRoles(robotRole)
 		if err != nil {
-			return nil, fmt.Errorf("getting the apps failed: %v", err)
+			return nil, fmt.Errorf("getting the apps for role %q failed: %v", robotRole, err)
 		}
 		for roleName, roleSpec := range roles {
 			for _, appSetting := range roleSpec.Apps {
