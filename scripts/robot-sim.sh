@@ -52,6 +52,10 @@ function create {
     --machine-type="n1-standard-8" \
     --num-nodes=1 \
     --max-nodes=2 \
+    --enable-ip-alias \
+    --issue-client-certificate \
+    --no-enable-basic-auth \
+    --metadata disable-legacy-endpoints=true \
     --scopes gke-default,https://www.googleapis.com/auth/cloud-platform \
     --zone=${GCP_ZONE} \
     --project=${GCP_PROJECT_ID}
