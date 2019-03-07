@@ -279,8 +279,10 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 // setStatus updates the status section of the ChartAssignment based on Helm's reported
 // state. It returns true if a rollback should be attempted.
 func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) error {
+	as.Status.ObservedGeneration = as.Generation
+
 	history, err := r.helm.ReleaseHistory(as.Name, hclient.WithMaxHistory(100))
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "not found") {
 		return fmt.Errorf("fetch history: %s", err)
 	}
 	if len(history.Releases) == 0 {
@@ -290,7 +292,6 @@ func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) er
 	active := history.Releases[0]
 	activeDesc := decodeReleaseDesc(active.Info.Description)
 
-	as.Status.ObservedGeneration = as.Generation
 	as.Status.Phase = chartPhase(active.Info.Status.Code)
 
 	// Most recent revision is what's currently deployed.
