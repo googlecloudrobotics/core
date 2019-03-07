@@ -22,6 +22,17 @@ use GitHub pull requests for this purpose. Consult
 [GitHub Help](https://help.github.com/articles/about-pull-requests/) for more
 information on using pull requests.
 
+## Code formatting
+
+We have a pre-commit hook to check code formatting, which you can install with:
+
+```
+ln -s ../../scripts/pre-commit .git/hooks/
+```
+
+It depends on external tools for formatting, which you may be prompted to
+install when it first runs.
+
 ## Community Guidelines
 
 This project follows

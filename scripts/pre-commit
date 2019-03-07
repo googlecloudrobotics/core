@@ -151,4 +151,27 @@ if [ -n "$tf_files" ]; then
   done
 fi
 
+# Run check when either a markdown file changes (it may have new embeddings) or
+# an example file changes (it may have to be embedded).
+# TODO(rodrigoq): only run if these files contain an embedmd tag.
+md_files=$(files_matching "\.md$")
+# TODO(rodrigoq): find a better way of checking if a file is embedded anywhere.
+example_files=$(files_matching "example")
+if [[ -n "$md_files" || -n "$example_files" ]]; then
+  EMBEDMD=${GOPATH:-$HOME/go}/bin/embedmd
+  if [[ ! -f "$EMBEDMD" ]] && ! go get github.com/campoy/embedmd ; then
+    echo "ERROR: embedmd not found and couldn't be installed." >&2
+    result=1
+  else
+    # An unchanged .md file may still have changes in the embedded files.
+    all_md_files=$(git ls-files | grep '\.md$')
+    diff=$($EMBEDMD -d $all_md_files)
+    if [[ $? -ne 0 ]] ; then
+      echo "$diff"
+      echo "To fix, run: $EMBEDMD -w \$(git ls-files | grep '\\.md$')"
+      result=1
+    fi
+  fi
+fi
+
 exit $result
