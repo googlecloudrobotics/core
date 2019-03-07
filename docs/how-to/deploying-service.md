@@ -43,8 +43,25 @@ cd server
 
 Paste the following into a file called `server.py`:
 
-``` python
-{% include_relative examples/hello-service/server/server.py -%}
+[embedmd]:# (examples/hello-service/server/server.py python)
+```python
+from http import server
+
+class MyRequestHandler(server.BaseHTTPRequestHandler):
+  def do_GET(self):
+    print('Received a request')
+    self.send_response(200)
+    self.send_header('Content-Type', 'text/plain')
+    self.end_headers()
+    self.wfile.write(b'Server says hello!\n')
+
+def main():
+  server_address = ('', 8000)
+  httpd = server.HTTPServer(server_address, MyRequestHandler)
+  httpd.serve_forever()
+
+if __name__ == '__main__':
+  main()
 ```
 
 This Python program implements a server that listens on port 8000 for incoming HTTP GET requests. When such a request is received, it prints a line to stdout and responds to the request with a short message.
@@ -79,8 +96,15 @@ If this command fails, make sure Docker is installed according to the [installat
 
 In the same directory as `server.py`, create a `Dockerfile` with the following contents:
 
-``` dockerfile
-{% include_relative examples/hello-service/server/Dockerfile -%}
+[embedmd]:# (examples/hello-service/server/Dockerfile dockerfile)
+```dockerfile
+FROM python:alpine
+
+WORKDIR /data
+
+COPY server.py ./
+
+CMD [ "python", "-u", "./server.py" ]
 ```
 
 (Note: the `-u` option disables line-buffering; Python's line-buffering can prevent output from appearing immediately in the Docker logs.)
@@ -128,8 +152,58 @@ The image should now show up in the [Container Registry](https://console.cloud.g
 
 Create a file called `hello-server.yaml` with the following contents:
 
-``` yaml
-{% include_relative examples/hello-service/server/hello-server.yaml -%}
+[embedmd]:# (examples/hello-service/server/hello-server.yaml yaml)
+```yaml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: hello-server-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
+spec:
+  rules:
+  - host: www.endpoints.[PROJECT_ID].cloud.goog
+    http:
+      paths:
+      - path: /apis/hello-server
+        backend:
+          serviceName: hello-server-service
+          servicePort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-server-service
+spec:
+  ports:
+  - name: hello-server-port
+    port: 8000
+  # the selector is used to link pods to services
+  selector:
+    app: hello-server-app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-server
+spec:
+  # all pods matching this selector belong to this deployment
+  selector:
+    matchLabels:
+      app: hello-server-app
+  template:
+    metadata:
+      # the other side of the link between services and pods
+      labels:
+        app: hello-server-app
+    spec:
+      containers:
+      - name: hello-server
+        image: gcr.io/[PROJECT_ID]/hello-server:latest
+        ports:
+        # must match the port of the service
+        - containerPort: 8000
 ```
 
 This file contains the information needed by Kubernetes to run our HTTP service in our cloud cluster. In the following, we will go over it bit by bit assuming basic familiarity with the [YAML format](https://en.wikipedia.org/wiki/YAML).
@@ -246,8 +320,19 @@ pip install --upgrade google-auth requests
 
 Create `client.py` with the following contents:
 
-``` python
-{% include_relative examples/hello-service/client/client.py -%}
+[embedmd]:# (examples/hello-service/client/client.py python)
+```python
+import google.auth
+import google.auth.transport.requests as requests
+
+credentials, project_id = google.auth.default()
+
+authed_session = requests.AuthorizedSession(credentials)
+
+response = authed_session.request(
+  "GET", "https://www.endpoints.[PROJECT_ID].cloud.goog/apis/hello-server")
+
+print(response.status_code, response.reason, response.text)
 ```
 
 Replace `[PROJECT_ID]` with your GCP project ID.
@@ -272,8 +357,17 @@ In order to run this script on the robot's Kubernetes cluster, we again package 
 
 Create a `Dockerfile` containing:
 
-``` dockerfile
-{% include_relative examples/hello-service/client/Dockerfile -%}
+[embedmd]:# (examples/hello-service/client/Dockerfile dockerfile)
+```dockerfile
+FROM python:alpine
+
+RUN pip install --no-cache-dir google-auth requests
+
+WORKDIR /data
+
+COPY client.py ./
+
+CMD [ "python", "-u", "./client.py" ]
 ```
 
 Build, tag, and push the image:
