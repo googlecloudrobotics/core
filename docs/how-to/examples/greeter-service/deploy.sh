@@ -32,8 +32,7 @@ function push_image {
 }
 
 function create_config {
-  export PROJECT_ID=${PROJECT_ID}
-	cat greeter-server.yaml.tmpl | envsubst >greeter-server.yaml
+  cat greeter-server.yaml.tmpl | envsubst >greeter-server.yaml
 }
 
 # public functions
