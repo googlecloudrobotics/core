@@ -115,7 +115,7 @@ func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 	}
 	if k8serrors.IsNotFound(err) {
 		// Assignment was already deleted. We did all required cleanup
-		// when remvoing the finalizer. Thus, there's nothing to do.
+		// when removing the finalizer. Thus, there's nothing to do.
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, fmt.Errorf("getting ChartAssignment %q failed: %s", req, err)
@@ -135,14 +135,18 @@ const (
 	tillerTimeout = 600
 )
 
-func (r *Reconciler) ensureNamespace(ctx context.Context, as *apps.ChartAssignment) error {
+func (r *Reconciler) ensureNamespace(ctx context.Context, as *apps.ChartAssignment) (*core.Namespace, error) {
 	// Create application namespace if it doesn't exist.
 	var ns core.Namespace
 	err := r.kube.Get(ctx, kclient.ObjectKey{Name: as.Spec.NamespaceName}, &ns)
 
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("getting Namespace %q failed: %s", as.Spec.NamespaceName, err)
+		return nil, fmt.Errorf("getting Namespace %q failed: %s", as.Spec.NamespaceName, err)
 	}
+	if ns.DeletionTimestamp != nil {
+		return nil, fmt.Errorf("namespace %q is marked for deletion, skipping", as.Spec.NamespaceName)
+	}
+
 	createNamespace := k8serrors.IsNotFound(err)
 	ns.Name = as.Spec.NamespaceName
 
@@ -156,12 +160,60 @@ func (r *Reconciler) ensureNamespace(ctx context.Context, as *apps.ChartAssignme
 		BlockOwnerDeletion: &_true,
 	})
 	if !added {
-		return nil
+		return &ns, nil
 	}
 	if createNamespace {
-		return r.kube.Create(ctx, &ns)
+		return &ns, r.kube.Create(ctx, &ns)
 	}
-	return r.kube.Update(ctx, &ns)
+	return &ns, r.kube.Update(ctx, &ns)
+}
+
+// ensureServiceAccount makes sure we have an image pull secret for gcr.io inside the apps namespace
+// and the default service account configured to use it. This is needed to make apps work that
+// reference images from a private container registry.
+// TODO(ensonic): Put this behind a flag to only do this as needed.
+func (r *Reconciler) ensureServiceAccount(ctx context.Context, ns *core.Namespace, as *apps.ChartAssignment) error {
+	if r.cluster == "cloud" {
+		// We don't need any of this for cloud charts.
+		return nil
+	}
+
+	// Copy imagePullSecret from 'default' namespace, since service accounts cannot reference
+	// secrets in other namespaces.
+	var secret core.Secret
+	err := r.kube.Get(ctx, kclient.ObjectKey{Namespace: as.Spec.NamespaceName, Name: "gcr-json-key"}, &secret)
+	if err != nil && k8serrors.IsNotFound(err) {
+		err = r.kube.Get(ctx, kclient.ObjectKey{Namespace: "default", Name: "gcr-json-key"}, &secret)
+		if err != nil {
+			return fmt.Errorf("getting Secret\"default:gcr-json-key\" failed: %s", err)
+		}
+		secret.Namespace = as.Spec.NamespaceName
+		err = r.kube.Create(ctx, &secret)
+		if err != nil {
+			return fmt.Errorf("creating Secret \"%s:gcr-json-key\" failed: %s", as.Spec.NamespaceName, err)
+		}
+	}
+
+	// Configure the default service account in the namespace.
+	var sa core.ServiceAccount
+	err = r.kube.Get(ctx, kclient.ObjectKey{Namespace: as.Spec.NamespaceName, Name: "default"}, &sa)
+	if err != nil {
+		return fmt.Errorf("getting ServiceAccount \"%s:default\" failed: %s", as.Spec.NamespaceName, err)
+	}
+
+	// Only add the secret once.
+	ips := core.LocalObjectReference{Name: "gcr-json-key"}
+	found := false
+	for _, s := range sa.ImagePullSecrets {
+		if s == ips {
+			found = true
+			break
+		}
+	}
+	if !found {
+		sa.ImagePullSecrets = append(sa.ImagePullSecrets, ips)
+	}
+	return r.kube.Update(ctx, &sa)
 }
 
 // releaseFailed returns whether the most recent release failed and what the last
@@ -201,8 +253,12 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 		return reconcile.Result{Requeue: true, RequeueAfter: requeueSlow}, nil
 	}
 
-	if err := r.ensureNamespace(ctx, as); err != nil {
+	ns, err := r.ensureNamespace(ctx, as)
+	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("ensure namespace: %s", err)
+	}
+	if err := r.ensureServiceAccount(ctx, ns, as); err != nil {
+		return reconcile.Result{}, fmt.Errorf("ensure service-account: %s", err)
 	}
 	// Ensure a finalizer on the ChartAssignment so we don't get deleted before
 	// we've properly deleted the associated Helm release.

@@ -117,6 +117,7 @@ func (r *RobotAuth) StoreInK8sSecret(clientset *kubernetes.Clientset) error {
 	return kubeutils.UpdateSecret(
 		clientset,
 		credentialsSecretName,
+		corev1.NamespaceDefault,
 		corev1.SecretTypeOpaque,
 		map[string][]byte{
 			"json": authJson,

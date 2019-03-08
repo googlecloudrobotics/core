@@ -22,11 +22,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 )
@@ -57,6 +59,20 @@ func dockercfgJSON(token string) []byte {
 	return b
 }
 
+func patchServiceAccount(k8s *kubernetes.Clientset, name string, namespace string, patchData []byte) error {
+	sa := k8s.CoreV1().ServiceAccounts(namespace)
+	for {
+		_, err := sa.Patch(name, types.StrategicMergePatchType, patchData)
+		if err == nil {
+			break
+		} else if !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to update kubernetes service account: %v", err)
+		}
+		time.Sleep(time.Second)
+	}
+	return nil
+}
+
 // UpdateGcrCredentials authenticates to the cloud cluster using the auth config given and updates
 // the credentials used to pull images from GCR.
 func UpdateGcrCredentials(k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) error {
@@ -66,26 +82,36 @@ func UpdateGcrCredentials(k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) 
 	if err != nil {
 		return fmt.Errorf("failed to get token: %v", err)
 	}
-	err = kubeutils.UpdateSecret(
-		k8s,
-		"gcr-json-key",
-		corev1.SecretTypeDockercfg,
-		map[string][]byte{
-			".dockercfg": dockercfgJSON(token.AccessToken),
-		})
+
+	nsList, err := k8s.CoreV1().Namespaces().List(metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to update kubernetes secret: %v", err)
+		return fmt.Errorf("failed to list namespaces: %v", err)
 	}
-	// Tell k8s to use this key by pointing the default SA at it.
-	sa := k8s.CoreV1().ServiceAccounts(corev1.NamespaceDefault)
+	cfgData := map[string][]byte{".dockercfg": dockercfgJSON(token.AccessToken)}
 	patchData := []byte(`{"imagePullSecrets": [{"name": "gcr-json-key"}]}`)
-	for {
-		_, err = sa.Patch("default", types.StrategicMergePatchType, patchData)
-		if err == nil {
-			break
-		} else if !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("failed to update kubernetes service account: %v", err)
+	haveError := false
+	for _, ns := range nsList.Items {
+		namespace := ns.ObjectMeta.Name
+		// TODO(ensonic): do this for all namespaces (that have a 'gcr-json-key'), always do it for 'default'
+
+		// Create a docker config with the access-token and store as secret
+		err = kubeutils.UpdateSecret(k8s, "gcr-json-key", namespace, corev1.SecretTypeDockercfg,
+			cfgData)
+		if err != nil {
+			log.Printf("failed to update kubernetes secret for namespace %s: %v", namespace, err)
+			haveError = true
+			continue
 		}
+
+		// Tell k8s to use this key by pointing the default SA at it.
+		err = patchServiceAccount(k8s, "default", namespace, patchData)
+		if err != nil {
+			log.Printf("failed to update kubernetes service account for namespace %s: %v", namespace, err)
+			haveError = true
+		}
+	}
+	if haveError {
+		return fmt.Errorf("failed to update one or more namespaces")
 	}
 	return nil
 }

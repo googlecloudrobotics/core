@@ -128,8 +128,8 @@ func BuildCloudKubernetesConfig(ts oauth2.TokenSource, remoteServer string) *res
 }
 
 // UpdateSecret (over-) writes a k8s secret.
-func UpdateSecret(k8s *kubernetes.Clientset, name string, secretType corev1.SecretType, data map[string][]byte) error {
-	s := k8s.CoreV1().Secrets(corev1.NamespaceDefault)
+func UpdateSecret(k8s *kubernetes.Clientset, name string, namespace string, secretType corev1.SecretType, data map[string][]byte) error {
+	s := k8s.CoreV1().Secrets(namespace)
 	if err := s.Delete(name, nil); err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
