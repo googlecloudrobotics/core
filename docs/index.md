@@ -9,9 +9,12 @@ integrators, and operators. It enables:
 
 ### Documentation
 
-* [Quickstart](quickstart.md): Set up Cloud Robotics
-* [Overview](overview.md): Develop a deeper understanding of Cloud Robotics
+* [Quickstart](quickstart.md): Set up Cloud Robotics from binaries.
+* [Overview](overview.md): Develop a deeper understanding of Cloud Robotics.
 * How-to guides
+    * [Deploying Cloud Robotics from sources](how-to/deploy-from-sources)<br/>
+      Build and deploy Cloud Robotics from the sources hosted on Github using
+      Bazel.
     * [Running a ROS node as a Kubernetes deployment](how-to/running-ros-node.md)<br/>
       Use Kubernetes to administer containerized workloads on a robot.
     * [Setting up OAuth for web UIs](how-to/setting-up-oauth.md)<br/>
