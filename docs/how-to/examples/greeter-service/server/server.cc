@@ -16,9 +16,12 @@
  *
  */
 
+#include <csignal>
+#include <future>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <thread>
 
 #include <grpcpp/grpcpp.h>
 
@@ -31,6 +34,10 @@ using grpc::Status;
 using helloworld::Greeter;
 using helloworld::HelloReply;
 using helloworld::HelloRequest;
+
+// The gRPC server is defined globally so that SIGTERM handler can shut it
+// down when Kubernetes stops the process.
+std::unique_ptr<Server> server;
 
 // Logic and data behind the server's behavior.
 class GreeterServiceImpl final : public Greeter::Service {
@@ -56,11 +63,15 @@ void RunServer() {
   // clients. In this case it corresponds to a *synchronous* service.
   builder.RegisterService(&service);
   // Finally assemble the server.
-  std::unique_ptr<Server> server(builder.BuildAndStart());
+  server = builder.BuildAndStart();
   std::cout << "Server listening on " << server_address << std::endl;
 
-  // Wait for the server to shutdown. This call only returns if another thread
-  // shuts down the server.
+  std::signal(SIGTERM, [](int) {
+    // When SIGTERM is received, shutdown the gRPC server.
+    server->Shutdown();
+  });
+
+  // Wait for the server to shutdown.
   server->Wait();
 }
 

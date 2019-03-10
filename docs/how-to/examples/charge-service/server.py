@@ -1,5 +1,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+import signal
+import sys
 import time
 import uuid
 
@@ -107,6 +109,9 @@ class ChargeService(object):
     else:
       return int(100 * (charge_time / self.SECONDS_FOR_FULL_CHARGE))
 
+
+# Terminate process when Kubernetes sends SIGTERM.
+signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
 Controller.charge_service = ChargeService()
 HTTPServer(("", 8000), Controller).serve_forever()
