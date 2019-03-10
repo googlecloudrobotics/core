@@ -79,7 +79,8 @@ function check_project_resources {
 
 function clear_iot_devices {
   local iot_registry_name="$1"
-  local devices=$(gcloud beta iot devices list \
+  local devices
+  devices=$(gcloud beta iot devices list \
     --project "${GCP_PROJECT_ID}" \
     --region "${GCP_REGION}" \
     --registry "${iot_registry_name}" \
@@ -102,7 +103,8 @@ function terraform_exec {
 }
 
 function terraform_init {
-  local IMAGE_PROJECT_ID="$(echo ${CLOUD_ROBOTICS_CONTAINER_REGISTRY} | sed -n -e 's:^.*gcr.io/::p')"
+  local IMAGE_PROJECT_ID
+  IMAGE_PROJECT_ID="$(echo ${CLOUD_ROBOTICS_CONTAINER_REGISTRY} | sed -n -e 's:^.*gcr.io/::p')"
 
   # Pass CLOUD_ROBOTICS_DOMAIN here and not PROJECT_DOMAIN, as we only create dns resources if a custom
   # domain is used.
@@ -158,8 +160,10 @@ function terraform_delete {
 }
 
 function helm_charts {
-  local GCP_PROJECT_NUMBER=$(terraform_exec output project-number)
-  local INGRESS_IP=$(terraform_exec output ingress-ip)
+  local GCP_PROJECT_NUMBER
+  GCP_PROJECT_NUMBER=$(terraform_exec output project-number)
+  local INGRESS_IP
+  INGRESS_IP=$(terraform_exec output ingress-ip)
 
   gcloud container clusters get-credentials "${PROJECT_NAME}" \
     --zone ${GCP_ZONE} \

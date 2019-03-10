@@ -83,10 +83,12 @@ function download_orig_pkg {
   # Adding external repositories is not allowed on all machines, which prevents us from doing
   # something simple such as "aptitude download kubelet". Thus we manually curl the .deb file from
   # the repository after getting its location from the appropriate Packages file.
-  local path=$(curl -fsSL "$K8S_PACKAGES_URL" \
+  local path
+  path=$(curl -fsSL "$K8S_PACKAGES_URL" \
     | grep "${package_name}_${K8S_PKG_VERSION}" \
     | cut -d ' ' -f2)
-  local filename=$(basename "${path}")
+  local filename
+  filename=$(basename "${path}")
 
   curl -fsSL "${K8S_REPOSITORY}/${path}" --output "${filename}"
 
@@ -312,13 +314,15 @@ function backport_kubelet_and_kubeadm {
   rm -f -r ${WORKSPACE_ROOT}/backport/*
   pushd ${WORKSPACE_ROOT}/backport
 
-  local kubelet_deb=$(download_orig_pkg kubelet)
+  local kubelet_deb
+  kubelet_deb=$(download_orig_pkg kubelet)
   local kubelet_dirname=${kubelet_deb/.deb/}
   unpack_deb ${kubelet_deb} ${kubelet_dirname}
   (cd ${kubelet_dirname} && patch_kubelet)
   repack_deb ${kubelet_dirname} "backported_kubelet.deb"
 
-  local kubeadm_deb=$(download_orig_pkg kubeadm)
+  local kubeadm_deb
+  kubeadm_deb=$(download_orig_pkg kubeadm)
   local kubeadm_dirname=${kubeadm_deb/.deb/}
   unpack_deb ${kubeadm_deb} ${kubeadm_dirname}
   (cd ${kubeadm_dirname} && patch_kubeadm)

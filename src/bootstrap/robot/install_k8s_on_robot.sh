@@ -250,7 +250,8 @@ function setup_cluster {
 }
 
 function create_default_kubeadm_config {
-  local temp_config=$(mktemp -t kubeadm.XXXXXXXX.yaml)
+  local temp_config
+  temp_config=$(mktemp -t kubeadm.XXXXXXXX.yaml)
   cat > "${temp_config}" << "EOF"
 apiVersion: kubeadm.k8s.io/v1alpha3
 kind: InitConfiguration

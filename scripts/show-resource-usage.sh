@@ -33,11 +33,15 @@ quota_list="$(gcloud --project="${PROJECT}" compute project-info describe --form
 
 function check {
   local type="$1"
-  local readable_type="$(echo "${type}" | tr 'A-Z_' 'a-z ')"
-  local quota="$(echo "${quota_list}" | jq ".[\"quotas\"] [] | select(.metric == \"${type}\")")"
+  local readable_type
+  readable_type="$(echo "${type}" | tr 'A-Z_' 'a-z ')"
+  local quota
+  quota="$(echo "${quota_list}" | jq ".[\"quotas\"] [] | select(.metric == \"${type}\")")"
   if [ -n "${quota}" ]; then
-    local limit="$(echo "${quota}" | jq -r '.["limit"]')"
-    local usage="$(echo "${quota}" | jq -r '.["usage"]')"
+    local limit
+    limit="$(echo "${quota}" | jq -r '.["limit"]')"
+    local usage
+    usage="$(echo "${quota}" | jq -r '.["usage"]')"
     local color=${color_ok}
     if [ ${usage} -eq ${limit} ]; then
       color=${color_bad}
