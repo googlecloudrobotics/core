@@ -5,7 +5,6 @@
 In this guide we will use a Kubernetes-style declarative API to interface to an external Charge Service for a robot.
 This API is built around the concept of a ChargeAction resource, which instructs a robot to drive to a charger.
 While the robot is charging, the status of the ChargeAction resource is kept up-to-date and can be observed.
-<!-- We will show how to use the API from the workstation and how to access it from code running in the robot's Kubernetes cluster. -->
 
 ## Motivation
 
@@ -199,6 +198,8 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: chargeactions.example.com
+  annotations:
+    cr-syncer.cloudrobotics.com/spec-source: cloud
 spec:
   group: example.com
   version: v1
@@ -211,6 +212,7 @@ spec:
 
 This is a [custom resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) definition (CRD) for a resource called ChargeAction.
 This simple example just describes the name and version of the API, but CRDs can also define schemas for the resources.
+Don't worry about the `cr-syncer.cloudrobotics.com/spec-source` annotation for now, as it'll be explained later in the tutorial.
 
 Next, create a file called `charge-controller.yaml` with the following contents, replacing `[PROJECT_ID]` with your GCP project ID:
 
@@ -349,18 +351,73 @@ Over the next 10 seconds, you should see the "Charge Level Percent" increase to 
 > You should see `metacontroller-0   1/1    Running`.
 > You can also check the metacontroller logs with `kubectl --namespace metacontroller logs metacontroller-0`
 
-<!--
-## Using the API between cloud and robot
 
-Things get interesting when there are multiple clusters involved.
-We can run the charge-controller on the robot, while creating the ChargeAction in the cloud cluster.
-This means that the ChargeAction can be created even when the robot has no connectivity.
-As soon as connectivity returns, the ChargeAction will be transferred from the cloud to the robot.
+## Deploying the declarative API on the robot.
+
+So far, the Charge Service has been running in the cloud, but we need to run
+code on the robot to get it to charge.
+We can change this with the `cr-syncer`, a component of Cloud Robotics Core that allows declarative APIs to work between Kubernetes clusters.
+In particular, we can run the charge-controller on the robot, while creating the ChargeAction in the cloud cluster.
+The `cr-syncer` takes care of copying the ChargeAction to the robot when the
+robot has network connectivity.
 
 **Prerequisite**: you'll need a robot that has been successfully [connected to the cloud](connecting-robot.md).
 
-TODO(rodrigoq): finish example with cr-syncer
--->
+First, remove the controller from the cloud cluster:
+
+```
+# Note: run this on the workstation
+kubectl delete -f charge-controller.yaml
+```
+
+Then SSH into the robot, install metacontroller, and bring up the charge-controller there:
+
+```
+# Note: run this on the robot
+kubectl create namespace metacontroller
+kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/metacontroller/master/manifests/metacontroller-rbac.yaml
+kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/metacontroller/master/manifests/metacontroller.yaml
+
+export PROJECT_ID=[YOUR_GCP_PROJECT_ID]
+kubectl apply -f https://raw.githubusercontent.com/googlecloudrobotics/core/master/docs/how-to/examples/charge-service/charge-crd.yaml
+curl https://raw.githubusercontent.com/googlecloudrobotics/core/master/docs/how-to/examples/charge-service/charge-controller.yaml \
+  | sed "s/\[PROJECT_ID\]/$PROJECT_ID/g" | kubectl apply -f -
+```
+
+Now, check that these are running correctly:
+
+```
+# Note: run this on the robot
+> kubectl get pods --namespace metacontroller
+NAME               READY   STATUS    RESTARTS   AGE
+metacontroller-0   1/1     Running   0          1m
+> kubectl get pods -l app=charge-controller
+NAME                                 READY   STATUS    RESTARTS   AGE
+charge-controller-57786849f8-xp5kf   1/1     Running   0          77s
+```
+
+Switch back to a terminal on your workstation.
+As before, you can create a ChargeAction with `kubectl`, but this time it will be
+handled by the controller on the robot.
+
+```
+# Note: run this on the workstation
+kubectl delete -f charge-action.yaml
+kubectl apply -f charge-action.yaml \
+  && watch -n0 kubectl describe chargeaction my-charge-action
+```
+
+How does this work?
+
+- The `cr-syncer` runs on the robot and watches custom resources in the cloud.
+- It sees the `cr-syncer.cloudrobotics.com/spec-source: cloud` annotation on the
+  CustomResourceDefinition, which tells it to copy the `spec` from
+  `my-charge-action` in the cloud cluster into a copy of `my-charge-action` in
+  the robot cluster.
+- While the robot is charging, the robot's charge-controller updates the status
+  in the robot's cluster.
+- The `cr-syncer` copies the status back up to the original resource in the
+  cloud cluster.
 
 ## Cleaning up
 
@@ -375,6 +432,8 @@ If you want to uninstall metacontroller too, run:
 ```
 kubectl delete namespace metacontroller
 ```
+
+If you installed on the robot, you'll need to run these commands there too.
 
 <!--
 TODO(rodrigoq): define "What's Next" for declarative APIs

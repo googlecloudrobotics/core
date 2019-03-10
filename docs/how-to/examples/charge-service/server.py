@@ -33,7 +33,7 @@ class Controller(BaseHTTPRequestHandler):
     """
 
     # Get current status and copy to start building next status.
-    current_status = parent.get("status", {})
+    current_status = parent.get("status", None) or {}
     desired_status = dict(current_status)
     state = current_status.get("state", "CREATED")
 
