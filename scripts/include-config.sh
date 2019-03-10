@@ -27,7 +27,7 @@ fi
 configbzl="${rootdir}/config.bzl"
 
 function check_vars_not_empty {
-  for v in $@; do
+  for v in "$@"; do
     [ -n "${!v}" ] || die "Variable $v is not set or is empty"
   done
 }

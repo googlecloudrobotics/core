@@ -51,4 +51,4 @@ function cloud_cleanup {
 }
 
 # call arguments verbatim:
-$@
+"$@"

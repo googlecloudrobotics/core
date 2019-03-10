@@ -85,7 +85,7 @@ function delete {
 
 # Alias for create.
 function update {
-  create $@
+  create "$@"
 }
 
 # main
@@ -99,4 +99,4 @@ fi
 trap restore_initial_context EXIT
 
 # call arguments verbatim:
-$@
+"$@"

@@ -53,11 +53,11 @@ function add_apt_key {
 # --allow-downgrades --allow-remove-essential --allow-change-held-packages, but these are
 # dangerous, so we give the user a chance to avoid damage to the system.
 function apt_install {
-  echo "Installing $@..."
+  echo "Installing $*..."
   if ! sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@"; then
     echo ""
-    echo "ERROR: Failed to install $@. Try:" >&2
-    echo "    sudo apt install $@" >&2
+    echo "ERROR: Failed to install $*. Try:" >&2
+    echo "    sudo apt install $*" >&2
     return 1
   fi
 }

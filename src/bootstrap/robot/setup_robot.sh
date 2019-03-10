@@ -30,7 +30,7 @@ else
   APP_MANAGEMENT=""
 fi
 
-if [[ ! "$@" =~ "--project" && $# -ge 2 ]] ; then
+if [[ ! "$*" =~ "--project" && $# -ge 2 ]] ; then
   echo "WARNING: using only positional arguments for setup_robot.sh is deprecated." >&2
   echo "    Please use the following invocation instead. Setup continues in 60 seconds..." >&2
   echo "    setup-robot <robot-name> --project <project-id> \\" >&2

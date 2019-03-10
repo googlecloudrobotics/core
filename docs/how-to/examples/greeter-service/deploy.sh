@@ -72,4 +72,4 @@ if [[ ! "$1" =~ ^(create|delete|update_config|update_server|push_client)$ ]]; th
 fi
 
 # call arguments verbatim:
-$@
+"$@"

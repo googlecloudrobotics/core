@@ -21,7 +21,7 @@ function async() {
 
 # Wait for all of the subprocesses, failing the script if any of them failed.
 exitcode=0
-for pid in ${PIDS[@]}; do
+for pid in "${PIDS[@]}"; do
     wait ${pid} || exitcode=$?
 done
 exit $exitcode

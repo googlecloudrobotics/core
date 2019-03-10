@@ -283,4 +283,4 @@ if [[ ! "$1" =~ ^(set-project|create|delete|update|fast_push)$ ]]; then
 fi
 
 # call arguments verbatim:
-$@
+"$@"

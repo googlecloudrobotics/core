@@ -84,5 +84,5 @@ else
   # call arguments verbatim:
   # TODO(rodrigoq): this fails if you pass the project in $1. Should we do more
   # sophisticated argument parsing?
-  $@
+  "$@"
 fi

@@ -214,7 +214,7 @@ if [ "$#" -lt 1 ]; then
 fi
 
 # call arguments verbatim:
-$@
+"$@"
 EOF
 }
 

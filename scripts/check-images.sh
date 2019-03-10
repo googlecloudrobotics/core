@@ -58,5 +58,5 @@ function text {
 }
 
 # call arguments verbatim:
-$@
+"$@"
 
