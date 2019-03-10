@@ -21,6 +21,9 @@ This is the core reason that software in ROS systems can't be updated on the fly
 In RPC-based APIs, the intent is often updated differentially (eg "a little more to the left"), so our only hope of debugging is to log all messages ever sent.
 
 In a declarative API, all actions and feedback are stored in a shared database&mdash;an approach built on Kubernetes' experience building robust distributed systems&mdash;which addresses these issues.
+The latency added by going through the shared database means that
+declarative APIs are best suited to latency-tolerant applications like
+high-level control.
 
 <!-- ## Concepts (describe resources, controllers, etc, and link to docs) -->
 
@@ -64,6 +67,25 @@ kubectl config get-contexts
 
 If the correct cluster is not marked with an asterisk in the output, you can switch to it with `kubectl config use-context [...]`.)
 Then, follow the install instructions at https://metacontroller.app/guide/install/.
+
+> **Limitations of metacontroller**:
+> Writing custom controllers with metacontroller is easy, and you can use
+> whatever programming language you prefer.
+> However, it has some limitations.
+>
+> 1. metacontroller can't directly detect changes in external state, although
+>    you can configure it to periodically reconcile your resources with external
+>    systems. This introduces latency corresponding to the reconciliation
+>    frequency.
+> 1. The information available to your controller is limited.
+>    You can't use metacontroller to create a controller that only acts on a
+>    single resource out of many (for example, a controller that only executes
+>    the highest-priority action).
+>
+> For advanced use cases, writing a controller in Golang offers more
+> flexibility. See
+> [sample-controller](https://github.com/kubernetes/sample-controller) for an
+> example.
 
 ## Defining the controller logic
 
