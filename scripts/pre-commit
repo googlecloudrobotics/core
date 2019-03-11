@@ -2,6 +2,11 @@
 # git hook to ensure code style
 # ln -sf ../../scripts/pre-commit .git/hooks/
 
+# shellcheck disable=2044,2046
+# This script can't handle spaces in filenames. That would be challenging to do
+# correctly, and we will hopefully never add a filename with a space to the
+# repository.
+
 set -o pipefail
 
 result=0
@@ -9,7 +14,7 @@ result=0
 # Allow to call the pre-commit hook with a list of files. This allows to run the
 # script from the command line like this to check all files:
 # $ ./scripts/pre-commit $(git ls-files)
-files="$@"
+files="$*"
 if [ -z "$files" ]; then
   files="$(git diff --name-only --staged --diff-filter=ACMRTUXB)"
 fi
@@ -185,10 +190,11 @@ if [[ -n "$sh_files" ]] ; then
     curl -fsSL https://storage.googleapis.com/shellcheck/shellcheck-v0.6.0.linux.x86_64.tar.xz \
       | tar -C "$SHELLCHECK_DIR" -xJf - || exit 1
   fi
-  # Note: using a lower severity than `error` results in many warnings about
-  # quoting in places where it would be lots of work to handle spaces correctly
-  # (eg scripts/pre-commit).
-  if ! "$SHELLCHECK" --severity=error --external-sources $sh_files ; then
+  # Note: using a lower severity than `warning` is quite noisy.
+  # SC1090 complains not being able able to follow `source "${DIR}/scripts/common.sh"`,
+  # which is a common pattern and we don't benefit from shellcheck following the
+  # `source` statement.
+  if ! "$SHELLCHECK" --severity=warning -e SC1090 --external-sources $sh_files ; then
     echo "ERROR: shellcheck found issues. These need to be fixed manually." >&2
     result=1
   fi
