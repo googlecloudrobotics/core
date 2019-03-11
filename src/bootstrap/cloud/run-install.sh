@@ -29,7 +29,7 @@ fi
 
 # Usage: ./run-install.sh [version-file|versioned-tarball]
 TARGET=${1:-"latest"}
-if [[ ! TARGET = *.tar.gz ]]; then
+if [[ ! "$TARGET" = *.tar.gz ]]; then
   echo "Downloading version file ${BUCKET_URI}/${TARGET}"
   TARGET=$( curl --silent --show-error --fail "${BUCKET_URI}/${TARGET}" )
 fi

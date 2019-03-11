@@ -63,6 +63,10 @@ function create {
   gcloud container clusters get-credentials "${ROBOT_NAME}" \
     --zone=${GCP_ZONE} --project=${GCP_PROJECT_ID}
 
+  # shellcheck disable=2097 disable=2098
+  # We intentionally set APP_MANAGEMENT="" in the environment of the
+  # setup_robot.sh because it expects --app-management and complains about the
+  # envvar. This can be removed when the warning is removed from setup_robot.sh.
   APP_MANAGEMENT="" \
   KUBE_CONTEXT=${GKE_SIM_CONTEXT} \
   ACCESS_TOKEN=$(gcloud auth application-default print-access-token) \

@@ -234,6 +234,8 @@ function setup_cluster {
   # Merge generated kubeconfig into ~/.kube/config
   echo "Adding the local cluster to ~/.kube/config..."
   tmp=$(mktemp)
+  # shellcheck disable=2024
+  # sudo is required for kubectl to read admin.conf, not to write to $tmp.
   sudo KUBECONFIG=/etc/kubernetes/admin.conf:$HOME/.kube/config \
     kubectl config view --flatten > $tmp
   mkdir --parents ~/.kube
@@ -359,6 +361,9 @@ function main {
 # bash script.sh   | script.sh | script.sh
 # bash < script.sh | bash      |
 # source script.sh | bash      | script.sh
+#
+# shellcheck disable=2128
+# This code expects that $BASH_SOURCE expands to the first element.
 if [[ "$0" == "$BASH_SOURCE" || -z "$BASH_SOURCE" ]] ; then
   main "$@"
 fi

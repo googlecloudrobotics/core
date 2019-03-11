@@ -37,7 +37,7 @@ fi
 mkdir -p ${SHADOW_REPO}
 
 for d in {cmd,pkg,tests}; do
-  rm -rf "${SHADOW_REPO}/$d"
+  rm -rf "${SHADOW_REPO:?}/${d:?}"
 done
 cp -r ${DIR}/{cmd,pkg,tests} ${SHADOW_REPO}
 cp ${DIR}/Gopkg.* ${SHADOW_REPO}

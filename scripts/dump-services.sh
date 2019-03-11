@@ -32,8 +32,6 @@ PROJECT=${2:-$(gcloud 2>/dev/null config get-value project)}
 REGION=$(gcloud 2>/dev/null config  get-value compute/region)
 REGION=${REGION:-europe-west1}
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
 LIST=$(gcloud --project="${PROJECT}" compute ${TYPE} list --format='value(name)')
 
 for x in ${LIST}; do

@@ -219,6 +219,8 @@ EOF
 
 # commands
 
+# shellcheck disable=2120
+# Parameters are not passed in this script, but may be passed by the user.
 function set-project {
   [[ ! -e "${DIR}/config.sh" ]] || [[ ! -e "${DIR}/config.bzl" ]] || \
     die "ERROR: config.sh and config.bzl already exist"
