@@ -25,3 +25,5 @@ integrators, and operators. It enables:
       Programmatically store data from the robot with Cloud Storage.
     * [Deploying a service to the cloud](how-to/deploying-service.md)<br/>
       Run an API service in the cloud cluster and access it from a robot.
+    * [Deploying a gRPC service](how-to/deploying-grpc-service.md)<br/>
+      Run an gRPC service written in C++ in the cloud cluster and access it from a robot.

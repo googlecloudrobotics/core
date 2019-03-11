@@ -9,8 +9,7 @@ In this guide we will deploy a gRPC service written in C++ and deploy it to our 
 
 * Completed the [Quickstart Guide](../quickstart.md), after which the GCP project is set up and `gcloud-sdk` and `kubectl` are installed and configured.
 * `docker` is installed and configured on the workstation ([instructions](https://docs.docker.com/install/linux/docker-ce/ubuntu/)).
-* `git` and `make` are installed on the workstation.
-* To build and run locally: The gRPC C++ library and `protoc` are installed on the workstation ([instructions](https://github.com/grpc/grpc/blob/master/src/cpp/README.md)).
+* `git` is installed on the workstation.
 * For the last part of the guide: A robot that has been successfully [connected to the cloud](connecting-robot.md).
 
 All files for this tutorial are located in
@@ -30,13 +29,6 @@ export PROJECT_ID=[YOUR_GCP_PROJECT_ID]
 
 ## Running gRPC server and client locally
 
-<!--
-TODO(skopecki) Replace this section by a version using Docker images for testing, so the user
-    does not need to install the gRPC library.
--->
-
-You may skip this section if you don't have `grpc` and `protoc` installed yet.
-
 We will use [gRPC's quickstart example](https://grpc.io/docs/quickstart/cpp.html) with small modifications.
 If you like to learn more about gRPC in C++, follow their guide first.
 
@@ -44,33 +36,10 @@ The gRPC `helloworld.Greeter` service is defined in `proto/helloworld.proto`.
 It accepts a `HelloRequest` containing a `name` and responds with a `HelloReply` containing a `message`.
 The server is implemented in `server/server.cc` and the client is implemented `client/client.cc`. The client sends the request with `name: "world"` to the server which responds with `message: "Hello <name>"`.
 
-Build and run `greeter_server` locally:
+In this tutorial, we build the server and client code inside Docker containers, so you don't need to install the gRPC library.
+If you prefer, you can install the gRPC following [these instructions](https://github.com/grpc/grpc/blob/master/src/cpp/README.md) and build the server and client locally using the provided `Makefile`.
 
-```
-make greeter-server
-./greeter-server
-```
-
-In a different console build and run the client:
-
-```
-make greeter-client
-./greeter-client localhost
-```
-
-You should see `Greeter received: Hello world` in the client's output and `Received request: name: "world"` in the server's output. You can also send your own name in the gRPC request to the server, try:
-
-```
-./greeter-client localhost $USER
-```
-
-Shut down the server with `Ctrl+C`.
-
-
-## Dockerizing the service
-
-To prepare our C++ program for deployment in the cloud, we package it as a Docker image.
-Make sure the docker daemon is running and your user has the necessary privileges:
+Make sure the Docker daemon is running and your user has the necessary privileges:
 
 ```
 docker run --rm hello-world
@@ -78,7 +47,7 @@ docker run --rm hello-world
 
 If this command fails, make sure Docker is installed according to the [installation instructions](https://docs.docker.com/install/linux/docker-ce/ubuntu/).
 
-The Docker image for the server is configured in the `server/Dockerfile`:
+The Docker image for the server is configured in `server/Dockerfile`:
 
 [embedmd]:# (examples/greeter-service/server/Dockerfile dockerfile)
 ```dockerfile
@@ -96,39 +65,50 @@ CMD ["./greeter-server"]
 ```
 
 We use the [grpc/cxx](https://hub.docker.com/r/grpc/cxx) Docker image which contains all the build tools and libraries (`g++`, `make`, `protoc`, and `grpc`) we need to build the `greeter-server` binary.
+The Docker image for the client is configured in `client/Dockerfile` which builds the `greeter-client` from `client/client.cc`.
 
-To build the Docker image, run:
+To build the Docker images, run:
 
 ```
 docker build -t greeter-server -f server/Dockerfile .
+docker build -t greeter-client -f client/Dockerfile .
 ```
 
 > **Note**
-> The docker file is in the subfolder `greeter-server/server/`, but the docker command must be called from `greeter-server/` to include the files which are shared between the client and the server.
+> The docker files are in the subfolders `greeter-server/server/` and `greeter-server/client`, but the docker command must be called from `greeter-server/` to include the files which are shared between the server and the client.
 
-You should now have an image tagged `greeter-server` in your local registry:
-
-```
-docker images | grep greeter-server
-```
-
-It can be run locally with:
+You should now have an image tagged `greeter-server` and one tagged `greeter-client` in your local registry:
 
 ```
-docker run --name greeter-server -ti --rm -p 50051:50051 greeter-server
+docker images | grep greeter
 ```
 
-You should be able to send requests from the client as before:
+To run the server locally, the container's port 50051, which specified as gRPC port in `server.cc`, has to be published to your machine with the flag `-p 50051:50051`:
 
 ```
-./greeter-client localhost
+docker run --rm -p 50051:50051 --name greeter-server greeter-server
 ```
 
-If you are not able to stop the server using `Ctrl+C`, you can stop it from another terminal by running (this works because we named the image with `--name greeter-service`):
+In another console run the client container.
+The flag `--network=host` tells the container to use your workstation's network stack which allows the client to connect to `localhost`.
+
+```
+docker run --rm --network=host greeter-client ./greeter-client localhost
+```
+
+You should see `Greeter received: Hello world` in the client's output and `Received request: name: "world"` in the server's output. You can also send your own name in the gRPC request to the server, try:
+
+```
+docker run --rm --network=host greeter-client \
+  ./greeter-client localhost $USER
+```
+
+You can stop the server from another terminal by running:
 
 ```
 docker stop greeter-server
 ```
+
 
 ## Uploading the Docker image to the cloud
 
@@ -243,18 +223,14 @@ SSL authentication with credentials from the user or robot are necessary when ta
   }
 ```
 
-
-Let's try to access our server as before. We have to connect to the nginx ingress which is hosted on `www.endpoints.$PROJECT_ID.cloud.goog:443`:
+Let's try to access our server.
+We have to connect to the nginx ingress which is hosted on `www.endpoints.$PROJECT_ID.cloud.goog:443`.
+To ensure we have valid credentials to talk to nginx we have to mount our `~/.config` folder in the container.
 
 ```
-./greeter-client www.endpoints.$PROJECT_ID.cloud.goog:443
+docker run --rm -v ~/.config:/root/.config greeter-client \
+  ./greeter-client www.endpoints.$PROJECT_ID.cloud.goog:443 workstation
 ```
-
-> **Known issue**
-> If this command fails to load your credentials file, try:
-> ```
-> export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/etc/ssl/certs/ca-certificates.crt
-> ```
 
 Recall that when running `./greeter-server` on your workstation you were able to see the server's log output upon receiving a request.
 This log output is also recorded when the server is running in the cloud cluster. To inspect it, run:
@@ -269,8 +245,6 @@ Or go to the [GKE Console](https://console.cloud.google.com/kubernetes/workload)
 ## Accessing the API from the robot
 
 In order to run `greeter-client` on the robot's Kubernetes cluster, we again package it as a Docker image and push it to our container registry, to which the robot also has access.
-`client/Dockerfile` describes the client's image which is similar to the server's Dockerfile.
-
 Our deploy script offers a command to build, tag, and push the image to the cloud registry, like we did with the server container:
 
 ```
@@ -282,7 +256,7 @@ And finally, to execute the script, SSH into robot and run:
 ```
 export PROJECT_ID=[YOUR_GCP_PROJECT_ID]
 docker pull grpc/cxx:1.12.0  # This may take several minutes, depending on WiFi connection
-kubectl run -ti --rm --restart=Never --image=gcr.io/$PROJECT_ID/greeter-client greeter-client \
+kubectl run --rm --restart=Never --image=gcr.io/$PROJECT_ID/greeter-client greeter-client \
   -- ./greeter-client www.endpoints.$PROJECT_ID.cloud.goog:443 robot
 ```
 
