@@ -208,7 +208,7 @@ EOF
   # TODO(rodrigoq): during the repo reorg, make sure that the release name
   # matches the chart name. Right now one is "cloud-base" and the other is
   # "base-cloud", which is confusing.
-  helmout=$(${HELM} upgrade --install cloud-base ./bazel-genfiles/src/app_charts/base/base-cloud-0.0.1.tgz $values) \
+  helmout=$(${HELM} upgrade --install cloud-base ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz $values) \
     || die "Helm failed for base-cloud: $helmout"
   echo "helm installed base-cloud to ${KUBE_CONTEXT}: $helmout"
 
