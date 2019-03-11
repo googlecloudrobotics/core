@@ -27,6 +27,9 @@ gazelle(
 # Also ignore the Go sources downloaded by src/go/deps.sh.
 # gazelle:exclude src/.gopath
 
+# Don't created build files for these examples
+# gazelle:exclude  docs/how-to/examples/greeter-service/proto/
+
 # These directives tell Gazelle how to resolve the proto imports within the
 # grpc-gateway repo.
 #
