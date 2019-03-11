@@ -74,7 +74,7 @@ groupversions=""
 
 for d in ${SHADOW_REPO}/pkg/apis/*/*; do
   version=$(basename $d)
-  group=$(basename $(dirname $d))
+  group=$(basename "$(dirname $d)")
   echo "generating for ${group}/${version}"
 
   groupversions="${groupversions},${group}/${version}"

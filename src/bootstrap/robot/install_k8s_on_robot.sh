@@ -348,6 +348,9 @@ function main {
 
   if [[ -z "${kubeadm_yaml}" ]] ; then
     kubeadm_yaml=$(create_default_kubeadm_config)
+    # shellcheck disable=2064
+    # ${kubeadm_yaml} is intentionally expanded now, rather than when the trap
+    # is executed.
     trap "rm -f '${kubeadm_yaml}'" EXIT
   fi
   install_k8s_on_robot "${kubeadm_yaml}"

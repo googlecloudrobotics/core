@@ -34,7 +34,7 @@ function check_vars_not_empty {
 
 function check_var_is_one_of {
   local var_name="$1"
-  local allowed_values="${@:2}"
+  local allowed_values="${*:2}"
   local found=false
 
   for allowed_value in ${allowed_values}; do
@@ -59,6 +59,8 @@ if [[ ! -r $configsh ]] ; then
 fi
 
 # Import config.bzl variables
+# shellcheck disable=2046
+# For better or worse, all spaces are removed by sed.
 export $(sed -e 's/[\ "]//g' -e '/^#/d' $configbzl)
 
 # Import config.sh variables
