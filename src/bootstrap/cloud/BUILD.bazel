@@ -4,22 +4,13 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 pkg_tar(
     name = "bazel-bin",
     srcs = [
+        "//src/app_charts/base:base-cloud",
+        "//src/app_charts/platform-apps:platform-apps-cloud",
+        "//src/bootstrap/robot:setup-robot-image-reference-txt",
         "//src/proto/map:proto_descriptor",
     ],
     mode = "644",
     package_dir = "/bazel-bin",
-    strip_prefix = "/",
-)
-
-pkg_tar(
-    name = "bazel-genfiles",
-    srcs = [
-        "//src/app_charts/base:base-cloud",
-        "//src/app_charts/platform-apps:platform-apps-cloud",
-        "//src/bootstrap/robot:setup-robot-image-reference-txt",
-    ],
-    mode = "644",
-    package_dir = "/bazel-genfiles",
     strip_prefix = "/",
 )
 
@@ -68,7 +59,6 @@ pkg_tar(
     package_dir = "/cloud-robotics-core",
     deps = [
         ":bazel-bin",
-        ":bazel-genfiles",
         ":external_tools",
         ":files",
         ":scripts",
