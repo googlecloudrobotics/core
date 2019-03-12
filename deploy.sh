@@ -212,7 +212,7 @@ EOF
     || die "Helm failed for base-cloud: $helmout"
   echo "helm installed base-cloud to ${KUBE_CONTEXT}: $helmout"
 
-  helmout=$(${HELM} upgrade --install platform-apps ./bazel-genfiles/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz) \
+  helmout=$(${HELM} upgrade --install platform-apps ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz) \
     || die "Helm failed for platform-apps-cloud: $helmout"
   echo "helm installed platform-apps-cloud to ${KUBE_CONTEXT}"
 }
