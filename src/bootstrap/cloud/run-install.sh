@@ -27,9 +27,19 @@ if [[ -e "${CONFIG}" && ! "${CONFIG}" = /* ]]; then
   CONFIG="${DIR}/${CONFIG}"
 fi
 
-# Usage: ./run-install.sh [version-file|versioned-tarball]
+# Usage: ./run-install.sh [<version-file>|<versioned-tarball>|clean]
 TARGET=${1:-"latest"}
-if [[ ! "$TARGET" = *.tar.gz ]]; then
+
+if [[ "${TARGET}" = "clean" ]]; then
+  # Remove all files which are not necessary for an update.
+  echo "Cleaning up temporary files"
+  find ${DIR}/cloud-robotics-core -type f ! -name "config.sh" ! -name "config.bzl" \
+    ! -name "terraform.tfstate" -delete
+  find ${DIR}/cloud-robotics-core -type d -empty -delete
+  exit 0
+fi
+
+if [[ ! "${TARGET}" = *.tar.gz ]]; then
   echo "Downloading version file ${BUCKET_URI}/${TARGET}"
   TARGET=$( curl --silent --show-error --fail "${BUCKET_URI}/${TARGET}" )
 fi

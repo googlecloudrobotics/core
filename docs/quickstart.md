@@ -3,7 +3,7 @@
 Estimated time: 10 min
 
 This page describes how to set up a Google Cloud Platform (GCP) project
-containing the Cloud Robotics Core components.
+containing the Cloud Robotics Core (CRC) components.
 In particular, this creates a cluster with Google Kubernetes Engine and prepares
 it to accept connections from robots, which enables those robots to securely
 communicate with GCP.
@@ -69,11 +69,21 @@ token-vendor-xxx    1/1     Running            0          1m
 In addition to the cluster, the install script also created:
 
 * the [cloud-robotics IoT Core Registry][iot-registry] that will be used to manage the list of authorized robots,
-* the [[PROJECT_ID]-robot Cloud Storage bucket][storage-bucket], containing the scripts that connect robots to the cloud, and
-* the [Identity & Access Management policies][iam] that authorize robots and humans to communicate with GCP.
-
+* the [[PROJECT_ID]-robot Cloud Storage bucket][storage-bucket], containing the scripts that connect robots to the cloud,
+* the [Identity & Access Management policies][iam] that authorize robots and humans to communicate with GCP, and
+* the `cloud-robotics-core` folder.
 
 # Update the project
+
+During installation, files were created in the `cloud-robotics-core` folder.
+Some of the created files are necessary to update your project later:
+* your configuration `config.sh` and `config.bzl`, and
+* the Terraform state `src/bootstrap/cloud/terraform/terraform.tfstate`.
+
+You can delete all temporary files, by running:
+```
+bash ./run-install.sh clean
+```
 
 To update the installation to a newer version run the installer again.
 ```
@@ -89,13 +99,17 @@ The following command will delete:
 
 This can be useful if the cluster is in a broken state.
 Be careful with this invocation, since you'll have to redeploy the project and reconnect any robots afterwards.
+This command is not available after running the `clean` command but you can restore the necessary files by running the install script again.
 
 ```
 cd cloud-robotics-core
 ./deploy.sh delete
 ```
 
-If you want to completely shut down the project, see [the Resource Manager documentation](https://cloud.google.com/resource-manager/docs/creating-managing-projects#shutting_down_projects).
+> **Known issue** After deleting CRC from your project, the endpoint services will be in a "pending deletion" state for 30 days.
+> If you want to reinstall CRC into the same project again, you have to [undelete the services][undelete-service] manually.
+
+If you want to completely shut down the project, see [the Resource Manager documentation][shutting_down_projects].
 
 # Next steps
 
@@ -110,3 +124,5 @@ If you want to completely shut down the project, see [the Resource Manager docum
 [iot-registry]: https://console.cloud.google.com/iot/registries
 [storage-bucket]: https://console.cloud.google.com/storage/browser
 [iam]: https://console.cloud.google.com/iam-admin/iam
+[undelete-service]: https://cloud.google.com/sdk/gcloud/reference/endpoints/services/undelete
+[shutting_down_projects]: https://cloud.google.com/resource-manager/docs/creating-managing-projects#shutting_down_projects
