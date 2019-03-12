@@ -69,7 +69,7 @@ func patchServiceAccount(k8s *kubernetes.Clientset, name string, namespace strin
 		if err == nil {
 			break
 		} else if !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("failed to update kubernetes service account: %v", err)
+			return fmt.Errorf("failed to apply %q: %v", patchData, err)
 		}
 		time.Sleep(time.Second)
 	}
@@ -91,7 +91,7 @@ func UpdateGcrCredentials(k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) 
 		return fmt.Errorf("failed to list namespaces: %v", err)
 	}
 	cfgData := map[string][]byte{".dockercfg": DockerCfgJSON(token.AccessToken)}
-	patchData := []byte(`{"imagePullSecrets": [{"name": SecretName}]}`)
+	patchData := []byte(`{"imagePullSecrets": [{"name": "` + SecretName + `"}]}`)
 	haveError := false
 	for _, ns := range nsList.Items {
 		namespace := ns.ObjectMeta.Name
