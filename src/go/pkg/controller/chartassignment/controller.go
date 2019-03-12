@@ -32,6 +32,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -181,16 +182,20 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, ns *core.Namespac
 	// Copy imagePullSecret from 'default' namespace, since service accounts cannot reference
 	// secrets in other namespaces.
 	var secret core.Secret
-	err := r.kube.Get(ctx, kclient.ObjectKey{Namespace: as.Spec.NamespaceName, Name: "gcr-json-key"}, &secret)
+	err := r.kube.Get(ctx, kclient.ObjectKey{Namespace: as.Spec.NamespaceName, Name: gcr.SecretName}, &secret)
 	if err != nil && k8serrors.IsNotFound(err) {
-		err = r.kube.Get(ctx, kclient.ObjectKey{Namespace: "default", Name: "gcr-json-key"}, &secret)
+		err = r.kube.Get(ctx, kclient.ObjectKey{Namespace: "default", Name: gcr.SecretName}, &secret)
 		if err != nil {
-			return fmt.Errorf("getting Secret\"default:gcr-json-key\" failed: %s", err)
+			return fmt.Errorf("getting Secret\"default:%s\" failed: %s", gcr.SecretName, err)
 		}
-		secret.Namespace = as.Spec.NamespaceName
+		// Don't reuse full metadata in created secret.
+		secret.ObjectMeta = meta.ObjectMeta{
+			Namespace: ns.Name,
+			Name:      gcr.SecretName,
+		}
 		err = r.kube.Create(ctx, &secret)
 		if err != nil {
-			return fmt.Errorf("creating Secret \"%s:gcr-json-key\" failed: %s", as.Spec.NamespaceName, err)
+			return fmt.Errorf("creating Secret \"%s:%s\" failed: %s", as.Spec.NamespaceName, gcr.SecretName, err)
 		}
 	}
 
@@ -202,7 +207,7 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, ns *core.Namespac
 	}
 
 	// Only add the secret once.
-	ips := core.LocalObjectReference{Name: "gcr-json-key"}
+	ips := core.LocalObjectReference{Name: gcr.SecretName}
 	found := false
 	for _, s := range sa.ImagePullSecrets {
 		if s == ips {
@@ -338,11 +343,15 @@ func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) er
 	as.Status.ObservedGeneration = as.Generation
 
 	history, err := r.helm.ReleaseHistory(as.Name, hclient.WithMaxHistory(100))
-	if err != nil && !strings.Contains(err.Error(), "not found") {
+	if err != nil {
+		if !strings.Contains(err.Error(), "not found") {
+			// Creating the release likely failed previously and conditions
+			// were set appropriately.
+			return r.kube.Status().Update(ctx, as)
+		}
 		return fmt.Errorf("fetch history: %s", err)
 	}
 	if len(history.Releases) == 0 {
-		// Probably a malformed chart or chart fetch error.
 		return r.kube.Status().Update(ctx, as)
 	}
 	active := history.Releases[0]

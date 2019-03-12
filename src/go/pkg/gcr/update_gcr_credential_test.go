@@ -29,7 +29,7 @@ func TestDockercfgJSON(t *testing.T) {
   "https://us.gcr.io":{"username":"oauth2accesstoken","password":"ya29.yaddayadda","email":"not@val.id","auth":"b2F1dGgyYWNjZXNzdG9rZW46eWEyOS55YWRkYXlhZGRh"}
 }`
 
-	gotJSON := dockercfgJSON("ya29.yaddayadda")
+	gotJSON := DockerCfgJSON("ya29.yaddayadda")
 
 	g.Expect(gotJSON).To(MatchJSON(expectedJSON))
 }

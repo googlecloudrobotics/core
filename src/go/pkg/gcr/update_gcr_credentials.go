@@ -33,9 +33,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// dockercfgJSON takes a service account key, and converts it into the JSON
+// Name of the secret that stores the GCR pull token.
+const SecretName = "gcr-json-key"
+
+// DockerCfgJSON takes a service account key, and converts it into the JSON
 // format required for k8s's docker-registry secrets.
-func dockercfgJSON(token string) []byte {
+func DockerCfgJSON(token string) []byte {
 	type dockercfg struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -87,15 +90,15 @@ func UpdateGcrCredentials(k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) 
 	if err != nil {
 		return fmt.Errorf("failed to list namespaces: %v", err)
 	}
-	cfgData := map[string][]byte{".dockercfg": dockercfgJSON(token.AccessToken)}
-	patchData := []byte(`{"imagePullSecrets": [{"name": "gcr-json-key"}]}`)
+	cfgData := map[string][]byte{".dockercfg": DockerCfgJSON(token.AccessToken)}
+	patchData := []byte(`{"imagePullSecrets": [{"name": SecretName}]}`)
 	haveError := false
 	for _, ns := range nsList.Items {
 		namespace := ns.ObjectMeta.Name
 		// TODO(ensonic): do this for all namespaces (that have a 'gcr-json-key'), always do it for 'default'
 
 		// Create a docker config with the access-token and store as secret
-		err = kubeutils.UpdateSecret(k8s, "gcr-json-key", namespace, corev1.SecretTypeDockercfg,
+		err = kubeutils.UpdateSecret(k8s, SecretName, namespace, corev1.SecretTypeDockercfg,
 			cfgData)
 		if err != nil {
 			log.Printf("failed to update kubernetes secret for namespace %s: %v", namespace, err)
