@@ -1,6 +1,19 @@
 load("//bazel/internal:core_app_chart.bzl", "core_app_chart")
 
 core_app_chart(
+    name = "base-test",
+    extra_templates = [
+        ":cloud/apps-crd.yaml",
+        ":robot/robot-master.yaml",
+    ],
+    images = {
+        "robot-master": "//src/go/cmd/robot-master",
+    },
+    values = ":values-robot.yaml",
+    visibility = ["//visibility:public"],
+)
+
+core_app_chart(
     name = "base-robot",
     extra_templates = [
         ":cloud/monitoring-crd.yaml",

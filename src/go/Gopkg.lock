@@ -113,12 +113,23 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:f1f2bd73c025d24c3b93abf6364bccb802cf2fdedaa44360804c67800e8fab8d"
+  digest = "1:8ee7b41ace3ba875c17e38ba7780e7cf0d29882338637861e9f13f04f60ecc5c"
+  name = "github.com/emicklei/go-restful"
+  packages = [
+    ".",
+    "log",
+  ]
+  pruneopts = "UT"
+  revision = "85d198d05a92d31823b852b4a5928114912e8949"
+  version = "v2.9.0"
+
+[[projects]]
+  digest = "1:b48d19e79fa607e9e3715ff9a73cdd3777a9cac254b50b9af721466f687e850d"
   name = "github.com/evanphx/json-patch"
   packages = ["."]
   pruneopts = "UT"
-  revision = "72bf35d0ff611848c1dc9df0f976c81192392fa5"
-  version = "v4.1.0"
+  revision = "afac545df32f2287a079e2dfb7ba2745a643747e"
+  version = "v3.0.0"
 
 [[projects]]
   digest = "1:abeb38ade3f32a92943e5be54f55ed6d6e3b6602761d74b4aab4c9dd45c18abd"
@@ -338,6 +349,14 @@
   version = "v0.3.5"
 
 [[projects]]
+  digest = "1:870d441fe217b8e689d7949fef6e43efbc787e50f200cb1e70dbca9204a1d6be"
+  name = "github.com/inconshreveable/mousetrap"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
+  version = "v1.0"
+
+[[projects]]
   digest = "1:4fdee5292142b3939400c8d6070e19041ee385bfec35bae6c9a05a47467eee9a"
   name = "github.com/jhump/protoreflect"
   packages = [
@@ -357,6 +376,14 @@
   pruneopts = "UT"
   revision = "ab8a2e0c74be9d3be70b3184d9acc634935ded82"
   version = "1.1.4"
+
+[[projects]]
+  digest = "1:31e761d97c76151dde79e9d28964a812c46efc5baee4085b86f68f0c654450de"
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e"
+  version = "v1.0.2"
 
 [[projects]]
   branch = "master"
@@ -509,6 +536,22 @@
   ]
   pruneopts = "UT"
   revision = "7d6f385de8bea29190f15ba9931442a0eaef9af7"
+
+[[projects]]
+  digest = "1:87c2e02fb01c27060ccc5ba7c5a407cc91147726f8f40b70cceeedbc52b1f3a8"
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "e1e72e9de974bd926e5c56f83753fba2df402ce5"
+  version = "v1.3.0"
+
+[[projects]]
+  digest = "1:645cabccbb4fa8aab25a956cbcbdf6a6845ca736b2c64e197ca7cbb9d210b939"
+  name = "github.com/spf13/cobra"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "ef82de70bb3f60c65fb8eebacbb2d122ef517385"
+  version = "v0.0.3"
 
 [[projects]]
   digest = "1:9424f440bba8f7508b69414634aef3b2b3a877e522d8a4624692412805407bb7"
@@ -873,7 +916,7 @@
   version = "kubernetes-1.13.2"
 
 [[projects]]
-  digest = "1:3b07fab917415b6d66b611cd6cdc8d33e1cdc15ce42b7a465e488fc6c46f1ef1"
+  digest = "1:31118fbefc705f49b7f9ef4935038612532eaf30baa48e9f0bf291273c855f2d"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/equality",
@@ -916,6 +959,7 @@
     "pkg/util/uuid",
     "pkg/util/validation",
     "pkg/util/validation/field",
+    "pkg/util/version",
     "pkg/util/wait",
     "pkg/util/yaml",
     "pkg/version",
@@ -1115,9 +1159,10 @@
   version = "kubernetes-1.13.2"
 
 [[projects]]
-  digest = "1:f578e7c027b6c70b53cb455d08114c24b7a88bd889db7df3be9674d1a9fd8957"
+  digest = "1:3ad2ae6d3f5889e23112328ce62f2f37ac06f5cdce77abd954d6a3eb1798aa5e"
   name = "k8s.io/helm"
   packages = [
+    "cmd/helm/installer",
     "pkg/chartutil",
     "pkg/downloader",
     "pkg/engine",
@@ -1145,8 +1190,8 @@
     "pkg/version",
   ]
   pruneopts = "UT"
-  revision = "eecf22f77df5f65c823aacd2dbd30ae6c65f186e"
-  version = "v2.12.3"
+  revision = "79d07943b03aea2b76c12644b4b54733bc5958d6"
+  version = "v2.13.0"
 
 [[projects]]
   digest = "1:e2999bf1bb6eddc2a6aa03fe5e6629120a53088926520ca3b4765f77d7ff7eab"
@@ -1158,9 +1203,12 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a2c842a1e0aed96fd732b535514556323a6f5edfded3b63e5e0ab1bce188aa54"
+  digest = "1:0dac10b488f2671c15738b662478d665b0c0ec7cae3362669dec172147331ce5"
   name = "k8s.io/kube-openapi"
-  packages = ["pkg/util/proto"]
+  packages = [
+    "pkg/common",
+    "pkg/util/proto",
+  ]
   pruneopts = "UT"
   revision = "d83b052f768a50a309c692a9c271da3f3276ff88"
 
@@ -1207,6 +1255,72 @@
   version = "v0.1.10"
 
 [[projects]]
+  digest = "1:169fd3d54df04c6749225aa93295fe264ecf474dd33071aafad5f39a1c389fbb"
+  name = "sigs.k8s.io/kind"
+  packages = [
+    "pkg/cluster",
+    "pkg/cluster/config",
+    "pkg/cluster/config/defaults",
+    "pkg/cluster/config/encoding",
+    "pkg/cluster/config/v1alpha1",
+    "pkg/cluster/config/v1alpha2",
+    "pkg/cluster/constants",
+    "pkg/cluster/internal/create",
+    "pkg/cluster/internal/kubeadm",
+    "pkg/cluster/internal/meta",
+    "pkg/cluster/logs",
+    "pkg/cluster/nodes",
+    "pkg/docker",
+    "pkg/exec",
+    "pkg/kustomize",
+    "pkg/log",
+    "pkg/log/fidget",
+    "pkg/util",
+  ]
+  pruneopts = "UT"
+  revision = "2d52d5cc5e2bc3797a23a54bed924531c223525c"
+  version = "0.1.0"
+
+[[projects]]
+  digest = "1:143206611e48f39798130e896f4b2935ee65d68e283fc549e8a212e0f71796fd"
+  name = "sigs.k8s.io/kustomize"
+  packages = [
+    "k8sdeps",
+    "k8sdeps/configmapandsecret",
+    "k8sdeps/kunstruct",
+    "k8sdeps/kv",
+    "k8sdeps/transformer",
+    "k8sdeps/transformer/hash",
+    "k8sdeps/transformer/patch",
+    "k8sdeps/validator",
+    "pkg/commands/build",
+    "pkg/constants",
+    "pkg/expansion",
+    "pkg/factory",
+    "pkg/fs",
+    "pkg/git",
+    "pkg/gvk",
+    "pkg/ifc",
+    "pkg/ifc/transformer",
+    "pkg/image",
+    "pkg/internal/error",
+    "pkg/loader",
+    "pkg/patch",
+    "pkg/patch/transformer",
+    "pkg/resid",
+    "pkg/resmap",
+    "pkg/resource",
+    "pkg/target",
+    "pkg/transformers",
+    "pkg/transformers/config",
+    "pkg/transformers/config/defaultconfig",
+    "pkg/types",
+  ]
+  pruneopts = "UT"
+  revision = "b67179e951ebe11d00125bdf3c2670e88dca8817"
+  version = "v2.0.2"
+
+[[projects]]
   digest = "1:7719608fe0b52a4ece56c2dde37bedd95b938677d1ab0f84b8a7852e4c59f849"
   name = "sigs.k8s.io/yaml"
   packages = ["."]
@@ -1247,6 +1361,7 @@
     "golang.org/x/oauth2",
     "golang.org/x/oauth2/google",
     "golang.org/x/oauth2/jwt",
+    "golang.org/x/sync/errgroup",
     "google.golang.org/api/cloudresourcemanager/v1",
     "google.golang.org/api/compute/v1",
     "google.golang.org/api/iterator",
@@ -1272,6 +1387,7 @@
     "k8s.io/apimachinery/pkg/runtime/serializer/json",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/runtime",
+    "k8s.io/apimachinery/pkg/util/yaml",
     "k8s.io/apimachinery/pkg/watch",
     "k8s.io/client-go/discovery",
     "k8s.io/client-go/discovery/fake",
@@ -1288,8 +1404,10 @@
     "k8s.io/client-go/tools/cache",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
+    "k8s.io/client-go/tools/record",
     "k8s.io/client-go/util/flowcontrol",
     "k8s.io/client-go/util/workqueue",
+    "k8s.io/helm/cmd/helm/installer",
     "k8s.io/helm/pkg/chartutil",
     "k8s.io/helm/pkg/downloader",
     "k8s.io/helm/pkg/getter",
@@ -1313,6 +1431,9 @@
     "sigs.k8s.io/controller-runtime/pkg/webhook/admission",
     "sigs.k8s.io/controller-runtime/pkg/webhook/admission/builder",
     "sigs.k8s.io/controller-runtime/pkg/webhook/admission/types",
+    "sigs.k8s.io/kind/pkg/cluster",
+    "sigs.k8s.io/kind/pkg/cluster/config",
+    "sigs.k8s.io/kind/pkg/cluster/config/defaults",
     "sigs.k8s.io/yaml",
   ]
   solver-name = "gps-cdcl"

@@ -177,7 +177,7 @@ go_repository(
 
 go_repository(
     name = "com_github_emicklei_go_restful",
-    commit = "3eb9738c1697594ea6e71a7156a9bb32ed216cf0",
+    commit = "85d198d05a92d31823b852b4a5928114912e8949",
     importpath = "github.com/emicklei/go-restful",
 )
 
@@ -582,13 +582,13 @@ go_repository(
 
 go_repository(
     name = "io_k8s_helm",
-    commit = "eecf22f77df5f65c823aacd2dbd30ae6c65f186e",
+    commit = "79d07943b03aea2b76c12644b4b54733bc5958d6",
     importpath = "k8s.io/helm",
 )
 
 go_repository(
     name = "com_github_evanphx_json_patch",
-    commit = "72bf35d0ff611848c1dc9df0f976c81192392fa5",
+    commit = "afac545df32f2287a079e2dfb7ba2745a643747e",
     importpath = "github.com/evanphx/json-patch",
 )
 
@@ -721,7 +721,7 @@ go_repository(
 
 go_repository(
     name = "com_github_docker_docker",
-    commit = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363",
+    commit = "a8a31eff10544860d2188dddabdee4d727545796",
     importpath = "github.com/docker/docker",
 )
 
@@ -757,7 +757,7 @@ go_repository(
 
 go_repository(
     name = "com_github_konsorten_go_windows_terminal_sequences",
-    commit = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242",
+    commit = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e",
     importpath = "github.com/konsorten/go-windows-terminal-sequences",
 )
 
@@ -794,12 +794,12 @@ go_repository(
 go_repository(
     name = "com_github_sirupsen_logrus",
     commit = "e1e72e9de974bd926e5c56f83753fba2df402ce5",
-    importpath = "github.com/Sirupsen/logrus",
+    importpath = "github.com/sirupsen/logrus",
 )
 
 go_repository(
     name = "in_gopkg_square_go_jose_v2",
-    commit = "e94fb177d3668d35ab39c61cbb2f311550557e83",
+    commit = "628223f44a71f715d2881ea69afc795a1e9c01be",
     importpath = "gopkg.in/square/go-jose.v2",
 )
 
@@ -811,13 +811,13 @@ go_repository(
 
 go_repository(
     name = "io_k8s_kubernetes",
-    commit = "65ecaf0671341311ce6aea0edab46ee69f65d59e",
+    commit = "c27b913fddd1a6c480c229191a087698aa92f0b1",
     importpath = "k8s.io/kubernetes",
 )
 
 go_repository(
     name = "io_k8s_utils",
-    commit = "4ae6e769426ee1a06523eb30fcb69c0a01f03772",
+    commit = "c2654d5206da6b7b6ace12841e8f359bb89b443c",
     importpath = "k8s.io/utils",
 )
 
@@ -847,6 +847,24 @@ http_archive(
     urls = [
         "https://github.com/kubernetes-sigs/application/archive/464aad9c212082e99a9f9ed4515f1bd1f1df2bfa.tar.gz",
     ],
+)
+
+go_repository(
+    name = "io_k8s_sigs_kind",
+    commit = "2d52d5cc5e2bc3797a23a54bed924531c223525c",
+    importpath = "sigs.k8s.io/kind",
+)
+
+go_repository(
+    name = "io_k8s_sigs_kustomize",
+    commit = "b67179e951ebe11d00125bdf3c2670e88dca8817",
+    importpath = "sigs.k8s.io/kustomize",
+)
+
+go_repository(
+    name = "io_k8s_cli_runtime",
+    commit = "11047e25a94a7eaa541b92a8bbfd3e1243607219",
+    importpath = "k8s.io/cli-runtime",
 )
 
 load(
