@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/go-openapi/spec"
@@ -19,12 +20,14 @@ import (
 var (
 	protoDescriptorFile = flag.String("proto_descriptor_file", "",
 		"Filename with a binary FileDescriptorSet")
-	message    = flag.String("message", "", "Fully qualified proto message of the CRD")
-	swagger    = flag.String("openapi_spec_file", "", "Swagger doc for the generated API")
-	plural     = flag.String("plural", "", "Plural form of the message")
-	group      = flag.String("group", "", "Kubernetes API group")
-	namespaced = flag.Bool("namespaced", true, "Generated CR should be namespaced")
-	output     = flag.String("output", "", "Output file")
+	message           = flag.String("message", "", "Fully qualified proto message of the CRD")
+	swagger           = flag.String("openapi_spec_file", "", "Swagger doc for the generated API")
+	plural            = flag.String("plural", "", "Plural form of the message")
+	group             = flag.String("group", "", "Kubernetes API group")
+	namespaced        = flag.Bool("namespaced", false, "Generated CR should be namespaced")
+	output            = flag.String("output", "", "Output file")
+	filterByRobotName = flag.Bool("filter_by_robot_name", false, "Annotation for the CR Syncer")
+	specSource        = flag.String("spec_source", "cloud", "Annotation for the CR Syncer")
 )
 
 func deleteDefaults(input *map[string]interface{}) {
@@ -129,7 +132,11 @@ func main() {
 	crd.TypeMeta.APIVersion = apiextensions.SchemeGroupVersion.String()
 	crd.TypeMeta.Kind = "CustomResourceDefinition"
 	crd.ObjectMeta.Name = fmt.Sprintf("%s.%s", pluralName, *group)
-	crd.ObjectMeta.Annotations = map[string]string{"crc.cloudrobotics.com/proto-descriptor": base64.StdEncoding.EncodeToString(descriptor)}
+	crd.ObjectMeta.Annotations = map[string]string{
+		"crc.cloudrobotics.com/proto-descriptor":           base64.StdEncoding.EncodeToString(descriptor),
+		"cr-syncer.cloudrobotics.com/filter-by-robot-name": strconv.FormatBool(*filterByRobotName),
+		"cr-syncer.cloudrobotics.com/spec-source":          *specSource,
+	}
 	crd.Spec.Group = *group
 	crd.Spec.Names.Plural = pluralName
 	crd.Spec.Names.Kind = kind

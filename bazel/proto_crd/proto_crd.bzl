@@ -12,9 +12,13 @@ def _impl(ctx):
         ctx.attr.group,
         "--plural",
         ctx.attr.plural,
+        "--spec_source",
+        ctx.attr.spec_source,
     ]
     if ctx.attr.namespaced:
         args.append("--namespaced")
+    if ctx.attr.filter_by_robot_name:
+        args.append("--filter_by_robot_name")
 
     ctx.actions.run(
         inputs = [ctx.file.descriptor, ctx.file.openapi_spec],
@@ -51,6 +55,14 @@ proto_crd = rule(
             doc = "Make CRD namespaced or cluster-scoped",
             default = True,
         ),
+        "filter_by_robot_name": attr.bool(
+            doc = "Annotation for the CR Syncer",
+            default = False,
+        ),
+        "spec_source": attr.string(
+            doc = "Annotation for the CR Syncer",
+            default = "cloud",
+        ),
         "_crd_generator_tool": attr.label(
             executable = True,
             cfg = "host",
@@ -69,5 +81,7 @@ Args:
   group: string. Kubernetes API group without version.
   plural: string. Defaults to message basename + "s" if omitted.
   namespaced: bool. Defaults to true. If false, CRD is cluster-scoped.
+  filter_by_robot_name: bool. Defaults to false. Annotation for the CR Syncer.
+  spec_source: string. Defaults to "cloud". Annotation for the CR Syncer.
   visibility: Visibility.
 """

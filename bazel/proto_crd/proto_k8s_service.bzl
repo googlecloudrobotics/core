@@ -47,7 +47,16 @@ proto_k8s_service_proto = rule(
     outputs = {"proto_file": "%{name}.proto"},
 )
 
-def proto_k8s_service(name, message, group, spec, namespaced = True, file_options = {}, visibility = None):
+def proto_k8s_service(
+        name,
+        message,
+        group,
+        spec,
+        namespaced = True,
+        file_options = {},
+        filter_by_robot_name = False,
+        spec_source = "cloud",
+        visibility = None):
     """Generates a proto service for the K8s adapter.
 
     A proto_k8s_service named foo generates:
@@ -67,6 +76,8 @@ def proto_k8s_service(name, message, group, spec, namespaced = True, file_option
       namespaced: bool. Set to false to make the CR cluster-scoped.
       file_options: dict of string. File-level options for the generated
         proto file.
+      filter_by_robot_name: bool. Annotation for the CR Syncer.
+      spec_source: string. Annotation for the CR Syncer.
     """
     proto_k8s_service_proto(
         name = name,
@@ -106,5 +117,7 @@ def proto_k8s_service(name, message, group, spec, namespaced = True, file_option
         message = message,
         namespaced = namespaced,
         openapi_spec = name + "_swagger",
+        filter_by_robot_name = filter_by_robot_name,
+        spec_source = spec_source,
         visibility = visibility,
     )
