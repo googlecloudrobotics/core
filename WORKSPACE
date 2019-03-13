@@ -91,9 +91,15 @@ load(
     "container_pull",
 )
 
+# When updating iptables_base, make sure to use the SHA of the amd64 image
+# rather than the manifest list. You can do this by going to
+# https://console.cloud.google.com/gcr/images/google-containers/GLOBAL/debian-iptables
+# then selecting the latest version, expanding the manifest and finding the
+# digest for the amd64 image.
+# See https://github.com/bazelbuild/rules_docker/issues/714 for background.
 container_pull(
     name = "iptables_base",
-    digest = "sha256:cd81b1a8f40149b5061735927d2a2cf4b90fc27a52fc4cc66889b373368b6ef6",
+    digest = "sha256:9c41b4c326304b94eb96fdd2e181aa6e9995cc4642fcdfb570cedd73a419ba39",
     registry = "gcr.io",
     repository = "google-containers/debian-iptables",
 )
