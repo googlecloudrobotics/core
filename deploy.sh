@@ -69,14 +69,6 @@ function prepare_source_install {
   ${DIR}/bazel-bin/src/app_charts/push
 }
 
-function check_project_resources {
-  # TODO(rodrigoq): if cleanup-services.sh is adjusted to allow specifying the
-  # project, adjust this message too.
-  echo "Project resource status:"
-  "${DIR}"/scripts/show-resource-usage.sh ${GCP_PROJECT_ID} \
-    || die "ERROR: Quota reached, consider running scripts/cleanup-services.sh"
-}
-
 function clear_iot_devices {
   local iot_registry_name="$1"
   local devices
@@ -257,7 +249,6 @@ function create {
   fi
   terraform_apply
   helm_charts
-  check_project_resources
 }
 
 function delete {

@@ -25,7 +25,7 @@ and 18.04) Linux.
 1. Install tools required for installation:
 
     ```
-    sudo apt-get install curl jq tar xz-utils
+    sudo apt-get install curl tar xz-utils
     ```
 
 # Deploy the project
