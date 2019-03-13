@@ -256,7 +256,7 @@ And finally, to execute the script, SSH into robot and run:
 ```
 export PROJECT_ID=[YOUR_GCP_PROJECT_ID]
 docker pull grpc/cxx:1.12.0  # This may take several minutes, depending on WiFi connection
-kubectl run --rm --restart=Never --image=gcr.io/$PROJECT_ID/greeter-client greeter-client \
+kubectl run -ti --rm --restart=Never --image=gcr.io/$PROJECT_ID/greeter-client greeter-client \
   -- ./greeter-client www.endpoints.$PROJECT_ID.cloud.goog:443 robot
 ```
 
