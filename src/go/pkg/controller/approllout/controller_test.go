@@ -203,7 +203,7 @@ spec:
   components:
     cloud:
       inline: inline-cloud
-    robots:
+    robot:
       inline: inline-robot
 	`)
 
@@ -280,6 +280,7 @@ spec:
   clusterName: robot1
   namespaceName: app-foo-rollout
   chart:
+    inline: inline-robot
     values:
       robot:
         name: robot1
@@ -294,6 +295,7 @@ spec:
   clusterName: robot3
   namespaceName: app-foo-rollout
   chart:
+    inline: inline-robot
     values:
       robot:
         name: robot3
@@ -313,6 +315,71 @@ spec:
 	}
 }
 
+func TestGenerateChartAssignments_cloudPerRobot(t *testing.T) {
+	var app apps.App
+	unmarshalYAML(t, &app, `
+metadata:
+  name: foo
+spec:
+  components:
+    cloud:
+      inline: inline-cloud
+	`)
+
+	var robots [2]registry.Robot
+
+	unmarshalYAML(t, &robots[0], `
+metadata:
+  name: robot1
+	`)
+	unmarshalYAML(t, &robots[1], `
+metadata:
+  name: robot2
+  labels:
+    a: b
+	`)
+
+	// Rollout selects robot1, but not robot2.
+	var rollout apps.AppRollout
+	unmarshalYAML(t, &rollout, `
+metadata:
+  name: foo-rollout
+spec:
+  appName: foo
+  cloud:
+    values:
+      robots: should_be_overwritten
+  robots:
+  # robot1
+  - selector:
+      matchExpressions:
+      - {key: a, operator: DoesNotExist}
+	`)
+
+	var expected apps.ChartAssignment
+	unmarshalYAML(t, &expected, `
+metadata:
+  name: foo-rollout-cloud
+spec:
+  clusterName: cloud
+  namespaceName: app-foo-rollout
+  chart:
+    inline: inline-cloud
+    values:
+      robots:
+      - name: robot1
+	`)
+
+	cas, err := generateChartAssignments(&app, &rollout, robots[:], nil)
+	if err != nil {
+		t.Fatalf("Generate failed: %s", err)
+	}
+	if len(cas) != 1 {
+		t.Fatalf("Expected 1 ChartAssignments, got %d", len(cas))
+	}
+	verifyChartAssignment(t, &expected, cas[0])
+}
+
 func TestGenerateChartAssignments_selectorOverlap(t *testing.T) {
 	var app apps.App
 	unmarshalYAML(t, &app, `
@@ -320,7 +387,7 @@ metadata:
   name: foo
 spec:
   components:
-    robots:
+    robot:
       inline: inline-robot
 	`)
 

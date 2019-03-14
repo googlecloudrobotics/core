@@ -373,7 +373,9 @@ func generateChartAssignments(
 			}
 			selectedRobots[r.Name] = r
 
-			cas = append(cas, newRobotChartAssignment(r, app, rollout, &rcomp, baseValues))
+			if comps.Robot.Name != "" || comps.Robot.Inline != "" {
+				cas = append(cas, newRobotChartAssignment(r, app, rollout, &rcomp, baseValues))
+			}
 		}
 	}
 	if comps.Cloud.Name != "" || comps.Cloud.Inline != "" {
