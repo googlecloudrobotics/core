@@ -9,8 +9,6 @@ go_test(
         "//src/app_charts/base:base-test",
         "@kubernetes_helm//:helm",
     ],
-    # TODO(b/128660997): fix flakiness
-    flaky = True,
     rundir = ".",
     tags = [
         "requires-access-token",

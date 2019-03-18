@@ -385,16 +385,31 @@ func setupCluster(helmPath string, cluster *cluster) error {
 	if !cluster.cfg.InstallHelm {
 		return nil
 	}
-	// Install Tiller.
-	output, err := exec.Command(
+	// Install Tiller. We wait for all node taints to be removed (e.g. NotReady)
+	// so Tiller doesn't fail permanently (see b/128660997).
+	if err := wait.Poll(time.Second, 30*time.Second, func() (bool, error) {
+		var nds core.NodeList
+		if err := c.List(ctx, nil, &nds); err != nil {
+			return false, err
+		}
+		for _, n := range nds.Items {
+			if len(n.Spec.Taints) > 0 {
+				return false, nil
+			}
+		}
+		return true, nil
+	}); err != nil {
+		return errors.Wrap(err, "wait for node taints to be removed")
+	}
+	cmd := exec.Command(
 		helmPath,
 		"init",
 		"--kubeconfig", cluster.ctx.KubeConfigPath(),
 		"--history-max=30",
 		"--wait",
 		"--tiller-connection-timeout=60",
-	).CombinedOutput()
-	if err != nil {
+	)
+	if output, err := cmd.CombinedOutput(); err != nil {
 		return errors.Errorf("install Helm: %v; output:\n%s\n", err, output)
 	}
 	return nil
