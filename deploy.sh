@@ -23,12 +23,12 @@ set -o pipefail -o errexit
 
 PROJECT_NAME="cloud-robotics"
 
-if [[ -e "${DIR}/INSTALL_FROM_BINARY" ]]; then
-  TERRAFORM="${DIR}/bin/terraform"
-  HELM_COMMAND="${DIR}/bin/helm"
-else
+if is_source_install; then
   TERRAFORM="${DIR}/bazel-out/../../../external/hashicorp_terraform/terraform"
   HELM_COMMAND="${DIR}/bazel-out/../../../external/kubernetes_helm/helm"
+else
+  TERRAFORM="${DIR}/bin/terraform"
+  HELM_COMMAND="${DIR}/bin/helm"
 fi
 
 TERRAFORM_DIR="${DIR}/src/bootstrap/cloud/terraform"
@@ -244,7 +244,7 @@ function create {
     set-project
   fi
   include_config
-  if [[ ! -e "${DIR}/INSTALL_FROM_BINARY" ]]; then
+  if is_source_install; then
     prepare_source_install
   fi
   terraform_apply
@@ -253,7 +253,7 @@ function create {
 
 function delete {
   include_config
-  if [[ ! -e "${DIR}/INSTALL_FROM_BINARY" ]]; then
+  if is_source_install; then
     bazel build "@hashicorp_terraform//:terraform"
   fi
   clear_iot_devices "cloud-robotics"
@@ -268,7 +268,7 @@ function update {
 # This is a shortcut for skipping Terrafrom configs checks if you know the config has not changed.
 function fast_push {
   include_config
-  if [[ ! -e "${DIR}/INSTALL_FROM_BINARY" ]]; then
+  if is_source_install; then
     prepare_source_install
   fi
   helm_charts

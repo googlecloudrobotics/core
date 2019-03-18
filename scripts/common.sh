@@ -18,3 +18,8 @@ function die {
   echo "$1" >&2
   exit 1
 }
+
+function is_source_install {
+  # This file is present in the root folder only when installing from a binary.
+  [[ ! -e "$(dirname "${BASH_SOURCE[0]}")/../INSTALL_FROM_BINARY" ]]
+}

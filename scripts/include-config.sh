@@ -48,28 +48,33 @@ function check_var_is_one_of {
   fi
 }
 
-# Check that the config files exist.
-if [[ ! -r $configbzl ]] ; then
-  echo "ERROR: config.bzl does not exist or is not readable" >&2
-  exit 1
-fi
+# Check that the config file exists.
 if [[ ! -r $configsh ]] ; then
   echo "ERROR: ${configsh} does not exist or is not readable" >&2
   exit 1
 fi
 
-# Import config.bzl variables
-# shellcheck disable=2046
-# For better or worse, all spaces are removed by sed.
-export $(sed -e 's/[\ "]//g' -e '/^#/d' $configbzl)
-
 # Import config.sh variables
 source ${configsh}
 
-# Check that $configbzl and $configsh, together, define the following union set of configuration
-# variables
-check_vars_not_empty DOCKER_TAG GCP_PROJECT_ID GCP_REGION GCP_ZONE \
-  CLOUD_ROBOTICS_CONTAINER_REGISTRY
+# Check that $configsh defines the following set of configuration variables
+check_vars_not_empty GCP_PROJECT_ID GCP_REGION GCP_ZONE
+
+# Only import $configbzl for source installs
+if is_source_install; then
+  if [[ ! -r $configbzl ]] ; then
+    echo "ERROR: config.bzl does not exist or is not readable" >&2
+    exit 1
+  fi
+  # Import config.bzl variables
+  # shellcheck disable=2046
+  # For better or worse, all spaces are removed by sed.
+  export $(sed -e 's/[\ "]//g' -e '/^#/d' $configbzl)
+
+  # Check that $configbzl and $configsh define the following union set of
+  # configuration variables
+  check_vars_not_empty DOCKER_TAG CLOUD_ROBOTICS_CONTAINER_REGISTRY
+fi
 
 CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT:-GCP}
 check_var_is_one_of CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT "GCP" "GCP-testing"
