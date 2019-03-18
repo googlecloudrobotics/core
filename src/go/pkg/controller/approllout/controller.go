@@ -466,9 +466,6 @@ func newBaseChartAssignment(app *apps.App, rollout *apps.AppRollout, comp *apps.
 	for k, v := range rollout.Labels {
 		setLabel(&ca.ObjectMeta, k, v)
 	}
-	for k, v := range rollout.Annotations {
-		setAnnotation(&ca.ObjectMeta, k, v)
-	}
 	ca.Spec.NamespaceName = appNamespaceName(rollout.Name)
 
 	if comp.Name != "" {
@@ -526,12 +523,6 @@ type robotValues struct {
 	Name string `json:"name"`
 }
 
-func setAnnotation(o *metav1.ObjectMeta, k, v string) {
-	if o.Annotations == nil {
-		o.Annotations = map[string]string{}
-	}
-	o.Annotations[k] = v
-}
 func setLabel(o *metav1.ObjectMeta, k, v string) {
 	if o.Labels == nil {
 		o.Labels = map[string]string{}

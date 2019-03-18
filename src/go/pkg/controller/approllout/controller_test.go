@@ -101,8 +101,6 @@ metadata:
   labels:
     lkey1: lval1
     cloudrobotics.com/robot-name: robot1
-  annotations:
-    akey1: aval1
 spec:
   clusterName: robot1
   namespaceName: app-foo-rollout
@@ -172,8 +170,6 @@ metadata:
   name: foo-rollout-cloud
   labels:
     lkey1: lval1
-  annotations:
-    akey1: aval1
 spec:
   clusterName: cloud
   namespaceName: app-foo-rollout
