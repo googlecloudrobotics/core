@@ -27,3 +27,5 @@ integrators, and operators. It enables:
       Run an API service in the cloud cluster and access it from a robot.
     * [Deploying a gRPC service](how-to/deploying-grpc-service.md)<br/>
       Run an gRPC service written in C++ in the cloud cluster and access it from a robot.
+    * [Creating a declarative API](how-to/creating-declarative-api.md)<br/>
+      Create a Kubernetes-style declarative API and run it on the cloud or on a robot.
