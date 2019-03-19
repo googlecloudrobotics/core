@@ -183,10 +183,13 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, ns *core.Namespac
 	// secrets in other namespaces.
 	var secret core.Secret
 	err := r.kube.Get(ctx, kclient.ObjectKey{Namespace: as.Spec.NamespaceName, Name: gcr.SecretName}, &secret)
-	if err != nil && k8serrors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) {
 		err = r.kube.Get(ctx, kclient.ObjectKey{Namespace: "default", Name: gcr.SecretName}, &secret)
-		if err != nil {
-			return fmt.Errorf("getting Secret\"default:%s\" failed: %s", gcr.SecretName, err)
+		if k8serrors.IsNotFound(err) {
+			log.Printf("Failed to get Secret \"default:%s\" (this is expected when simulating a robot on GKE)", gcr.SecretName)
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("getting Secret \"default:%s\" failed: %s", gcr.SecretName, err)
 		}
 		// Don't reuse full metadata in created secret.
 		secret.ObjectMeta = meta.ObjectMeta{
@@ -301,7 +304,7 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 		return reconcile.Result{Requeue: true, RequeueAfter: requeueSlow}, nil
 	}
 
-	log.Printf("Apply chart for ChartAssignemnt %q", as.Name)
+	log.Printf("Apply chart for ChartAssignment %q", as.Name)
 
 	updated, err := r.applyChart(as)
 
