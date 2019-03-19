@@ -29,6 +29,7 @@ import (
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	"github.com/pkg/errors"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
+	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -233,10 +234,13 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 		curCAs apps.ChartAssignmentList
 		robots registry.RobotList
 	)
+	ar.Status.ObservedGeneration = ar.Generation
+	ar.Status.Assignments = 0
+	ar.Status.UpdatedAssignments = 0
+
 	err := r.kube.Get(ctx, kclient.ObjectKey{Name: ar.Spec.AppName}, &app)
 	if err != nil {
-		// TODO(freinartz): set status condition if it's a not-found error
-		// since it is actionable for the user.
+		r.updateErrorStatus(ctx, ar, err.Error())
 		return reconcile.Result{}, errors.Wrapf(err, "get app %q", ar.Spec.AppName)
 	}
 	err = r.kube.List(ctx, kclient.MatchingField(fieldIndexOwners, string(ar.UID)), &curCAs)
@@ -251,6 +255,9 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 
 	wantCAs, err := generateChartAssignments(&app, ar, robots.Items, r.baseValues)
 	if err != nil {
+		if _, ok := errors.Cause(err).(errRobotSelectorOverlap); ok {
+			r.updateErrorStatus(ctx, ar, err.Error())
+		}
 		return reconcile.Result{}, errors.Wrap(err, "generate ChartAssignments")
 	}
 
@@ -302,21 +309,53 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 		log.Printf("Deleted ChartAssignment %q", ca.Name)
 	}
 	// Update status.
-	status := apps.AppRolloutStatus{
-		ObservedGeneration: ar.Generation,
-		Assignments:        int64(len(wantCAs)),
-	}
+	ar.Status.Assignments = int64(len(wantCAs))
 	for _, ca := range curCAs.Items {
 		if ca.Status.DeployedRevision == ca.Status.DesiredRevision {
-			status.UpdatedAssignments += 1
+			ar.Status.UpdatedAssignments += 1
 		}
 	}
-	ar.Status = status
+	setCondition(ar, apps.AppRolloutConditionSettled, core.ConditionTrue, "")
 
 	if err := r.kube.Status().Update(ctx, ar); err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "update status")
 	}
 	return reconcile.Result{}, nil
+}
+
+func (r *Reconciler) updateErrorStatus(ctx context.Context, ar *apps.AppRollout, msg string) {
+	setCondition(ar, apps.AppRolloutConditionSettled, core.ConditionFalse, msg)
+	if err := r.kube.Status().Update(ctx, ar); err != nil {
+		log.Printf("Failed to set AppRollout status: %q\n", err)
+	}
+}
+
+// setCondition adds or updates a condition. Existing conditions are detected based on the Type field.
+func setCondition(ar *apps.AppRollout, t apps.AppRolloutConditionType, s core.ConditionStatus, msg string) {
+	now := metav1.Now()
+
+	for i, c := range ar.Status.Conditions {
+		if c.Type != t {
+			continue
+		}
+		// Update existing condition.
+		c.LastUpdateTime = now
+		if c.Status != s {
+			c.LastTransitionTime = now
+		}
+		c.Message = msg
+		c.Status = s
+		ar.Status.Conditions[i] = c
+		return
+	}
+	// Condition set for the first time.
+	ar.Status.Conditions = append(ar.Status.Conditions, apps.AppRolloutCondition{
+		Type:               t,
+		LastUpdateTime:     now,
+		LastTransitionTime: now,
+		Status:             s,
+		Message:            msg,
+	})
 }
 
 // chartAssignmentChanged returns true if the CA's labels, annotations, or spec changed.

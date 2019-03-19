@@ -112,9 +112,14 @@ type AppRolloutCondition struct {
 	Status             corev1.ConditionStatus  `json:"status"`
 	LastUpdateTime     metav1.Time             `json:"lastUpdateTime,omitempty"`
 	LastTransitionTime metav1.Time             `json:"lastTransitionTime,omitempty"`
+	Message            string                  `json:"message,omitempty"`
 }
 
 type AppRolloutConditionType string
+
+const (
+	AppRolloutConditionSettled AppRolloutConditionType = "Settled"
+)
 
 // +genclient
 // +genclient:nonNamespaced
