@@ -304,6 +304,21 @@ func installChartOrDie(name string, chartPath string, projectNumber int64) {
 		helmPath,
 		"upgrade",
 		"--install",
+		"--set-string",
+		vars,
+		name,
+		filepath.Join(filesDir, chartPath)).CombinedOutput()
+	if err != nil {
+		log.Printf("Helm install of %s failed: %v. Helm output:\n%s\n", name, err, output)
+	} else {
+		log.Printf("%s\nSuccessfully installed %s Helm chart", output, name)
+		return
+	}
+	log.Printf("Retrying as force upgrade...")
+	output, err = exec.Command(
+		helmPath,
+		"upgrade",
+		"--install",
 		"--force",
 		"--set-string",
 		vars,
