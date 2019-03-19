@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cr-syncer
@@ -10,12 +10,43 @@ spec:
         app: cr-syncer
     spec:
       containers:
-      - args:
+      - name: cr-syncer
+        args:
         - -remote-server
         - {{ .Values.domain }}
         - --robot-name
         - "{{ .Values.robot.name }}"
         - -alsologtostderr
         - --verbose=false
+        - --listen-address=:80
         image: {{ .Values.images.cr_syncer }}
-        name: cr-syncer
+        ports:
+        - name: http
+          containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cr-syncer
+  labels:
+    app: cr-syncer
+spec:
+  selector:
+    app: cr-syncer
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cr-syncer
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+  - port: http
+  selector:
+    matchLabels:
+      app: cr-syncer

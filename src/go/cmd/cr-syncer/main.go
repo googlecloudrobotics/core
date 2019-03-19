@@ -38,6 +38,10 @@ import (
 	"time"
 
 	"github.com/motemen/go-loghttp"
+	"go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/plugin/ochttp"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -62,7 +66,50 @@ var (
 	remoteServer = flag.String("remote-server", "", "Remote Kubernetes server")
 	robotName    = flag.String("robot-name", "", "Robot we are running on, can be used for selective syncing")
 	verbose      = flag.Bool("verbose", false, "Enable verbose logging")
+	listenAddr   = flag.String("listen-address", ":80", "HTTP listen address")
+
+	sizeDistribution    = view.Distribution(0, 1024, 2048, 4096, 16384, 65536, 262144, 1048576, 4194304, 33554432)
+	latencyDistribution = view.Distribution(0, 1, 2, 5, 10, 15, 25, 50, 100, 200, 400, 800, 1500, 3000, 6000)
+
+	tagLocation tag.Key
 )
+
+func init() {
+	tagLocation, _ = tag.NewKey("location")
+
+	if err := view.Register(
+		&view.View{
+			Name:        ochttp.ClientRequestCount.Name(),
+			Description: ochttp.ClientRequestCount.Description(),
+			Measure:     ochttp.ClientRequestCount,
+			TagKeys:     []tag.Key{ochttp.Method, tagLocation},
+			Aggregation: view.Count(),
+		},
+		&view.View{
+			Name:        ochttp.ClientRequestBytes.Name(),
+			Description: ochttp.ClientRequestBytes.Description(),
+			Measure:     ochttp.ClientRequestBytes,
+			TagKeys:     []tag.Key{ochttp.Method, ochttp.StatusCode, tagLocation},
+			Aggregation: sizeDistribution,
+		},
+		&view.View{
+			Name:        ochttp.ClientResponseBytes.Name(),
+			Description: ochttp.ClientResponseBytes.Description(),
+			Measure:     ochttp.ClientResponseBytes,
+			TagKeys:     []tag.Key{ochttp.Method, ochttp.StatusCode, tagLocation},
+			Aggregation: sizeDistribution,
+		},
+		&view.View{
+			Name:        ochttp.ClientLatency.Name(),
+			Description: ochttp.ClientLatency.Description(),
+			Measure:     ochttp.ClientLatency,
+			TagKeys:     []tag.Key{ochttp.Method, ochttp.StatusCode, tagLocation},
+			Aggregation: latencyDistribution,
+		},
+	); err != nil {
+		panic(err)
+	}
+}
 
 // PrefixingRoundtripper is a HTTP roundtripper that adds a specified prefix to
 // all HTTP requests. We need to use it instead of setting APIPath because
@@ -83,26 +130,46 @@ func (pr *PrefixingRoundtripper) RoundTrip(r *http.Request) (*http.Response, err
 	return resp, err
 }
 
+// ctxRoundTripper injects a fixed context into all requests. This is used to
+// provide static OpenCensus tags as Kubernetes' client-go provides no context hooks.
+type ctxRoundTripper struct {
+	base http.RoundTripper
+	ctx  context.Context
+}
+
+func (r *ctxRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return r.base.RoundTrip(req.WithContext(r.ctx))
+}
+
 // restConfigForRemote assembles the K8s REST config for the remote server.
 func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
 	tokenSource, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
 		return nil, err
 	}
-
+	ctx, err = tag.New(ctx, tag.Insert(tagLocation, "remote"))
+	if err != nil {
+		return nil, err
+	}
+	transport := func(base http.RoundTripper) (rt http.RoundTripper) {
+		rt = &oauth2.Transport{
+			Source: tokenSource,
+			Base:   base,
+		}
+		rt = &PrefixingRoundtripper{
+			Prefix: "/apis/core.kubernetes",
+			Base:   rt,
+		}
+		if *verbose {
+			rt = &loghttp.Transport{Transport: rt}
+		}
+		rt = &ochttp.Transport{Base: rt}
+		return &ctxRoundTripper{base: rt, ctx: ctx}
+	}
 	return &rest.Config{
-		Host:    *remoteServer,
-		APIPath: "/apis",
-		WrapTransport: func(base http.RoundTripper) http.RoundTripper {
-			rt := &PrefixingRoundtripper{
-				Prefix: "/apis/core.kubernetes",
-				Base:   &oauth2.Transport{Source: tokenSource, Base: base},
-			}
-			if *verbose {
-				return &loghttp.Transport{Transport: rt}
-			}
-			return rt
-		},
+		Host:          *remoteServer,
+		APIPath:       "/apis",
+		WrapTransport: transport,
 	}, nil
 }
 
@@ -146,10 +213,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if *verbose {
-		localConfig.WrapTransport = func(base http.RoundTripper) http.RoundTripper {
-			return &loghttp.Transport{Transport: base}
+	localCtx, err := tag.New(ctx, tag.Insert(tagLocation, "local"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	localConfig.WrapTransport = func(base http.RoundTripper) http.RoundTripper {
+		if *verbose {
+			base = &loghttp.Transport{Transport: base}
 		}
+		base = &ochttp.Transport{Base: base}
+		return &ctxRoundTripper{base: base, ctx: localCtx}
 	}
 	local, err := dynamic.NewForConfig(localConfig)
 	if err != nil {
@@ -163,6 +236,21 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	exporter, err := prometheus.NewExporter(prometheus.Options{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	view.RegisterExporter(exporter)
+	view.SetReportingPeriod(time.Second)
+	http.Handle("/metrics", exporter)
+
+	go func() {
+		if err := http.ListenAndServe(*listenAddr, nil); err != nil {
+			log.Fatalln(err)
+		}
+	}()
+
 	crds := make(chan CrdChange)
 	if err := streamCrds(ctx.Done(), crdclientset.NewForConfigOrDie(localConfig), crds); err != nil {
 		log.Fatalf("Unable to stream CRDs from local Kubernetes: %v", err)
