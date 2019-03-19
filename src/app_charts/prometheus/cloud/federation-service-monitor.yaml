@@ -11,7 +11,7 @@ spec:
     path: /client/{{ .name }}/federate
     params:
       'match[]':
-      - '{namespace="default",job!~"apiserver|kube-state|prometheus"}'
+      - '{job=~".+"}'
     honorLabels: true
   targetLabels:
   - robot
