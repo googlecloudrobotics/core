@@ -44,7 +44,7 @@ function create {
   local ROBOT_TYPE="${3:-mir-100}"
   local GKE_SIM_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${ROBOT_NAME}"
 
-  # Create cloud cluster for robot simulation and restore original kubectl context
+  # Create cloud cluster for robot simulation unless already exists
   gcloud >/dev/null 2>&1 container clusters describe "${ROBOT_NAME}" \
     --zone=${GCP_ZONE} --project=${GCP_PROJECT_ID} || \
   gcloud container clusters create "${ROBOT_NAME}" \
