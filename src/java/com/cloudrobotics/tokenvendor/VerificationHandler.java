@@ -104,10 +104,11 @@ final class VerificationHandler implements HttpHandler {
   }
 
   int checkAuth(String roleAccount, String token) throws IOException {
+    String serviceAccountEmail =
+        String.format("%s@%s.iam.gserviceaccount.com", roleAccount, configuration.projectName);
     String resource =
         String.format(
-            "projects/%s/serviceAccounts/%s@%s.iam.gserviceaccount.com",
-            configuration.projectName, roleAccount, configuration.projectName);
+            "projects/%s/serviceAccounts/%s", configuration.projectName, serviceAccountEmail);
     TestIamPermissionsRequest request = new TestIamPermissionsRequest();
     request.setPermissions(ImmutableList.of("iam.serviceAccounts.actAs"));
     HttpHeaders authHeader = new HttpHeaders();
@@ -121,9 +122,7 @@ final class VerificationHandler implements HttpHandler {
               .execute();
       if (!request.getPermissions().equals(response.getPermissions())) {
         logger.atInfo().log(
-            "User lacks permission for iam.serviceAccounts.actAs on "
-                + "%s@%s.iam.gserviceaccount.com",
-            roleAccount, configuration.projectName);
+            "User lacks permission for iam.serviceAccounts.actAs on " + "%s", serviceAccountEmail);
         return HttpURLConnection.HTTP_FORBIDDEN;
       }
       logger.atInfo().log("token is verified");
@@ -131,7 +130,8 @@ final class VerificationHandler implements HttpHandler {
     } catch (HttpResponseException e) {
       if (e.getStatusCode() == HttpURLConnection.HTTP_FORBIDDEN
           || e.getStatusCode() == HttpURLConnection.HTTP_UNAUTHORIZED) {
-        logger.atInfo().log("IAM responded with %d", e.getStatusCode());
+        logger.atInfo().withCause(e).log(
+            "IAM responded with %d when testing %s", e.getStatusCode(), serviceAccountEmail);
         return e.getStatusCode();
       }
       throw e;
