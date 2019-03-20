@@ -71,12 +71,10 @@ var (
 	sizeDistribution    = view.Distribution(0, 1024, 2048, 4096, 16384, 65536, 262144, 1048576, 4194304, 33554432)
 	latencyDistribution = view.Distribution(0, 1, 2, 5, 10, 15, 25, 50, 100, 200, 400, 800, 1500, 3000, 6000)
 
-	tagLocation tag.Key
+	tagLocation = mustNewTagKey("location")
 )
 
 func init() {
-	tagLocation, _ = tag.NewKey("location")
-
 	if err := view.Register(
 		&view.View{
 			Name:        ochttp.ClientRequestCount.Name(),
@@ -281,4 +279,12 @@ func main() {
 			go s.run()
 		}
 	}
+}
+
+func mustNewTagKey(s string) tag.Key {
+	k, err := tag.NewKey(s)
+	if err != nil {
+		panic(err)
+	}
+	return k
 }

@@ -15,11 +15,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,6 +48,42 @@ const (
 	// this is a resource version on the robot's cluster (and vice versa).
 	annotationResourceVersion = "cr-syncer.cloudrobotics.com/remote-resource-version"
 )
+
+var (
+	mSyncs = stats.Int64(
+		"cr-syncer.cloudrobotics.com/syncs",
+		"Synchronizations triggered by resource events",
+		stats.UnitDimensionless,
+	)
+	mSyncErrors = stats.Int64(
+		"cr-syncer.cloudrobotics.com/sync_errors",
+		"Synchronization errors on resource events",
+		stats.UnitDimensionless,
+	)
+	tagEventSource = mustNewTagKey("event_source")
+	tagResource    = mustNewTagKey("resource")
+)
+
+func init() {
+	if err := view.Register(
+		&view.View{
+			Name:        "cr-syncer.cloudrobotics.com/syncs_total",
+			Description: "Total number of synchronizations triggered resource events",
+			Measure:     mSyncs,
+			TagKeys:     []tag.Key{tagEventSource, tagResource},
+			Aggregation: view.Count(),
+		},
+		&view.View{
+			Name:        "cr-syncer.cloudrobotics.com/sync_errors_total",
+			Description: "Total number of synchronizations errors on resource events",
+			Measure:     mSyncErrors,
+			TagKeys:     []tag.Key{tagEventSource, tagResource},
+			Aggregation: view.Count(),
+		},
+	); err != nil {
+		panic(err)
+	}
+}
 
 // finalizerFor returns the finalizer for the given cluster name
 func finalizerFor(clusterName string) string {
@@ -209,6 +249,7 @@ func (s *crSyncer) setupInformerHandlers(
 }
 
 func (s *crSyncer) processNextWorkItem(
+	ctx context.Context,
 	q workqueue.RateLimitingInterface,
 	syncf func(string) error,
 	qName string,
@@ -219,12 +260,18 @@ func (s *crSyncer) processNextWorkItem(
 	}
 	defer q.Done(key)
 
-	err := syncf(key.(string))
+	ctx, err := tag.New(ctx, tag.Insert(tagEventSource, qName))
+	if err != nil {
+		panic(err)
+	}
+	err = syncf(key.(string))
+	stats.Record(ctx, mSyncs.M(1))
 	if err == nil {
 		q.Forget(key)
 		return true
 	}
 	// Synchronization failed, retry later.
+	stats.Record(ctx, mSyncErrors.M(1))
 	log.Printf("Syncing key %q from queue %q failed: %s", key, qName, err)
 	q.AddRateLimited(key)
 
@@ -242,13 +289,18 @@ func (s *crSyncer) run() {
 		log.Printf("Starting informers for %s failed: %s", s.crd.GetName(), err)
 		return
 	}
+
+	ctx, err := tag.New(context.Background(), tag.Insert(tagResource, s.crd.Name))
+	if err != nil {
+		panic(err)
+	}
 	// Process the upstream and downstream work queues.
 	go func() {
-		for s.processNextWorkItem(s.upstreamQueue, s.syncUpstream, "upstream") {
+		for s.processNextWorkItem(ctx, s.upstreamQueue, s.syncUpstream, "upstream") {
 		}
 	}()
 	go func() {
-		for s.processNextWorkItem(s.downstreamQueue, s.syncDownstream, "downstream") {
+		for s.processNextWorkItem(ctx, s.downstreamQueue, s.syncDownstream, "downstream") {
 		}
 	}()
 	<-s.done
