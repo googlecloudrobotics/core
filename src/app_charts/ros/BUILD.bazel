@@ -4,7 +4,6 @@ load("//bazel:app.bzl", "app")
 core_app_chart(
     name = "ros-robot",
     images = {"ros-adapter": "//src/docker/ros_adapter:ros_adapter"},
-    values = "values-robot.yaml",
 )
 
 core_app_chart(

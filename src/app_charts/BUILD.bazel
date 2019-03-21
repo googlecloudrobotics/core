@@ -11,6 +11,7 @@ APPS = [
     "prometheus",
     "ros",
     "ros-demo",
+    "ros-master",
 ]
 
 run_parallel(

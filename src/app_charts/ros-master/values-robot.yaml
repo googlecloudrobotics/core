@@ -1,6 +1,9 @@
 domain: "example.com"
 project: "my-gcp-project"
+project_number: 0
+deploy_environment: "GCP"
+
+ros_master_host: ""
 
 robot:
   name: ""
-  ros_master: ""
