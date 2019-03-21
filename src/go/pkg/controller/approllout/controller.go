@@ -522,10 +522,13 @@ func newBaseChartAssignment(app *apps.App, rollout *apps.AppRollout, comp *apps.
 // matchingRopbots returns the subset of robots that pass the given robot selector.
 // It returns an error if the selector is invalid.
 func matchingRobots(robots []registry.Robot, sel *apps.RobotSelector) ([]registry.Robot, error) {
-	if sel.Any {
+	if sel.Any != nil && *sel.Any {
 		return robots, nil
 	}
-	selector, err := metav1.LabelSelectorAsSelector(&sel.LabelSelector)
+	if sel.LabelSelector == nil {
+		return nil, nil
+	}
+	selector, err := metav1.LabelSelectorAsSelector(sel.LabelSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -642,6 +645,11 @@ func validate(cur *apps.AppRollout) error {
 	for i, r := range cur.Spec.Robots {
 		if r.Selector == nil {
 			return errors.Errorf("no selector provided for robots %d", i)
+		}
+		// Reject if a selector has neither a matcher nor `any` set.
+		// This mostly helps catching missing `matchLabels`.
+		if r.Selector.Any == nil && r.Selector.LabelSelector == nil {
+			return errors.Errorf("empty selector for robots %d (matchLabels not specified?)", i)
 		}
 	}
 	return nil

@@ -95,9 +95,9 @@ type AppRolloutSpecRobot struct {
 }
 
 type RobotSelector struct {
-	metav1.LabelSelector
+	*metav1.LabelSelector
 
-	Any bool `json:"any,omitempty"`
+	Any *bool `json:"any,omitempty"`
 }
 
 type AppRolloutStatus struct {

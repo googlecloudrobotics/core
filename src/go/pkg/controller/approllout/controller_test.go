@@ -480,6 +480,17 @@ spec:
 	`,
 			shouldFail: true,
 		},
+		{
+			name: "wrong-selector",
+			cur: `
+spec:
+  appName: myapp
+  robots:
+  - selector:
+      a: b
+	`,
+			shouldFail: true,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
