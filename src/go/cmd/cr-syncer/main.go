@@ -42,6 +42,7 @@ import (
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
+	"go.opencensus.io/zpages"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -241,6 +242,7 @@ func main() {
 	}
 	view.RegisterExporter(exporter)
 	view.SetReportingPeriod(time.Second)
+	zpages.Handle(nil, "/debug")
 	http.Handle("/metrics", exporter)
 
 	go func() {
