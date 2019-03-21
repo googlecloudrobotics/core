@@ -117,6 +117,7 @@ func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 	if k8serrors.IsNotFound(err) {
 		// Assignment was already deleted. We did all required cleanup
 		// when removing the finalizer. Thus, there's nothing to do.
+		log.Printf("ChartAssignment %q no longer exists, skipping reconciliation...", req.NamespacedName)
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, fmt.Errorf("getting ChartAssignment %q failed: %s", req, err)
