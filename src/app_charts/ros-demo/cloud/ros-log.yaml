@@ -18,7 +18,7 @@ spec:
       containers:
       - env:
         - name: ROS_MASTER_URI
-          value: http://roscore-cloud-{{ .name }}.default.svc.cluster.local:11311
+          value: http://roscore-cloud-{{ .name }}.app-ros.svc.cluster.local:11311
         - name: ROS_IP
           valueFrom:
             fieldRef:
