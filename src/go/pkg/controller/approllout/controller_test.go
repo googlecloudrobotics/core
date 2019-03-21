@@ -491,6 +491,32 @@ spec:
 	`,
 			shouldFail: true,
 		},
+		{
+			name: "cloud-values-Robots",
+			cur: `
+spec:
+  appName: myapp
+  cloud:
+    values:
+      robots:
+        c: d
+	`,
+			shouldFail: true,
+		},
+		{
+			name: "robot-values-robot",
+			cur: `
+spec:
+  appName: myapp
+  robots:
+  - selector:
+      any: true
+    values:
+      robot:
+        c: d
+	`,
+			shouldFail: true,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

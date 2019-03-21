@@ -643,7 +643,13 @@ func validate(cur *apps.AppRollout) error {
 	if len(errs) > 0 {
 		return errors.Errorf("validate app name: %s", strings.Join(errs, ", "))
 	}
+	if _, ok := cur.Spec.Cloud.Values["robots"]; ok {
+		return errors.Errorf(".spec.cloud.values.robots is a reserved field and must not be set")
+	}
 	for i, r := range cur.Spec.Robots {
+		if _, ok := r.Values["robot"]; ok {
+			return errors.Errorf(".spec.robots[].values.robot is a reserved field and must not be set")
+		}
 		if r.Selector == nil {
 			return errors.Errorf("no selector provided for robots %d", i)
 		}
