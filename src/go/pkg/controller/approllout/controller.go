@@ -241,7 +241,7 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	err := r.kube.Get(ctx, kclient.ObjectKey{Name: ar.Spec.AppName}, &app)
 	if err != nil {
 		r.updateErrorStatus(ctx, ar, err.Error())
-		return reconcile.Result{}, errors.Wrapf(err, "get app %q", ar.Spec.AppName)
+		return reconcile.Result{}, nil
 	}
 	err = r.kube.List(ctx, kclient.MatchingField(fieldIndexOwners, string(ar.UID)), &curCAs)
 	if err != nil {
@@ -257,6 +257,7 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	if err != nil {
 		if _, ok := errors.Cause(err).(errRobotSelectorOverlap); ok {
 			r.updateErrorStatus(ctx, ar, err.Error())
+			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, errors.Wrap(err, "generate ChartAssignments")
 	}
