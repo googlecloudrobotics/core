@@ -520,7 +520,7 @@ func newBaseChartAssignment(app *apps.App, rollout *apps.AppRollout, comp *apps.
 	return &ca
 }
 
-// matchingRopbots returns the subset of robots that pass the given robot selector.
+// matchingRobots returns the subset of robots that pass the given robot selector.
 // It returns an error if the selector is invalid.
 func matchingRobots(robots []registry.Robot, sel *apps.RobotSelector) ([]registry.Robot, error) {
 	if sel.Any != nil && *sel.Any {

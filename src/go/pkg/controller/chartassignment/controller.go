@@ -488,12 +488,26 @@ func (r *Reconciler) applyChart(as *apps.ChartAssignment) (updated bool, err err
 		return true, errChartSkipped
 	} else {
 		r.recorder.Event(as, core.EventTypeNormal, "UpgradeChart", "upgrade chart")
-
+		// Often upgrades only succeed when force is set to replica resources
+		// that cannot be updated, e.g. services.
+		// Upgrading with force set may result in obfuscated error messages.
+		// Try upgrading regularly first and retry with force on failure.
+		// Return the first error in any case.
 		_, applyErr = r.helm.UpdateReleaseFromChart(as.Name, c,
-			hclient.UpgradeForce(true),
 			hclient.UpgradeTimeout(tillerTimeout),
 			hclient.UpdateValueOverrides([]byte(valsRaw)),
 		)
+		if applyErr != nil {
+			_, err := r.helm.UpdateReleaseFromChart(as.Name, c,
+				hclient.UpgradeForce(true),
+				hclient.UpgradeTimeout(tillerTimeout),
+				hclient.UpdateValueOverrides([]byte(valsRaw)),
+			)
+			// Original error was fixed by using force, clear it.
+			if err == nil {
+				applyErr = nil
+			}
+		}
 		if applyErr != nil {
 			applyErr = fmt.Errorf("chart upgrade failed: %s", applyErr)
 			r.recorder.Event(as, core.EventTypeWarning, "Failure", applyErr.Error())
