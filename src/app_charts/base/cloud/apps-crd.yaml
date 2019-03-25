@@ -152,14 +152,8 @@ spec:
   - JSONPath: .status.phase
     name: Phase
     type: string
-  - JSONPath: .status.deployedRevision
-    name: Deployed
-    type: integer
-  - JSONPath: .status.desiredRevision
-    name: Desired
-    type: integer
-  - JSONPath: .status.rollbackRevision
-    name: Rollback
+  - JSONPath: .status.helm.revision
+    name: Revision
     type: integer
   - JSONPath: .metadata.creationTimestamp
     name: Age

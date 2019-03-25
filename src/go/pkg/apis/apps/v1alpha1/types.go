@@ -168,24 +168,27 @@ type ChartAssignmentStatus struct {
 	ObservedGeneration int64                      `json:"observedGeneration,omitempty"`
 	Phase              ChartAssignmentPhase       `json:"phase,omitempty"`
 	Conditions         []ChartAssignmentCondition `json:"conditions,omitempty"`
-	DesiredRevision    int32                      `json:"desiredRevision,omitempty"`
-	DeployedRevision   int32                      `json:"deployedRevision,omitempty"`
-	RollbackRevision   int32                      `json:"rollbackRevision,omitempty"`
+	Helm               ChartAssignmentStatusHelm  `json:"helm,omitempty"`
+}
+
+type ChartAssignmentStatusHelm struct {
+	Revision    int32  `json:"revision,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 type ChartAssignmentPhase string
 
 const (
-	ChartAssignmentPhaseUnknown    ChartAssignmentPhase = "Unknown"
-	ChartAssignmentPhaseDeployed                        = "Deployed"
-	ChartAssignmentPhasePending                         = "Pending"
-	ChartAssignmentPhaseSuperseded                      = "Supserseded"
-	ChartAssignmentPhaseFailed                          = "Failed"
-	ChartAssignmentPhaseDeleting                        = "Deleting"
-	ChartAssignmentPhaseDeleted                         = "Deleted"
-	ChartAssignmentPhaseUpgrade                         = "Upgrade"
-	ChartAssignmentPhaseInstall                         = "Install"
-	ChartAssignmentPhaseRollback                        = "Rollback"
+	// Accepted is set once the controller has observed the CA and started
+	// taking action.
+	ChartAssignmentPhaseAccepted     ChartAssignmentPhase = "Accepted"
+	ChartAssignmentPhaseLoadingChart                      = "LoadingChart"
+	ChartAssignmentPhaseInstalling                        = "Installing"
+	ChartAssignmentPhaseUpdating                          = "Updating"
+	ChartAssignmentPhaseDeleting                          = "Deleting"
+	ChartAssignmentPhaseSettled                           = "Settled"
+	ChartAssignmentPhaseDeleted                           = "Deleted"
+	ChartAssignmentPhaseFailed                            = "Failed"
 )
 
 type ChartAssignmentCondition struct {
@@ -198,8 +201,4 @@ type ChartAssignmentCondition struct {
 
 type ChartAssignmentConditionType string
 
-const (
-	ChartAssignmentConditionUpdated        ChartAssignmentConditionType = "Updated"
-	ChartAssignmentConditionMalformedChart                              = "MalformedChart"
-	ChartAssignmentConditionRolledBack                                  = "RolledBack"
-)
+const ChartAssignmentConditionSettled ChartAssignmentConditionType = "Settled"

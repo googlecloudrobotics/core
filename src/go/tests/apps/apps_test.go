@@ -98,14 +98,18 @@ spec:
 		if err != nil {
 			return false, err
 		}
-		// Ensure ChartAssignment was deployed at desired revision.
+		// Ensure ChartAssignment was deployed successfully.
 		if err = robot.Get(f.Ctx(), f.ObjectKey(&ca), &ca); err != nil {
 			return false, err
 		}
-		if ca.Status.DeployedRevision == 1 && ca.Status.DesiredRevision == 1 {
+		if ca.Status.Phase == roboapps.ChartAssignmentPhaseSettled {
 			return true, nil
 		}
-		t.Logf("Desired revision: %d, deployed revision: %d", ca.Status.DesiredRevision, ca.Status.DeployedRevision)
+		// Chart should've been deployed exactly once.
+		if ca.Status.Helm.Revision == 1 {
+			return true, nil
+		}
+		t.Logf("Phase: %s, Revision: %d", ca.Status.Phase, ca.Status.Helm.Revision)
 		return false, nil
 	}); err != nil {
 		t.Fatalf("wait for mysql deployment: %s", err)

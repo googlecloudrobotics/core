@@ -16,23 +16,16 @@
 package chartassignment
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
+	"github.com/pkg/errors"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,14 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	record "k8s.io/client-go/tools/record"
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/downloader"
-	"k8s.io/helm/pkg/getter"
 	hclient "k8s.io/helm/pkg/helm"
-	"k8s.io/helm/pkg/helm/helmpath"
-	"k8s.io/helm/pkg/proto/hapi/release"
-	"k8s.io/helm/pkg/renderutil"
-	"k8s.io/helm/pkg/repo"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -71,13 +57,16 @@ func Add(mgr manager.Manager, cluster, tillerHost string) error {
 	if tillerHost == "" {
 		tillerHost = DefaultTillerHost
 	}
+	r := &Reconciler{
+		kube:     mgr.GetClient(),
+		helm:     hclient.NewClient(hclient.Host(tillerHost)),
+		recorder: mgr.GetRecorder("chartassignment-controller"),
+		cluster:  cluster,
+	}
+	r.releases = newReleases(r.helm, r.recorder)
+
 	c, err := controller.New("chartassignment", mgr, controller.Options{
-		Reconciler: &Reconciler{
-			kube:     mgr.GetClient(),
-			helm:     hclient.NewClient(hclient.Host(tillerHost)),
-			recorder: mgr.GetRecorder("chartassignment-controller"),
-			cluster:  cluster,
-		},
+		Reconciler: r,
 	})
 	if err != nil {
 		return err
@@ -98,7 +87,8 @@ type Reconciler struct {
 	kube     kclient.Client
 	helm     hclient.Interface
 	recorder record.EventRecorder
-	cluster  string // Cluster for which to handle AppAssignments.
+	cluster  string // Cluster for which to handle ChartAssignments.
+	releases *releases
 }
 
 // Reconcile creates and updates a Helm release for the given chart assignment.
@@ -132,7 +122,7 @@ const (
 	// Requeue interval when the underlying Helm release is not in a stable state yet.
 	requeueFast = 3 * time.Second
 	// Requeue interval after the underlying Helm release reached a stable state.
-	requeueSlow = time.Minute
+	requeueSlow = 3 * time.Minute
 	// Timeout seconds after which Tiller should abort any attempted release operations.
 	tillerTimeout = 600
 )
@@ -225,27 +215,6 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, ns *core.Namespac
 	return r.kube.Update(ctx, &sa)
 }
 
-// releaseFailed returns whether the most recent release failed and what the last
-// successful revision was.
-func releaseFailed(releases []*release.Release) (bool, int32) {
-	if len(releases) == 0 {
-		return false, 0
-	}
-	active := releases[0]
-
-	if active.Info.Status.Code != release.Status_FAILED {
-		return false, 0
-	}
-	// Search for first past release that did not fail and was not a rollback.
-	for _, r := range releases[1:] {
-		d := decodeReleaseDesc(r.Info.Description)
-		if !d.failed && (d.action == releaseActionInstall || d.action == releaseActionUpgrade) {
-			return true, r.Version
-		}
-	}
-	return false, 0
-}
-
 func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (reconcile.Result, error) {
 	// If we are scheduled for deletion, delete the Helm release and drop our
 	// finalizer so garbage collection can continue.
@@ -259,7 +228,7 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 			return reconcile.Result{}, fmt.Errorf("set status: %s", err)
 		}
 		// Requeue to track deletion progress.
-		return reconcile.Result{Requeue: true, RequeueAfter: requeueSlow}, nil
+		return reconcile.Result{Requeue: true, RequeueAfter: requeueFast}, nil
 	}
 
 	ns, err := r.ensureNamespace(ctx, as)
@@ -278,266 +247,61 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 		}
 	}
 
-	// Poll for status updates or try to rollback if the spec didn't change
-	// and we are in a state where we don't want to reapply the chart.
-	if as.Generation == as.Status.ObservedGeneration &&
-		(inCondition(as, apps.ChartAssignmentConditionUpdated) ||
-			inCondition(as, apps.ChartAssignmentConditionRolledBack) ||
-			inCondition(as, apps.ChartAssignmentConditionMalformedChart)) {
-		// Check for failure and try to rollback to the last good revision if the spec
-		// has not been updated yet.
-		history, err := r.helm.ReleaseHistory(as.Name, hclient.WithMaxHistory(100))
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("fetch history: %s", err)
-		}
-		if failed, rev := releaseFailed(history.Releases); failed && rev >= 0 {
-			if err := r.rollbackChart(as, rev); err != nil {
-				return reconcile.Result{}, fmt.Errorf("rollback to revision %d failed: %s", rev, err)
-			}
-		} else {
-			log.Printf("Update ChartAssignment %q status", as.Name)
-		}
-		// Either we are rolling back, still deploying the last revision, or in permanent
-		// failure. Update status and enqueue to poll for status updates.
-		if err := r.setStatus(ctx, as); err != nil {
-			return reconcile.Result{}, fmt.Errorf("set status: %s", err)
-		}
+	r.releases.ensureUpdated(as)
+
+	if err := r.setStatus(ctx, as); err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "update status")
+	}
+	// Quickly requeue for status updates when deployment is in progress.
+	switch as.Status.Phase {
+	case apps.ChartAssignmentPhaseSettled, apps.ChartAssignmentPhaseFailed:
 		return reconcile.Result{Requeue: true, RequeueAfter: requeueSlow}, nil
 	}
-
-	log.Printf("Apply chart for ChartAssignment %q", as.Name)
-
-	updated, err := r.applyChart(as)
-
-	updatedCond := core.ConditionFalse
-	if updated {
-		updatedCond = core.ConditionTrue
-	}
-	if _, ok := err.(errMalformedChart); ok {
-		// We didn't update successfully but the malformed chart is a permanent
-		// failure, so we won't reapply the chart next time.
-		setCondition(as, apps.ChartAssignmentConditionMalformedChart, core.ConditionTrue, err.Error())
-		setCondition(as, apps.ChartAssignmentConditionUpdated, updatedCond, "Malformed Chart")
-	} else if err == errChartSkipped {
-		setCondition(as, apps.ChartAssignmentConditionMalformedChart, core.ConditionFalse, "Chart OK")
-		setCondition(as, apps.ChartAssignmentConditionUpdated, updatedCond, "")
-	} else if err != nil {
-		setCondition(as, apps.ChartAssignmentConditionMalformedChart, core.ConditionFalse, "Chart OK")
-		setCondition(as, apps.ChartAssignmentConditionUpdated, updatedCond, err.Error())
-	} else {
-		setCondition(as, apps.ChartAssignmentConditionMalformedChart, core.ConditionFalse, "Chart OK")
-		setCondition(as, apps.ChartAssignmentConditionUpdated, updatedCond, "Chart up to date")
-	}
-
-	if serr := r.setStatus(ctx, as); serr != nil {
-		return reconcile.Result{}, fmt.Errorf("set status: %s", serr)
-	}
-	// If there was a chart apply error, don't enqueue with specific time to
-	// fallback to exponential backoff.
-	if err != nil {
-		return reconcile.Result{Requeue: true}, nil
-	}
-	// Requeue quickly to update status as chart deployment progresses.
 	return reconcile.Result{Requeue: true, RequeueAfter: requeueFast}, nil
+
 }
 
-// setStatus updates the status section of the ChartAssignment based on Helm's reported
-// state. It returns true if a rollback should be attempted.
+func condition(b bool) core.ConditionStatus {
+	if b {
+		return core.ConditionTrue
+	}
+	return core.ConditionFalse
+}
+
 func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) error {
+	// Remove old status conditions.
+	// TODO: Should be removed eventually so LastTransitionTime of conditions is accurate.
+	as.Status.Conditions = nil
+
+	status, ok := r.releases.status(as.Name)
+	if !ok {
+		return nil
+	}
+
 	as.Status.ObservedGeneration = as.Generation
+	as.Status.Phase = status.phase
+	as.Status.Helm.Revision = status.revision
+	as.Status.Helm.Description = status.description
 
-	history, err := r.helm.ReleaseHistory(as.Name, hclient.WithMaxHistory(100))
-	if err != nil {
-		if !strings.Contains(err.Error(), "not found") {
-			// Creating the release likely failed previously and conditions
-			// were set appropriately.
-			return r.kube.Status().Update(ctx, as)
-		}
-		return fmt.Errorf("fetch history: %s", err)
-	}
-	if len(history.Releases) == 0 {
-		return r.kube.Status().Update(ctx, as)
-	}
-	active := history.Releases[0]
-	activeDesc := decodeReleaseDesc(active.Info.Description)
-
-	as.Status.Phase = chartPhase(active.Info.Status.Code)
-
-	// Most recent revision is what's currently deployed.
-	as.Status.DeployedRevision = active.Version
-	// If the current revision is a rollback, set the rollback revision. If we couldn't
-	// determine it from history, it's set to 0 and will be left blank.
-	if activeDesc.action == releaseActionRollback {
-		as.Status.RollbackRevision = activeDesc.rollbackTo
-		setCondition(as, apps.ChartAssignmentConditionRolledBack, core.ConditionTrue, "")
+	if c := condition(status.phase == apps.ChartAssignmentPhaseSettled); status.err == nil {
+		setCondition(as, apps.ChartAssignmentConditionSettled, c, "")
 	} else {
-		as.Status.RollbackRevision = 0
-		setCondition(as, apps.ChartAssignmentConditionRolledBack, core.ConditionFalse, "")
-	}
-	// Last installed or upgraded release is what the user intended to run.
-	foundDesiredRevision := false
-	for _, r := range history.Releases {
-		if a := decodeReleaseAction(r.Info.Description); a == releaseActionInstall || a == releaseActionUpgrade {
-			as.Status.DesiredRevision = r.Version
-			foundDesiredRevision = true
-			break
-		}
-	}
-	// If nothing in the history we fetched matches, we no longer know
-	// what the desired revision was.
-	if !foundDesiredRevision {
-		as.Status.DesiredRevision = 0
-		log.Printf("Release history for %q too short, could not determine desired revision", as.Name)
+		setCondition(as, apps.ChartAssignmentConditionSettled, c, status.err.Error())
 	}
 	return r.kube.Status().Update(ctx, as)
 }
 
-// rollbackChart will rollback the chart to the previous revision if it exists
-// and wasn't a rollback itself.
-func (r *Reconciler) rollbackChart(as *apps.ChartAssignment, rev int32) error {
-	r.recorder.Eventf(as, core.EventTypeNormal, "RollbackChart", "rolling back chart to revision %d", rev)
-
-	_, err := r.helm.RollbackRelease(as.Name,
-		hclient.RollbackForce(true),
-		hclient.RollbackTimeout(tillerTimeout),
-		hclient.RollbackVersion(rev),
-	)
-	if err != nil {
-		r.recorder.Eventf(as, core.EventTypeWarning, "Failure", "chart rollback failed: %s", err)
-	} else {
-		r.recorder.Event(as, core.EventTypeNormal, "Success", "chart rolled back successfully")
-	}
-	return err
-}
-
-type errMalformedChart struct {
-	error
-}
-
-var errChartSkipped = fmt.Errorf("skipped chart")
-
-// applyChart installs or updates the chart. It returns true if the Chart could be applied
-// to helm irrespective of whether its deployment failed.
-// It returns an errMalformedChart, if the chart was broken so that deployment could
-// not even be attempted.
-func (r *Reconciler) applyChart(as *apps.ChartAssignment) (updated bool, err error) {
-	var (
-		cspec   = as.Spec.Chart
-		archive io.Reader
-	)
-	if cspec.Inline != "" {
-		archive = base64.NewDecoder(base64.StdEncoding, strings.NewReader(cspec.Inline))
-	} else {
-		archive, err = r.fetchChartTar(cspec.Repository, cspec.Name, cspec.Version)
-		if err != nil {
-			return false, errMalformedChart{fmt.Errorf("retrieving chart failed: %s", err)}
-		}
-	}
-	c, err := chartutil.LoadArchive(archive)
-	if err != nil {
-		return false, errMalformedChart{fmt.Errorf("loading chart failed: %s", err)}
-	}
-
-	// Ensure charts in requirements.yaml are actually in packaged in.
-	if req, err := chartutil.LoadRequirements(c); err == nil {
-		if err := renderutil.CheckDependencies(c, req); err != nil {
-			return false, errMalformedChart{fmt.Errorf("chart dependency error: %s", err)}
-		}
-	} else if err != chartutil.ErrRequirementsNotFound {
-		return false, errMalformedChart{fmt.Errorf("cannot load requirements: %v", err)}
-	}
-
-	// Build the full set of values including the default ones. Even though
-	// they are part of the chart, they are ignored if we don't provide
-	// them explicitly.
-	vals, err := chartutil.ReadValues([]byte(c.Values.Raw))
-	if err != nil {
-		return false, errMalformedChart{fmt.Errorf("reading chart values failed: %s", err)}
-	}
-	vals.MergeInto(chartutil.Values(as.Spec.Chart.Values)) // ChartAssignment values.
-
-	valsRaw, err := vals.YAML()
-	if err != nil {
-		return false, errMalformedChart{fmt.Errorf("encoding values failed: %s", err)}
-	}
-
-	// Install if the release doesn't exist yet, update otherwise.
-	var applyErr error
-
-	cur, err := r.helm.ReleaseContent(as.Name)
-	if err != nil {
-		if !strings.Contains(err.Error(), "not found") {
-			return false, fmt.Errorf("getting release status failed: %s", err)
-		}
-		r.recorder.Event(as, core.EventTypeNormal, "InstallChart", "installing chart for the first time")
-		// First instance of this release for the namespace.
-		_, applyErr = r.helm.InstallReleaseFromChart(c, as.Spec.NamespaceName,
-			hclient.ReleaseName(as.Name),
-			hclient.InstallTimeout(tillerTimeout),
-			hclient.ValueOverrides([]byte(valsRaw)),
-		)
-		if applyErr != nil {
-			applyErr = fmt.Errorf("chart installation failed: %s", applyErr)
-			r.recorder.Event(as, core.EventTypeWarning, "Failure", applyErr.Error())
-		} else {
-			r.recorder.Event(as, core.EventTypeNormal, "Success", "chart installed successfully")
-		}
-	} else if proto.Equal(cur.Release.Chart, c) && cur.Release.Config.Raw == valsRaw {
-		// Skip upgrade if contents didn't change. This allows us to retry applyChart
-		// on any kind of error without creating an indefinite amount of new releases.
-		r.recorder.Event(as, core.EventTypeNormal, "Skipping", "chart did not change")
-		return true, errChartSkipped
-	} else {
-		r.recorder.Event(as, core.EventTypeNormal, "UpgradeChart", "upgrade chart")
-		// Often upgrades only succeed when force is set to replica resources
-		// that cannot be updated, e.g. services.
-		// Upgrading with force set may result in obfuscated error messages.
-		// Try upgrading regularly first and retry with force on failure.
-		// Return the first error in any case.
-		_, applyErr = r.helm.UpdateReleaseFromChart(as.Name, c,
-			hclient.UpgradeTimeout(tillerTimeout),
-			hclient.UpdateValueOverrides([]byte(valsRaw)),
-		)
-		if applyErr != nil {
-			_, err := r.helm.UpdateReleaseFromChart(as.Name, c,
-				hclient.UpgradeForce(true),
-				hclient.UpgradeTimeout(tillerTimeout),
-				hclient.UpdateValueOverrides([]byte(valsRaw)),
-			)
-			// Original error was fixed by using force, clear it.
-			if err == nil {
-				applyErr = nil
-			}
-		}
-		if applyErr != nil {
-			applyErr = fmt.Errorf("chart upgrade failed: %s", applyErr)
-			r.recorder.Event(as, core.EventTypeWarning, "Failure", applyErr.Error())
-		} else {
-			r.recorder.Event(as, core.EventTypeNormal, "Success", "chart upgraded successfully")
-		}
-	}
-	// Check Helm again whether the update went through.
-	rel, err := r.helm.ReleaseContent(as.Name)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return false, applyErr
-		}
-		return false, fmt.Errorf("get release content: %s", err)
-	}
-	if !proto.Equal(rel.Release.Chart, c) || rel.Release.Config.Raw != valsRaw {
-		return false, applyErr
-	}
-	return true, applyErr
-}
-
 // ensureDeleted ensures that the Helm release is deleted and the finalizer gets removed.
 func (r *Reconciler) ensureDeleted(ctx context.Context, as *apps.ChartAssignment) error {
-	_, err := r.helm.DeleteRelease(as.Name,
-		hclient.DeletePurge(true),
-		hclient.DeleteTimeout(tillerTimeout),
-	)
-	if err != nil && !strings.Contains(err.Error(), "not found") {
-		return fmt.Errorf("deleting chart failed: %s", err)
+	r.releases.ensureDeleted(as)
+	status, ok := r.releases.status(as.Name)
+	if !ok {
+		return fmt.Errorf("release status not found")
+	}
+
+	if status.phase != apps.ChartAssignmentPhaseDeleted {
+		// Deletion still in progress, check again later.
+		return nil
 	}
 	if !stringsContain(as.Finalizers, finalizer) {
 		return nil
@@ -547,132 +311,6 @@ func (r *Reconciler) ensureDeleted(ctx context.Context, as *apps.ChartAssignment
 		return fmt.Errorf("update failed: %s", err)
 	}
 	return nil
-}
-
-func (r *Reconciler) fetchChartTar(repoURL, name, version string) (io.Reader, error) {
-	c := downloader.ChartDownloader{
-		Getters: getter.Providers{
-			{Schemes: []string{"http", "https"}, New: newHTTPGetter},
-		},
-		HelmHome: helmpath.Home(os.ExpandEnv("$HOME/.helm")),
-		Out:      os.Stderr,
-		Keyring:  os.ExpandEnv("$HOME/.gnupg/pubring.gpg"),
-		Verify:   downloader.VerifyIfPossible,
-	}
-
-	dir, err := ioutil.TempDir("", name)
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(dir)
-
-	// This is only called when we fetch by repo URL rather than simply
-	// by e.g. stable/postgresql.
-	chartURL, err := repo.FindChartInRepoURL(repoURL, name, version, "", "", "", c.Getters)
-	if err != nil {
-		return nil, err
-	}
-	// NOTE(fabxc): Since we provide a full chartURL, DownloadTo will pull from exactly
-	// that URL. It will however check for repos in $HOME/.helm to determine
-	// whether it should do this with special certificates for that domain.
-	// (The same cert files we left blank above.)
-	// We might just want to implement this ourselves once we know what auth
-	// strategies we want to support and how users can configure them.
-	filename, _, err := c.DownloadTo(chartURL, version, dir)
-	if err != nil {
-		return nil, err
-	}
-	b, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	return bytes.NewReader(b), nil
-}
-
-type releaseDesc struct {
-	failed     bool
-	action     releaseAction
-	rollbackTo int32
-}
-
-type releaseAction string
-
-const (
-	releaseActionInstall  releaseAction = "install"
-	releaseActionUpgrade                = "upgrade"
-	releaseActionRollback               = "rollback"
-	releaseActionDeleted                = "delete"
-	releaseActionUnknown                = "unknown"
-)
-
-// decodeReleaseDesc decodes a Helm release description into the last performed action,
-// whether it failed, and which revision it possibly rolled back to.
-// See decodeReleaseAction for message format for different actions.
-func decodeReleaseDesc(s string) releaseDesc {
-	d := releaseDesc{
-		action: decodeReleaseAction(s),
-		failed: strings.Contains(s, "failed"),
-	}
-	// Decode revision that was rolled back to, e.g. "Rollback to 3".
-	if d.action == releaseActionRollback {
-		if parts := strings.Split(s, " "); len(parts) == 0 {
-			log.Printf("Could not decode rollback revision from description %q", s)
-		} else {
-			rev, err := strconv.Atoi(parts[len(parts)-1])
-			if err != nil {
-				log.Printf("Could not decode rollback revision from description %q: %s", s, err)
-			}
-			d.rollbackTo = int32(rev)
-		}
-	}
-	return d
-}
-
-// decodeReleaseAction decodes the action for a release from the string description
-// message set by Helm.
-// Setting an explicit structured JSON description when doing installs/rollbacks/upgrades
-// did not work out since Helm rewrites the message on failure.
-func decodeReleaseAction(s string) releaseAction {
-	s = strings.ToLower(s)
-	// A release was an installation when the message is:
-	// 1. "Install complete."
-	// 2. Release "<name>" failed: <error snippet>
-	if strings.Contains(s, "install") || regexp.MustCompile(`release ".*" failed`).MatchString(s) {
-		return releaseActionInstall
-	}
-	// A release was an upgrade when the message is:
-	// 1. Upgrade complete.
-	// 2. Upgrade "<name>" failed: <error snippet>
-	if strings.Contains(s, "upgrade") {
-		return releaseActionUpgrade
-	}
-	// A release was an upgrade when the message is:
-	// 1. Rollback to 3.
-	// 2. rollback "<name>" failed: <error_snippet>
-	if strings.Contains(s, "rollback") {
-		return releaseActionRollback
-	}
-	// a revision is described as deleted if it previously failed and was
-	// replaced by a new version.
-	if strings.Contains(s, "delete") || strings.Contains(s, "deletion") {
-		return releaseActionDeleted
-	}
-	// There appear to be no descriptions before complete/fail, which hints
-	// that the respective in-progress status codes like "installation pending"
-	// are unused.
-	log.Printf("Encountered unknown release action in description %q", s)
-	return releaseActionUnknown
-}
-
-// decodeReleaseFailed returns true if the release description indicates that it failed.
-// See decodeReleaseAction for possible descriptions.
-func decodeReleaseFailed(s string) bool {
-	return strings.Contains(s, "failed")
-}
-
-// newHTTPGetter return a Helm chart getter for HTTP(s) repositories.
-func newHTTPGetter(url, certFile, keyFile, caFile string) (getter.Getter, error) {
-	return getter.NewHTTPGetter(url, certFile, keyFile, caFile)
 }
 
 func stringsContain(list []string, s string) bool {
@@ -744,32 +382,6 @@ func setCondition(as *apps.ChartAssignment, t apps.ChartAssignmentConditionType,
 		Status:             v,
 		Message:            msg,
 	})
-}
-
-// chartPhase translates from Helm status codes to ChartAssignment phases.
-func chartPhase(c release.Status_Code) apps.ChartAssignmentPhase {
-	switch c {
-	case release.Status_UNKNOWN:
-		return apps.ChartAssignmentPhaseUnknown
-	case release.Status_DEPLOYED:
-		return apps.ChartAssignmentPhaseDeployed
-	case release.Status_DELETING:
-		return apps.ChartAssignmentPhaseDeleting
-	case release.Status_DELETED:
-		return apps.ChartAssignmentPhaseDeleted
-	case release.Status_SUPERSEDED:
-		return apps.ChartAssignmentPhaseSuperseded
-	case release.Status_FAILED:
-		return apps.ChartAssignmentPhaseFailed
-	case release.Status_PENDING_INSTALL:
-		return apps.ChartAssignmentPhaseInstall
-	case release.Status_PENDING_UPGRADE:
-		return apps.ChartAssignmentPhaseUpgrade
-	case release.Status_PENDING_ROLLBACK:
-		return apps.ChartAssignmentPhaseRollback
-	default:
-		return apps.ChartAssignmentPhaseUnknown
-	}
 }
 
 // NewValidationWebhook returns a new webhook that validates ChartAssignments.

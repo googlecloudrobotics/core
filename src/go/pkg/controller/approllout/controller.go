@@ -311,11 +311,6 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	}
 	// Update status.
 	ar.Status.Assignments = int64(len(wantCAs))
-	for _, ca := range curCAs.Items {
-		if ca.Status.DeployedRevision == ca.Status.DesiredRevision {
-			ar.Status.UpdatedAssignments += 1
-		}
-	}
 	setCondition(ar, apps.AppRolloutConditionSettled, core.ConditionTrue, "")
 
 	if err := r.kube.Status().Update(ctx, ar); err != nil {
