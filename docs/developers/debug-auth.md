@@ -1,5 +1,7 @@
 # Debugging authentication problems
 
+Useful tips for working with Authentication and Authorization systems.
+
 ## Run a sample request with various credentials
 
 You can call Cloud APIs with curl to see whether authorization works.

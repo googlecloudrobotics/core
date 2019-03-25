@@ -29,3 +29,6 @@ integrators, and operators. It enables:
       Run an gRPC service written in C++ in the cloud cluster and access it from a robot.
     * [Creating a declarative API](how-to/creating-declarative-api.md)<br/>
       Create a Kubernetes-style declarative API and run it on the cloud or on a robot.
+* Development
+    * [Debugging authentication problems](development/debug-auth.md)<br/>
+      Useful tips for working with Authentication and Authorization systems.
