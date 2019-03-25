@@ -62,8 +62,8 @@ spec:
   - JSONPath: .status.assignments
     name: Assignments
     type: integer
-  - JSONPath: .status.settledAssignments
-    name: Settled
+  - JSONPath: .status.readyAssignments
+    name: Ready
     type: integer
   - JSONPath: .status.failedAssignments
     name: Failed

@@ -34,9 +34,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	record "k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	hclient "k8s.io/helm/pkg/helm"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -47,8 +49,12 @@ import (
 	admissiontypes "sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
-// In-cluster hostname of tiller in a standard installation.
-const DefaultTillerHost = "tiller-deploy.kube-system.svc:44134"
+const (
+	// In-cluster hostname of tiller in a standard installation.
+	DefaultTillerHost = "tiller-deploy.kube-system.svc:44134"
+
+	fieldIndexNamespace = "spec.namespaceName"
+)
 
 // Add adds a controller and validation webhook for the ChartAssignment resource type
 // to the manager and server.
@@ -71,6 +77,14 @@ func Add(mgr manager.Manager, cluster, tillerHost string) error {
 	if err != nil {
 		return err
 	}
+	err = mgr.GetCache().IndexField(&apps.ChartAssignment{}, fieldIndexNamespace,
+		func(o runtime.Object) []string {
+			return []string{o.(*apps.ChartAssignment).Spec.NamespaceName}
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "add field indexer")
+	}
 	err = c.Watch(
 		&source.Kind{Type: &apps.ChartAssignment{}},
 		&handler.EnqueueRequestForObject{},
@@ -78,7 +92,38 @@ func Add(mgr manager.Manager, cluster, tillerHost string) error {
 	if err != nil {
 		return err
 	}
+	err = c.Watch(
+		&source.Kind{Type: &core.Pod{}},
+		&handler.Funcs{
+			CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+				r.enqueueForPod(e.Meta, q)
+			},
+			UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+				r.enqueueForPod(e.MetaNew, q)
+			},
+			DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+				r.enqueueForPod(e.Meta, q)
+			},
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "watch Apps")
+	}
 	return nil
+}
+
+func (r *Reconciler) enqueueForPod(m meta.Object, q workqueue.RateLimitingInterface) {
+	var cas apps.ChartAssignmentList
+	err := r.kube.List(context.TODO(), kclient.MatchingField(fieldIndexNamespace, m.GetNamespace()), &cas)
+	if err != nil {
+		log.Printf("List ChartAssignments for namespace %s failed: %s", m.GetNamespace(), err)
+		return
+	}
+	for _, ca := range cas.Items {
+		q.Add(reconcile.Request{
+			NamespacedName: kclient.ObjectKey{Name: ca.Name},
+		})
+	}
 }
 
 // Reconciler provides an idempotent function that brings the cluster into a
@@ -287,6 +332,32 @@ func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) er
 		setCondition(as, apps.ChartAssignmentConditionSettled, c, "")
 	} else {
 		setCondition(as, apps.ChartAssignmentConditionSettled, c, status.err.Error())
+	}
+
+	// Determine readiness based on pods in the app namespace being ready.
+	// This is an incomplete heuristic but it should catch the vast majority of errors.
+	var pods core.PodList
+	if err := r.kube.List(ctx, kclient.InNamespace(as.Spec.NamespaceName), &pods); err != nil {
+		return errors.Wrap(err, "list pods")
+	}
+	ready, total := 0, len(pods.Items)
+
+	for _, p := range pods.Items {
+		switch p.Status.Phase {
+		case core.PodRunning, core.PodSucceeded:
+			ready++
+		}
+	}
+	// Readiness is only given if the release is settled to begin with.
+	if status.phase != apps.ChartAssignmentPhaseSettled {
+		setCondition(as, apps.ChartAssignmentConditionReady, core.ConditionFalse,
+			"Helm release not settled yet")
+	} else {
+		if ready == total {
+			as.Status.Phase = apps.ChartAssignmentPhaseReady
+		}
+		setCondition(as, apps.ChartAssignmentConditionReady, condition(ready == total),
+			fmt.Sprintf("%d/%d pods are running or succeeded", ready, total))
 	}
 	return r.kube.Status().Update(ctx, as)
 }

@@ -105,6 +105,7 @@ type AppRolloutStatus struct {
 	Conditions         []AppRolloutCondition `json:"conditions,omitempty"`
 	Assignments        int64                 `json:"assignments"`
 	SettledAssignments int64                 `json:"settledAssignments"`
+	ReadyAssignments   int64                 `json:"readyAssignments"`
 	FailedAssignments  int64                 `json:"failedAssignments"`
 }
 
@@ -120,6 +121,7 @@ type AppRolloutConditionType string
 
 const (
 	AppRolloutConditionSettled AppRolloutConditionType = "Settled"
+	AppRolloutConditionReady                           = "Ready"
 )
 
 // +genclient
@@ -190,6 +192,7 @@ const (
 	ChartAssignmentPhaseSettled                           = "Settled"
 	ChartAssignmentPhaseDeleted                           = "Deleted"
 	ChartAssignmentPhaseFailed                            = "Failed"
+	ChartAssignmentPhaseReady                             = "Ready"
 )
 
 type ChartAssignmentCondition struct {
@@ -202,4 +205,7 @@ type ChartAssignmentCondition struct {
 
 type ChartAssignmentConditionType string
 
-const ChartAssignmentConditionSettled ChartAssignmentConditionType = "Settled"
+const (
+	ChartAssignmentConditionSettled ChartAssignmentConditionType = "Settled"
+	ChartAssignmentConditionReady                                = "Ready"
+)

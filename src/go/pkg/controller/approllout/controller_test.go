@@ -20,6 +20,7 @@ import (
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
+	core "k8s.io/api/core/v1"
 	"k8s.io/helm/pkg/chartutil"
 	"sigs.k8s.io/yaml"
 )
@@ -417,6 +418,52 @@ spec:
 	_, err := generateChartAssignments(&app, &rollout, robots[:], nil)
 	if exp := errRobotSelectorOverlap("robot2"); err != exp {
 		t.Fatalf("expected error %q but got %q", exp, err)
+	}
+}
+
+func TestSetStatus(t *testing.T) {
+	var ca1, ca2, ca3 apps.ChartAssignment
+	unmarshalYAML(t, &ca1, `
+metadata:
+  name: ca1
+status:
+  phase: Failed
+	`)
+	unmarshalYAML(t, &ca2, `
+metadata:
+  name: ca2
+status:
+  phase: Settled
+	`)
+	unmarshalYAML(t, &ca3, `
+metadata:
+  name: ca3
+status:
+  phase: Ready
+	`)
+
+	var ar apps.AppRollout
+	setStatus(&ar, 100, []apps.ChartAssignment{ca1, ca2, ca3})
+
+	if ar.Status.Assignments != 100 {
+		t.Errorf("Expected .status.assignments to be %d but got %d", 100, ar.Status.Assignments)
+	}
+	if ar.Status.FailedAssignments != 1 {
+		t.Errorf("Expected .status.failedAssignments to be %d but got %d", 1, ar.Status.FailedAssignments)
+	}
+	if ar.Status.SettledAssignments != 2 {
+		t.Errorf("Expected .status.settledAssignments to be %d but got %d", 2, ar.Status.SettledAssignments)
+	}
+	if ar.Status.ReadyAssignments != 1 {
+		t.Errorf("Expected .status.readyAssignments to be %d but got %d", 1, ar.Status.ReadyAssignments)
+	}
+	if c := ar.Status.Conditions[0]; c.Type != apps.AppRolloutConditionSettled ||
+		c.Status != core.ConditionFalse {
+		t.Errorf("Unexpected first condition %v, expected Settled=False")
+	}
+	if c := ar.Status.Conditions[1]; c.Type != apps.AppRolloutConditionReady ||
+		c.Status != core.ConditionFalse {
+		t.Errorf("Unexpected second condition %v, expected Ready=False")
 	}
 }
 

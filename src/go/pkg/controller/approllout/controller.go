@@ -237,12 +237,12 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	ar.Status.ObservedGeneration = ar.Generation
 	ar.Status.Assignments = 0
 	ar.Status.SettledAssignments = 0
+	ar.Status.ReadyAssignments = 0
 	ar.Status.FailedAssignments = 0
 
 	err := r.kube.Get(ctx, kclient.ObjectKey{Name: ar.Spec.AppName}, &app)
 	if err != nil {
-		r.updateErrorStatus(ctx, ar, err.Error())
-		return reconcile.Result{}, nil
+		return reconcile.Result{}, r.updateErrorStatus(ctx, ar, err.Error())
 	}
 	err = r.kube.List(ctx, kclient.MatchingField(fieldIndexOwners, string(ar.UID)), &curCAs)
 	if err != nil {
@@ -257,8 +257,7 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	wantCAs, err := generateChartAssignments(&app, ar, robots.Items, r.baseValues)
 	if err != nil {
 		if _, ok := errors.Cause(err).(errRobotSelectorOverlap); ok {
-			r.updateErrorStatus(ctx, ar, err.Error())
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, r.updateErrorStatus(ctx, ar, err.Error())
 		}
 		return reconcile.Result{}, errors.Wrap(err, "generate ChartAssignments")
 	}
@@ -310,11 +309,32 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 		}
 		log.Printf("Deleted ChartAssignment %q", ca.Name)
 	}
-	// Update status.
-	ar.Status.Assignments = int64(len(wantCAs))
 
-	for _, ca := range curCAs.Items {
+	setStatus(ar, len(wantCAs), curCAs.Items)
+
+	if err := r.kube.Status().Update(ctx, ar); err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "update status")
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *Reconciler) updateErrorStatus(ctx context.Context, ar *apps.AppRollout, msg string) error {
+	setCondition(ar, apps.AppRolloutConditionSettled, core.ConditionFalse, msg)
+	if err := r.kube.Status().Update(ctx, ar); err != nil {
+		return errors.Wrap(err, "update status")
+	}
+	return nil
+}
+
+func setStatus(ar *apps.AppRollout, numWantCAs int, curCAs []apps.ChartAssignment) {
+	// Update status.
+	ar.Status.Assignments = int64(numWantCAs)
+
+	for _, ca := range curCAs {
 		switch ca.Status.Phase {
+		case apps.ChartAssignmentPhaseReady:
+			ar.Status.ReadyAssignments++
+			ar.Status.SettledAssignments++
 		case apps.ChartAssignmentPhaseSettled:
 			ar.Status.SettledAssignments++
 		case apps.ChartAssignmentPhaseFailed:
@@ -327,17 +347,11 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 		setCondition(ar, apps.AppRolloutConditionSettled, core.ConditionFalse,
 			fmt.Sprintf("%d/%d ChartAssignments settled", got, want))
 	}
-
-	if err := r.kube.Status().Update(ctx, ar); err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "update status")
-	}
-	return reconcile.Result{}, nil
-}
-
-func (r *Reconciler) updateErrorStatus(ctx context.Context, ar *apps.AppRollout, msg string) {
-	setCondition(ar, apps.AppRolloutConditionSettled, core.ConditionFalse, msg)
-	if err := r.kube.Status().Update(ctx, ar); err != nil {
-		log.Printf("Failed to set AppRollout status: %q\n", err)
+	if got, want := ar.Status.ReadyAssignments, ar.Status.Assignments; got == want {
+		setCondition(ar, apps.AppRolloutConditionReady, core.ConditionTrue, "")
+	} else {
+		setCondition(ar, apps.AppRolloutConditionReady, core.ConditionFalse,
+			fmt.Sprintf("%d/%d ChartAssignments ready", got, want))
 	}
 }
 
