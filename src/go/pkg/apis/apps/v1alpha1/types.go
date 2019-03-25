@@ -104,7 +104,8 @@ type AppRolloutStatus struct {
 	ObservedGeneration int64                 `json:"observedGeneration,omitempty"`
 	Conditions         []AppRolloutCondition `json:"conditions,omitempty"`
 	Assignments        int64                 `json:"assignments"`
-	UpdatedAssignments int64                 `json:"updatedAssignments"`
+	SettledAssignments int64                 `json:"settledAssignments"`
+	FailedAssignments  int64                 `json:"failedAssignments"`
 }
 
 type AppRolloutCondition struct {

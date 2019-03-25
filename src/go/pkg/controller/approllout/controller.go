@@ -236,7 +236,8 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	)
 	ar.Status.ObservedGeneration = ar.Generation
 	ar.Status.Assignments = 0
-	ar.Status.UpdatedAssignments = 0
+	ar.Status.SettledAssignments = 0
+	ar.Status.FailedAssignments = 0
 
 	err := r.kube.Get(ctx, kclient.ObjectKey{Name: ar.Spec.AppName}, &app)
 	if err != nil {
@@ -311,7 +312,21 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	}
 	// Update status.
 	ar.Status.Assignments = int64(len(wantCAs))
-	setCondition(ar, apps.AppRolloutConditionSettled, core.ConditionTrue, "")
+
+	for _, ca := range curCAs.Items {
+		switch ca.Status.Phase {
+		case apps.ChartAssignmentPhaseSettled:
+			ar.Status.SettledAssignments++
+		case apps.ChartAssignmentPhaseFailed:
+			ar.Status.FailedAssignments++
+		}
+	}
+	if got, want := ar.Status.SettledAssignments, ar.Status.Assignments; got == want {
+		setCondition(ar, apps.AppRolloutConditionSettled, core.ConditionTrue, "")
+	} else {
+		setCondition(ar, apps.AppRolloutConditionSettled, core.ConditionFalse,
+			fmt.Sprintf("%d/%d ChartAssignments settled", got, want))
+	}
 
 	if err := r.kube.Status().Update(ctx, ar); err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "update status")

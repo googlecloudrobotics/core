@@ -62,8 +62,11 @@ spec:
   - JSONPath: .status.assignments
     name: Assignments
     type: integer
-  - JSONPath: .status.updatedAssignments
-    name: Updated
+  - JSONPath: .status.settledAssignments
+    name: Settled
+    type: integer
+  - JSONPath: .status.failedAssignments
+    name: Failed
     type: integer
   - JSONPath: .metadata.creationTimestamp
     name: Age
