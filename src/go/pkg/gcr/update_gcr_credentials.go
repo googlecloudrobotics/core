@@ -94,6 +94,10 @@ func UpdateGcrCredentials(k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) 
 	patchData := []byte(`{"imagePullSecrets": [{"name": "` + SecretName + `"}]}`)
 	haveError := false
 	for _, ns := range nsList.Items {
+		if ns.DeletionTimestamp != nil {
+			log.Printf("namespace %q is marked for deletion, skipping", ns.ObjectMeta.Name)
+			continue
+		}
 		namespace := ns.ObjectMeta.Name
 		// TODO(ensonic): do this for all namespaces (that have a 'gcr-json-key'), always do it for 'default'
 
