@@ -30,5 +30,5 @@ integrators, and operators. It enables:
     * [Creating a declarative API](how-to/creating-declarative-api.md)<br/>
       Create a Kubernetes-style declarative API and run it on the cloud or on a robot.
 * Development
-    * [Debugging authentication problems](development/debug-auth.md)<br/>
+    * [Debugging authentication problems](developers/debug-auth.md)<br/>
       Useful tips for working with Authentication and Authorization systems.
