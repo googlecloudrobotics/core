@@ -1,7 +1,7 @@
 resource "google_container_cluster" "cloud-robotics" {
   name               = "cloud-robotics"
   zone               = "${var.zone}"
-  min_master_version = "1.11.5-gke.5"
+  min_master_version = "1.11"
   enable_legacy_abac = true
   depends_on         = ["google_project_service.container"]
 
