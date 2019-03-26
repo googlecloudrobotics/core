@@ -19,10 +19,10 @@
 # directly if one is only interested in getting the bare k8s cluster to run without doing the full
 # robot setup.
 
-# kubeadm 1.12.2 doesn't support docker-ce 18.09.0 or higher yet (as of 11/2018).
+# Kubernetes <=1.13 requires Docker 18.06 or earlier.
 DOCKER_VERSION="18.06.1"
 DOCKER_PACKAGE_VERSION="${DOCKER_VERSION}~ce~3-0~ubuntu"
-K8S_VERSION="1.12.2"
+K8S_VERSION="1.12.7"
 
 # The IP address of the host system on Docker's docker0 bridge network, along with the netmask for
 # the subnet. These are depended on in multiple places, including the allowed subnet in
