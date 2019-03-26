@@ -13,7 +13,6 @@ core_app_chart(
         "cloud-tunnel": "//src/go/cmd/cloud-tunnel",
         "ros-adapter": "//src/docker/ros_adapter:ros_adapter",
         "ros-log": "//src/docker/ros_log",
-        "ros-websocket": "//src/docker/ros_websocket",
         "roscore": "//src/docker/ros:roscore",
         "roscore-sim": "//src/docker/ros:roscore_sim",
     },

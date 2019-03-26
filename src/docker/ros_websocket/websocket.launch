@@ -1,7 +1,0 @@
-<launch>
-  <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
-    <arg name="topics_glob"
-      value="[/tf2_web_republisher/*,/f_scan,/b_scan,/scan_matched_points2,/submap_list,/move_base/*,/map,*cmd_vel*]"/>
-  </include>
-  <node name="tf2_web_republisher" pkg="tf2_web_republisher" type="tf2_web_republisher" />
-</launch>

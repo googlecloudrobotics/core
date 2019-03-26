@@ -488,27 +488,6 @@ def cloud_robotics_repositories():
         urls = ["https://github.com/GT-RAIL/rosauth/archive/0.1.7.tar.gz"],
     )
 
-    _maybe(
-        http_archive,
-        name = "com_github_robotwebtools_rosbridge_suite",
-        build_file = "@cloud_robotics//third_party:rosbridge_suite.BUILD",
-        sha256 = "6499b6bb1e0a2858e762f5e7c8a6af512d308233e6d9fd483e2019c6798f3b38",
-        strip_prefix = "rosbridge_suite-0.8.4",
-        urls = [
-            "https://mirror.bazel.build/github.com/RobotWebTools/rosbridge_suite/archive/0.8.4.tar.gz",
-            "https://github.com/RobotWebTools/rosbridge_suite/archive/0.8.4.tar.gz",
-        ],
-    )
-
-    _maybe(
-        http_archive,
-        name = "com_github_robotwebtools_tf2_web_republisher",
-        build_file = "@cloud_robotics//third_party:tf2_web_republisher.BUILD",
-        sha256 = "a0a6278937fe72eb6e30b62ad39c8f52f9cf5ddc6b61e43490d0d63749037a29",
-        strip_prefix = "tf2_web_republisher-0.3.2",
-        urls = ["https://github.com/RobotWebTools/tf2_web_republisher/archive/0.3.2.tar.gz"],
-    )
-
     # Boost
     SOURCEFORGE_MIRRORS = ["phoenixnap", "newcontinuum", "cfhcable", "superb-sea2", "cytranet", "iweb", "gigenet", "ayera", "astuteinternet", "pilotfiber", "svwh"]
     _maybe(
