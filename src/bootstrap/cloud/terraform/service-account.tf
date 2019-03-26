@@ -35,15 +35,6 @@ resource "google_project_iam_member" "robot-service-storage" {
   member  = "serviceAccount:${google_service_account.robot-service.email}"
 }
 
-# The name is slightly misleading - this is about the compute service account.
-# However, renaming in Terraform is hard :-(.
-resource "google_project_iam_member" "robot-service-container-access" {
-  project = "${var.private_image_repositories[count.index]}"
-  count   = "${length(var.private_image_repositories)}"
-  role    = "roles/storage.objectViewer"
-  member  = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
-}
-
 resource "google_project_iam_member" "robot-service-account-container-access" {
   project = "${var.private_image_repositories[count.index]}"
   count   = "${length(var.private_image_repositories)}"
@@ -82,6 +73,16 @@ resource "google_project_iam_member" "robot-service-kubernetes" {
 resource "google_service_account_iam_policy" "robot-service" {
   service_account_id = "${google_service_account.robot-service.name}"
   policy_data        = "${data.google_iam_policy.robot-service.policy_data}"
+}
+
+# The name is slightly misleading - this is about the compute service account.
+# However, renaming in Terraform is hard :-(.
+resource "google_project_iam_member" "robot-service-container-access" {
+  project    = "${var.private_image_repositories[count.index]}"
+  count      = "${length(var.private_image_repositories)}"
+  role       = "roles/storage.objectViewer"
+  member     = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  depends_on = ["google_project_service.compute"]
 }
 
 resource "google_service_account" "human-acl" {
