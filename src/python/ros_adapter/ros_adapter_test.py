@@ -14,7 +14,12 @@
 
 """Tests for ros_adapter."""
 
-import ros_adapter
+try:
+  import ros_adapter
+except ImportError as e:
+  print "ImportError possibly caused by locally installed Python packages"
+  print "try: pip uninstall google-auth"
+  raise e
 
 
 if __name__ == '__main__':
