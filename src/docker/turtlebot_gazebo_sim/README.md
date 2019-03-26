@@ -9,9 +9,8 @@ The container executes a roslaunch file that brings up
 TODO(jkammerl) The map in "ros" folder is a placeholder and should be rebuilt.
 
 ## Build
-docker build -t turtlebot3_gazebo_headless .
+./deploy.sh <container-registry>/<project-id>
 
 ## Run (as daemon)
-docker run -d --network host  turtlebot3_gazebo_headless:latest
-
-
+For the <git-sha> see the output at the end of the previous build step.
+docker run -d --network host turtlebot3-gazebo-headless/<git-sha>

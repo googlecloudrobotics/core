@@ -115,6 +115,13 @@ container_pull(
     repository = "google-containers/debian-iptables",
 )
 
+container_pull(
+    name = "turtlebot3-gazebo-cloud",
+    digest = "sha256:a25d7bb358b6c0c86f4f3001e6cff6f51b4a30ac2d14d539e8dd1737f2c303f8",
+    registry = "eu.gcr.io",
+    repository = "cloud-robotics-releases",
+)
+
 load(
     "@io_bazel_rules_docker//cc:image.bzl",
     _cc_image_repos = "repositories",
