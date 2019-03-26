@@ -29,7 +29,7 @@ set -eux
 
 WORKSPACE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 
-K8S_VERSION="1.12.2"
+K8S_VERSION="1.12.7"
 K8S_PKG_VERSION="${K8S_VERSION}-00"
 BACKPORT_VERSION_POSTFIX="~ubuntu14.04.1"
 
