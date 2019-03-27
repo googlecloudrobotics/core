@@ -44,3 +44,32 @@ go_library(
     embed = [":proto_go_proto"],
     importpath = "src/proto",
 )
+
+# generates the mission proto needed to communicate with the cr-adapter
+load("//bazel/proto_crd:proto_k8s_service.bzl", "proto_k8s_service")
+
+proto_k8s_service(
+    name = "mission_cr",
+    group = "mission.cloudrobotics.com",
+    message = "cloudrobotics.mission.v1alpha1.Mission",
+    spec = ":mission_proto",
+)
+
+go_proto_library(
+    name = "mission_cr_go_proto",
+    importpath = "src/proto",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    protos = [
+        ":mission_cr_proto",
+        ":mission_proto",
+    ],
+    deps = [
+        "//third_party/kubernetes_proto/meta:go_default_library",
+    ],
+)
+
+go_library(
+    name = "mission_cr_go_proto_library",
+    embed = [":mission_cr_go_proto"],
+    importpath = "src/proto",
+)
