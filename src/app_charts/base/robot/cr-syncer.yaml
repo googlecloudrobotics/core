@@ -37,16 +37,3 @@ spec:
   - name: http
     port: 80
     targetPort: http
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: cr-syncer
-  labels:
-    prometheus: kube-prometheus
-spec:
-  endpoints:
-  - port: http
-  selector:
-    matchLabels:
-      app: cr-syncer
