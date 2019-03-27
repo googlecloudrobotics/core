@@ -21,7 +21,7 @@ def _impl(ctx):
         is_executable = True,
     )
 
-    return struct(runfiles = ctx.runfiles(files = runfiles))
+    return [DefaultInfo(runfiles = ctx.runfiles(files = runfiles))]
 
 cache_gcr_credentials = rule(
     attrs = {
