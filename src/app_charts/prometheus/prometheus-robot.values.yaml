@@ -1,0 +1,57 @@
+# Configuration for the prometheus-operator chart.
+# Reference: https://github.com/helm/charts/blob/master/stable/prometheus-operator/values.yaml
+global:
+  rbac:
+    create: false
+    pspEnabled: false
+
+nameOverride: kube
+fullnameOverride: kube
+
+alertmanager:
+  enabled: false
+
+prometheusOperator:
+  # Recent Kubernetes version provide a kube-system/kubelet service by default.
+  kubeletService:
+    enabled: false
+
+prometheus:
+  prometheusSpec:
+    # Pick up all service monitors across all namespaces.
+    serviceMonitorNamespaceSelector:
+      any: true
+    serviceMonitorSelector:
+      any: true
+    ruleNamespaceSelector:
+      any: true
+    retention: "3d"
+
+kubeEtcd:
+  enabled: true
+kubeControllerManager:
+  enabled: true
+kubeScheduler:
+  enabled: true
+coreDns:
+  enabled: false
+kubelet:
+  enabled: false
+
+
+# Subcharts
+
+kube-state-metrics:
+  rbac:
+    create: false
+  podSecurityPolicy:
+    enabled: false
+
+prometheus-node-exporter:
+  rbac:
+    create: false
+  podSecurityPolicy:
+    enabled: false
+
+grafana:
+  enabled: false

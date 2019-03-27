@@ -1,3 +1,0 @@
-rbac:
-  create: false
-  pspEnabled: false

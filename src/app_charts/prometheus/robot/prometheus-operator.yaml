@@ -1,4 +1,4 @@
 # This includes all resources expanded from the prometheus-operator chart using
 # the values in ../prometheus-cloud.values.yaml.
 # Some pseudo-variables that were inserted there are replaced with actual runtime values.
-{{ .Files.Get "files/prometheus-operator-chart.cloud.yaml" | replace "${CLOUD_ROBOTICS_DOMAIN}" .Values.domain | replace "${GCP_PROJECT_ID}" .Values.project | replace "HELM-NAMESPACE" .Release.Namespace }}
+{{ .Files.Get "files/prometheus-operator-chart.robot.yaml" | replace "${CLOUD_ROBOTICS_DOMAIN}" .Values.domain | replace "${GCP_PROJECT_ID}" .Values.project | replace "HELM-NAMESPACE" .Release.Namespace }}

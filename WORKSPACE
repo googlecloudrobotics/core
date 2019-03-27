@@ -963,14 +963,3 @@ pip_import(
 load("@ros_demo_deps//:requirements.bzl", "pip_install")
 
 pip_install()
-
-# Helm subcharts
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
-
-http_file(
-    name = "prometheus_node_exporter_chart",
-    sha256 = "",
-    urls = [
-        "https://storage.googleapis.com/kubernetes-charts/prometheus-node-exporter-0.5.0.tgz",
-    ],
-)

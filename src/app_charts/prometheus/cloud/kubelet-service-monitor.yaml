@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: kubelet
+  name: kubelet
+spec:
+  endpoints:
+  - port: http-metrics
+    scheme: http
+    path: /metrics
+  - port: http-metrics
+    scheme: http
+    path: /metrics/cadvisor
+  jobLabel: k8s-app
+  namespaceSelector:
+    matchNames:
+    - kube-system
+  selector:
+    matchLabels:
+      k8s-app: kubelet

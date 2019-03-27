@@ -1,8 +1,0 @@
-global:
-  pspEnable: false
-  rbacEnable: false
-
-serviceMonitorNamespaceSelector:
-  any: true
-ruleNamespaceSelector:
-  any: true

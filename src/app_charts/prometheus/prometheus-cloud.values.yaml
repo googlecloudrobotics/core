@@ -1,0 +1,90 @@
+# Configuration for the prometheus-operator chart.
+# Reference: https://github.com/helm/charts/blob/master/stable/prometheus-operator/values.yaml
+global:
+  rbac:
+    create: false
+    pspEnabled: false
+
+nameOverride: kube
+fullnameOverride: kube
+
+# Alertmanagers have to be deployed individually by users.
+alertmanager:
+  enabled: false
+
+prometheusOperator:
+  # Recent Kubernetes version provide a kube-system/kubelet service by default.
+  kubeletService:
+    enabled: false
+
+prometheus:
+  prometheusSpec:
+    # Pick up all service monitors across all namespaces.
+    serviceMonitorNamespaceSelector:
+      any: true
+    serviceMonitorSelector:
+      any: true
+    ruleNamespaceSelector:
+      any: true
+    externalUrl: "https://${CLOUD_ROBOTICS_DOMAIN}/prometheus/"
+    retention: "120d"
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: ssd
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              # At the time of writing this, Prometheus ingests about 1500
+              # samples/sec, which should result it ~17GB for the 120 days of
+              # retention.
+              # If higher ingestion throughput is observed, this should be
+              # adjusted linearly.
+              storage: 60Gi
+
+# etcd, scheduler, and controller-manager are managed by GKE and hidden.
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+coreDns:
+  enabled: false
+# We provide our own ServiceMonitor for kubelets since the standard one doesn't work out
+# of the box on GKE.
+kubelet:
+  enabled: false
+
+
+# Subcharts
+
+kube-state-metrics:
+  rbac:
+    create: false
+  podSecurityPolicy:
+    enabled: false
+
+prometheus-node-exporter:
+  rbac:
+    create: false
+  podSecurityPolicy:
+    enabled: false
+
+grafana:
+  rbac:
+    create: false
+    pspEnabled: false
+  env:
+    GF_SERVER_DOMAIN: "${CLOUD_ROBOTICS_DOMAIN}"
+    GF_SERVER_ROOT_URL: "https://${CLOUD_ROBOTICS_DOMAIN}/grafana"
+    GF_AUTH_ANONYMOUS_ENABLED: "true"
+  # Load dashboards from configmaps with a given label across all namespaces.
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana # Label our own legacy grafana-operator uses.
+      searchNamespace: ALL
+  grafana.ini:
+    analytics:
+      check_for_updates: false

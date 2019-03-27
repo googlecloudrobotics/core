@@ -3,45 +3,31 @@ load("//bazel/internal:core_app_chart.bzl", "core_app_chart")
 load("//bazel:app.bzl", "app")
 
 helm_template(
-    name = "kube-prometheus",
-    chart = "//third_party/prometheus-operator:kube-prometheus-0.0.105.tgz",
+    name = "prometheus-operator-chart.cloud",
+    chart = "//third_party/prometheus-operator:prometheus-operator-5.0.3.tgz",
+    # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
-    release_name = "kube-prometheus",
-    values = ":kube-prometheus.values.yaml",
+    # Pick a short release name as it will be used as a prefix for a lot fo resources.
+    release_name = "prom",
+    values = ":prometheus-cloud.values.yaml",
 )
 
 helm_template(
-    name = "prometheus-chart",
-    chart = "//third_party/prometheus-operator:prometheus-0.0.51.tgz",
+    name = "prometheus-operator-chart.robot",
+    chart = "//third_party/prometheus-operator:prometheus-operator-5.0.3.tgz",
+    # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
-    release_name = "kube-prometheus",
-    values = ":prometheus.values.yaml",
-)
-
-helm_template(
-    name = "prometheus-operator",
-    chart = "//third_party/prometheus-operator:prometheus-operator-0.0.29.tgz",
-    namespace = "HELM-NAMESPACE",
-    release_name = "prometheus-operator",
-    values = ":prometheus-operator.values.yaml",
-)
-
-helm_template(
-    name = "prometheus-node-exporter",
-    chart = "@prometheus_node_exporter_chart//file",
-    namespace = "HELM-NAMESPACE",
-    release_name = "prometheus-node-exporter",
-    values = ":prometheus-node-exporter.values.yaml",
+    # Pick a short release name as it will be used as a prefix for a lot fo resources.
+    release_name = "prom",
+    values = ":prometheus-robot.values.yaml",
 )
 
 core_app_chart(
     name = "prometheus-cloud",
     files = [
-        ":kube-prometheus",
-        ":prometheus-operator",
+        ":prometheus-operator-chart.cloud",
     ],
     images = {
-        "grafana-operator": "//src/go/cmd/grafana-operator",
         "http-relay-server": "//src/go/cmd/http-relay-server",
     },
 )
@@ -49,13 +35,10 @@ core_app_chart(
 core_app_chart(
     name = "prometheus-robot",
     extra_templates = [
-        ":cloud/prometheus-operator.yaml",
-        ":cloud/defer-install.yaml",
+        ":cloud/kubelet-service-monitor.yaml",
     ],
     files = [
-        ":prometheus-chart",
-        ":prometheus-node-exporter",
-        ":prometheus-operator",
+        ":prometheus-operator-chart.robot",
     ],
     images = {"http-relay-client": "//src/go/cmd/http-relay-client"},
 )
