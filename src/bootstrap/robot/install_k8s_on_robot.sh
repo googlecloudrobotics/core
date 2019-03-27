@@ -47,6 +47,17 @@ function add_apt_key {
   curl -fsSL "${key_url}" | sudo apt-key add -
 }
 
+# Commands like apt-get update hit lots of remote servers without retrying.
+# This function retries a command up to 5 times.
+function retry {
+  for _ in {1..4}; do
+    "$@" && return
+    echo "$* failed, waiting 60 seconds before retrying..." >&2
+    sleep 60
+  done
+  "$@"
+}
+
 # apt_install tries to install a package non-interactively. If it fails, it prints a message to
 # prompt the user to install it interactively, which may be required if eg config files have
 # conflicts, or if the package must be downgraded. An alternative would be to provide
@@ -57,13 +68,13 @@ function apt_install {
   if ! sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@"; then
     echo ""
     echo "ERROR: Failed to install $*. Try:" >&2
-    echo "    sudo apt install $*" >&2
+    echo "    sudo apt update && sudo apt install $*" >&2
     return 1
   fi
 }
 
 function install_common_deps {
-  sudo apt-get update
+  retry sudo apt-get update
   apt_install \
         apt-transport-https \
         ca-certificates \
@@ -80,7 +91,7 @@ function install_docker_deps {
        "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
        $(lsb_release -cs) \
        stable"
-    sudo apt-get update
+    retry sudo apt-get update
     apt_install docker-ce="${DOCKER_PACKAGE_VERSION}"
   fi
 }
@@ -99,7 +110,7 @@ function install_k8s_deps {
         <<<  "deb https://cloud-robotics-packages.storage.googleapis.com/ trusty main"
     fi
 
-    sudo apt-get update
+    retry sudo apt-get update
   fi
 
   # If ubuntu version <= trusty (=14.04), use the backported packages from the packages
@@ -229,6 +240,8 @@ function setup_cluster {
   disable_swap
 
   echo "Initializing the local cluster..."
+  # Retry pulling images as GCR sometimes returns errors, and kubeadm doesn't retry.
+  retry sudo kubeadm config images pull --config "${kubeadm_yaml}"
   sudo kubeadm init --config "${kubeadm_yaml}"
 
   # Merge generated kubeconfig into ~/.kube/config
