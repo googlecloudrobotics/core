@@ -57,7 +57,7 @@ proto_k8s_service(
 
 go_proto_library(
     name = "mission_cr_go_proto",
-    importpath = "src/proto",
+    importpath = "github.com/googlecloudrobotics/core/src/proto/mission",
     compilers = ["@io_bazel_rules_go//proto:go_grpc"],
     protos = [
         ":mission_cr_proto",
@@ -71,5 +71,5 @@ go_proto_library(
 go_library(
     name = "mission_cr_go_proto_library",
     embed = [":mission_cr_go_proto"],
-    importpath = "src/proto",
+    importpath = "github.com/googlecloudrobotics/core/src/proto/mission",
 )
