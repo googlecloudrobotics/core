@@ -86,6 +86,9 @@ message ActiveAction {
 
   // A detailed status of the currently executed action
   Status status = 2;
+
+  // The ID of the currently executed action
+  string id = 3;
 }
 
 message MissionStatus {
