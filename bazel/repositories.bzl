@@ -532,10 +532,10 @@ cc_library(
         http_archive,
         name = "kubernetes_helm",
         build_file = "@cloud_robotics//third_party:helm.BUILD",
-        sha256 = "891004bec55431b39515e2cedc4f4a06e93782aa03a4904f2bd742b168160451",
+        sha256 = "c1967c1dfcd6c921694b80ededdb9bd1beb27cb076864e58957b1568bc98925a",
         strip_prefix = "linux-amd64",
         urls = [
-            "https://storage.googleapis.com/kubernetes-helm/helm-v2.12.1-linux-amd64.tar.gz",
+            "https://storage.googleapis.com/kubernetes-helm/helm-v2.13.1-linux-amd64.tar.gz",
         ],
     )
 
