@@ -4,6 +4,9 @@ metadata:
   name: cr-syncer
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: cr-syncer
   template:
     metadata:
       labels:
