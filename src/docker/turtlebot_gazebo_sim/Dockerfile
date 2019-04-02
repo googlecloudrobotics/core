@@ -1,8 +1,7 @@
-FROM ros:lunar-ros-base
+FROM osrf/ros:lunar-desktop-full-xenial
 
 RUN apt-get update && apt-get install -y \
     python-catkin-tools \
-    ros-lunar-desktop-full=1.3.2-0* \
     ros-lunar-map-server \
     ros-lunar-move-base \
     ros-lunar-amcl \
