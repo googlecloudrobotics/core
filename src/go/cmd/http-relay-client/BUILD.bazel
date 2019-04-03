@@ -25,7 +25,7 @@ go_test(
         "//src/proto/http-relay:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_onsi_gomega//:go_default_library",
-        "@github_com_h2non_gock//:go_default_library",
+        "@in_gopkg_h2non_gock_v1//:go_default_library",
     ],
 )
 

@@ -23,8 +23,8 @@ import (
 	pb "src/proto/http-relay"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/h2non/gock"
 	. "github.com/onsi/gomega"
+	"gopkg.in/h2non/gock.v1"
 )
 
 func assertMocksDoneWithin(t *testing.T, d time.Duration) {
