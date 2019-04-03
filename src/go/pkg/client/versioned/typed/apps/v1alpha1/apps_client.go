@@ -28,6 +28,7 @@ type AppsV1alpha1Interface interface {
 	AppsGetter
 	AppRolloutsGetter
 	ChartAssignmentsGetter
+	ResourceSetsGetter
 }
 
 // AppsV1alpha1Client is used to interact with features provided by the apps.cloudrobotics.com group.
@@ -45,6 +46,10 @@ func (c *AppsV1alpha1Client) AppRollouts() AppRolloutInterface {
 
 func (c *AppsV1alpha1Client) ChartAssignments() ChartAssignmentInterface {
 	return newChartAssignments(c)
+}
+
+func (c *AppsV1alpha1Client) ResourceSets() ResourceSetInterface {
+	return newResourceSets(c)
 }
 
 // NewForConfig creates a new AppsV1alpha1Client for the given config.

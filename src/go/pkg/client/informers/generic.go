@@ -58,6 +58,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Apps().V1alpha1().AppRollouts().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("chartassignments"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Apps().V1alpha1().ChartAssignments().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("resourcesets"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Apps().V1alpha1().ResourceSets().Informer()}, nil
 
 		// Group=registry.cloudrobotics.com, Version=v1alpha1
 	case registryv1alpha1.SchemeGroupVersion.WithResource("robots"):

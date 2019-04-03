@@ -21,3 +21,5 @@ type AppExpansion interface{}
 type AppRolloutExpansion interface{}
 
 type ChartAssignmentExpansion interface{}
+
+type ResourceSetExpansion interface{}

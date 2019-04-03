@@ -8,6 +8,7 @@ go_library(
         "fake_approllout.go",
         "fake_apps_client.go",
         "fake_chartassignment.go",
+        "fake_resourceset.go",
     ],
     importpath = "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/typed/apps/v1alpha1/fake",
     visibility = ["//visibility:public"],

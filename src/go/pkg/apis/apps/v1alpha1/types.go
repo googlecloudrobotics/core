@@ -24,6 +24,84 @@ import (
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+type ResourceSet struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   ResourceSetSpec   `json:"spec"`
+	Status ResourceSetStatus `json:"status"`
+}
+
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ResourceSetList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+	Items []ResourceSet
+}
+
+type ResourceSetSpec struct {
+	Resources []ResourceSetSpecGroup `json:"resources"`
+}
+
+type ResourceSetStatus struct {
+	Phase      ResourceSetPhase         `json:"phase,omitempty"`
+	StartedAt  metav1.Time              `json:"startedAt,omitempty"`
+	FinishedAt metav1.Time              `json:"finishedAt,omitempty"`
+	Applied    []ResourceSetStatusGroup `json:"applied,omitempty"`
+	Failed     []ResourceSetStatusGroup `json:"failed,omitempty"`
+}
+
+type ResourceSetSpecGroup struct {
+	Group   string        `json:"group"`
+	Version string        `json:"version"`
+	Kind    string        `json:"kind"`
+	Items   []ResourceRef `json:"items"`
+}
+
+type ResourceSetStatusGroup struct {
+	Group   string           `json:"group"`
+	Version string           `json:"version"`
+	Kind    string           `json:"kind"`
+	Items   []ResourceStatus `json:"items"`
+}
+
+type ResourceRef struct {
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name"`
+}
+
+type ResourceStatus struct {
+	Namespace  string         `json:"namespace,omitempty"`
+	Name       string         `json:"name"`
+	Action     ResourceAction `json:"action"`
+	UID        string         `json:"uid,omitempty"`
+	Generation int64          `json:"generation,omitempty"`
+	Error      string         `json:"error,omitempty"`
+}
+
+type ResourceSetPhase string
+
+const (
+	ResourceSetPhasePending ResourceSetPhase = "Pending"
+	ResourceSetPhaseFailed                   = "Failed"
+	ResourceSetPhaseSettled                  = "Settled"
+)
+
+type ResourceAction string
+
+const (
+	ResourceActionNone    ResourceAction = "None"
+	ResourceActionCreate                 = "Create"
+	ResourceActionUpdate                 = "Update"
+	ResourceActionReplace                = "Replace"
+)
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type App struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

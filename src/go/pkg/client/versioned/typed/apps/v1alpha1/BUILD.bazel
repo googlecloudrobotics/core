@@ -9,6 +9,7 @@ go_library(
         "chartassignment.go",
         "doc.go",
         "generated_expansion.go",
+        "resourceset.go",
     ],
     importpath = "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/typed/apps/v1alpha1",
     visibility = ["//visibility:public"],

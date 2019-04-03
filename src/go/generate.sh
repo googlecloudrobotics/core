@@ -29,6 +29,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SHADOW_REPO="${DIR}/../.gopath/src/github.com/googlecloudrobotics/core/src/go"
 
 export GOPATH="${DIR}/../.gopath"
+export GO111MODULE=off
 go get k8s.io/code-generator/...
 
 export PATH="$PATH:$GOPATH/bin"

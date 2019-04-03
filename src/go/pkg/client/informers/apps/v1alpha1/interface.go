@@ -28,6 +28,8 @@ type Interface interface {
 	AppRollouts() AppRolloutInformer
 	// ChartAssignments returns a ChartAssignmentInformer.
 	ChartAssignments() ChartAssignmentInformer
+	// ResourceSets returns a ResourceSetInformer.
+	ResourceSets() ResourceSetInformer
 }
 
 type version struct {
@@ -54,4 +56,9 @@ func (v *version) AppRollouts() AppRolloutInformer {
 // ChartAssignments returns a ChartAssignmentInformer.
 func (v *version) ChartAssignments() ChartAssignmentInformer {
 	return &chartAssignmentInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ResourceSets returns a ResourceSetInformer.
+func (v *version) ResourceSets() ResourceSetInformer {
+	return &resourceSetInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

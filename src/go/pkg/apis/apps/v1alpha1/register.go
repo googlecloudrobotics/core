@@ -51,6 +51,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&AppRolloutList{},
 		&ChartAssignment{},
 		&ChartAssignmentList{},
+		&ResourceSet{},
+		&ResourceSetList{},
 	)
 
 	scheme.AddKnownTypes(SchemeGroupVersion,
