@@ -183,7 +183,7 @@ fi
 
 SHELLCHECK_DIR="$HOME/.cache/cloud-robotics"
 SHELLCHECK="${SHELLCHECK_DIR}/shellcheck-v0.6.0/shellcheck"
-sh_files=$(files_matching "(\.sh$|scripts/)")
+sh_files=$(files_matching "(\.sh$|pre-commit$)")
 # TODO(rodrigoq): enable shellcheck in the apps repo.
 if [[ -n "$sh_files" && "$(basename "$PWD")" != "apps" ]] ; then
   if [[ ! -e "$SHELLCHECK" ]] ; then
