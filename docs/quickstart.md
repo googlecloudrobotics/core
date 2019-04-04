@@ -36,18 +36,25 @@ and 18.04) Linux.
     gcloud auth application-default login
     ```
 
-1. Create a directory for the project configuration.
+1. Create a directory for CRC installer.
 
     ```
     mkdir cloud-robotics
     cd cloud-robotics
     ```
 
-1. Install the latest nightly build into the GCP project you are using. The command below will interactively ask you for the ID of your GCP project.
+1. Set your GCP project ID as an environment variable.
+
+    ```
+    export PROJECT_ID=[YOUR_GCP_PROJECT_ID]
+    ```
+
+1. Install the latest nightly build into your GCP project by running the install script.
+    Accept the default configuration by hitting `ENTER` on all questions; you can change the settings later.
 
     ```
     curl -fS "https://storage.googleapis.com/cloud-robotics-releases/run-install.sh" >run-install.sh
-    bash ./run-install.sh
+    bash ./run-install.sh $PROJECT_ID
     ```
 
 The install script created a Kubernetes cluster using Google Kubernetes Engine and used Helm to install the Cloud Robotics Core components.
@@ -69,25 +76,30 @@ token-vendor-xxx    1/1     Running            0          1m
 In addition to the cluster, the install script also created:
 
 * the [cloud-robotics IoT Core Registry][iot-registry] that will be used to manage the list of authorized robots,
-* the [[PROJECT_ID]-robot Cloud Storage bucket][storage-bucket], containing the scripts that connect robots to the cloud,
-* the [Identity & Access Management policies][iam] that authorize robots and humans to communicate with GCP, and
-* the `cloud-robotics-core` folder.
+* the [[PROJECT_ID]-cloud-robotics-config bucket][storage-bucket], containing a `config.sh` and a Terraform state which are necessary to update your cloud project later,
+* the [[PROJECT_ID]-robot Cloud Storage bucket][storage-bucket], containing the scripts that connect robots to the cloud, and
+* the [Identity & Access Management policies][iam] that authorize robots and humans to communicate with GCP.
 
 # Update the project
 
-During installation, files were created in the `cloud-robotics-core` folder.
-Some of the created files are necessary to update your project later:
-* your configuration `config.sh` and `config.bzl`, and
-* the Terraform state `src/bootstrap/cloud/terraform/terraform.tfstate`.
+To update your Cloud Robotics configuration, run the install script with the `--set-config` flag.
 
-You can delete all temporary files, by running:
 ```
-bash ./run-install.sh clean
+bash ./run-install.sh $PROJECT_ID --set-config
 ```
 
-To update the installation to a newer version run the installer again.
+This command only updates the config but does not update your cloud project.
+To update the installation to the latest version and apply config changes, run the installer again.
+
 ```
-curl -fS "https://storage.googleapis.com/cloud-robotics-releases/run-install.sh" | bash
+bash ./run-install.sh $PROJECT_ID
+```
+
+If you deleted the install scipt or you want to run an update from another machine which has the Cloud SDK installed, simply run:
+
+```
+curl -fS "https://storage.googleapis.com/cloud-robotics-releases/run-install.sh"\
+    | bash -s -- $PROJECT_ID
 ```
 
 ## Clean up
@@ -99,11 +111,10 @@ The following command will delete:
 
 This can be useful if the cluster is in a broken state.
 Be careful with this invocation, since you'll have to redeploy the project and reconnect any robots afterwards.
-This command is not available after running the `clean` command but you can restore the necessary files by running the install script again.
 
 ```
-cd cloud-robotics-core
-./deploy.sh delete
+curl -fS "https://storage.googleapis.com/cloud-robotics-releases/run-install.sh"\
+    | bash -s -- $PROJECT_ID --delete
 ```
 
 > **Known issue** After deleting CRC from your project, the endpoint services will be in a "pending deletion" state for 30 days.
