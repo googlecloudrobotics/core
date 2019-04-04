@@ -1,5 +1,6 @@
 exports_files([
     "common.sh",
     "include-config.sh",
+    "set-config.sh",
     "show-resource-usage.sh",
 ])

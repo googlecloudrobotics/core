@@ -101,8 +101,8 @@ fi
 for arg in "$@"; do
   if [[ "${arg}" = "--local" ]]; then
     FLAG_LOCAL=1
-  elif [[ "${arg}" = "--create-new" ]]; then
-    FLAG_CREATE_NEW=1
+  elif [[ "${arg}" = "--ensure-config" ]]; then
+    FLAG_ENSURE_CONFIG=1
   fi
 done
 
@@ -110,8 +110,8 @@ if [[ -z "${FLAG_LOCAL}" && -z "${GCP_PROJECT_ID}" ]]; then
   echo
   echo "Usage: $0 <project id> [<options>]"
   echo "Supported options:"
-  echo "  --local         Creates a local config. Doesn't require the project id."
-  echo "  --create-new    Does nothing if a config exists already."
+  echo "  --local            Creates a local config. Doesn't require the project id."
+  echo "  --ensure-config    Does nothing if a config exists already."
   die
 fi
 
@@ -127,7 +127,7 @@ else
 fi
 
 if [[ -r ${CONFIG} ]]; then
-  if [[ -n "${FLAG_CREATE_NEW}" ]]; then
+  if [[ -n "${FLAG_ENSURE_CONFIG}" ]]; then
     echo "Found Cloud Robotics config."
     exit 0
   fi
@@ -199,7 +199,7 @@ if [[ -n "${TERRAFORM_GCS_BUCKET}" &&\
   # Copy Terraform state to new location.
   echo "Copying Terraform state..."
   gsutil cp "gs://${TERRAFORM_GCS_BUCKET}/${TERRAFORM_GCS_PREFIX}/*.tfstate" \
-    "gs://${NEW_TERRAFORM_GCS_BUCKET}/${NEW_TERRAFORM_GCS_PREFIX}"
+    "gs://${NEW_TERRAFORM_GCS_BUCKET}/${NEW_TERRAFORM_GCS_PREFIX}/"
 fi
 
 # Save all parameter values.

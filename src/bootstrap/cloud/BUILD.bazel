@@ -26,7 +26,6 @@ pkg_tar(
 pkg_tar(
     name = "files",
     srcs = [
-        "//:config.bzl.tmpl",
         "//:config.sh.tmpl",
         "//src/bootstrap/cloud/terraform",
     ],
@@ -40,6 +39,7 @@ pkg_tar(
         "//:deploy.sh",
         "//scripts:common.sh",
         "//scripts:include-config.sh",
+        "//scripts:set-config.sh",
         "//scripts:show-resource-usage.sh",
         "//src/bootstrap/robot:install_k8s_on_robot.sh",
         "//src/bootstrap/robot:setup_robot.sh",

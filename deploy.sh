@@ -39,6 +39,14 @@ APP_MANAGEMENT=${APP_MANAGEMENT:-false}
 # utility functions
 
 function include_config {
+  local project_id="$1"
+  if [[ -n "${project_id}" ]]; then
+    # If the project id is specified, download the config from the cloud bucket.
+    CONFIG="$( mktemp ).sh"
+    gsutil cp "gs://${project_id}-cloud-robotics-config/config.sh" "${CONFIG}" \
+      || die "Failed to load config.sh from GCP project \"${project_id}\"."
+  fi
+
   source "${DIR}/scripts/include-config.sh"
 
   PROJECT_DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
@@ -148,6 +156,7 @@ function terraform_apply {
 }
 
 function terraform_delete {
+  terraform_init
   terraform_exec destroy -auto-approve || die "terraform destroy failed"
 }
 
@@ -211,39 +220,17 @@ EOF
 
 # commands
 
-# shellcheck disable=2120
-# Parameters are not passed in this script, but may be passed by the user.
-function set-project {
-  [[ ! -e "${DIR}/config.sh" ]] || [[ ! -e "${DIR}/config.bzl" ]] || \
-    die "ERROR: config.sh and config.bzl already exist"
-  [[ ! -e "${DIR}/config.sh" ]] || die "ERROR: config.sh already exists but config.bzl does not."
-  [[ ! -e "${DIR}/config.bzl" ]] || die "ERROR: config.bzl already exists but config.sh does not."
-
-  local project_id=$1
-  if [[ -z ${project_id} ]]; then
-    echo "Enter the id of your Google Cloud project:"
-    read project_id
+function set_config {
+  local project_id="$1"
+  if [[ -n "${project_id}" ]]; then
+    ${DIR}/scripts/set-config.sh "${project_id}"
+  else
+    ${DIR}/scripts/set-config.sh --local
   fi
-
-  # Check that the project exists and that we have access.
-  gcloud projects describe "${project_id}" >/dev/null \
-    || die "ERROR: unable to access Google Cloud project: ${project_id}"
-
-  # Create config files based on templates.
-  sed "s/my-project/${project_id}/" "${DIR}/config.bzl.tmpl" > "${DIR}/config.bzl"
-  echo "Created config.bzl for ${project_id}."
-
-  sed -e "s/my-project/${project_id}/" "${DIR}/config.sh.tmpl"  > "${DIR}/config.sh"
-  echo "Created config.sh for ${project_id}."
-
-  echo "Project successfully set to ${project_id}."
 }
 
 function create {
-  if [[ ! -e "${DIR}/config.sh" && ! -e "${DIR}/config.bzl" ]]; then
-    set-project
-  fi
-  include_config
+  include_config $1
   if is_source_install; then
     prepare_source_install
   fi
@@ -252,7 +239,7 @@ function create {
 }
 
 function delete {
-  include_config
+  include_config $1
   if is_source_install; then
     bazel build "@hashicorp_terraform//:terraform"
   fi
@@ -262,12 +249,12 @@ function delete {
 
 # Alias for create.
 function update {
-  create
+  create $1
 }
 
 # This is a shortcut for skipping Terrafrom configs checks if you know the config has not changed.
 function fast_push {
-  include_config
+  include_config $1
   if is_source_install; then
     prepare_source_install
   fi
@@ -275,8 +262,8 @@ function fast_push {
 }
 
 # main
-if [[ ! "$1" =~ ^(set-project|create|delete|update|fast_push)$ ]]; then
-  die "Usage: $0 {set-project|create|delete|update|fast_push}"
+if [[ ! "$1" =~ ^(set_config|create|delete|update|fast_push)$ ]]; then
+  die "Usage: $0 {set_config|create|delete|update|fast_push} [<project id>]"
 fi
 
 # call arguments verbatim:

@@ -19,24 +19,23 @@
 set -o pipefail -o errexit
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
 BUCKET_URI=${BUCKET_URI:-"https://storage.googleapis.com/cloud-robotics-releases"}
+GCP_PROJECT_ID="$1"
 
-if [[ -e "${CONFIG}" && ! "${CONFIG}" = /* ]]; then
-  # Make config path absolute so deploy.sh will find it.
-  CONFIG="${DIR}/${CONFIG}"
+if [[ -z "$2" || "$2" = --* ]]; then
+  TARGET="latest"
+  COMMAND="$2"
+else
+  TARGET="$2"
+  COMMAND="$3"
 fi
 
-# Usage: ./run-install.sh [<version-file>|<versioned-tarball>|clean]
-TARGET=${1:-"latest"}
-
-if [[ "${TARGET}" = "clean" ]]; then
-  # Remove all files which are not necessary for an update.
-  echo "Cleaning up temporary files"
-  find ${DIR}/cloud-robotics-core -type f ! -name "config.sh" ! -name "config.bzl" \
-    ! -name "terraform.tfstate" -delete
-  find ${DIR}/cloud-robotics-core -type d -empty -delete
-  exit 0
+if [[ -z "${GCP_PROJECT_ID}" || ! "${COMMAND}" =~ ^(|--set-config|--delete)$ ]]; then
+  echo "Usage: $0 <project id> [<version-file>|<tarball>] [<command>]"
+  echo "Supported commands:"
+  echo "  --set-config    Updates the cloud config interactively."
+  echo "  --delete        Deletes Cloud Robotics from the cloud project."
+  exit 1
 fi
 
 if [[ ! "${TARGET}" = *.tar.gz ]]; then
@@ -45,8 +44,20 @@ if [[ ! "${TARGET}" = *.tar.gz ]]; then
 fi
 
 echo "Downloading tarball ${BUCKET_URI}/${TARGET}"
-curl --silent --show-error --fail "${BUCKET_URI}/${TARGET}" | tar xz
+TMPDIR="$( mktemp -d )"
+curl --silent --show-error --fail "${BUCKET_URI}/${TARGET}" | tar xz -C "${TMPDIR}"
+cd ${TMPDIR}/cloud-robotics-core
 
-(cd ${DIR}/cloud-robotics-core && ./deploy.sh create)
+if [[ "${COMMAND}" = "--set-config" ]]; then
+  scripts/set-config.sh "${GCP_PROJECT_ID}"
+elif [[ "${COMMAND}" = "--delete" ]]; then
+  ./deploy.sh delete "${GCP_PROJECT_ID}"
+else
+  scripts/set-config.sh "${GCP_PROJECT_ID}" --ensure-config
+  ./deploy.sh create "${GCP_PROJECT_ID}"
+fi
+
+cd ${DIR}
+rm -rf ${TMPDIR}
 
 } # this ensures the entire script is downloaded #
