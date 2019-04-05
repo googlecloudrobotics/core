@@ -35,7 +35,7 @@ high-level control.
 
 Create a directory for the code examples of this guide, e.g.:
 
-```
+```shell
 mkdir charge-service
 cd charge-service
 ```
@@ -50,7 +50,7 @@ All files created in this tutorial can be found in
 [docs/how-to/examples/charge-service](https://github.com/googlecloudrobotics/core/tree/master/docs/how-to/examples/charge-service).
 If you download the files, you have to replace the placeholder `[PROJECT_ID]` with your GCP project ID:
 
-```
+```shell
 sed -i "s/\[PROJECT_ID\]/$PROJECT_ID/g" charge-controller.yaml
 ```
 
@@ -61,7 +61,7 @@ Custom controllers implement the logic behind a declarative API.
 
 First, make sure that `kubectl` points to the correct GCP project:
 
-```
+```shell
 kubectl config get-contexts
 ```
 
@@ -93,7 +93,7 @@ The core of a declarative API is the controller logic, which defines how the res
 For the Charge Service, we've implemented the logic in a Python script.
 Download [server.py](examples/charge-service/server.py):
 
-```
+```shell
 curl -O https://raw.githubusercontent.com/googlecloudrobotics/core/master/docs/how-to/examples/charge-service/server.py
 ```
 
@@ -144,7 +144,7 @@ The controller logic is contained in the `sync()` method, which handles new Char
 
 Next, to prepare our controller logic for deployment in the cloud, we package it as a Docker image. Make sure that the docker daemon is running and that your user has the necessary privileges:
 
-```
+```shell
 docker run --rm hello-world
 ```
 
@@ -167,25 +167,25 @@ CMD [ "python", "-u", "./server.py" ]
 
 To build the Docker image, run:
 
-```
+```shell
 docker build -t charge-controller .
 ```
 
 You should see `Successfully tagged charge-controller:latest`. You can run the container locally with:
 
-```
+```shell
 docker run -ti --rm -p 8000:8000 charge-controller
 ```
 
 Then, from another terminal on the same workstation, send a request with an empty `parent` object:
 
-```
+```shell
 curl -X POST -d '{"parent": {}, "children": []}' http://localhost:8000/
 ```
 
 You should see a response like:
 
-```
+```json
 {"status": {"state": "IN_PROGRESS", "request_id": "2423e70c-9dc7-47ac-abcb-b2ef0cbc676c"}, "children": []}
 ```
 
@@ -197,13 +197,13 @@ In order to be able to run the server as a container in our cloud cluster, we ne
 
 Enable the Docker credential helper:
 
-```
+```shell
 gcloud auth configure-docker
 ```
 
 Tag the image and push it to the registry:
 
-```
+```shell
 docker tag charge-controller gcr.io/$PROJECT_ID/charge-controller
 docker push gcr.io/$PROJECT_ID/charge-controller
 ```
@@ -309,14 +309,14 @@ There are a few points worth mentioning, though:
 
 Deploy these resources by applying the configuration:
 
-```
+```shell
 kubectl apply -f charge-crd.yaml
 kubectl apply -f charge-controller.yaml
 ```
 
 You can explore the various resources that were created on your cluster as a result of this command in the [GKE Console](https://console.cloud.google.com/kubernetes/workload) or with `kubectl`, e.g.:
 
-```
+```shell
 kubectl get pods
 ```
 
@@ -326,7 +326,7 @@ The resulting list should contain a running pod with a name like `charge-control
 
 If you make a change to `server.py`, you need to rebuild and push the Docker image:
 
-```
+```shell
 docker build -t charge-controller .
 docker tag charge-controller gcr.io/$PROJECT_ID/charge-controller
 docker push gcr.io/$PROJECT_ID/charge-controller
@@ -334,7 +334,7 @@ docker push gcr.io/$PROJECT_ID/charge-controller
 
 The easiest way to get Kubernetes to restart the workload with the latest version of the container is to delete the pod:
 
-```
+```shell
 kubectl delete pod -l 'app=charge-controller'
 ```
 
@@ -342,7 +342,7 @@ Kubernetes will automatically pull the newest image and recreate the pod.
 
 If you make a change to `charge-controller.yaml`, all you have to do is apply it again:
 
-```
+```shell
 kubectl apply -f charge-controller.yaml
 ```
 
@@ -361,7 +361,7 @@ metadata:
 
 Run the following command to create a ChargeAction and observe how its status changes:
 
-```
+```shell
 kubectl apply -f charge-action.yaml \
   && watch -n0 kubectl describe chargeaction my-charge-action
 ```
@@ -387,14 +387,14 @@ robot has network connectivity.
 
 First, remove the controller from the cloud cluster:
 
-```
+```shell
 # Note: run this on the workstation
 kubectl delete -f charge-controller.yaml
 ```
 
 Then SSH into the robot, install metacontroller, and bring up the charge-controller there:
 
-```
+```shell
 # Note: run this on the robot
 kubectl create namespace metacontroller
 kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/metacontroller/master/manifests/metacontroller-rbac.yaml
@@ -408,7 +408,7 @@ curl https://raw.githubusercontent.com/googlecloudrobotics/core/master/docs/how-
 
 Now, check that these are running correctly:
 
-```
+```console
 # Note: run this on the robot
 > kubectl get pods --namespace metacontroller
 NAME               READY   STATUS    RESTARTS   AGE
@@ -422,7 +422,7 @@ Switch back to a terminal on your workstation.
 As before, you can create a ChargeAction with `kubectl`, but this time it will be
 handled by the controller on the robot.
 
-```
+```shell
 # Note: run this on the workstation
 kubectl delete -f charge-action.yaml
 kubectl apply -f charge-action.yaml \
@@ -445,13 +445,13 @@ How does this work?
 
 In order to stop the controller and remove the CRD you created, run:
 
-```
+```shell
 kubectl delete -f charge-controller.yaml -f charge-crd.yaml
 ```
 
 If you want to uninstall metacontroller too, run:
 
-```
+```shell
 kubectl delete namespace metacontroller
 ```
 

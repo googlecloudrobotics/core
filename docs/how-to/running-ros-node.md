@@ -24,7 +24,7 @@ For more details, refer to the [Kubernetes documentation](https://kubernetes.io/
 
 Download and run [install\_k8s\_on\_robot.sh](https://raw.githubusercontent.com/googlecloudrobotics/core/master/src/bootstrap/robot/install_k8s_on_robot.sh). This script will take a few minutes as it downloads and installs the dependencies of the Kubernetes cluster.
 
-```
+```shell
 $ curl https://raw.githubusercontent.com/googlecloudrobotics/core/master/src/bootstrap/robot/install_k8s_on_robot.sh | bash
 [...]
 The local Kubernetes cluster has been installed.
@@ -40,7 +40,7 @@ If you're already using ROS on your robot, you can run a ROS node inside Kuberne
 
 First, make sure you're running `roscore`. In another terminal, please run:
 
-```
+```shell
 roscore
 ```
 
@@ -50,7 +50,7 @@ You can run a ROS node by creating a Kubernetes Deployment object, and you can d
 For example, this YAML file describes a Deployment that runs `rostopic echo`.
 Create file called `rostopic-echo.yaml` with the following contents:
 
-```
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -83,13 +83,13 @@ spec:
 
 After creating `rostopic-echo.yaml`, use `kubectl` to apply it to your cluster:
 
-```
+```shell
 kubectl apply -f rostopic-echo.yaml
 ```
 
 Depending on your internet connection, it will take a minute or so to download the Docker image. Wait until you see `Running`:
 
-```
+```console
 $ watch kubectl get pods -l app=rostopic-echo
 NAMESPACE     NAME                                        READY   STATUS      RESTARTS   AGE
 default       rostopic-echo-576cbf47c7-dtlc6              1/1     Running     0          1m
@@ -97,7 +97,7 @@ default       rostopic-echo-576cbf47c7-dtlc6              1/1     Running     0 
 
 Now, publish a ROS message and check that it was received inside Kubernetes:
 
-```
+```console
 $ rostopic pub -1 chatter std_msgs/String "Hello, world"
 $ kubectl logs -l app=rostopic-echo
 data: "Hello, world"
@@ -106,6 +106,6 @@ data: "Hello, world"
 
 Kubernetes will keep this node running until you delete the deployment:
 
-```
-$ kubectl delete -f rostopic-echo.yaml
+```shell
+kubectl delete -f rostopic-echo.yaml
 ```

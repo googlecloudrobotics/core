@@ -144,6 +144,6 @@ line because it will end up in your shell history).
 
 You can check the token's contents and sanity with Google's tokeninfo endpoint:
 
-```bash
+```shell
 curl https://oauth2.googleapis.com/tokeninfo?access_token=$(cat /tmp/token.txt)
 ```

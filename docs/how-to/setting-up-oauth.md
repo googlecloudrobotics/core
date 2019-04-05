@@ -27,26 +27,26 @@ Estimated time: 5 min
 
     You'll see a dialog containing the client ID and secret. Use these to adjust the following lines in `config.sh`:
 
-    ```
+    ```shell
     CLOUD_ROBOTICS_OAUTH2_CLIENT_ID=[CLIENT_ID]
     CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET=[CLIENT_SECRET]
     ```
 
 1. Run the following command to create a secret for encrypting cookies:
 
-    ```
+    ```shell
     python -c 'import os,base64; print base64.urlsafe_b64encode(os.urandom(16))'
     ```
 
     Use this to adjust the following line in `config.sh`:
 
-    ```
+    ```shell
     CLOUD_ROBOTICS_COOKIE_SECRET=[COOKIE_SECRET]
     ```
 
 1. Update the deployment.
 
-    ```
+    ```shell
     ./deploy.sh update
     ```
 

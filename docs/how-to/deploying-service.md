@@ -13,14 +13,14 @@ In this guide we will write a HTTP service in Python and deploy it to our Google
 
 Create a directory for the code examples of this guide, e.g.:
 
-```
+```shell
 mkdir hello-service
 cd hello-service
 ```
 
 Set your GCP project ID as an environment variable:
 
-```
+```shell
 export PROJECT_ID=[YOUR_GCP_PROJECT_ID]
 ```
 
@@ -28,7 +28,7 @@ All files created in this tutorial can be found in
 [docs/how-to/examples/hello-service/](https://github.com/googlecloudrobotics/core/tree/master/docs/how-to/examples/hello-service).
 If you download the files, you have to replace the placeholders `[PROJECT_ID]` with your GCP project ID:
 
-```
+```shell
 sed -i "s/\[PROJECT_ID\]/$PROJECT_ID/g" client/client.py server/hello-server.yaml
 ```
 
@@ -36,7 +36,7 @@ sed -i "s/\[PROJECT_ID\]/$PROJECT_ID/g" client/client.py server/hello-server.yam
 
 Create a subdirectory for the server code:
 
-```
+```shell
 mkdir server
 cd server
 ```
@@ -76,7 +76,7 @@ This Python program implements a server that listens on port 8000 for incoming H
 
 You can try it out with:
 
-```
+```shell
 python server.py
 ```
 
@@ -84,7 +84,7 @@ If you see `ImportError: No module named http`, you are most likely using Python
 
 Then, from another terminal on the same workstation, run:
 
-```
+```shell
 curl -i http://localhost:8000
 ```
 
@@ -96,7 +96,7 @@ Next, to prepare our Python program for deployment in the cloud, we package it a
 
 Make sure that the docker daemon is running and that your user has the necessary privileges:
 
-```
+```shell
 docker run --rm hello-world
 ```
 
@@ -119,19 +119,19 @@ CMD [ "python", "-u", "./server.py" ]
 
 To build the Docker image, run:
 
-```
+```shell
 docker build -t hello-server .
 ```
 
 You should now have an image tagged `hello-server` in your local registry:
 
-```
+```shell
 docker images | grep hello-server
 ```
 
 It can be run locally with:
 
-```
+```shell
 docker run -ti --rm -p 8000:8000 hello-server
 ```
 
@@ -143,13 +143,13 @@ In order to be able to run the server as a container in our cloud cluster, we ne
 
 Enable the Docker credential helper:
 
-```
+```shell
 gcloud auth configure-docker
 ```
 
 Tag the image and push it to the registry:
 
-```
+```shell
 docker tag hello-server gcr.io/$PROJECT_ID/hello-server
 docker push gcr.io/$PROJECT_ID/hello-server
 ```
@@ -233,20 +233,20 @@ A detailed explanation of the Kubernetes resources is out of scope for this guid
 
 Make sure that `kubectl` points to the correct GCP project:
 
-```
+```shell
 kubectl config get-contexts
 ```
 
 If the correct cluster is not marked with an asterisk in the output, you can switch to it with `kubectl config use-context [...]`.)
 Then deploy by applying the configuration:
 
-```
+```shell
 kubectl apply -f hello-server.yaml
 ```
 
 You can explore the various resources that were created on your cluster as a result of this command in the [GKE Console](https://console.cloud.google.com/kubernetes/workload) or with `kubectl`, e.g.:
 
-```
+```shell
 kubectl get pods
 ```
 
@@ -256,7 +256,7 @@ The resulting list should contain a running pod with a name like `hello-server-x
 
 If you make a change to `server.py`, you need to rebuild and push the Docker image:
 
-```
+```shell
 docker build -t hello-server .
 docker tag hello-server gcr.io/$PROJECT_ID/hello-server
 docker push gcr.io/$PROJECT_ID/hello-server
@@ -264,7 +264,7 @@ docker push gcr.io/$PROJECT_ID/hello-server
 
 The easiest way to get Kubernetes to restart the workload with the latest version of the container is to delete the pod:
 
-```
+```shell
 kubectl delete pod -l 'app=hello-server-app'
 ```
 
@@ -272,7 +272,7 @@ Kubernetes will automatically pull the newest image and recreate the pod.
 
 If you make a change to `hello-server.yaml`, all you have to do is apply it again:
 
-```
+```shell
 kubectl apply -f hello-server.yaml
 ```
 
@@ -280,7 +280,7 @@ kubectl apply -f hello-server.yaml
 
 Let's try to access our server as we did before:
 
-```
+```shell
 curl -i https://www.endpoints.$PROJECT_ID.cloud.goog/apis/hello-server
 ```
 
@@ -289,14 +289,14 @@ This should result in a `401 Unauthorized` error because we did not supply any a
 
 We can, however, easily obtain credentials from `gcloud` and attach them to our request by means of an "Authorization" header:
 
-```
+```shell
 token=$(gcloud auth application-default print-access-token)
 curl -i -H "Authorization: Bearer $token" https://www.endpoints.$PROJECT_ID.cloud.goog/apis/hello-server
 ```
 
 If this command fails because "Application Default Credentials are not available", you need to first run:
 
-```
+```shell
 gcloud auth application-default login
 ```
 
@@ -304,7 +304,7 @@ And follow the instructions in your browser.
 
 Recall that when running `server.py` on your workstation you were able to see the server's log output upon receiving a request. This log output is also recorded when the server is running in the cloud cluster. To inspect it, run:
 
-```
+```shell
 kubectl logs -l 'app=hello-server-app'
 ```
 
@@ -312,7 +312,7 @@ Or go to the [GKE Console](https://console.cloud.google.com/kubernetes/workload)
 
 Next, let's access the API from some Python code. Eventually, we will build another Docker image from this code, so it needs to live in a separate directory:
 
-```
+```shell
 cd ..
 mkdir client
 cd client
@@ -320,7 +320,7 @@ cd client
 
 Get some dependencies:
 
-```
+```shell
 pip install --upgrade google-auth requests
 ```
 
@@ -353,7 +353,7 @@ This script:
 
 Try it out:
 
-```
+```shell
 python client.py
 ```
 
@@ -380,7 +380,7 @@ CMD [ "python", "-u", "./client.py" ]
 
 Build, tag, and push the image:
 
-```
+```shell
 docker build -t hello-client .
 docker tag hello-client gcr.io/$PROJECT_ID/hello-client
 docker push gcr.io/$PROJECT_ID/hello-client
@@ -388,7 +388,7 @@ docker push gcr.io/$PROJECT_ID/hello-client
 
 And finally, to execute the script, SSH into robot and run:
 
-```
+```shell
 kubectl run -ti --rm --restart=Never --image=gcr.io/$PROJECT_ID/hello-client hello-client
 ```
 
@@ -403,7 +403,7 @@ Two things are noteworthy:
 
 In order to stop the service in the cloud cluster and revert the configuration changes, change to the `server` directory and run:
 
-```
+```shell
 kubectl delete -f hello-server.yaml
 ```
 

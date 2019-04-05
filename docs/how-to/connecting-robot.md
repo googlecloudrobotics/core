@@ -16,7 +16,7 @@ Once you've done this, you can:
 
 1. On the computer you used to set up the cloud project, generate an access token, which you'll use to give the robot access to the cloud:
 
-    ```
+    ```shell
     gcloud auth application-default print-access-token
     ```
 
@@ -34,7 +34,7 @@ The installation script installs and configures:
 
 1. Download and run [install\_k8s\_on\_robot.sh](https://raw.githubusercontent.com/googlecloudrobotics/core/master/src/bootstrap/robot/install_k8s_on_robot.sh). This script will take a few minutes as it downloads and installs the dependencies of the Kubernetes cluster.
 
-    ```
+    ```console
     $ curl https://raw.githubusercontent.com/googlecloudrobotics/core/master/src/bootstrap/robot/install_k8s_on_robot.sh | bash
     [...]
     The local Kubernetes cluster has been installed.
@@ -46,7 +46,7 @@ The installation script installs and configures:
 
 1. Set up the robot cluster to connect to the cloud. When running `setup_robot.sh`, you'll need to enter the access token you generated earlier. You may find it easiest if you SSH into the robot from the workstation you used to set up the project.
 
-    ```
+    ```shell
     mkdir -p ~/cloud-robotics-core
     cd ~/cloud-robotics-core
     curl https://storage.googleapis.com/[PROJECT_ID]-robot/setup_robot.sh >setup_robot.sh
@@ -66,13 +66,13 @@ The installation script installs and configures:
 
 You can remove the local cluster with the following command:
 
-```
+```shell
 sudo kubeadm reset
 ```
 
 You may also want to remove the following APT packages and repositories, which `install_k8s_on_robot.sh` installs if they are not present:
 
-```
+```shell
 sudo apt-get purge kubectl kubelet kubeadm
 sudo rm /etc/apt/sources.list.d/kubernetes.list
 sudo apt-get purge docker-ce

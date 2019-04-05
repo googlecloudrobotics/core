@@ -15,14 +15,14 @@ In this guide we will deploy a gRPC service written in C++ and deploy it to our 
 All files for this tutorial are located in
 [docs/how-to/examples/greeter-service/](https://github.com/googlecloudrobotics/core/tree/master/docs/how-to/examples/greeter-service).
 
-```
+```shell
 git clone https://github.com/googlecloudrobotics/core
 cd core/docs/how-to/examples/greeter-service
 ```
 
 Set your GCP project ID as an environment variable:
 
-```
+```shell
 export PROJECT_ID=[YOUR_GCP_PROJECT_ID]
 ```
 
@@ -41,7 +41,7 @@ If you prefer, you can install the gRPC following [these instructions](https://g
 
 Make sure the Docker daemon is running and your user has the necessary privileges:
 
-```
+```shell
 docker run --rm hello-world
 ```
 
@@ -69,7 +69,7 @@ The Docker image for the client is configured in `client/Dockerfile` which build
 
 To build the Docker images, run:
 
-```
+```shell
 docker build -t greeter-server -f server/Dockerfile .
 docker build -t greeter-client -f client/Dockerfile .
 ```
@@ -79,33 +79,33 @@ docker build -t greeter-client -f client/Dockerfile .
 
 You should now have an image tagged `greeter-server` and one tagged `greeter-client` in your local registry:
 
-```
+```shell
 docker images | grep greeter
 ```
 
 To run the server locally, the container's port 50051, which specified as gRPC port in `server.cc`, has to be published to your machine with the flag `-p 50051:50051`:
 
-```
+```shell
 docker run --rm -p 50051:50051 --name greeter-server greeter-server
 ```
 
 In another console run the client container.
 The flag `--network=host` tells the container to use your workstation's network stack which allows the client to connect to `localhost`.
 
-```
+```shell
 docker run --rm --network=host greeter-client ./greeter-client localhost
 ```
 
 You should see `Greeter received: Hello world` in the client's output and `Received request: name: "world"` in the server's output. You can also send your own name in the gRPC request to the server, try:
 
-```
+```shell
 docker run --rm --network=host greeter-client \
   ./greeter-client localhost $USER
 ```
 
 You can stop the server from another terminal by running:
 
-```
+```shell
 docker stop greeter-server
 ```
 
@@ -116,13 +116,13 @@ In order to be able to run the server as a container in our cloud cluster, we ne
 
 Enable the Docker credential helper:
 
-```
+```shell
 gcloud auth configure-docker
 ```
 
 Tag the image and push it to the registry:
 
-```
+```shell
 docker tag greeter-server gcr.io/$PROJECT_ID/greeter-server
 docker push gcr.io/$PROJECT_ID/greeter-server
 ```
@@ -134,7 +134,7 @@ The image should now show up in the [container registry](https://console.cloud.g
 
 Run the following command to create `greeter-server.yaml` using the provided template:
 
-```
+```shell
 cat greeter-server.yaml.tmpl | envsubst >greeter-server.yaml
 ```
 
@@ -169,20 +169,20 @@ spec:
 
 Make sure that `kubectl` points to the correct GCP project:
 
-```
+```shell
 kubectl config get-contexts
 ```
 
 If the correct cluster is not marked with an asterisk in the output, you can switch contexts with `kubectl config use-context [...]`.)
 Then deploy by applying the configuration:
 
-```
+```shell
 kubectl apply -f greeter-server.yaml
 ```
 
 You can explore the various resources that were created on your cluster as a result of this command in the [GKE Console](https://console.cloud.google.com/kubernetes/workload) or with `kubectl`, e.g.:
 
-```
+```shell
 kubectl get pods
 ```
 
@@ -194,13 +194,13 @@ The resulting list should contain a running pod with a name like `greeter-server
 For convenience, `deploy.sh` provides some commands to create, delete, and update the service.
 If you make changes to `greeter-server.yaml.tmpl`, all you have to do is run:
 
-```
+```shell
 ./deploy.sh update_config
 ```
 
 If you make changes to `server.cc`, you need to run:
 
-```
+```shell
 ./deploy.sh update_server
 ```
 
@@ -227,7 +227,7 @@ Let's try to access our server.
 We have to connect to the nginx ingress which is hosted on `www.endpoints.$PROJECT_ID.cloud.goog:443`.
 To ensure we have valid credentials to talk to nginx we have to mount our `~/.config` folder in the container.
 
-```
+```shell
 docker run --rm -v ~/.config:/root/.config greeter-client \
   ./greeter-client www.endpoints.$PROJECT_ID.cloud.goog:443 workstation
 ```
@@ -235,7 +235,7 @@ docker run --rm -v ~/.config:/root/.config greeter-client \
 Recall that when running `./greeter-server` on your workstation you were able to see the server's log output upon receiving a request.
 This log output is also recorded when the server is running in the cloud cluster. To inspect it, run:
 
-```
+```shell
 kubectl logs -l 'app=greeter-server-app'
 ```
 
@@ -247,13 +247,13 @@ Or go to the [GKE Console](https://console.cloud.google.com/kubernetes/workload)
 In order to run `greeter-client` on the robot's Kubernetes cluster, we again package it as a Docker image and push it to our container registry, to which the robot also has access.
 Our deploy script offers a command to build, tag, and push the image to the cloud registry, like we did with the server container:
 
-```
+```shell
 ./deploy.sh push_client
 ```
 
 And finally, to execute the script, SSH into robot and run:
 
-```
+```shell
 export PROJECT_ID=[YOUR_GCP_PROJECT_ID]
 docker pull grpc/cxx:1.12.0  # This may take several minutes, depending on WiFi connection
 kubectl run -ti --rm --restart=Never --image=gcr.io/$PROJECT_ID/greeter-client greeter-client \
@@ -272,6 +272,6 @@ Two things are noteworthy:
 
 In order to stop the service in the cloud cluster and revert the configuration changes, run:
 
-```
+```shell
 ./deploy.sh delete
 ```

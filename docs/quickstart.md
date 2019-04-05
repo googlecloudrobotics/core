@@ -16,7 +16,7 @@ and 18.04) Linux.
 1. [Install the Cloud SDK][cloud-sdk]. When prompted, choose the project you created above.
 1. After installing the Cloud SDK, install the `kubectl` command-line tool:
 
-    ```
+    ```shell
     gcloud components install kubectl
     ```
 
@@ -24,7 +24,7 @@ and 18.04) Linux.
 
 1. Install tools required for installation:
 
-    ```
+    ```shell
     sudo apt-get install curl tar xz-utils
     ```
 
@@ -32,27 +32,27 @@ and 18.04) Linux.
 
 1. Create application default credentials, which are used to deploy the cloud project.
 
-    ```
+    ```shell
     gcloud auth application-default login
     ```
 
 1. Create a directory for CRC installer.
 
-    ```
+    ```shell
     mkdir cloud-robotics
     cd cloud-robotics
     ```
 
 1. Set your GCP project ID as an environment variable.
 
-    ```
+    ```shell
     export PROJECT_ID=[YOUR_GCP_PROJECT_ID]
     ```
 
 1. Install the latest nightly build into your GCP project by running the install script.
     Accept the default configuration by hitting `ENTER` on all questions; you can change the settings later.
 
-    ```
+    ```shell
     curl -fS "https://storage.googleapis.com/cloud-robotics-releases/run-install.sh" >run-install.sh
     bash ./run-install.sh $PROJECT_ID
     ```
@@ -61,7 +61,7 @@ The install script created a Kubernetes cluster using Google Kubernetes Engine a
 You can browse these components on the [Workloads dashboard][workloads].
 Alternatively, you can list them from the console on your workstation:
 
-```
+```console
 $ kubectl get pods
 
 NAME                READY   STATUS             RESTARTS   AGE
@@ -84,14 +84,14 @@ In addition to the cluster, the install script also created:
 
 To update your Cloud Robotics configuration, run the install script with the `--set-config` flag.
 
-```
+```shell
 bash ./run-install.sh $PROJECT_ID --set-config
 ```
 
 This command only updates the config but does not update your cloud project.
 To update the installation to the latest version and apply config changes, run the installer again.
 
-```
+```shell
 bash ./run-install.sh $PROJECT_ID
 ```
 
@@ -112,7 +112,7 @@ The following command will delete:
 This can be useful if the cluster is in a broken state.
 Be careful with this invocation, since you'll have to redeploy the project and reconnect any robots afterwards.
 
-```
+```shell
 curl -fS "https://storage.googleapis.com/cloud-robotics-releases/run-install.sh"\
     | bash -s -- $PROJECT_ID --delete
 ```

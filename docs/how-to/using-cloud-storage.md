@@ -14,7 +14,7 @@ Normally, to access a private Cloud Storage bucket from a robot, you'd need to m
 
     For this guide we will assume a bucket name like `robot-hello-world-dc1bb474`, where the part after the last dash is a random hexadecimal number. You can generate your own unique bucket name with the command
 
-    ```
+    ```shell
     echo robot-hello-world-$(tr -dc 'a-f0-9' < /dev/urandom | head -c8)
     ```
 
@@ -24,7 +24,7 @@ Normally, to access a private Cloud Storage bucket from a robot, you'd need to m
 
     On your workstation, run:
 
-    ```
+    ```shell
     gsutil mb gs://[BUCKET_NAME]
     ```
 
@@ -37,7 +37,7 @@ Normally, to access a private Cloud Storage bucket from a robot, you'd need to m
 
     On the robot, run:
 
-    ```
+    ```console
     docker pull python:alpine
     kubectl run python --restart=Never --rm -ti --image=python:alpine -- /bin/sh
     # pip install google-cloud-storage
@@ -54,7 +54,7 @@ Normally, to access a private Cloud Storage bucket from a robot, you'd need to m
 
     On your workstation, run:
 
-    ```
+    ```shell
     gsutil cat gs://[BUCKET_NAME]/hello_world.txt
     ```
 

@@ -16,7 +16,7 @@ and 18.04) Linux.
 1. [Install the Cloud SDK][cloud-sdk]. When prompted, choose the project that you created above.
 1. After installing the Cloud SDK, install the `kubectl` command-line tool:
 
-    ```
+    ```shell
     gcloud components install kubectl
     ```
 
@@ -26,7 +26,7 @@ and 18.04) Linux.
 
 1. Install additional build dependencies:
 
-    ```
+    ```shell
     sudo apt-get install default-jdk git python-dev unzip xz-utils
     ```
 
@@ -39,14 +39,14 @@ and 18.04) Linux.
 
 1. Clone the source repo.
 
-    ```
+    ```shell
     git clone https://github.com/googlecloudrobotics/core
     cd core
     ```
 
 1. Import the GCP project you are using, replacing `[PROJECT_ID]` with its project ID.
 
-    ```
+    ```shell
     ./deploy.sh set-project [PROJECT_ID]
     ```
 
@@ -59,19 +59,19 @@ and 18.04) Linux.
 
 1. Build the project. Depending on your computer and internet connection, it may take around 15 minutes.
 
-    ```
+    ```shell
     bazel build //...
     ```
 
 1. Create application default credentials, which are used to deploy the cloud project.
 
-    ```
+    ```shell
     gcloud auth application-default login
     ```
 
 1. Deploy the cloud project.
 
-    ```
+    ```shell
     ./deploy.sh create
     ```
 
@@ -86,7 +86,7 @@ and 18.04) Linux.
 You can browse these components on the [Workloads dashboard](https://console.cloud.google.com/kubernetes/workload).
 Alternatively, you can list them from the console on your workstation:
 
-```
+```console
 $ kubectl get pods
 NAME                                        READY   STATUS    RESTARTS   AGE
 cert-manager-7d4bfc44ff-fdrkl               1/1     Running   0          1m
@@ -107,7 +107,7 @@ With the project deployed, you're ready to [connect a robot to the cloud](how-to
 
 To apply changes made in the source code, run:
 
-```
+```shell
 ./deploy.sh update
 ```
 
@@ -121,7 +121,7 @@ The following command will delete:
 This can be useful if the cluster is in a broken state.
 Be careful with this invocation, since you'll have to redeploy the project and reconnect any robots afterwards.
 
-```
+```shell
 ./deploy.sh delete
 ```
 
