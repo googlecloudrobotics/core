@@ -146,16 +146,23 @@ CLOUD_BUCKET="gs://${GCP_PROJECT_ID}-cloud-robotics-config"
 gcloud projects describe "${GCP_PROJECT_ID}" >/dev/null \
   || die "ERROR: unable to access Google Cloud project: ${GCP_PROJECT_ID}"
 
+# Enable Compute Engine API which is necessary to validate the zones.
+if ! gcloud services list --enabled --project ${GCP_PROJECT_ID} \
+       | grep "^compute.googleapis.com \+" >/dev/null; then
+  # TODO(skopecki) This can take a minute. Find a better solution to verify compute zones.
+  echo "Enabling Compute Engine API..."
+  gcloud services enable compute.googleapis.com --project ${GCP_PROJECT_ID}
+fi
+
 # Ask for region and zone.
 GCP_ZONE=${GCP_ZONE:-"europe-west1-c"}
 read_variable NEW_GCP_ZONE "In which zone should Cloud Robotics be deployed?" "${GCP_ZONE}"
 
 # Verify the zone exists.
-gcloud compute zones list --project ${GCP_PROJECT_ID} | grep "^${NEW_GCP_ZONE} \+" >/dev/null \
+gcloud compute zones list -q --project ${GCP_PROJECT_ID} | grep "^${NEW_GCP_ZONE} \+" >/dev/null \
   || die "ERROR: the zone does not exist in your project: ${NEW_GCP_ZONE}"
 
 NEW_GCP_REGION=${NEW_GCP_ZONE%-?}
-
 
 # Ask for Terraform bucket and location.
 if [[ -z "${TERRAFORM_GCS_BUCKET}" ]]; then
