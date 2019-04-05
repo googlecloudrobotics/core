@@ -71,7 +71,6 @@ type Config struct {
 
 type ClusterConfig struct {
 	Name        string
-	NumWorkers  int32
 	InstallHelm bool
 }
 
@@ -286,21 +285,20 @@ func (f *Fixture) Client(cluster string) client.Client {
 
 // setupCluster creates a kind cluster and installs Tiller if necessary.
 func setupCluster(helmPath string, cluster *cluster) error {
-	kindcfg := &kindconfig.Config{
+	kindcfg := &kindconfig.Cluster{
 		Nodes: []kindconfig.Node{
 			{
 				Role:  kindconfig.ControlPlaneRole,
 				Image: kinddefaults.Image,
 			}, {
-				Role:     kindconfig.WorkerRole,
-				Replicas: &cluster.cfg.NumWorkers,
-				Image:    kinddefaults.Image,
+				Role:  kindconfig.WorkerRole,
+				Image: kinddefaults.Image,
 			},
 		},
 	}
 	cluster.ctx = kindcluster.NewContext(cluster.genName)
 
-	if err := cluster.ctx.Create(kindcfg, false, 0); err != nil {
+	if err := cluster.ctx.Create(kindcfg); err != nil {
 		return errors.Wrapf(err, "create cluster %q", cluster.genName)
 	}
 	kubecfgRaw, err := ioutil.ReadFile(cluster.ctx.KubeConfigPath())
@@ -387,17 +385,17 @@ func setupCluster(helmPath string, cluster *cluster) error {
 	}
 	// Install Tiller. We wait for all node taints to be removed (e.g. NotReady)
 	// so Tiller doesn't fail permanently (see b/128660997).
-	if err := wait.Poll(time.Second, 30*time.Second, func() (bool, error) {
+	if err := wait.Poll(time.Second, 2*time.Minute, func() (bool, error) {
 		var nds core.NodeList
 		if err := c.List(ctx, nil, &nds); err != nil {
 			return false, err
 		}
 		for _, n := range nds.Items {
-			if len(n.Spec.Taints) > 0 {
-				return false, nil
+			if len(n.Spec.Taints) == 0 {
+				return true, nil
 			}
 		}
-		return true, nil
+		return false, nil
 	}); err != nil {
 		return errors.Wrap(err, "wait for node taints to be removed")
 	}

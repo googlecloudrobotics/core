@@ -43,10 +43,11 @@ func TestAll(t *testing.T) {
 		},
 	)
 	if err := wait.Poll(
-		3*time.Second, time.Minute,
+		3*time.Second, 2*time.Minute,
 		kubetest.DeploymentReady(env.Ctx(), env.Client("robot"), "default", "robot-master"),
 	); err != nil {
-		t.Fatalf("wait for robot-master: %s", err)
+		t.Errorf("wait for robot-master: %s", err)
+		t.Fatalf("ACCESS_TOKEN set?")
 	}
 
 	env.Run(

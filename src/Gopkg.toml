@@ -1,0 +1,8 @@
+# This file defines constraints on the direct dependencies of the Go code.
+# Additionally, [[override]] blocks can define versions of transitive
+# dependencies.
+#
+# Run `./dep.sh ensure` to generate WORKSPACE dependencies with the dep tool.
+[prune]
+  go-tests = true
+  unused-packages = true
