@@ -23,6 +23,5 @@ Documentation of the platform and related How-to guides can be found at: https:/
 # Get Involved
 
 If you want to get involved, please refer to [CONTRIBUTING.md](CONTRIBUTING.md),
-reach out to [cloud-robotics-discuss@googlegroups.com](mailto:cloud-robotics-discuss@googlegroups.com)
+reach out to [cloud-robotics-discuss@googlegroups.com](https://groups.google.com/forum/#!forum/cloud-robotics-discuss)
 or ask Stack Overflow questions with [#google-cloud-robotics](https://stackoverflow.com/questions/tagged/google-cloud-robotics).
-
