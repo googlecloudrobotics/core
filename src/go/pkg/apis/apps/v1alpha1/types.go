@@ -54,14 +54,14 @@ type ResourceSetStatus struct {
 }
 
 type ResourceSetSpecGroup struct {
-	Group   string        `json:"group"`
+	Group   string        `json:"group,omitempty"`
 	Version string        `json:"version"`
 	Kind    string        `json:"kind"`
 	Items   []ResourceRef `json:"items"`
 }
 
 type ResourceSetStatusGroup struct {
-	Group   string           `json:"group"`
+	Group   string           `json:"group,omitempty"`
 	Version string           `json:"version"`
 	Kind    string           `json:"kind"`
 	Items   []ResourceStatus `json:"items"`

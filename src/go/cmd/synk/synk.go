@@ -72,9 +72,6 @@ func apply(name string) error {
 		return err
 	}
 	filenameOpts := resourceOpts.FileNameFlags.ToOptions()
-	//if err := filenameOpts.RequireFilenameOrKustomize(); err != nil {
-	//	return err
-	//}
 
 	result := resource.NewBuilder(restOpts).
 		Unstructured().
