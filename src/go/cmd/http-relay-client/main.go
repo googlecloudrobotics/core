@@ -31,9 +31,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"time"
-
 	pb "src/proto/http-relay"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
@@ -41,10 +40,11 @@ import (
 )
 
 const (
-	// This timeout covers the total time of the HTTP request, including
-	// e.g. watches or "kubectl logs -f". We only use this timeout to
-	// protect the resources of the relay client.
-	backendRequestTimeout = 60 * time.Minute
+	// When streaming response data to the client (eg `kubectl logs -f`), we
+	// accumulate data to avoid sending too many requests to the relay-server.
+	// responseTimeout specifies how long to accumulate before sending response
+	// data. It is part of the round-trip latency when using `kubectl exec`.
+	responseTimeout = 100 * time.Millisecond
 )
 
 var (
@@ -140,7 +140,7 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 		return nil, nil, err
 	}
 
-	log.Printf("Backend responsed with %d to %s", resp.StatusCode, id)
+	log.Printf("Backend responded with %d to %s", resp.StatusCode, id)
 	return &pb.HttpResponse{
 		Id:         proto.String(id),
 		StatusCode: proto.Int32(int32(resp.StatusCode)),
@@ -235,29 +235,99 @@ ResponseLoop:
 	close(out)
 }
 
+// postErrorResponse resolves the client's request in case of an internal error.
+// This is not strictly necessary, but avoids kubectl hanging in such cases. As
+// this is best-effort, errors posting the response are logged and ignored.
+func postErrorResponse(remote *http.Client, req *pb.HttpRequest, message string) {
+	resp := &pb.HttpResponse{
+		Id:         req.Id,
+		StatusCode: proto.Int32(http.StatusInternalServerError),
+		Header: []*pb.HttpHeader{{
+			Name:  proto.String("Content-Type"),
+			Value: proto.String("text/plain"),
+		}},
+		Body: []byte(message),
+		Eof:  proto.Bool(true),
+	}
+	if err := postResponse(remote, resp); err != nil {
+		log.Printf("Failed to post error response for %s to relay: %v", *resp.Id, err)
+	}
+}
+
+// streamToBackend streams data from the client (eg kubectl) to the
+// backend. For example, when using `kubectl exec` this handles stdin.
+// It fails permanently and closes the backend connection on any failure, as
+// the relay-server doesn't have sufficiently advanced flow control to recover
+// from dropped/duplicate "packets".
+func streamToBackend(remote *http.Client, req *pb.HttpRequest, backendWriter io.WriteCloser) {
+	// Close the backend connection on stream failure. This should cause the
+	// response stream to end and prevent the client from hanging in the case
+	// of an error in the request stream.
+	defer backendWriter.Close()
+
+	streamURL := (&url.URL{
+		Scheme:   *relayScheme,
+		Host:     *relayAddress,
+		Path:     *relayPrefix + "/server/requeststream",
+		RawQuery: "id=" + *req.Id,
+	}).String()
+	for {
+		// Get data from the "request stream", then copy it to the backend.
+		resp, err := remote.Post(streamURL, "text/plain", http.NoBody)
+		if err != nil {
+			// TODO(rodrigoq): detect transient failure and retry w/ backoff?
+			log.Printf("Failed to get request stream for %s: %v", *req.Id, err)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusGone {
+			log.Printf("End of request stream for %s", *req.Id)
+			return
+		} else if resp.StatusCode != http.StatusOK {
+			msg, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				msg = []byte(fmt.Sprintf("<failed to read response body: %v>", err))
+			}
+			log.Printf("Relay server request stream responded %s: %s", http.StatusText(resp.StatusCode), msg)
+			return
+		}
+		if n, err := io.Copy(backendWriter, resp.Body); err != nil {
+			log.Printf("Failed to write to backend for %s: %v", *req.Id, err)
+			return
+		} else {
+			log.Printf("Wrote %d bytes to request stream for %s", n, *req.Id)
+		}
+	}
+}
+
 func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest) {
 	resp, body, err := makeBackendRequest(local, req)
 	if err != nil {
 		// Even if we couldn't handle the backend request, send an
 		// answer to the relay that signals the error.
 		log.Printf("Backend request failed, reporting this to the relay: %v", err)
-		resp = &pb.HttpResponse{
-			Id:         req.Id,
-			StatusCode: proto.Int32(http.StatusInternalServerError),
-			Header: []*pb.HttpHeader{{
-				Name:  proto.String("Content-Type"),
-				Value: proto.String("text/plain"),
-			}},
-			Body: []byte(fmt.Sprintf("Unable to reach backend: %v", err)),
-			Eof:  proto.Bool(true),
-		}
+		postErrorResponse(remote, req, fmt.Sprintf("Unable to reach backend: %v", err))
 		return
+	}
+
+	if *resp.StatusCode == http.StatusSwitchingProtocols {
+		// A 101 Switching Protocols response means that the request will be
+		// used for bidirectional streaming, so start a goroutine to stream
+		// from client to backend.
+		bodyWriter, ok := body.(io.ReadWriteCloser)
+		if !ok {
+			log.Printf("Error: 101 Switching Protocols response with non-writable body.")
+			log.Printf("       This occurs when using Go <1.12 or when http.Client.Timeout > 0.")
+			postErrorResponse(remote, req, "Backend returned 101 Switching Protocols, which is not supported.")
+			return
+		}
+		go streamToBackend(remote, req, bodyWriter)
 	}
 
 	bodyChannel := make(chan []byte)
 	responseChannel := make(chan *pb.HttpResponse)
 	go streamBytes(body, bodyChannel)
-	go buildResponses(bodyChannel, resp, responseChannel, 500*time.Millisecond)
+	go buildResponses(bodyChannel, resp, responseChannel, responseTimeout)
 
 	for resp := range responseChannel {
 		for attempts := 0; attempts < 10; attempts += 1 {
@@ -302,7 +372,9 @@ func main() {
 		}
 		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 	}
-	local := &http.Client{Timeout: backendRequestTimeout, Transport: transport}
+	// TODO(https://github.com/golang/go/issues/31391): reimplement timeouts if possible
+	// (see also https://github.com/golang/go/issues/30876)
+	local := &http.Client{Transport: transport}
 	for {
 		err := localProxy(remote, local)
 		if err != nil {

@@ -17,10 +17,9 @@ package main
 import (
 	"fmt"
 	"log"
+	pb "src/proto/http-relay"
 	"sync"
 	"time"
-
-	pb "src/proto/http-relay"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -48,8 +47,9 @@ func init() {
 }
 
 type pendingRequest struct {
-	C            chan *pb.HttpResponse
-	lastActivity time.Time
+	requestStream  chan []byte
+	responseStream chan *pb.HttpResponse
+	lastActivity   time.Time
 }
 
 // broker implements a thread-safe map for the request and response queues.
@@ -79,11 +79,12 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 		return nil, fmt.Errorf("Multiple clients trying to handle request ID %s", id)
 	}
 	r.resp[id] = &pendingRequest{
-		C:            make(chan *pb.HttpResponse),
-		lastActivity: time.Now(),
+		requestStream:  make(chan []byte),
+		responseStream: make(chan *pb.HttpResponse),
+		lastActivity:   time.Now(),
 	}
 	reqChan := r.req[server]
-	respChan := r.resp[id].C
+	respChan := r.resp[id].responseStream
 	r.m.Unlock()
 
 	log.Printf("Enqueuing request %s for %s", id, server)
@@ -117,6 +118,42 @@ func (r *broker) GetRequest(server string) (*pb.HttpRequest, error) {
 	}
 }
 
+// GetRequestStream gets data from the stream that follows a client's HTTP
+// request. For example, when using `kubectl exec` this passes stdin data from
+// the broker to the relay client.
+// If no ongoing request matches the given ID, this returns ok=false.
+func (r *broker) GetRequestStream(id string) ([]byte, bool) {
+	r.m.Lock()
+	pr := r.resp[id]
+	r.m.Unlock()
+	if pr == nil {
+		return nil, false
+	}
+
+	select {
+	case req := <-pr.requestStream:
+		return req, true
+	case <-time.After(time.Second * 30):
+		return []byte{}, true
+	}
+}
+
+// PutsRequestStream adds data from the stream that follows a client's HTTP
+// request. For example, when using `kubectl exec` this passes stdin data from
+// kubectl to the broker.
+// If no ongoing request matches the given ID, this returns ok=false.
+func (r *broker) PutRequestStream(id string, data []byte) bool {
+	r.m.Lock()
+	pr := r.resp[id]
+	r.m.Unlock()
+	if pr == nil {
+		return false
+	}
+
+	pr.requestStream <- data
+	return true
+}
+
 // SendResponse delivers the HttpResponse to the client handler that created the
 // request.
 func (r *broker) SendResponse(resp *pb.HttpResponse) error {
@@ -136,27 +173,24 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	r.m.Unlock()
 	brokerRequests.WithLabelValues("server_response").Inc()
 	log.Printf("Delivering response %s to client", id)
-	pr.C <- resp
+	pr.responseStream <- resp
 	if resp.GetEof() {
-		close(pr.C)
+		close(pr.responseStream)
 	}
 	brokerResponses.WithLabelValues("server_response", "ok").Inc()
 	return nil
 }
 
 func (r *broker) ReapInactiveRequests(threshold time.Time) {
-	chans := []chan *pb.HttpResponse{}
 	r.m.Lock()
 	for key, value := range r.resp {
 		if value.lastActivity.Before(threshold) {
 			log.Printf("Timeout on inactive request %s", key)
-			chans = append(chans, value.C)
+			defer close(value.requestStream)
+			defer close(value.responseStream)
 			// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop
 			delete(r.resp, key)
 		}
 	}
 	r.m.Unlock()
-	for _, c := range chans {
-		close(c)
-	}
 }
