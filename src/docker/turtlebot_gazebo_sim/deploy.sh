@@ -14,6 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO(ensonic): make reusable
+# - move to scripts and pass the directory-name as $1
+# - use directory-name as a base image name,
+#   requires some renaming since we have:
+#            dir: turtlebot_gazebo_sim
+#    ros-package: turtlebot_gazebo_headless
+#   docker-image: turtlebot3-gazebo-headless
+
+# TODO(ensonic): for development it would be nice to just run 'build' without 'release'
+
 set -o pipefail -o errexit
 
 if [[ "$#" -lt 1 ]]; then
@@ -27,12 +37,20 @@ IMAGE_NAME="turtlebot3-gazebo-headless/${GIT_SHA}"
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-docker build \
-  -t "${IMAGE_NAME}" \
-  -t "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/${IMAGE_NAME}" \
-  ${DIR}
-docker push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/${IMAGE_NAME}"
+function build {
+  docker build \
+    -t "${IMAGE_NAME}" \
+    -t "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/${IMAGE_NAME}" \
+    ${DIR}
+}
 
-IMAGE_DIGEST=$(docker image inspect "${IMAGE_NAME}" --format "{{.ID}}")
-echo
-echo "Image ${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/${IMAGE_NAME} released as ${IMAGE_DIGEST}"
+function release {
+  docker push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/${IMAGE_NAME}"
+
+  IMAGE_DIGEST=$(docker image inspect "${IMAGE_NAME}" --format "{{.ID}}")
+  echo
+  echo "Image ${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/${IMAGE_NAME} released as ${IMAGE_DIGEST}"
+}
+
+build
+release
