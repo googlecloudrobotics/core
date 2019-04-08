@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["synk.go"],
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/synk",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/go/pkg/synk:go_default_library",
+        "@com_github_pkg_errors//:go_default_library",
+        "@com_github_spf13_cobra//:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
+        "@io_k8s_cli_runtime//pkg/genericclioptions:go_default_library",
+        "@io_k8s_cli_runtime//pkg/genericclioptions/resource:go_default_library",
+        "@io_k8s_client_go//plugin/pkg/client/auth:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "synk",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
