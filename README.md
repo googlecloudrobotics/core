@@ -9,6 +9,8 @@ integrators, and operators. It enables:
 * secure, bidirectional robot-cloud communication
 * easy access to Google Cloud services such as ML, logging, and monitoring.
 
+![Cloud Robotics Core overview](docs/cloud-robotics-core-overview.png)
+
 Cloud Robotics Core is open source and pre-alpha. Support is currently limited
 to a small set of early access partners. We will gladly accept contributions
 and feedback, but we are making no stability or support guarantees at this

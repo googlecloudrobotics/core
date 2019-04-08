@@ -7,6 +7,8 @@ integrators, and operators. It enables:
 * secure, bidirectional robot-cloud communication
 * easy access to Google Cloud services such as ML, logging, and monitoring.
 
+![Cloud Robotics Core overview](cloud-robotics-core-overview.png)
+
 ### Documentation
 
 * [Quickstart](quickstart.md): Set up Cloud Robotics from binaries.
