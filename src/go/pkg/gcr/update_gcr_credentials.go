@@ -99,7 +99,6 @@ func UpdateGcrCredentials(k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) 
 			continue
 		}
 		namespace := ns.ObjectMeta.Name
-		// TODO(ensonic): do this for all namespaces (that have a 'gcr-json-key'), always do it for 'default'
 
 		// Create a docker config with the access-token and store as secret
 		err = kubeutils.UpdateSecret(k8s, SecretName, namespace, corev1.SecretTypeDockercfg,
