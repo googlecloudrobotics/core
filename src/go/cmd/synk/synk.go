@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	"github.com/pkg/errors"
@@ -25,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
+	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
@@ -74,7 +76,8 @@ func apply(name string) error {
 	filenameOpts := resourceOpts.FileNameFlags.ToOptions()
 
 	result := resource.NewBuilder(restOpts).
-		Unstructured().
+		ContinueOnError().
+		Unstructured(). // Must be at the top.
 		NamespaceParam(namespace).
 		DefaultNamespace().
 		FilenameParam(enforceNamespace, &filenameOpts).
@@ -84,6 +87,16 @@ func apply(name string) error {
 	if result.Err() != nil {
 		return errors.Wrap(result.Err(), "get files")
 	}
+	// The iterator checks whether a resource Kind is available at the server.
+	// We want to ignore those errors as synk handles CRD installation.
+	// Setting Local() in the builder also prevents this but also disables
+	// namespace defaulting.
+	// TODO: namespace defaulting also breaks for new CRs. Pull this directly
+	// into synk.
+	result.IgnoreErrors(func(err error) bool {
+		return strings.Contains(err.Error(), "no matches for kind")
+	})
+
 	infos, err := result.Infos()
 	if err != nil {
 		return errors.Wrap(err, "get file information")
@@ -97,12 +110,18 @@ func apply(name string) error {
 	if err != nil {
 		return errors.Wrap(err, "get config")
 	}
-	k, err := synk.New(restcfg)
+	discovery, err := restOpts.ToDiscoveryClient()
 	if err != nil {
-		return errors.Wrap(err, "setup client")
+		return errors.Wrap(err, "get discovery client")
 	}
+	client, err := dynamic.NewForConfig(restcfg)
+	if err != nil {
+		return errors.Wrap(err, "create dynamic client")
+	}
+	s := synk.New(client, discovery)
+
 	opts := &synk.ApplyOptions{}
-	if _, err := k.Apply(context.Background(), name, opts, resources...); err != nil {
+	if _, err := s.Apply(context.Background(), name, opts, resources...); err != nil {
 		return errors.Wrap(err, "apply files")
 	}
 	return nil

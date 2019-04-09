@@ -54,14 +54,14 @@ type ResourceSetStatus struct {
 }
 
 type ResourceSetSpecGroup struct {
-	Group   string        `json:"group,omitempty"`
+	Group   string        `json:"group,omitempty"` // Is empty for core APIs.
 	Version string        `json:"version"`
 	Kind    string        `json:"kind"`
 	Items   []ResourceRef `json:"items"`
 }
 
 type ResourceSetStatusGroup struct {
-	Group   string           `json:"group,omitempty"`
+	Group   string           `json:"group,omitempty"` // Is empty for core APIs.
 	Version string           `json:"version"`
 	Kind    string           `json:"kind"`
 	Items   []ResourceStatus `json:"items"`
