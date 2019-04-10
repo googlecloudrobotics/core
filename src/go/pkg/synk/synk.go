@@ -81,7 +81,10 @@ func (s *Synk) Apply(
 	if err != nil {
 		return rs, err
 	}
-	err = s.applyAll(rs, opts, resources...)
+	if err := s.applyAll(rs, opts, resources...); err != nil {
+		return rs, err
+	}
+	err = s.deleteResourceSets(opts.name, opts.version)
 	return rs, err
 }
 
@@ -326,6 +329,30 @@ func (s *Synk) createResourceSet(rs *apps.ResourceSet) error {
 		return err
 	}
 	return convert(res, rs)
+}
+
+// deleteResourceSets deletes all ResourceSets of the given name that have a lower version.
+func (s *Synk) deleteResourceSets(name string, version int32) error {
+	c := s.client.Resource(resourceSetGVR)
+
+	list, err := c.List(metav1.ListOptions{})
+	if err != nil {
+		return errors.Wrap(err, "list existing resources")
+	}
+	for _, r := range list.Items {
+		n, v, ok := decodeResourceSetName(r.GetName())
+		if !ok || n != name || v >= version {
+			continue
+		}
+		// TODO: should we possibly opt for foreground deletion here so
+		// we only return after all dependents have been deleted as well?
+		// kubectl doesn't allow to opt into foreground deletion in general but
+		// here it would likely bring us closer to the apply --prune semantics.
+		if err := c.Delete(r.GetName(), nil); err != nil {
+			return errors.Wrapf(err, "delete ResourceSet %q", r.GetName())
+		}
+	}
+	return nil
 }
 
 // next returns the next version for the resources name.

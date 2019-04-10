@@ -169,6 +169,29 @@ func TestSynk_applyAll(t *testing.T) {
 	f.verifyWriteActions()
 }
 
+func TestSynk_deleteResourceSets(t *testing.T) {
+	f := newFixture(t)
+	f.addObjects(
+		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "test.v2"),
+		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "bad_name"),
+		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "other.v3"),
+		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "test.v4"),
+		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "test.v7"),
+		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "test.v8"),
+	)
+	synk := f.newSynk()
+
+	err := synk.deleteResourceSets("test", 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.expectActions(
+		k8stest.NewRootDeleteAction(resourceSetGVR, "test.v2"),
+		k8stest.NewRootDeleteAction(resourceSetGVR, "test.v4"),
+	)
+	f.verifyWriteActions()
+}
+
 func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
 	var u unstructured.Unstructured
 	u.SetAPIVersion(apiVersion)
