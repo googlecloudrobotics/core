@@ -28,6 +28,7 @@ import (
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -35,9 +36,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
+	"k8s.io/apimachinery/pkg/util/mergepatch"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/restmapper"
 )
 
@@ -91,26 +97,6 @@ func (s *Synk) Apply(
 	if err := s.deleteResourceSets(opts.name, opts.version); err != nil {
 		return rs, err
 	}
-	// The overall error we return is a transient error if all resource errors
-	// are transient. If there's at least one permanent failure, retrying
-	// will never make Apply overall successful.
-	allTransient := true
-	numErrors := 0
-	for _, r := range results {
-		if err != nil {
-			numErrors++
-		}
-		if !IsTransientErr(r.err) {
-			allTransient = false
-		}
-	}
-	if numErrors == 0 {
-		return rs, nil
-	}
-	err = errors.Errorf("%d/%d resources failed to apply", numErrors, len(results))
-	if allTransient {
-		err = transientErr{err}
-	}
 	return rs, err
 }
 
@@ -120,9 +106,32 @@ type transientErr struct {
 
 // IsTransientErr returns true if the error may resolve by retrying the operation.
 func IsTransientErr(err error) bool {
+	// Either a custom error is specifically wrapped in transientErr or the innermost
+	// error is a known transient Kubernetes API error.
 	_, ok1 := err.(transientErr)
 	_, ok2 := err.(*transientErr)
-	return ok1 || ok2
+	if ok1 || ok2 {
+		return true
+	}
+	err = errors.Cause(err)
+	switch {
+	// May happen on resourceVersion mismatches or patch conflicts.
+	case k8serrors.IsConflict(err):
+	case k8serrors.IsResourceExpired(err):
+	// May happen if a created object has already been created.
+	case k8serrors.IsAlreadyExists(err):
+	// May happen if a patched resource has already been deleted.
+	case k8serrors.IsNotFound(err):
+	case k8serrors.IsGone(err):
+	// Server-side transient errors.
+	case k8serrors.IsServerTimeout(err):
+	case k8serrors.IsTimeout(err):
+	case k8serrors.IsTooManyRequests(err):
+	case k8serrors.IsServiceUnavailable(err):
+	default:
+		return false
+	}
+	return true
 }
 
 func (s *Synk) applyAll(
@@ -141,7 +150,7 @@ func (s *Synk) applyAll(
 	for _, crd := range crds {
 		// CRDs must never be replaced as deleting them will delete
 		// all its current instances. Update conflicts must be resolved manually.
-		action, err := s.applyOne(rs, crd, false)
+		action, err := s.applyOne(crd)
 		results.set(crd, action, err)
 	}
 	err := wait.PollImmediate(2*time.Second, 2*time.Minute, func() (bool, error) {
@@ -166,10 +175,10 @@ func (s *Synk) applyAll(
 		for _, r := range regulars {
 			// Don't retry resources that were applied successfully
 			// in the first iteration.
-			if results.failed(r) {
+			if i > 0 && !results.failed(r) {
 				continue
 			}
-			action, err := s.applyOne(rs, r, true)
+			action, err := s.applyOne(r)
 			if err != nil {
 				curFailures++
 			}
@@ -180,7 +189,27 @@ func (s *Synk) applyAll(
 		}
 		prevFailures = curFailures
 	}
-	return results, nil
+	// The overall error we return is a transient error if all resource errors
+	// are transient. If there's at least one permanent failure, retrying
+	// will never make Apply overall successful.
+	allTransient := true
+	numErrors := 0
+	for _, r := range results {
+		if r.err != nil {
+			if !IsTransientErr(r.err) {
+				allTransient = false
+			}
+			numErrors++
+		}
+	}
+	if numErrors == 0 {
+		return results, nil
+	}
+	err = errors.Errorf("%d/%d resources failed to apply", numErrors, len(results))
+	if allTransient {
+		err = transientErr{err}
+	}
+	return results, err
 }
 
 // initialize a new ResourceSet version for the given name and prepare resources
@@ -246,11 +275,29 @@ func (s *Synk) initialize(
 	return &rs, resources, nil
 }
 
-func (s *Synk) applyOne(
-	rs *apps.ResourceSet,
-	resource *unstructured.Unstructured,
-	replace bool,
-) (apps.ResourceAction, error) {
+func setAppliedAnnotation(u *unstructured.Unstructured) error {
+	anns := u.GetAnnotations()
+	if anns == nil {
+		anns = map[string]string{}
+	}
+	// Delete any potential pre-existing annotation.
+	delete(anns, corev1.LastAppliedConfigAnnotation)
+	u.SetAnnotations(anns)
+
+	b, err := u.MarshalJSON()
+	if err != nil {
+		return err
+	}
+	anns[corev1.LastAppliedConfigAnnotation] = string(b)
+	u.SetAnnotations(anns)
+	return nil
+}
+
+func getAppliedAnnotation(u *unstructured.Unstructured) []byte {
+	return []byte(u.GetAnnotations()[corev1.LastAppliedConfigAnnotation])
+}
+
+func (s *Synk) applyOne(resource *unstructured.Unstructured) (apps.ResourceAction, error) {
 	// If name is unset, we'd retrieve a list below and panic.
 	// TODO: This may be valid if generateName is set instead. In this case we
 	// want to create the resource in any case.
@@ -273,38 +320,89 @@ func (s *Synk) applyOne(
 		client = s.client.Resource(mapping.Resource).Namespace(resource.GetNamespace())
 	}
 
-	// Always try creating a resource first.
-	prev, err := client.Get(resource.GetName(), metav1.GetOptions{})
+	setAppliedAnnotation(resource)
+
+	// Create the resource if it doesn't exist yet.
+	current, err := client.Get(resource.GetName(), metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		if _, err := client.Create(resource, metav1.CreateOptions{}); err != nil {
+		res, err := client.Create(resource, metav1.CreateOptions{})
+		if err != nil {
 			return apps.ResourceActionCreate, errors.Wrap(err, "create resource")
 		}
+		*resource = *res
 		return apps.ResourceActionCreate, nil
 	} else if err != nil {
 		return apps.ResourceActionNone, errors.Wrap(err, "get resource")
 	}
-	// Try to update.
-	resource.SetResourceVersion(prev.GetResourceVersion())
+	// TODO: handle owner reference injection here and detect conflicts
+	// with the existing version.
 
-	// TODO(freinartz): use patches.
-	// TODO(freinartz): verify ownerReference conflicts here.
-	if _, err = client.Update(resource, metav1.UpdateOptions{}); err == nil {
-		return apps.ResourceActionUpdate, nil
-	} else if !replace {
-		return apps.ResourceActionUpdate, errors.Wrap(err, "update resource")
+	// Try to patch it.
+	currentRaw, err := current.MarshalJSON()
+	if err != nil {
+		return apps.ResourceActionNone, err
 	}
-	// Force update by deleting and re-creating resource. Ideally we'd only
-	// do this for errors we know can be fixed by retrying. But admission validation
-	// may return any status it wants, e.g. for service updates an Invalid
-	// status is returned, which is also used for errors that will make create fail.
-	if err := client.Delete(prev.GetName(), &metav1.DeleteOptions{}); err != nil {
-		return apps.ResourceActionReplace, errors.Wrap(err, "delete resource")
+	resourceRaw, err := resource.MarshalJSON()
+	if err != nil {
+		return apps.ResourceActionNone, err
 	}
-	resource.SetResourceVersion("")
-	if _, err := client.Create(resource, metav1.CreateOptions{}); err != nil {
-		return apps.ResourceActionReplace, errors.Wrap(err, "create resource")
+	originalRaw := getAppliedAnnotation(current)
+
+	var (
+		patchType types.PatchType
+		patch     []byte
+	)
+	obj, err := scheme.Scheme.New(mapping.GroupVersionKind)
+	if err == nil {
+		// TODO: add option to dynamically load patch meta from discovery API
+		// for full kubectl compatibility.
+		patchMeta, err := strategicpatch.NewPatchMetaFromStruct(obj)
+		if err != nil {
+			return apps.ResourceActionNone, errors.Wrap(err, "lookup patch meta")
+		}
+		// TODO: Make overwrite boolean configurable for full kubectl compatibility.
+		patch, err = strategicpatch.CreateThreeWayMergePatch(
+			originalRaw, resourceRaw, currentRaw,
+			patchMeta, true,
+		)
+		if err != nil {
+			return apps.ResourceActionNone, errors.Wrap(err, "create strategic-merge-patch")
+		}
+		patchType = types.StrategicMergePatchType
+
+	} else if runtime.IsNotRegisteredError(err) {
+		patch, err = jsonmergepatch.CreateThreeWayJSONMergePatch(
+			originalRaw, resourceRaw, currentRaw,
+			mergepatch.RequireKeyUnchanged("apiVersion"),
+			mergepatch.RequireKeyUnchanged("kind"),
+			mergepatch.RequireMetadataKeyUnchanged("name"),
+		)
+		if err != nil {
+			return apps.ResourceActionNone, errors.Wrap(err, "create json-merge-patch")
+		}
+		patchType = types.MergePatchType
+	} else {
+		return apps.ResourceActionNone, errors.Wrap(err, "instantiate object")
 	}
-	return apps.ResourceActionReplace, nil
+	// As the ownerReference is bumped, the patch will never be empty
+	// and we cannot skip it.
+
+	// CL https://github.com/kubernetes/kubernetes/pull/71156
+	// added an option to fix a patch against a specific resourceVersion.
+	// However, it isn't used anywhere in kubectl apply itself. Thus we don't do it here either.
+	// Additionally the CL doesn't seem to implement valid behavior as the patch
+	// retries will not update to a new resourceVersion and the failure would persist.
+
+	res, err := client.Patch(resource.GetName(), patchType, patch, metav1.UpdateOptions{})
+	if err != nil {
+		return apps.ResourceActionUpdate, errors.Wrap(err, "apply patch")
+	}
+	*resource = *res
+
+	// TODO: kubectl additionally provides a --force flag to do replacement
+	// on failing patches. Let's first analyze some of these cases as patches
+	// handle the ones we know from update errors.
+	return apps.ResourceActionUpdate, nil
 }
 
 func (s *Synk) crdAvailable(ucrd *unstructured.Unstructured) (bool, error) {

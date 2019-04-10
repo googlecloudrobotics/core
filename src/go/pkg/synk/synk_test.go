@@ -15,17 +15,20 @@
 package synk
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta/testrestmapper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -54,11 +57,14 @@ func newFixture(t *testing.T) *fixture {
 }
 
 func (f *fixture) newSynk() *Synk {
+	sc := runtime.NewScheme()
+	scheme.AddToScheme(sc)
+	apps.AddToScheme(sc) // For tests with CRDs.
 	var (
-		client = dynamicfake.NewSimpleDynamicClient(scheme.Scheme, f.objects...)
+		client = dynamicfake.NewSimpleDynamicClient(sc, f.objects...)
 		s      = New(client, &fakeCachedDiscoveryClient{})
 	)
-	s.mapper = testrestmapper.TestOnlyStaticRESTMapper(scheme.Scheme)
+	s.mapper = testrestmapper.TestOnlyStaticRESTMapper(sc)
 	f.fake = &client.Fake
 	return s
 }
@@ -102,7 +108,8 @@ func TestSynk_initialize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := unmarshalUnstructured(t, `
+	var want unstructured.Unstructured
+	unmarshalYAML(t, &want, `
 apiVersion: apps.cloudrobotics.com/v1alpha1
 kind: ResourceSet
 metadata:
@@ -177,7 +184,8 @@ func TestSynk_updateResourceSetStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := unmarshalUnstructured(t, `
+	var want unstructured.Unstructured
+	unmarshalYAML(t, &want, `
 apiVersion: apps.cloudrobotics.com/v1alpha1
 kind: ResourceSet
 metadata:
@@ -228,27 +236,68 @@ status:
 var gvrs = map[string]schema.GroupVersionResource{
 	"configmaps":  {Version: "v1", Resource: "configmaps"},
 	"deployments": {Group: "apps", Version: "v1", Resource: "deployments"},
+	"approllouts": {Group: "apps.cloudrobotics.com", Version: "v1alpha1", Resource: "approllouts"},
 }
 
 func TestSynk_applyAll(t *testing.T) {
-	cm1 := newUnstructured("v1", "ConfigMap", "foo1", "cm1")
-	cm2 := newUnstructured("v1", "ConfigMap", "foo1", "cm2")
-	dp1 := newUnstructured("apps/v1", "Deployment", "foo2", "dp1")
-
+	// We have to use properly typed objects for strategic-merge-patch targets
+	// as the patch operation will fail otherwise.
+	var cmBefore, cmUpdate corev1.ConfigMap
+	unmarshalYAML(t, &cmBefore, `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: foo1
+  name: cm1
+data:
+  foo1: bar1
+  foo2: bar2`)
 	f := newFixture(t)
 	// cm1 already exists beforehand, so we expect an update.
-	f.addObjects(cm1)
+	f.addObjects(&cmBefore)
 
-	synk := f.newSynk()
+	deploy := newUnstructured("apps/v1", "Deployment", "foo2", "dp1")
 
-	_, err := synk.applyAll(&apps.ResourceSet{}, &ApplyOptions{name: "test"}, cm1, cm2, dp1)
+	unmarshalYAML(t, &cmUpdate, `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: foo1
+  name: cm1
+data:
+  foo2: baz2
+  foo3: bar3`)
+	// Support for a standard merge-patch was only added to the client-go testing
+	// mock as of kubernetes-1.14.0, which we cannot upgrade to yet.
+	// Thus we cannot valid the standard merge patch type for CRDs yet.
+	var rollout apps.AppRollout
+	unmarshalYAML(t, &rollout, `
+apiVersion: apps.cloudrobotics.com/v1alpha1
+kind: AppRollout
+metadata:
+  namespace: foo1
+  name: rollout1`)
+
+	_, err := f.newSynk().applyAll(&apps.ResourceSet{}, &ApplyOptions{name: "test"},
+		toUnstructured(t, &cmUpdate),
+		toUnstructured(t, &rollout),
+		deploy,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	rolloutU := toUnstructured(t, &rollout)
+	deploy = deploy.DeepCopy()
+	setAppliedAnnotation(rolloutU)
+	setAppliedAnnotation(deploy)
+
+	cmPatch := []byte(`{"data":{"foo2":"baz2","foo3":"bar3"},"metadata":{"annotations":{"kubectl.kubernetes.io/last-applied-configuration":"{\"apiVersion\":\"v1\",\"data\":{\"foo2\":\"baz2\",\"foo3\":\"bar3\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":{},\"creationTimestamp\":null,\"name\":\"cm1\",\"namespace\":\"foo1\"}}\n"}}}`)
+
 	f.expectActions(
-		k8stest.NewUpdateAction(gvrs["configmaps"], "foo1", cm1),
-		k8stest.NewCreateAction(gvrs["configmaps"], "foo1", cm2),
-		k8stest.NewCreateAction(gvrs["deployments"], "foo2", dp1),
+		k8stest.NewPatchAction(gvrs["configmaps"], "foo1", "cm1", types.StrategicMergePatchType, cmPatch),
+		k8stest.NewCreateAction(gvrs["approllouts"], "foo1", rolloutU),
+		k8stest.NewCreateAction(gvrs["deployments"], "foo2", deploy),
 	)
 	f.verifyWriteActions()
 }
@@ -285,9 +334,16 @@ func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Uns
 	return &u
 }
 
-func unmarshalUnstructured(t *testing.T, s string) *unstructured.Unstructured {
+func unmarshalYAML(t *testing.T, v interface{}, s string) {
+	t.Helper()
+	if err := yaml.Unmarshal([]byte(strings.TrimSpace(s)), v); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func toUnstructured(t *testing.T, o runtime.Object) *unstructured.Unstructured {
 	var u unstructured.Unstructured
-	if err := yaml.Unmarshal([]byte(s), &u.Object); err != nil {
+	if err := convert(o, &u); err != nil {
 		t.Fatal(err)
 	}
 	return &u
@@ -313,6 +369,8 @@ func sprintAction(a k8stest.Action) string {
 		return fmt.Sprintf("CREATE %s/%s %s/%s: %v", v.Resource, v.Subresource, v.Namespace, v.Name, v.Object.(*unstructured.Unstructured))
 	case k8stest.UpdateActionImpl:
 		return fmt.Sprintf("UPDATE %s/%s %s: %v", v.Resource, v.Subresource, v.Namespace, v.Object.(*unstructured.Unstructured))
+	case k8stest.PatchActionImpl:
+		return fmt.Sprintf("PATCH %s/%s %s/%s: %s %s", v.Resource, v.Subresource, v.Namespace, v.Name, v.PatchType, v.Patch)
 	default:
 		return fmt.Sprintf("<UNKNOWN ACTION %T>", a)
 	}
