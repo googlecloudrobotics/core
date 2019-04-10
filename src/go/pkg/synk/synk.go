@@ -81,23 +81,56 @@ func (s *Synk) Apply(
 	if err != nil {
 		return rs, err
 	}
-	if err := s.applyAll(rs, opts, resources...); err != nil {
+	results, err := s.applyAll(rs, opts, resources...)
+	if err != nil {
 		return rs, err
 	}
-	err = s.deleteResourceSets(opts.name, opts.version)
+	if err := s.updateResourceSetStatus(rs, results); err != nil {
+		return rs, err
+	}
+	if err := s.deleteResourceSets(opts.name, opts.version); err != nil {
+		return rs, err
+	}
+	// The overall error we return is a transient error if all resource errors
+	// are transient. If there's at least one permanent failure, retrying
+	// will never make Apply overall successful.
+	allTransient := true
+	numErrors := 0
+	for _, r := range results {
+		if err != nil {
+			numErrors++
+		}
+		if !IsTransientErr(r.err) {
+			allTransient = false
+		}
+	}
+	if numErrors == 0 {
+		return rs, nil
+	}
+	err = errors.Errorf("%d/%d resources failed to apply", numErrors, len(results))
+	if allTransient {
+		err = transientErr{err}
+	}
 	return rs, err
 }
 
-func (s *Synk) applyAll(rs *apps.ResourceSet, opts *ApplyOptions, resources ...*unstructured.Unstructured) error {
-	// Initialize status for all resources.
-	status := map[string]*apps.ResourceStatus{}
-	for _, r := range resources {
-		status[resourceKey(r)] = &apps.ResourceStatus{
-			Namespace: r.GetNamespace(),
-			Name:      r.GetName(),
-			Action:    apps.ResourceActionNone,
-		}
-	}
+type transientErr struct {
+	error
+}
+
+// IsTransientErr returns true if the error may resolve by retrying the operation.
+func IsTransientErr(err error) bool {
+	_, ok1 := err.(transientErr)
+	_, ok2 := err.(*transientErr)
+	return ok1 || ok2
+}
+
+func (s *Synk) applyAll(
+	rs *apps.ResourceSet,
+	opts *ApplyOptions,
+	resources ...*unstructured.Unstructured,
+) (applyResults, error) {
+	results := applyResults{}
 
 	regulars := filter(resources, func(r *unstructured.Unstructured) bool {
 		return !isCustomResourceDefinition(r)
@@ -106,16 +139,10 @@ func (s *Synk) applyAll(rs *apps.ResourceSet, opts *ApplyOptions, resources ...*
 
 	// Insert CRDs and wait for them to become available.
 	for _, crd := range crds {
-		st := status[resourceKey(crd)]
 		// CRDs must never be replaced as deleting them will delete
 		// all its current instances. Update conflicts must be resolved manually.
 		action, err := s.applyOne(rs, crd, false)
-		if err != nil {
-			st.Error = err.Error()
-		} else {
-			st.Error = ""
-		}
-		st.Action = action
+		results.set(crd, action, err)
 	}
 	err := wait.PollImmediate(2*time.Second, 2*time.Minute, func() (bool, error) {
 		for _, crd := range crds {
@@ -126,8 +153,7 @@ func (s *Synk) applyAll(rs *apps.ResourceSet, opts *ApplyOptions, resources ...*
 		return true, nil
 	})
 	if err != nil {
-		// TODO: update status.
-		return errors.Wrap(err, "wait for CRDs")
+		return results, errors.Wrap(err, "wait for CRDs")
 	}
 
 	// Try applying until the errors stay the same between iterations. Put in
@@ -138,29 +164,23 @@ func (s *Synk) applyAll(rs *apps.ResourceSet, opts *ApplyOptions, resources ...*
 		curFailures := 0
 
 		for _, r := range regulars {
-			st := status[resourceKey(r)]
 			// Don't retry resources that were applied successfully
 			// in the first iteration.
-			if i > 0 && st.Error == "" {
+			if results.failed(r) {
 				continue
 			}
 			action, err := s.applyOne(rs, r, true)
 			if err != nil {
 				curFailures++
-				st.Error = err.Error()
-			} else {
-				st.Error = ""
 			}
-			st.Action = action
+			results.set(r, action, err)
 		}
 		if curFailures == 0 || curFailures == prevFailures {
 			break
 		}
 		prevFailures = curFailures
 	}
-	// TODO: update status.
-	// TODO: cleanup old ResourceSet versions.
-	return nil
+	return results, nil
 }
 
 // initialize a new ResourceSet version for the given name and prepare resources
@@ -204,7 +224,7 @@ func (s *Synk) initialize(
 	}
 	sort.Slice(rs.Spec.Resources, func(i, j int) bool {
 		a, b := rs.Spec.Resources[i], rs.Spec.Resources[j]
-		return fmt.Sprintf("%s/%s/%s", a.Group, a.Version, a.Kind) < fmt.Sprintf("%s/%s/%s", b.Group, b.Version, b.Kind)
+		return gvkKey(a.Group, a.Version, a.Kind) < gvkKey(b.Group, b.Version, b.Kind)
 	})
 
 	rs.Status = apps.ResourceSetStatus{
@@ -331,6 +351,97 @@ func (s *Synk) createResourceSet(rs *apps.ResourceSet) error {
 	return convert(res, rs)
 }
 
+type applyResult struct {
+	resource *unstructured.Unstructured
+	err      error
+	action   apps.ResourceAction
+}
+
+type applyResults map[string]*applyResult
+
+func (r applyResults) set(res *unstructured.Unstructured, action apps.ResourceAction, err error) {
+	r[resourceKey(res)] = &applyResult{
+		resource: res,
+		action:   action,
+		err:      err,
+	}
+}
+
+func (r applyResults) failed(res *unstructured.Unstructured) bool {
+	if x, ok := r[resourceKey(res)]; ok && x.err != nil {
+		return true
+	}
+	return false
+}
+
+func (r applyResults) list() (l []*applyResult) {
+	for _, res := range r {
+		l = append(l, res)
+	}
+	sort.Slice(l, func(i, j int) bool {
+		return resourceKey(l[i].resource) < resourceKey(l[j].resource)
+	})
+	return l
+}
+
+func (s *Synk) updateResourceSetStatus(rs *apps.ResourceSet, results applyResults) error {
+	type group map[schema.GroupVersionKind][]apps.ResourceStatus
+	applied, failed := group{}, group{}
+
+	for _, r := range results.list() {
+		st := apps.ResourceStatus{
+			Namespace:  r.resource.GetNamespace(),
+			Name:       r.resource.GetName(),
+			Action:     r.action,
+			UID:        string(r.resource.GetUID()),
+			Generation: r.resource.GetGeneration(),
+		}
+		if r.err != nil {
+			st.Error = r.err.Error()
+		}
+		gvk := r.resource.GroupVersionKind()
+		if r.err != nil {
+			failed[gvk] = append(failed[gvk], st)
+		} else {
+			applied[gvk] = append(applied[gvk], st)
+		}
+	}
+	// Attach group map as sorted status list.
+	build := func(g group, list *[]apps.ResourceSetStatusGroup) {
+		for gvk, res := range g {
+			*list = append(*list, apps.ResourceSetStatusGroup{
+				Group:   gvk.Group,
+				Version: gvk.Version,
+				Kind:    gvk.Kind,
+				Items:   res,
+			})
+		}
+		sort.Slice(*list, func(i, j int) bool {
+			a, b := (*list)[i], (*list)[j]
+			return gvkKey(a.Group, a.Version, a.Kind) < gvkKey(b.Group, b.Version, b.Kind)
+		})
+	}
+	build(applied, &rs.Status.Applied)
+	build(failed, &rs.Status.Failed)
+
+	rs.Status.FinishedAt = metav1.Now()
+	if len(rs.Status.Failed) > 0 {
+		rs.Status.Phase = apps.ResourceSetPhaseFailed
+	} else {
+		rs.Status.Phase = apps.ResourceSetPhaseSettled
+	}
+
+	var u unstructured.Unstructured
+	if err := convert(rs, &u); err != nil {
+		return err
+	}
+	res, err := s.client.Resource(resourceSetGVR).Update(&u, metav1.UpdateOptions{})
+	if err != nil {
+		return errors.Wrap(err, "update ResourceSet status")
+	}
+	return convert(res, rs)
+}
+
 // deleteResourceSets deletes all ResourceSets of the given name that have a lower version.
 func (s *Synk) deleteResourceSets(name string, version int32) error {
 	c := s.client.Resource(resourceSetGVR)
@@ -443,12 +554,14 @@ func sortResources(res []*unstructured.Unstructured) {
 
 func resourceKey(r *unstructured.Unstructured) string {
 	gvk := r.GroupVersionKind()
-	return fmt.Sprintf("%s/%s/%s/%s/%s",
-		gvk.Group,
-		gvk.Version,
-		gvk.Kind,
+	return fmt.Sprintf("%s/%s/%s",
+		gvkKey(gvk.Group, gvk.Version, gvk.Kind),
 		r.GetNamespace(),
 		r.GetName())
+}
+
+func gvkKey(group, version, kind string) string {
+	return fmt.Sprintf("%s/%s/%s", group, version, kind)
 }
 
 func filter(in []*unstructured.Unstructured, f func(*unstructured.Unstructured) bool) (out []*unstructured.Unstructured) {

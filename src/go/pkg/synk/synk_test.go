@@ -15,6 +15,7 @@
 package synk
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -139,6 +140,89 @@ status:
 	}
 }
 
+func TestSynk_updateResourceSetStatus(t *testing.T) {
+	f := newFixture(t)
+	s := f.newSynk()
+
+	rs := &apps.ResourceSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "set1"},
+	}
+	if err := s.createResourceSet(rs); err != nil {
+		t.Fatal(err)
+	}
+	results := applyResults{
+		"/v1/Pod/ns1/pod1": &applyResult{
+			resource: newUnstructured("v1", "Pod", "ns1", "pod1"),
+			action:   apps.ResourceActionCreate,
+			err:      errors.New("oops"),
+		},
+		"/v1/Pod/ns1/pod2": &applyResult{
+			resource: newUnstructured("v1", "Pod", "ns1", "pod2"),
+			action:   apps.ResourceActionCreate,
+		},
+		"/v1/Pod/ns2/pod1": &applyResult{
+			resource: newUnstructured("v1", "Pod", "ns2", "pod1"),
+			action:   apps.ResourceActionUpdate,
+		},
+		"apps/v1/Deployment/ns1/deploy1": &applyResult{
+			resource: newUnstructured("apps/v1", "Deployment", "ns1", "deploy1"),
+			action:   apps.ResourceActionCreate,
+		},
+	}
+	err := s.updateResourceSetStatus(rs, results)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.client.Resource(resourceSetGVR).Get("set1", metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := unmarshalUnstructured(t, `
+apiVersion: apps.cloudrobotics.com/v1alpha1
+kind: ResourceSet
+metadata:
+  name: set1
+status:
+  phase: Failed
+  applied:
+  failed:
+  - version: v1
+    kind: Pod
+    items:
+    - name: pod1
+      namespace: ns1
+      error: oops
+      action: Create
+  applied:
+  - version: v1
+    kind: Pod
+    items:
+    - name: pod2
+      namespace: ns1
+      action: Create
+    - name: pod1
+      namespace: ns2
+      action: Update
+  - group: apps
+    version: v1
+    kind: Deployment
+    items:
+    - namespace: ns1
+      name: deploy1
+      action: Create
+`)
+	if v, _, _ := unstructured.NestedString(got.Object, "status", "finishedAt"); v == "" {
+		t.Errorf("finishedAt timestamp was not set")
+	}
+	// Remove unknown timestamps before running DeepEqual.
+	unstructured.RemoveNestedField(got.Object, "status", "startedAt")
+	unstructured.RemoveNestedField(got.Object, "status", "finishedAt")
+
+	if !reflect.DeepEqual(got.Object["status"], want.Object["status"]) {
+		t.Errorf("expected status:\n%q\nbut got:\n%q", want.Object["status"], got.Object["status"])
+	}
+}
+
 // Hardcode some GVR mappings for easy use in tests. The only other way is
 // setting up a full RestMapper.
 var gvrs = map[string]schema.GroupVersionResource{
@@ -157,7 +241,7 @@ func TestSynk_applyAll(t *testing.T) {
 
 	synk := f.newSynk()
 
-	err := synk.applyAll(&apps.ResourceSet{}, &ApplyOptions{name: "test"}, cm1, cm2, dp1)
+	_, err := synk.applyAll(&apps.ResourceSet{}, &ApplyOptions{name: "test"}, cm1, cm2, dp1)
 	if err != nil {
 		t.Fatal(err)
 	}
