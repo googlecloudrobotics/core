@@ -30,10 +30,11 @@ else
   COMMAND="$3"
 fi
 
-if [[ -z "${GCP_PROJECT_ID}" || ! "${COMMAND}" =~ ^(|--set-config|--delete)$ ]]; then
+if [[ -z "${GCP_PROJECT_ID}" || ! "${COMMAND}" =~ ^(|--set-config|--set-oauth|--delete)$ ]]; then
   echo "Usage: $0 <project id> [<version-file>|<tarball>] [<command>]"
   echo "Supported commands:"
   echo "  --set-config    Updates the cloud config interactively."
+  echo "  --set-oauth     Enables and configures OAuth interactively."
   echo "  --delete        Deletes Cloud Robotics from the cloud project."
   exit 1
 fi
@@ -50,6 +51,8 @@ cd ${TMPDIR}/cloud-robotics-core
 
 if [[ "${COMMAND}" = "--set-config" ]]; then
   scripts/set-config.sh "${GCP_PROJECT_ID}"
+elif [[ "${COMMAND}" = "--set-oauth" ]]; then
+  scripts/set-config.sh "${GCP_PROJECT_ID}" --set-oauth
 elif [[ "${COMMAND}" = "--delete" ]]; then
   ./deploy.sh delete "${GCP_PROJECT_ID}"
 else
