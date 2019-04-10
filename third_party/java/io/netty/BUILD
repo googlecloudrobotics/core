@@ -17,6 +17,8 @@ java_library(
     name = "netty_codec",
     exports = [
         "//external:jar/io/netty/netty_codec",
+        ":netty_buffer",
+        ":netty_common",
         ":netty_transport"
     ],
     visibility = [
@@ -30,7 +32,11 @@ java_library(
     name = "netty_codec_http",
     exports = [
         "//external:jar/io/netty/netty_codec_http",
-        ":netty_codec"
+        ":netty_buffer",
+        ":netty_codec",
+        ":netty_common",
+        ":netty_handler",
+        ":netty_transport"
     ],
     visibility = [
         "//third_party/java:__subpackages__"
@@ -43,8 +49,12 @@ java_library(
     name = "netty_codec_http2",
     exports = [
         "//external:jar/io/netty/netty_codec_http2",
+        ":netty_buffer",
+        ":netty_codec",
         ":netty_codec_http",
-        ":netty_handler"
+        ":netty_common",
+        ":netty_handler",
+        ":netty_transport"
     ],
     visibility = [
         "//third_party/java:__subpackages__"
@@ -57,7 +67,10 @@ java_library(
     name = "netty_codec_socks",
     exports = [
         "//external:jar/io/netty/netty_codec_socks",
-        ":netty_codec"
+        ":netty_buffer",
+        ":netty_codec",
+        ":netty_common",
+        ":netty_transport"
     ],
     visibility = [
         "//third_party/java:__subpackages__"
@@ -84,6 +97,7 @@ java_library(
         "//external:jar/io/netty/netty_handler",
         ":netty_buffer",
         ":netty_codec",
+        ":netty_common",
         ":netty_transport"
     ],
     visibility = [
@@ -97,8 +111,11 @@ java_library(
     name = "netty_handler_proxy",
     exports = [
         "//external:jar/io/netty/netty_handler_proxy",
+        ":netty_buffer",
+        ":netty_codec",
         ":netty_codec_http",
         ":netty_codec_socks",
+        ":netty_common",
         ":netty_transport"
     ],
     visibility = [
@@ -126,6 +143,7 @@ java_library(
     exports = [
         "//external:jar/io/netty/netty_transport",
         ":netty_buffer",
+        ":netty_common",
         ":netty_resolver"
     ],
     visibility = [

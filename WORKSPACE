@@ -34,10 +34,10 @@ bind(
 # maven_dependencies.yaml.
 http_archive(
     name = "io_grpc_grpc_java",
-    sha256 = "83f6fff2bb94e344a966cc687e672cfadf7b026b9c936d7034b6367d06bedc5c",
-    strip_prefix = "grpc-java-1.17.2",
+    sha256 = "553d1bdbde3ff4035747c184486bae2f084c75c3c4cdf5ef31a6aa48bdccaf9b",
+    strip_prefix = "grpc-java-1.20.0",
     urls = [
-        "https://github.com/grpc/grpc-java/archive/v1.17.2.tar.gz",
+        "https://github.com/grpc/grpc-java/archive/v1.20.0.tar.gz",
     ],
 )
 
@@ -54,7 +54,6 @@ grpc_java_repositories(
     omit_com_google_guava = True,
     omit_com_google_j2objc_j2objc_annotations = True,
     omit_com_google_protobuf = True,
-    omit_com_google_protobuf_javalite = True,
     omit_com_google_protobuf_nano_protobuf_javanano = True,
     omit_com_google_truth_truth = True,
     omit_com_squareup_okhttp = True,
@@ -75,19 +74,6 @@ grpc_java_repositories(
     omit_javax_annotation = True,
     omit_junit_junit = True,
     omit_org_codehaus_mojo_animal_sniffer_annotations = True,
-)
-
-# Ensure that the protobuf_javalite version is new enough for recent Bazel
-# versions.
-# TODO(rodrigoq): remove this and omit_com_google_protobuf_javalite above,
-# after https://github.com/grpc/grpc-java/pull/5212 is merged.
-http_archive(
-    name = "com_google_protobuf_javalite",
-    sha256 = "97b07327b491924fc5173fe1adc2bb504751b0f13990b70b1b5da16eddb47c8d",
-    strip_prefix = "protobuf-384989534b2246d413dbcd750744faab2607b516",
-    urls = [
-        "https://github.com/google/protobuf/archive/384989534b2246d413dbcd750744faab2607b516.tar.gz",
-    ],
 )
 
 load(

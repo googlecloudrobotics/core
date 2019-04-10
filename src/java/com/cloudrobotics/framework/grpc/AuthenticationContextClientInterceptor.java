@@ -15,7 +15,6 @@
 package com.cloudrobotics.framework.grpc;
 
 import com.google.common.flogger.FluentLogger;
-import io.grpc.Attributes;
 import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
@@ -39,10 +38,7 @@ public class AuthenticationContextClientInterceptor implements ClientInterceptor
             new CallCredentials() {
               @Override
               public void applyRequestMetadata(
-                  MethodDescriptor<?, ?> methodDescriptor,
-                  Attributes attributes,
-                  Executor executor,
-                  MetadataApplier metadataApplier) {
+                  RequestInfo requestInfo, Executor executor, MetadataApplier metadataApplier) {
                 executor.execute(
                     () -> {
                       try {

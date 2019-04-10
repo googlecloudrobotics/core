@@ -4,17 +4,18 @@
 # cd ..
 # git clone https://github.com/johnynek/bazel-deps
 # cd bazel-deps
-# git checkout e3f77e22d9f5b070915067a766607cfc96835c98
-# bazel build src/scala/com/github/johnynek/bazel_deps:parseproject_deploy.jar
-# cd ../cloud-robotics
-# ../bazel-deps/gen_maven_deps.sh generate -r $PWD -s third_party/maven_dependencies.bzl -d third_party/maven_dependencies.yaml
+# git checkout e6e4412cd364ad7ffe4b619b0acb5b68f7432bc0
+# bazel run :parse -- generate --repo-root $PWD/../cloud-robotics --sha-file third_party/maven_dependencies.bzl --deps third_party/maven_dependencies.yaml
+#
+# If you see an error like `ERROR bazel_deps.CoursierResolver - not found: ...`, run:
+#   rm -r ~/.cache/coursier
+# Then try again.
 #
 # TODO(rodrigoq): improve this, eg by adding necessary support to build
 # bazel-deps within our workspace (not especially easy).
 
 options:
   languages: [ "java" ]
-  resolverCache: bazel_output_base
   transitivity: exports
   versionConflictPolicy: highest
   thirdPartyDirectory: "third_party/java"
@@ -152,7 +153,7 @@ dependencies:
     grpc:
       lang: java
       modules: [netty, services]
-      version: "1.17.1"
+      version: "1.20.0"
   io.opencensus:
     opencensus:
       lang: java

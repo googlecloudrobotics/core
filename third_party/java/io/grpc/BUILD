@@ -16,6 +16,7 @@ java_library(
     name = "grpc_core",
     exports = [
         "//external:jar/io/grpc/grpc_core",
+        "//third_party/java/com/google/android:annotations",
         "//third_party/java/com/google/code/findbugs:jsr305",
         "//third_party/java/com/google/code/gson:gson",
         "//third_party/java/com/google/errorprone:error_prone_annotations",
