@@ -28,7 +28,7 @@ and 18.04) Linux.
     sudo apt-get install curl tar xz-utils
     ```
 
-# Deploy the project
+## Deploy the project
 
 1. Create application default credentials, which are used to deploy the cloud project.
 
@@ -80,7 +80,7 @@ In addition to the cluster, the install script also created:
 * the [[PROJECT_ID]-robot Cloud Storage bucket][storage-bucket], containing the scripts that connect robots to the cloud, and
 * the [Identity & Access Management policies][iam] that authorize robots and humans to communicate with GCP.
 
-# Update the project
+## Update the project
 
 To update your Cloud Robotics configuration, run the install script with the `--set-config` flag.
 
@@ -122,7 +122,7 @@ curl -fS "https://storage.googleapis.com/cloud-robotics-releases/run-install.sh"
 
 If you want to completely shut down the project, see [the Resource Manager documentation][shutting_down_projects].
 
-# Next steps
+## Next steps
 
 * [Connect a robot to the cloud](how-to/connecting-robot.md).
 * [Set up OAuth](how-to/setting-up-oauth.md)

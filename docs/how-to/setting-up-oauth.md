@@ -1,12 +1,15 @@
 # Setting up OAuth for web UIs
 
+Estimated time: 5 min
+
 When a user loads a web UI hosted in the cloud Kubernetes cluster, the server has to authenticate them before allowing them to use the service.
 To enable this, you'll need to set up OAuth with the Cloud Console.
 Once you've completed these steps, you'll be able to access services with web UIs, such as [Grafana](https://grafana.com/).
 
-Estimated time: 5 min
 
-1. If you haven't already, complete the [Setting up the GCP project](../quickstart.md) steps.
+If you haven't already, complete the [Quickstart Guide](../quickstart.md) or [Deploy Cloud Robotics Core from sources](deploy-from-sources.md) to set up your GCP project.
+
+## Create OAuth credentials
 
 1. Open the [cloud console](https://console.cloud.google.com/) and ensure that
      your cloud project is selected in the project selector dropdown at the top.
@@ -25,32 +28,42 @@ Estimated time: 5 min
    `https://www.endpoints.[PROJECT_ID].cloud.goog/oauth2/callback`
    * Click "Create".
 
-    You'll see a dialog containing the client ID and secret. Use these to adjust the following lines in `config.sh`:
+You'll see a dialog containing the client ID and secret which we will add to your `config.sh` next.
 
-    ```shell
-    CLOUD_ROBOTICS_OAUTH2_CLIENT_ID=[CLIENT_ID]
-    CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET=[CLIENT_SECRET]
-    ```
+## Update your config and redeploy
 
-1. Run the following command to create a secret for encrypting cookies:
+* If you installed Cloud Robotics from a binary (following the quickstart guide),
+    1. update your `config.sh` which is stored in a cloud bucket:
+        ```shell
+        curl -fS "https://storage.googleapis.com/cloud-robotics-releases/run-install.sh" >run-install.sh
+        bash ./run-install.sh $PROJECT_ID --set-oauth
+        ```
+        Enter the OAuth client ID and secret from the previous step when asked.
+    1. Update your cloud project:
+        ```shell
+        bash ./run-install.sh $PROJECT_ID
+        ```
 
-    ```shell
-    python -c 'import os,base64; print base64.urlsafe_b64encode(os.urandom(16))'
-    ```
+* If you installed Cloud Robotics from sources,
+    1. update your local `config.sh`:
+        ```shell
+        scripts/set-config.sh --local --edit-oauth
+        ```
+        Enter the OAuth client ID and secret from the previous step when asked.
+    1. Update your cloud project:
+        ```shell
+        ./deploy.sh update
+        ```
 
-    Use this to adjust the following line in `config.sh`:
+After the update has been deployed, OAuth is enabled in your cloud project.
+Verify that `oauth2-proxy` is running now:
+```console
+$ kubectl get pods
 
-    ```shell
-    CLOUD_ROBOTICS_COOKIE_SECRET=[COOKIE_SECRET]
-    ```
-
-1. Update the deployment.
-
-    ```shell
-    ./deploy.sh update
-    ```
-
-After `deploy.sh` completes, OAuth is enabled in your cloud project.
+NAME               READY   STATUS    RESTARTS   AGE
+...
+oauth2-proxy-xxx   1/1     Running   0          1m
+```
 
 ## Try it out
 

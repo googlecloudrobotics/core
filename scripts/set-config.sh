@@ -226,8 +226,7 @@ function set_oauth_vars {
 
   if [[ -z "${CLOUD_ROBOTICS_COOKIE_SECRET}" ]] ||\
       ask_yn "Generate new cookie secret?" "n"; then
-    CLOUD_ROBOTICS_COOKIE_SECRET="$(\
-      python -c 'import os,base64; print base64.urlsafe_b64encode(os.urandom(16))')"
+    CLOUD_ROBOTICS_COOKIE_SECRET="$( head -c 16 /dev/urandom | base64 )"
   fi
 }
 

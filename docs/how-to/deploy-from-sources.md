@@ -44,29 +44,30 @@ and 18.04) Linux.
     cd core
     ```
 
-1. Import the GCP project you are using, replacing `[PROJECT_ID]` with its project ID.
+1. Create application default credentials, which are used to deploy the cloud project.
 
     ```shell
-    ./deploy.sh set-project [PROJECT_ID]
+    gcloud auth application-default login
     ```
+
+1. Import the GCP project you are using:
+
+    ```shell
+    ./deploy.sh set_config
+    ```
+
+    When asked, enter your GCP project id.
+    You can keep the defaults for the other settings by hitting `ENTER`.
 
     This command creates two files:
 
     * `config.bzl`, which configures the build system to store its outputs in the Container Registry, and
     * `config.sh`, which configures the deployment.
 
-1. Optionally, edit `config.sh` to change the Compute Engine [region and zone](https://cloud.google.com/compute/docs/regions-zones/) from the default value of `europe-west1`.
-
 1. Build the project. Depending on your computer and internet connection, it may take around 15 minutes.
 
     ```shell
     bazel build //...
-    ```
-
-1. Create application default credentials, which are used to deploy the cloud project.
-
-    ```shell
-    gcloud auth application-default login
     ```
 
 1. Deploy the cloud project.
@@ -88,12 +89,16 @@ Alternatively, you can list them from the console on your workstation:
 
 ```console
 $ kubectl get pods
-NAME                                        READY   STATUS    RESTARTS   AGE
-cert-manager-7d4bfc44ff-fdrkl               1/1     Running   0          1m
-nginx-ingress-controller-64ffff8d4b-4hzb8   1/1     Running   0          1m
-oauth2-proxy-67569d4c94-4jgnw               1/1     Running   0          1m
-token-vendor-69b4494866-lvcgf               1/1     Running   0          1m
+
+NAME                READY   STATUS             RESTARTS   AGE
+cert-manager-xxx    1/1     Running            0          1m
+nginx-ingress-xxx   1/1     Running            0          1m
+oauth2-proxy-xxx    0/1     CrashLoopBackOff   4          1m
+token-vendor-xxx    1/1     Running            0          1m
 ```
+
+> **Note** Unless you already set up OAuth, the `oauth2-proxy` will show an error which we will ignore for now.
+
 
 In addition to the cluster, `deploy.sh` also created:
 
