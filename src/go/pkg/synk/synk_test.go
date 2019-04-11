@@ -256,6 +256,10 @@ data:
 	// cm1 already exists beforehand, so we expect an update.
 	f.addObjects(&cmBefore)
 
+	// Support for a standard merge-patch was only added to the client-go testing
+	// mock as of kubernetes-1.14.0, which we cannot upgrade to yet.
+	// Thus we cannot valid the standard merge patch type for CRDs yet.
+	rollout := newUnstructured("apps.cloudrobotics.com/v1alpha1", "AppRollout", "foo1", "rollout1")
 	deploy := newUnstructured("apps/v1", "Deployment", "foo2", "dp1")
 
 	unmarshalYAML(t, &cmUpdate, `
@@ -267,36 +271,43 @@ metadata:
 data:
   foo2: baz2
   foo3: bar3`)
-	// Support for a standard merge-patch was only added to the client-go testing
-	// mock as of kubernetes-1.14.0, which we cannot upgrade to yet.
-	// Thus we cannot valid the standard merge patch type for CRDs yet.
-	var rollout apps.AppRollout
-	unmarshalYAML(t, &rollout, `
-apiVersion: apps.cloudrobotics.com/v1alpha1
-kind: AppRollout
-metadata:
-  namespace: foo1
-  name: rollout1`)
 
-	_, err := f.newSynk().applyAll(&apps.ResourceSet{}, &ApplyOptions{name: "test"},
-		toUnstructured(t, &cmUpdate),
-		toUnstructured(t, &rollout),
-		deploy,
+	set := &apps.ResourceSet{}
+	set.Name = "test.v1"
+	set.UID = "deadbeef"
+
+	results, err := f.newSynk().applyAll(set, &ApplyOptions{name: "test"},
+		toUnstructured(t, &cmUpdate).DeepCopy(),
+		rollout.DeepCopy(),
+		deploy.DeepCopy(),
 	)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
+		for _, res := range results {
+			t.Log(res)
+		}
+		return
 	}
 
-	rolloutU := toUnstructured(t, &rollout)
-	deploy = deploy.DeepCopy()
-	setAppliedAnnotation(rolloutU)
-	setAppliedAnnotation(deploy)
+	_true := true
+	ownerRef := metav1.OwnerReference{
+		APIVersion:         "apps.cloudrobotics.com/v1alpha1",
+		Kind:               "ResourceSet",
+		Name:               set.Name,
+		UID:                set.UID,
+		BlockOwnerDeletion: &_true,
+	}
+	rollout.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+	deploy.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 
-	cmPatch := []byte(`{"data":{"foo2":"baz2","foo3":"bar3"},"metadata":{"annotations":{"kubectl.kubernetes.io/last-applied-configuration":"{\"apiVersion\":\"v1\",\"data\":{\"foo2\":\"baz2\",\"foo3\":\"bar3\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":{},\"creationTimestamp\":null,\"name\":\"cm1\",\"namespace\":\"foo1\"}}\n"}}}`)
+	setAppliedAnnotation(deploy)
+	setAppliedAnnotation(rollout)
+
+	cmPatch := []byte(`{"data":{"foo2":"baz2","foo3":"bar3"},"metadata":{"annotations":{"kubectl.kubernetes.io/last-applied-configuration":"{\"apiVersion\":\"v1\",\"data\":{\"foo2\":\"baz2\",\"foo3\":\"bar3\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":{},\"creationTimestamp\":null,\"name\":\"cm1\",\"namespace\":\"foo1\",\"ownerReferences\":[{\"apiVersion\":\"apps.cloudrobotics.com/v1alpha1\",\"blockOwnerDeletion\":true,\"kind\":\"ResourceSet\",\"name\":\"test.v1\",\"uid\":\"deadbeef\"}]}}\n"},"ownerReferences":[{"apiVersion":"apps.cloudrobotics.com/v1alpha1","blockOwnerDeletion":true,"kind":"ResourceSet","name":"test.v1","uid":"deadbeef"}]}}`)
 
 	f.expectActions(
 		k8stest.NewPatchAction(gvrs["configmaps"], "foo1", "cm1", types.StrategicMergePatchType, cmPatch),
-		k8stest.NewCreateAction(gvrs["approllouts"], "foo1", rolloutU),
+		k8stest.NewCreateAction(gvrs["approllouts"], "foo1", rollout),
 		k8stest.NewCreateAction(gvrs["deployments"], "foo2", deploy),
 	)
 	f.verifyWriteActions()

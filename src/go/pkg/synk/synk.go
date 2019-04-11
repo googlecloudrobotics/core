@@ -150,7 +150,7 @@ func (s *Synk) applyAll(
 	for _, crd := range crds {
 		// CRDs must never be replaced as deleting them will delete
 		// all its current instances. Update conflicts must be resolved manually.
-		action, err := s.applyOne(crd)
+		action, err := s.applyOne(crd, rs)
 		results.set(crd, action, err)
 	}
 	err := wait.PollImmediate(2*time.Second, 2*time.Minute, func() (bool, error) {
@@ -178,7 +178,7 @@ func (s *Synk) applyAll(
 			if i > 0 && !results.failed(r) {
 				continue
 			}
-			action, err := s.applyOne(r)
+			action, err := s.applyOne(r, rs)
 			if err != nil {
 				curFailures++
 			}
@@ -263,15 +263,7 @@ func (s *Synk) initialize(
 	if err := s.createResourceSet(&rs); err != nil {
 		return nil, nil, errors.Wrapf(err, "create resources object %q", rs.Name)
 	}
-	// Attach the ResourceSet as owner. CRDs are exempt since
-	// the risk of unintended deletion of all its instances is too high.
-	for _, r := range resources {
-		if !isCustomResourceDefinition(r) {
-			if err := s.setOwnerRef(&rs, r); err != nil {
-				return nil, nil, errors.Wrapf(err, "set owner reference for %q", resourceKey(r))
-			}
-		}
-	}
+
 	return &rs, resources, nil
 }
 
@@ -297,7 +289,52 @@ func getAppliedAnnotation(u *unstructured.Unstructured) []byte {
 	return []byte(u.GetAnnotations()[corev1.LastAppliedConfigAnnotation])
 }
 
-func (s *Synk) applyOne(resource *unstructured.Unstructured) (apps.ResourceAction, error) {
+// validateOwnerRefs returns an error if the resource has ResourceSet owners
+// that are not predecessors of name/version.
+func validateOwnerRefs(r *unstructured.Unstructured, set *apps.ResourceSet) error {
+	name, version, ok := decodeResourceSetName(set.Name)
+	if !ok {
+		return errors.Errorf("invalid ResourceSet name %q", set.Name)
+	}
+	for _, or := range r.GetOwnerReferences() {
+		if or.APIVersion != "apps.cloudrobotics.com/v1alpha1" || or.Kind != "ResourceSet" {
+			continue
+		}
+		n, v, ok := decodeResourceSetName(or.Name)
+		if !ok {
+			return errors.Errorf("ResourceSet owner reference with invalid name %q", or.Name)
+		}
+		if n != name {
+			return errors.Errorf("owned by conflicting ResourceSet object %q", or.Name)
+		}
+		if v > version {
+			return errors.Errorf("conflicting Resources version %d", version)
+		}
+	}
+	return nil
+}
+
+// setOwnerRef sets the ResourceSet as the owner and removers all other ResourceSet
+// owner references.
+func setOwnerRef(r *unstructured.Unstructured, set *apps.ResourceSet) {
+	var newRefs []metav1.OwnerReference
+	for _, or := range r.GetOwnerReferences() {
+		if or.APIVersion != "apps.cloudrobotics.com/v1alpha1" || or.Kind != "ResourceSet" {
+			newRefs = append(newRefs, or)
+		}
+	}
+	_true := true
+	newRefs = append(newRefs, metav1.OwnerReference{
+		APIVersion:         "apps.cloudrobotics.com/v1alpha1",
+		Kind:               "ResourceSet",
+		Name:               set.Name,
+		UID:                set.UID,
+		BlockOwnerDeletion: &_true,
+	})
+	r.SetOwnerReferences(newRefs)
+}
+
+func (s *Synk) applyOne(resource *unstructured.Unstructured, set *apps.ResourceSet) (apps.ResourceAction, error) {
 	// If name is unset, we'd retrieve a list below and panic.
 	// TODO: This may be valid if generateName is set instead. In this case we
 	// want to create the resource in any case.
@@ -319,7 +356,11 @@ func (s *Synk) applyOne(resource *unstructured.Unstructured) (apps.ResourceActio
 	} else {
 		client = s.client.Resource(mapping.Resource).Namespace(resource.GetNamespace())
 	}
-
+	// Attach the ResourceSet as owner. CRDs are exempt since
+	// the risk of unintended deletion of all its instances is too high.
+	if !isCustomResourceDefinition(resource) {
+		setOwnerRef(resource, set)
+	}
 	setAppliedAnnotation(resource)
 
 	// Create the resource if it doesn't exist yet.
@@ -334,8 +375,9 @@ func (s *Synk) applyOne(resource *unstructured.Unstructured) (apps.ResourceActio
 	} else if err != nil {
 		return apps.ResourceActionNone, errors.Wrap(err, "get resource")
 	}
-	// TODO: handle owner reference injection here and detect conflicts
-	// with the existing version.
+	if err := validateOwnerRefs(current, set); err != nil {
+		return apps.ResourceActionNone, errors.Wrap(err, "owner conflict")
+	}
 
 	// Try to patch it.
 	currentRaw, err := current.MarshalJSON()
@@ -453,6 +495,10 @@ type applyResult struct {
 	resource *unstructured.Unstructured
 	err      error
 	action   apps.ResourceAction
+}
+
+func (r *applyResult) String() string {
+	return fmt.Sprintf("%s action=%s error=%s", resourceKey(r.resource), r.action, r.err)
 }
 
 type applyResults map[string]*applyResult
@@ -581,45 +627,6 @@ func (s *Synk) next(name string) (version int32, err error) {
 		}
 	}
 	return curVersion + 1, nil
-}
-
-// setOwnerRef sets the owning ResourceSet of the resource. Older ResourceSet owners
-// for the same name are overwritten.
-// If other conflicting ResourceSet owners are already set, an error is returned.
-func (s *Synk) setOwnerRef(rs *apps.ResourceSet, resource *unstructured.Unstructured) error {
-	name, version, ok := decodeResourceSetName(rs.Name)
-	if !ok {
-		return errors.Errorf("invalid ResourceSet name %q", rs.Name)
-	}
-	// An object must have at most one owner reference to a Resources object.
-	var ownerRefs []metav1.OwnerReference
-	for _, or := range ownerRefs {
-		if or.APIVersion != "apps.cloudrobotics.com/v1alpha1" || or.Kind != "Resources" {
-			ownerRefs = append(ownerRefs, or)
-			continue
-		}
-		n, v, ok := decodeResourceSetName(or.Name)
-		if !ok {
-			return errors.Errorf("Resources owner reference with invalid name %q", or.Name)
-		}
-		if n != name {
-			return errors.Errorf("owned by conflicting Resources object %q", or.Name)
-		}
-		if v > version {
-			return errors.Errorf("conflicting Resources version %d", version)
-		}
-		// Valid reference to previous Resources object, skip it.
-	}
-	_true := true
-	ownerRefs = append(ownerRefs, metav1.OwnerReference{
-		APIVersion:         "apps.cloudrobotics.com/v1alpha1",
-		Kind:               "Resources",
-		Name:               rs.Name,
-		UID:                rs.UID,
-		BlockOwnerDeletion: &_true,
-	})
-	resource.SetOwnerReferences(ownerRefs)
-	return nil
 }
 
 func isCustomResourceDefinition(r *unstructured.Unstructured) bool {
