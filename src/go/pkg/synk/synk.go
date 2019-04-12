@@ -42,8 +42,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
+	cacheddiscovery "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 )
 
@@ -65,11 +67,36 @@ func New(client dynamic.Interface, discovery discovery.CachedDiscoveryInterface)
 	return s
 }
 
+func NewForConfig(cfg *rest.Config) (*Synk, error) {
+	client, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	discovery, err := discovery.NewDiscoveryClientForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	cachedDiscovery := cacheddiscovery.NewMemCacheClient(discovery)
+	// Without initial invalidation all calls will fail.
+	cachedDiscovery.Invalidate()
+
+	return New(client, cachedDiscovery), nil
+}
+
 // TODO: determine options that allow us to be semantically compatible with
 // vanilla kubectl apply.
 type ApplyOptions struct {
 	name    string
 	version int32
+
+	Namespace        string
+	EnforceNamespace bool
+}
+
+func (s *Synk) Delete(ctx context.Context, name string) error {
+	return s.client.Resource(resourceSetGVR).DeleteCollection(nil, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("name=%s", name),
+	})
 }
 
 func (s *Synk) Apply(
@@ -87,17 +114,17 @@ func (s *Synk) Apply(
 	if err != nil {
 		return rs, err
 	}
-	results, err := s.applyAll(rs, opts, resources...)
-	if err != nil {
-		return rs, err
-	}
+	results, applyErr := s.applyAll(rs, opts, resources...)
+
 	if err := s.updateResourceSetStatus(rs, results); err != nil {
 		return rs, err
 	}
-	if err := s.deleteResourceSets(opts.name, opts.version); err != nil {
-		return rs, err
+	if applyErr == nil {
+		if err := s.deleteResourceSets(opts.name, opts.version); err != nil {
+			return rs, err
+		}
 	}
-	return rs, err
+	return rs, applyErr
 }
 
 type transientErr struct {
@@ -224,6 +251,24 @@ func (s *Synk) initialize(
 	})
 	sortResources(resources)
 
+	regulars := filter(resources, func(r *unstructured.Unstructured) bool {
+		return !isCustomResourceDefinition(r)
+	})
+	crds := filter(resources, isCustomResourceDefinition)
+
+	if err := s.populateNamespaces(opts.Namespace, crds, regulars...); err != nil {
+		return nil, nil, errors.Wrap(err, "set default namespaces")
+	}
+	// TODO: consider putting this and other validation as a step after initialize
+	// so we can give validation errors in batch in the ResourceSet status.
+	if opts.EnforceNamespace {
+		for _, r := range regulars {
+			if ns := r.GetNamespace(); ns != "" && ns != opts.Namespace {
+				return nil, nil, errors.Errorf("invalid namespace %q on %q", ns, resourceKey(r))
+			}
+		}
+	}
+
 	// Initialize and create next ResourceSet.
 	var err error
 	opts.version, err = s.next(opts.name)
@@ -265,6 +310,41 @@ func (s *Synk) initialize(
 	}
 
 	return &rs, resources, nil
+}
+
+// Set default namespace on all namespaced resources.
+func (s *Synk) populateNamespaces(
+	ns string,
+	crds []*unstructured.Unstructured,
+	resources ...*unstructured.Unstructured,
+) error {
+	list, err := s.discovery.ServerResources()
+	if err != nil {
+		return errors.Wrap(err, "discover server resources")
+	}
+	// We have to consider discoverable resources as well as CRDs that
+	// will only be added later.
+	isNamespaced := map[string]bool{}
+
+	for _, srvRes := range list {
+		for _, sr := range srvRes.APIResources {
+			isNamespaced[srvRes.GroupVersion+"/"+sr.Kind] = sr.Namespaced
+		}
+	}
+	for _, crd := range crds {
+		var typed apiextensions.CustomResourceDefinition
+		if err := convert(crd, &typed); err != nil {
+			return errors.Wrapf(err, "invalid CustomResourceDefinition %q", resourceKey(crd))
+		}
+		k := typed.Spec.Group + "/" + typed.Spec.Version + "/" + typed.Spec.Names.Kind
+		isNamespaced[k] = typed.Spec.Scope != apiextensions.ClusterScoped
+	}
+	for _, r := range resources {
+		if r.GetNamespace() == "" && isNamespaced[r.GetAPIVersion()+"/"+r.GetKind()] {
+			r.SetNamespace(ns)
+		}
+	}
+	return nil
 }
 
 func setAppliedAnnotation(u *unstructured.Unstructured) error {
@@ -637,7 +717,7 @@ func resourceSetName(s string, v int32) string {
 	return fmt.Sprintf("%s.v%d", s, v)
 }
 
-var namePat = regexp.MustCompile(`^([a-z0-9]+)\.v([0-9]+)$`)
+var namePat = regexp.MustCompile(`^(.+)\.v([0-9]+)$`)
 
 func decodeResourceSetName(s string) (string, int32, bool) {
 	res := namePat.FindStringSubmatch(s)

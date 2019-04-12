@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	"github.com/pkg/errors"
@@ -78,25 +77,14 @@ func apply(name string) error {
 	result := resource.NewBuilder(restOpts).
 		ContinueOnError().
 		Unstructured(). // Must be at the top.
-		NamespaceParam(namespace).
-		DefaultNamespace().
-		FilenameParam(enforceNamespace, &filenameOpts).
+		Local().
+		FilenameParam(false, &filenameOpts).
 		Flatten().
 		Do()
 
 	if result.Err() != nil {
 		return errors.Wrap(result.Err(), "get files")
 	}
-	// The iterator checks whether a resource Kind is available at the server.
-	// We want to ignore those errors as synk handles CRD installation.
-	// Setting Local() in the builder also prevents this but also disables
-	// namespace defaulting.
-	// TODO: namespace defaulting also breaks for new CRs. Pull this directly
-	// into synk.
-	result.IgnoreErrors(func(err error) bool {
-		return strings.Contains(err.Error(), "no matches for kind")
-	})
-
 	infos, err := result.Infos()
 	if err != nil {
 		return errors.Wrap(err, "get file information")
@@ -120,7 +108,14 @@ func apply(name string) error {
 	}
 	s := synk.New(client, discovery)
 
-	opts := &synk.ApplyOptions{}
+	// Invalidate to be safe. It seems that a persistent discovery cache
+	// likes to stay out of sync way too often.
+	discovery.Invalidate()
+
+	opts := &synk.ApplyOptions{
+		Namespace:        namespace,
+		EnforceNamespace: enforceNamespace,
+	}
 	if _, err := s.Apply(context.Background(), name, opts, resources...); err != nil {
 		return errors.Wrap(err, "apply files")
 	}

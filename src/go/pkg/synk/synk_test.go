@@ -36,11 +36,26 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// The fake discovery client has quite a bit of code but still returns empty results
+// even when pointed at the Fake object of the dynamic client.
+// Thus we implement our own static one.
 type fakeCachedDiscoveryClient struct {
 	discovery.CachedDiscoveryInterface
 }
 
 func (d *fakeCachedDiscoveryClient) Invalidate() {}
+
+func (d *fakeCachedDiscoveryClient) ServerResources() ([]*metav1.APIResourceList, error) {
+	return []*metav1.APIResourceList{
+		{
+			GroupVersion: "v1",
+			APIResources: []metav1.APIResource{
+				{Kind: "Pod", Namespaced: true},
+				{Kind: "Namespace", Namespaced: false},
+			},
+		},
+	}, nil
+}
 
 type fixture struct {
 	*testing.T
@@ -334,6 +349,51 @@ func TestSynk_deleteResourceSets(t *testing.T) {
 		k8stest.NewRootDeleteAction(resourceSetGVR, "test.v4"),
 	)
 	f.verifyWriteActions()
+}
+
+func TestSynk_populateNamespaces(t *testing.T) {
+	f := newFixture(t)
+	s := f.newSynk()
+
+	var (
+		ns1  = newUnstructured("v1", "Namespace", "", "ns1")
+		pod1 = newUnstructured("v1", "Pod", "ns1", "pod1")
+		pod2 = newUnstructured("v1", "Pod", "", "pod1")
+		cr1  = newUnstructured("example.org/v1", "Example", "", "pod1")
+	)
+	var exampleCRD unstructured.Unstructured
+	unmarshalYAML(t, &exampleCRD, `
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefition
+metadata:
+  name: examples.example.org
+spec:
+  group: example.org
+  version: v1
+  names:
+    kind: Example
+  scope: Namespaced`)
+
+	if err := s.populateNamespaces(
+		"ns2",
+		[]*unstructured.Unstructured{&exampleCRD},
+		ns1, pod1, pod2, cr1,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if ns1.GetNamespace() != "" {
+		t.Errorf("unexpected namespace %q added to ns1", ns1.GetNamespace())
+	}
+	if pod1.GetNamespace() != "ns1" {
+		t.Errorf("unexpected namespace change to %q to pod1", pod1.GetNamespace())
+	}
+	if pod2.GetNamespace() != "ns2" {
+		t.Errorf("unexpected namesapce %q on pod2", pod2.GetNamespace())
+	}
+	if cr1.GetNamespace() != "ns2" {
+		t.Errorf("unexpected namesapce %q on cr1", cr1.GetNamespace())
+	}
 }
 
 func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
