@@ -16,17 +16,23 @@ package chartassignment
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"io"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	"github.com/pkg/errors"
 	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/rest"
 	record "k8s.io/client-go/tools/record"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/downloader"
@@ -39,27 +45,37 @@ import (
 	"k8s.io/helm/pkg/repo"
 )
 
+// Boolean annotation to toggle between synk and Helm to deploy manifests.
+const annotationUseSynk = "apps.cloudrobotics.com/use-synk"
+
 // releases is a cache of releases currently handled.
 type releases struct {
 	helm     hclient.Interface
 	recorder record.EventRecorder
+	synk     *synk.Synk
 
 	mtx sync.Mutex
 	m   map[string]*release
 }
 
-func newReleases(helm hclient.Interface, rec record.EventRecorder) *releases {
+func newReleases(cfg *rest.Config, helm hclient.Interface, rec record.EventRecorder) (*releases, error) {
+	synk, err := synk.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	return &releases{
 		helm:     helm,
 		recorder: rec,
 		m:        map[string]*release{},
-	}
+		synk:     synk,
+	}, nil
 }
 
 // release is a cache object which acts as a proxy for Helm releases.
 type release struct {
 	name       string
 	helm       hclient.Interface
+	synk       *synk.Synk
 	recorder   record.EventRecorder
 	actorc     chan func()
 	generation int64 // last deployed generation.
@@ -102,6 +118,7 @@ func (rs *releases) add(name string) *release {
 	r = &release{
 		name:     name,
 		helm:     rs.helm,
+		synk:     rs.synk,
 		recorder: rs.recorder,
 		actorc:   make(chan func()),
 	}
@@ -118,6 +135,8 @@ func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 	r := rs.add(as.Name)
 	status, _ := rs.status(as.Name)
 
+	useSynk, _ := strconv.ParseBool(as.Annotations[annotationUseSynk])
+
 	// If the last generation we deployed matches the provided one, there's
 	// nothing to do. Unless the previous update set the retry flag due to
 	// a transient error.
@@ -126,7 +145,18 @@ func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 	if r.generation == as.Generation && !status.retry {
 		return true
 	}
-	started := r.start(func() { r.update(as) })
+	var started bool
+	if useSynk {
+		started = r.start(func() {
+			r.deleteHelm(as) // Best effort deletion when switching.
+			r.updateSynk(as)
+		})
+	} else {
+		started = r.start(func() {
+			r.deleteSynk(as) // Best effort deletion when switching.
+			r.updateHelm(as)
+		})
+	}
 	if started {
 		r.generation = as.Generation
 	}
@@ -176,14 +206,14 @@ func (r *release) delete(as *apps.ChartAssignment) {
 	r.setPhase(apps.ChartAssignmentPhaseDeleting)
 	r.recorder.Event(as, core.EventTypeNormal, "DeleteChart", "deleting chart")
 
-	_, err := r.helm.DeleteRelease(as.Name,
-		hclient.DeletePurge(true),
-		hclient.DeleteTimeout(tillerTimeout),
-	)
-	if err != nil && !strings.Contains(err.Error(), "not found") {
-		r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
-		r.setFailed(errors.Wrap(err, "delete release"), true)
-		return
+	err1 := r.deleteSynk(as)
+	err2 := r.deleteHelm(as)
+	if err1 == nil {
+		err1 = err2
+	}
+	if err1 != nil {
+		r.recorder.Event(as, core.EventTypeWarning, "Failure", err1.Error())
+		r.setFailed(errors.Wrap(err1, "delete release"), synk.IsTransientErr(err1))
 	}
 	r.recorder.Event(as, core.EventTypeNormal, "Success", "chart deleted successfully")
 	r.mtx.Lock()
@@ -195,7 +225,72 @@ func (r *release) delete(as *apps.ChartAssignment) {
 	r.generation = 0
 }
 
-func (r *release) update(as *apps.ChartAssignment) {
+func (r *release) deleteSynk(as *apps.ChartAssignment) error {
+	return r.synk.Delete(context.Background(), as.Name)
+}
+
+func (r *release) deleteHelm(as *apps.ChartAssignment) error {
+	_, err := r.helm.DeleteRelease(as.Name,
+		hclient.DeletePurge(true),
+		hclient.DeleteTimeout(tillerTimeout),
+	)
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		return err
+	}
+	return nil
+}
+
+func (r *release) updateSynk(as *apps.ChartAssignment) {
+	r.setPhase(apps.ChartAssignmentPhaseLoadingChart)
+
+	c, vals, err := loadChart(&as.Spec.Chart)
+	if err != nil {
+		r.setFailed(err, true)
+		return
+	}
+	// Expand chart.
+	manifests, err := renderutil.Render(c, &chart.Config{Raw: vals}, renderutil.Options{
+		ReleaseOptions: chartutil.ReleaseOptions{
+			Name:      as.Name,
+			Namespace: as.Spec.NamespaceName,
+			IsInstall: true,
+		},
+	})
+	if err != nil {
+		r.setFailed(errors.Wrap(err, "render chart"), false)
+		return
+	}
+	// TODO: consider giving the synk package first-class support for raw manifests
+	// so that their decoding errors are fully surfaced in the ResourceSet. Otherwise,
+	// common YAML errors will only be surfaced one-by-one, which is tedious to handle.
+	resources, err := decodeManifests(manifests)
+	if err != nil {
+		r.setFailed(err, false)
+		return
+	}
+	r.setPhase(apps.ChartAssignmentPhaseUpdating)
+	r.recorder.Event(as, core.EventTypeNormal, "UpdatChart", "update chart")
+
+	opts := &synk.ApplyOptions{
+		Namespace:        as.Spec.NamespaceName,
+		EnforceNamespace: true,
+	}
+	_, err = r.synk.Apply(context.Background(), as.Name, opts, resources...)
+	if err != nil {
+		r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
+		r.setFailed(err, synk.IsTransientErr(err))
+		return
+	}
+	r.recorder.Event(as, core.EventTypeNormal, "Success", "chart upgraded successfully")
+
+	r.mtx.Lock()
+	r.status.phase = apps.ChartAssignmentPhaseSettled
+	r.status.err = nil
+	r.status.retry = false
+	r.mtx.Unlock()
+}
+
+func (r *release) updateHelm(as *apps.ChartAssignment) {
 	r.setPhase(apps.ChartAssignmentPhaseLoadingChart)
 
 	chart, vals, err := loadChart(&as.Spec.Chart)
@@ -381,4 +476,20 @@ func fetchChartTar(repoURL, name, version string) (io.Reader, error) {
 // newHTTPGetter return a Helm chart getter for HTTP(s) repositories.
 func newHTTPGetter(url, certFile, keyFile, caFile string) (getter.Getter, error) {
 	return getter.NewHTTPGetter(url, certFile, keyFile, caFile)
+}
+
+func decodeManifests(manifests map[string]string) (res []*unstructured.Unstructured, err error) {
+	for k, v := range manifests {
+		dec := yaml.NewYAMLOrJSONDecoder(strings.NewReader(v), 4096)
+		for i := 0; ; i++ {
+			var u unstructured.Unstructured
+			if err := dec.Decode(&u); err == io.EOF {
+				break
+			} else if err != nil {
+				return nil, errors.Wrapf(err, "decode manifest %d in %q", i, k)
+			}
+			res = append(res, &u)
+		}
+	}
+	return res, nil
 }

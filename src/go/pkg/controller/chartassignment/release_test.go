@@ -96,7 +96,7 @@ spec:
 	}
 
 	// First apply, the chart should be installed.
-	r.update(&as)
+	r.updateHelm(&as)
 	verifyRelease(t, r.helm, as.Name, 1, wantValues)
 }
 
@@ -129,7 +129,7 @@ spec:
 	}
 
 	// First apply, the chart should be installed.
-	r.update(&as)
+	r.updateHelm(&as)
 	// Apply the chart again with changed values should upgrade the
 	// existing release.
 	as.Spec.Chart.Values["bar1"] = 5
@@ -139,7 +139,7 @@ spec:
 		"bar2": chartutil.Values{"baz2": "test"},
 		"foo1": chartutil.Values{"baz1": "hello"},
 	}
-	r.update(&as)
+	r.updateHelm(&as)
 	verifyRelease(t, r.helm, as.Name, 2, wantValues)
 }
 

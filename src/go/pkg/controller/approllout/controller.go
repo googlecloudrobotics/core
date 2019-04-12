@@ -530,6 +530,11 @@ func newBaseChartAssignment(app *apps.App, rollout *apps.AppRollout, comp *apps.
 	for k, v := range rollout.Labels {
 		setLabel(&ca.ObjectMeta, k, v)
 	}
+	for k, v := range rollout.Annotations {
+		if k != core.LastAppliedConfigAnnotation {
+			setAnnotation(&ca.ObjectMeta, k, v)
+		}
+	}
 	ca.Spec.NamespaceName = appNamespaceName(rollout.Name)
 
 	if comp.Name != "" {
@@ -595,6 +600,13 @@ func setLabel(o *metav1.ObjectMeta, k, v string) {
 		o.Labels = map[string]string{}
 	}
 	o.Labels[k] = v
+}
+
+func setAnnotation(o *metav1.ObjectMeta, k, v string) {
+	if o.Annotations == nil {
+		o.Annotations = map[string]string{}
+	}
+	o.Annotations[k] = v
 }
 
 // setOwnerReference adds or updates an owner reference. Existing references

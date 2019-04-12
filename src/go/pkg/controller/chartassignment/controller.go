@@ -69,7 +69,11 @@ func Add(mgr manager.Manager, cluster, tillerHost string) error {
 		recorder: mgr.GetRecorder("chartassignment-controller"),
 		cluster:  cluster,
 	}
-	r.releases = newReleases(r.helm, r.recorder)
+	var err error
+	r.releases, err = newReleases(mgr.GetConfig(), r.helm, r.recorder)
+	if err != nil {
+		return err
+	}
 
 	c, err := controller.New("chartassignment", mgr, controller.Options{
 		Reconciler: r,
