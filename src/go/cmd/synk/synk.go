@@ -42,8 +42,13 @@ var (
 	}
 	cmdApply = &cobra.Command{
 		Use:   "apply",
-		Short: "Apply manifests to the cluster",
+		Short: "Apply manifests to the cluster.",
 		Run:   runApply,
+	}
+	cmdDelete = &cobra.Command{
+		Use:   "delete",
+		Short: "Delete all ResourceSets for the name.",
+		Run:   runDelete,
 	}
 
 	restOpts     = genericclioptions.NewConfigFlags()
@@ -56,6 +61,7 @@ func main() {
 
 	cmdRoot.AddCommand(cmdInit)
 	cmdRoot.AddCommand(cmdApply)
+	cmdRoot.AddCommand(cmdDelete)
 
 	if err := cmdRoot.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -96,6 +102,23 @@ func runInit(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	fmt.Fprintln(os.Stderr, "Initialized successfully")
+}
+
+func runDelete(cmd *cobra.Command, args []string) {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "unrecognized number of arguments, exactly one (name) expected")
+		os.Exit(2)
+	}
+	s, err := newSynk()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+	if err := s.Delete(context.Background(), args[0]); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+	fmt.Fprintln(os.Stderr, "Deleted successfully")
 }
 
 func runApply(cmd *cobra.Command, args []string) {

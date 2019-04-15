@@ -42,6 +42,7 @@ container_image(
     directory = "/setup-robot-files",
     files = [
         "//src/app_charts/base:base-robot",
+        "//src/go/cmd/synk",
         "@kubernetes_helm//:helm",
     ],
 )

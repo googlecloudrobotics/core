@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -57,11 +58,13 @@ var (
 	labels              = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
 	robotAuthentication = flag.Bool("robot-authentication", true, "Set up robot authentication.")
 	appManagement       = flag.Bool("app-management", true, "Set up app management.")
+	useSynk             = flag.Bool("use-synk", false, "Use Synk to install Helm charts.")
 )
 
 const (
 	filesDir          = "/setup-robot-files"
 	helmPath          = filesDir + "/helm"
+	synkPath          = filesDir + "/synk"
 	numDNSRetries     = 6
 	numServiceRetries = 6
 )
@@ -261,10 +264,17 @@ func main() {
 		log.Fatalf("Helm init failed: %v. Helm output:\n%s\n", err, output)
 	}
 
+	log.Println("Initializing Synk")
+	output, err = exec.Command(synkPath, "init").CombinedOutput()
+	if err != nil {
+		log.Fatalf("Synk init failed: %v. Synk output:\n%s\n", err, output)
+	}
+
 	// Clean up deprecated releases.
 	deleteReleaseIfPresent("robot-cluster")
 
-	installChartOrDie("robot-base", "base-robot-0.0.1.tgz", projectNumber)
+	// Use "robot" as a suffix for consistency for Synk deployments.
+	installChartOrDie("robot-base", "base-robot", "base-robot-0.0.1.tgz", projectNumber)
 }
 
 func helmValuesStringFromMap(varMap map[string]string) string {
@@ -290,8 +300,9 @@ func deleteReleaseIfPresent(name string) {
 	}
 }
 
-func installChartOrDie(name string, chartPath string, projectNumber int64) {
-	log.Printf("Installing %s Helm chart from %s", name, chartPath)
+// installChartOrDie installs a chart using Helm or Synk.
+// nameOld is used for the Helm release name, nameNew for the synk ResourceSet.
+func installChartOrDie(nameOld, nameNew, chartPath string, projectNumber int64) {
 	vars := helmValuesStringFromMap(map[string]string{
 		"domain":               *domain,
 		"project":              *project,
@@ -300,18 +311,55 @@ func installChartOrDie(name string, chartPath string, projectNumber int64) {
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
 		"robot.name":           *robotName,
 	})
+
+	if *useSynk {
+		log.Printf("Installing %s chart using Synk from %s", nameNew, chartPath)
+		// Best effort delete of Helm release.
+		exec.Command(helmPath, "delete", "--purge", nameOld)
+
+		output, err := exec.Command(
+			helmPath,
+			"template",
+			"--set-string", vars,
+			"--name", nameNew,
+			filepath.Join(filesDir, chartPath),
+		).CombinedOutput()
+		if err != nil {
+			log.Fatalf("Synk install of %s failed: %v\nHelm output:\n%s\n", nameNew, err, output)
+		}
+		cmd := exec.Command(
+			synkPath,
+			"apply",
+			nameNew,
+			"-n", "default",
+			"-f", "-",
+		)
+		// Helm writes the templated manifests and errors alike to stderr.
+		// So we can just take the combined output as is.
+		cmd.Stdin = bytes.NewReader(output)
+
+		if output, err = cmd.CombinedOutput(); err != nil {
+			log.Fatalf("Synk install of %s failed: %v\nSynk output:\n%s\n", nameNew, err, output)
+		}
+		return
+	}
+
+	log.Printf("Installing %s chart using Helm from %s", nameOld, chartPath)
+	// Best effort delete of Synk ResourceSets.
+	exec.Command(synkPath, "delete", nameNew)
+
 	output, err := exec.Command(
 		helmPath,
 		"upgrade",
 		"--install",
 		"--set-string",
 		vars,
-		name,
+		nameOld,
 		filepath.Join(filesDir, chartPath)).CombinedOutput()
 	if err != nil {
-		log.Printf("Helm install of %s failed: %v. Helm output:\n%s\n", name, err, output)
+		log.Printf("Helm install of %s failed: %v. Helm output:\n%s\n", nameOld, err, output)
 	} else {
-		log.Printf("%s\nSuccessfully installed %s Helm chart", output, name)
+		log.Printf("%s\nSuccessfully installed %s Helm chart", output, nameOld)
 		return
 	}
 	log.Printf("Retrying as force upgrade...")
@@ -322,12 +370,12 @@ func installChartOrDie(name string, chartPath string, projectNumber int64) {
 		"--force",
 		"--set-string",
 		vars,
-		name,
+		nameOld,
 		filepath.Join(filesDir, chartPath)).CombinedOutput()
 	if err != nil {
-		log.Fatalf("Helm install of %s failed: %v. Helm output:\n%s\n", name, err, output)
+		log.Fatalf("Helm install of %s failed: %v. Helm output:\n%s\n", nameOld, err, output)
 	} else {
-		log.Printf("%s\nSuccessfully installed %s Helm chart", output, name)
+		log.Printf("%s\nSuccessfully installed %s Helm chart", output, nameOld)
 	}
 }
 

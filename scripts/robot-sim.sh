@@ -76,7 +76,8 @@ function create {
     --robot-role "${ROBOT_ROLE}" \
     --robot-type "${ROBOT_TYPE}" --robot-authentication=false \
     --labels "${ROBOT_LABELS}" \
-    --app-management="${APP_MANAGEMENT}"
+    --app-management="${APP_MANAGEMENT}" \
+    --use-synk="${USE_SYNK}"
 }
 
 function delete {
