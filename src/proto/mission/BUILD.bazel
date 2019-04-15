@@ -50,15 +50,17 @@ load("//bazel/proto_crd:proto_k8s_service.bzl", "proto_k8s_service")
 
 proto_k8s_service(
     name = "mission_cr",
+    filter_by_robot_name = True,
     group = "mission.cloudrobotics.com",
     message = "cloudrobotics.mission.v1alpha1.Mission",
     spec = ":mission_proto",
+    spec_source = "{{ .Values.crd_spec_source }}",
 )
 
 go_proto_library(
     name = "mission_cr_go_proto",
-    importpath = "github.com/googlecloudrobotics/core/src/proto/mission",
     compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "github.com/googlecloudrobotics/core/src/proto/mission",
     protos = [
         ":mission_cr_proto",
         ":mission_proto",
