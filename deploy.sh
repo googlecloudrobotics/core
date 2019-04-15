@@ -26,15 +26,18 @@ PROJECT_NAME="cloud-robotics"
 if is_source_install; then
   TERRAFORM="${DIR}/bazel-out/../../../external/hashicorp_terraform/terraform"
   HELM_COMMAND="${DIR}/bazel-out/../../../external/kubernetes_helm/helm"
+  SYNK_COMMAND="${DIR}/bazel-bin/src/go/cmd/synk/linux_amd64_stripped/synk"
 else
   TERRAFORM="${DIR}/bin/terraform"
   HELM_COMMAND="${DIR}/bin/helm"
+  SYNK_COMMAND="${DIR}/bin/synk"
 fi
 
 TERRAFORM_DIR="${DIR}/src/bootstrap/cloud/terraform"
 TERRAFORM_APPLY_FLAGS=${TERRAFORM_APPLY_FLAGS:- -auto-approve}
 
 APP_MANAGEMENT=${APP_MANAGEMENT:-false}
+USE_SYNK=${USE_SYNK:-false}
 
 # utility functions
 
@@ -54,6 +57,8 @@ function include_config {
   KUBE_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"
 
   HELM="${HELM_COMMAND} --kube-context ${KUBE_CONTEXT}"
+  SYNK="${SYNK_COMMAND} --context ${KUBE_CONTEXT}"
+  KUBECTL="kubectl --context ${KUBE_CONTEXT}"
 }
 
 function prepare_source_install {
@@ -171,6 +176,8 @@ function helm_charts {
     --project ${GCP_PROJECT_ID} \
     || die "create: failed to get cluster credentials"
 
+  ${SYNK} init
+
   ${HELM} init --history-max=10 --upgrade --force-upgrade --wait
 
   # Transitionary helper:
@@ -181,15 +188,6 @@ function helm_charts {
     # 1d3dfc8.
     ${HELM} delete --purge cloud-base 2>/dev/null || true
   fi
-
-  ${HELM} repo update
-  # TODO(ensonic): we'd like to use this as part of 'base-cloud', but have no means of
-  # enforcing dependencies. The cert-manager chart introduces new CRDs that we are using in
-  # base-cloud.
-  # TODO(rodrigoq): when upgrading to v0.6, make sure the CRDs are manually
-  # installed beforehand: https://github.com/jetstack/cert-manager/pull/1138
-  helmout=$(${HELM} upgrade --install cert-manager --set rbac.create=false stable/cert-manager --version v0.5.2) \
-    || die "Helm failed for jetstack-cert-manager: $helmout"
 
   values=$(cat <<EOF
     --set-string domain=${PROJECT_DOMAIN}
@@ -206,16 +204,65 @@ function helm_charts {
 EOF
 )
 
-  # TODO(rodrigoq): during the repo reorg, make sure that the release name
-  # matches the chart name. Right now one is "cloud-base" and the other is
-  # "base-cloud", which is confusing.
-  helmout=$(${HELM} upgrade --install cloud-base ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz $values) \
-    || die "Helm failed for base-cloud: $helmout"
-  echo "helm installed base-cloud to ${KUBE_CONTEXT}: $helmout"
+  if ${USE_SYNK}; then
+    # Delete potential Helm variant.
+    ${HELM} delete --purge cert-manager &> /dev/null || true
+    ${HELM} delete --purge cloud-base &> /dev/null || true
+    ${HELM} delete --purge platform-apps &> /dev/null || true
 
-  helmout=$(${HELM} upgrade --install platform-apps ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz) \
-    || die "Helm failed for platform-apps-cloud: $helmout"
-  echo "helm installed platform-apps-cloud to ${KUBE_CONTEXT}"
+    # `helm fetch` neither lets us specify a target file, nor tells us which file it
+    # wrote the chart to. Just fetch it manually.
+    # `helm template` doesn't let us read a tarball from stdin, so we've to save
+    # it to disk first as well.
+    cert_manager_chart="$( mktemp -d)/cert-manager.tgz"
+    curl -o ${cert_manager_chart} https://kubernetes-charts.storage.googleapis.com/cert-manager-v0.5.2.tgz
+
+    synkout=$(${HELM} template -n cert-manager --set rbac.create=false ${cert_manager_chart} \
+      | ${SYNK} apply cert-manager -n default -f -) \
+      || die "Synk failed for cert-manager: $synkout"
+    echo "synk installed cert-manager to ${KUBE_CONTEXT}: $synkout"
+
+    synkout=$(${HELM} template -n base-cloud ${values} \
+        ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz \
+      | ${SYNK} apply base-cloud -n default -f -) \
+      || die "Synk failed for base-cloud: $synkout"
+    echo "synk installed base-cloud to ${KUBE_CONTEXT}: $synkout"
+
+    synkout=$(${HELM} template -n platform-apps-cloud ${values} \
+        ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz \
+      | ${SYNK} apply platform-apps-cloud -n default -f -) \
+      || die "Synk failed for platform-apps-cloud: $synkout"
+    echo "synk installed base-cloud to ${KUBE_CONTEXT}: $synkout"
+
+  else
+    # Delete potential Synk variant.
+    ${KUBECTL} delete resourceset -l name=cert-manager
+    ${KUBECTL} delete resourceset -l name=base-cloud
+    ${KUBECTL} delete resourceset -l name=platform-apps-cloud
+
+    ${HELM} repo update
+    # TODO(ensonic): we'd like to use this as part of 'base-cloud', but have no means of
+    # enforcing dependencies. The cert-manager chart introduces new CRDs that we are using in
+    # base-cloud.
+    # TODO(rodrigoq): when upgrading to v0.6, make sure the CRDs are manually
+    # installed beforehand: https://github.com/jetstack/cert-manager/pull/1138
+    # TODO(freinartz): this can be moved into the base chart once we fully
+    # migrated to synk. The chart from the Helm repository is deprecated though
+    # and the new one from the cert-manager repository should be used.
+    helmout=$(${HELM} upgrade --install cert-manager --set rbac.create=false stable/cert-manager --version v0.5.2) \
+      || die "Helm failed for jetstack-cert-manager: $helmout"
+
+    # TODO(rodrigoq): during the repo reorg, make sure that the release name
+    # matches the chart name. Right now one is "cloud-base" and the other is
+    # "base-cloud", which is confusing.
+    helmout=$(${HELM} upgrade --install cloud-base ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz $values) \
+      || die "Helm failed for base-cloud: $helmout"
+    echo "helm installed base-cloud to ${KUBE_CONTEXT}: $helmout"
+
+    helmout=$(${HELM} upgrade --install platform-apps ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz) \
+      || die "Helm failed for platform-apps-cloud: $helmout"
+    echo "helm installed platform-apps-cloud to ${KUBE_CONTEXT}"
+  fi
 }
 
 # commands

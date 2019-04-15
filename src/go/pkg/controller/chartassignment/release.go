@@ -45,7 +45,7 @@ import (
 	"k8s.io/helm/pkg/repo"
 )
 
-// Boolean annotation to toggle between synk and Helm to deploy manifests.
+// Boolean annotation to toggle between Synk and Helm to deploy manifests.
 const annotationUseSynk = "apps.cloudrobotics.com/use-synk"
 
 // releases is a cache of releases currently handled.
@@ -129,7 +129,8 @@ func (rs *releases) add(name string) *release {
 	return r
 }
 
-// ensureUpdated ensures that the ChartAssignment is installed as a Helm release.
+// ensureUpdated ensures that the ChartAssignment is installed as a Helm release
+// or Synk ResourceSet.
 // It returns true if it could initiate an update successfully.
 func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 	r := rs.add(as.Name)
