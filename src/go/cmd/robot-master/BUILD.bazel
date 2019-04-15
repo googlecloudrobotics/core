@@ -10,22 +10,14 @@ go_library(
     deps = [
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
         "//src/go/pkg/controller/chartassignment:go_default_library",
-        "//src/go/pkg/helm:go_default_library",
-        "//src/proto/registry:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
-        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
-        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",
-        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
-        "@io_k8s_client_go//dynamic:go_default_library",
         "@io_k8s_client_go//kubernetes/scheme:go_default_library",
         "@io_k8s_client_go//rest:go_default_library",
-        "@io_k8s_helm//pkg/strvals:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/manager:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/runtime/log:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/runtime/signals:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/webhook:go_default_library",
-        "@org_golang_x_net//context:go_default_library",
     ],
 )
 

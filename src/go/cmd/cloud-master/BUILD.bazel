@@ -4,11 +4,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "main.go",
-        "master.go",
-        "status.go",
-    ],
+    srcs = ["main.go"],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/cloud-master",
     visibility = ["//visibility:private"],
     deps = [
@@ -16,15 +12,8 @@ go_library(
         "//src/go/pkg/apis/registry/v1alpha1:go_default_library",
         "//src/go/pkg/controller/approllout:go_default_library",
         "//src/go/pkg/controller/chartassignment:go_default_library",
-        "//src/go/pkg/helm:go_default_library",
-        "//src/proto/registry:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
-        "@com_google_cloud_go//pubsub:go_default_library",
-        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
-        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",
-        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
-        "@io_k8s_client_go//dynamic:go_default_library",
         "@io_k8s_client_go//kubernetes/scheme:go_default_library",
         "@io_k8s_client_go//rest:go_default_library",
         "@io_k8s_helm//pkg/chartutil:go_default_library",
@@ -33,7 +22,6 @@ go_library(
         "@io_k8s_sigs_controller_runtime//pkg/runtime/log:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/runtime/signals:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/webhook:go_default_library",
-        "@org_golang_google_api//iterator:go_default_library",
     ],
 )
 

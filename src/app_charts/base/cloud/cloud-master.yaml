@@ -18,7 +18,6 @@ spec:
           project={{ .Values.project }},\
           project_number={{ .Values.project_number }},\
           deploy_environment={{ .Values.deploy_environment }}"
-        - "--enable-app-v2"
         - "--cluster=cloud"
         - "--namespace={{ .Release.Namespace }}"
         - "--labels=app=cloud-master"

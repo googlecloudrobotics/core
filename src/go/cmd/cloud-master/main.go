@@ -17,13 +17,10 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"log"
 	"net/http"
-	"os"
 	"strings"
-	"time"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
@@ -41,16 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-const (
-	numRetries         = 3
-	errBackoffInterval = 10 * time.Second
-	pollInterval       = 10 * time.Second
-)
-
 var (
-	enableAppV2 = flag.Bool("enable-app-v2", false,
-		"Enable the application layer v2 controllers")
-
 	cluster = flag.String("cluster", "cloud",
 		"Name of the master's cluster")
 
@@ -70,50 +58,9 @@ var (
 		"Listening port of the custom resource webhook")
 )
 
-func reportHealth(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte("ok\n"))
-}
-
-func runHealthCheckServer() {
-	http.HandleFunc("/healthz", reportHealth)
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func spinOnce(ctx context.Context, cm *cloudMaster, sp *statusPublisher) error {
-	if err := cm.spin(ctx); err != nil {
-		return err
-	}
-	return sp.spin()
-}
-
-// spin runs the update cycle periodically. It returns if a fixed number of
-// updates have failed consecutively, otherwise it continues indefinitely.
-func spin(ctx context.Context, cm *cloudMaster, sp *statusPublisher) {
-	tick := time.NewTicker(pollInterval)
-	defer tick.Stop()
-	numFailures := 0
-	for numFailures < numRetries {
-		if err := spinOnce(ctx, cm, sp); err != nil {
-			log.Printf("Cloud master iteration failed: %v", err)
-			numFailures += 1
-			time.Sleep(errBackoffInterval)
-		} else {
-			numFailures = 0
-		}
-		select {
-		case <-cm.h.UpdateChannel():
-			log.Printf("Update triggered by Kubernetes change")
-		case <-tick.C:
-		}
-	}
-}
-
 func main() {
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
 	flag.Parse()
-
-	ctx := context.Background()
 
 	kubernetesConfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -125,25 +72,16 @@ func main() {
 		log.Fatalln("invalid Helm parameters:", err)
 	}
 
-	if *enableAppV2 {
-		if err := setupAppV2(kubernetesConfig, helmParams); err != nil {
-			log.Fatalln(err)
-		}
+	if err := setupAppV2(kubernetesConfig, helmParams); err != nil {
+		log.Fatalln(err)
 	}
 
-	cm, err := newCloudMaster(kubernetesConfig, helmParams)
-	if err != nil {
-		log.Fatalf("Unable to create cloud master: %v", err)
-	}
-
-	sp, err := newStatusPublisher(os.Getenv("GOOGLE_CLOUD_PROJECT"), kubernetesConfig)
-	if err != nil {
-		log.Fatalf("Unable to start status publisher: %v", err)
-	}
-
-	go runHealthCheckServer()
-	spin(ctx, cm, sp)
-	log.Fatalf("Cloud master terminating due to repeated errors")
+	// Run a k8s liveness probe in the main thread.
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte("ok"))
+	})
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 func setupAppV2(cfg *rest.Config, params map[string]interface{}) error {
