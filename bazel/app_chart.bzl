@@ -151,7 +151,6 @@ def app_chart(
         docker_tag = "latest",
         values = None,
         extra_templates = None,
-        extra_values = None,
         files = None,
         images = None,
         visibility = None):
@@ -170,8 +169,6 @@ def app_chart(
       docker_tag: string. Defaults to latest.
       values: file. The values.yaml file.
       extra_templates: list of files. Extra files for the chart's templates/ directory.
-      extra_values: string. This is a YAML string for the "values" field  of
-        the app CR. This can be used to pass extra parameters to the app.
       files: list of files. Extra non-template files for the chart's files/ directory.
       images: dict. Images referenced by the chart.
       visibility: Visibility.
@@ -230,10 +227,6 @@ def app_chart(
         visibility = visibility,
     )
 
-    extra_values_yaml = ""
-    if extra_values:
-        extra_values_yaml = "\n".join(["values: |-"] + ["      " + s for s in extra_values.split("\n")])
-
     native.genrule(
         name = name + ".snippet-yaml",
         srcs = [name],
@@ -243,13 +236,10 @@ def app_chart(
     name: {name}
     version: 0.0.1
     inline_chart: $$(base64 -w 0 $<)
-    {extra_values_yaml}
 EOF
 """.format(
             name = name,
             target = chart.upper().replace("-", "_"),
-            values_header = "values: |-\n" if extra_values else "",
-            extra_values_yaml = extra_values_yaml,
         ),
     )
 
