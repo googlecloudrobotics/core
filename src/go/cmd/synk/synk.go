@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	"github.com/pkg/errors"
@@ -142,9 +143,18 @@ func apply(name string) error {
 	opts := &synk.ApplyOptions{
 		Namespace:        namespace,
 		EnforceNamespace: enforceNamespace,
+		Log:              log,
 	}
 	if _, err := s.Apply(context.Background(), name, opts, resources...); err != nil {
 		return errors.Wrap(err, "apply files")
 	}
 	return nil
+}
+
+func log(r *unstructured.Unstructured, status, msg string) {
+	fmt.Fprintf(os.Stderr, "[%s] %s/%s %s/%s: %s\n",
+		strings.ToUpper(status),
+		r.GetAPIVersion(), r.GetKind(),
+		r.GetNamespace(), r.GetName(),
+		msg)
 }

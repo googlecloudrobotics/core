@@ -89,8 +89,32 @@ type ApplyOptions struct {
 	name    string
 	version int32
 
-	Namespace        string
+	// Namespace that's set for all namespaced resources that have no
+	// other namespace set yet.
+	Namespace string
+	// EnforceNamespace causes apply to fail if a resource has a namespace set
+	// that's different from Namespace.
 	EnforceNamespace bool
+
+	// Log functions to report progress and failures while applying resources.
+	Log func(r *unstructured.Unstructured, status, msg string)
+}
+
+const (
+	StatusSuccess = "success"
+	StatusFailure = "failure"
+)
+
+func (o *ApplyOptions) logf(r *unstructured.Unstructured, msg string, args ...interface{}) {
+	if o.Log != nil {
+		o.Log(r, StatusSuccess, fmt.Sprintf(msg, args...))
+	}
+}
+
+func (o *ApplyOptions) errorf(r *unstructured.Unstructured, msg string, args ...interface{}) {
+	if o.Log != nil {
+		o.Log(r, StatusFailure, fmt.Sprintf(msg, args...))
+	}
 }
 
 // Init installs the ResourceSet CRD into the cluster and waits for
@@ -218,6 +242,11 @@ func (s *Synk) applyAll(
 		// CRDs must never be replaced as deleting them will delete
 		// all its current instances. Update conflicts must be resolved manually.
 		action, err := s.applyOne(crd, rs)
+		if err != nil {
+			opts.errorf(crd, "failed to apply: %s", err)
+		} else {
+			opts.logf(crd, "applied successfully")
+		}
 		results.set(crd, action, err)
 	}
 	err := wait.PollImmediate(2*time.Second, 2*time.Minute, func() (bool, error) {
@@ -248,6 +277,9 @@ func (s *Synk) applyAll(
 			action, err := s.applyOne(r, rs)
 			if err != nil {
 				curFailures++
+				opts.errorf(r, "failed to apply, may retry: %s", err)
+			} else {
+				opts.logf(r, "applied successfully")
 			}
 			results.set(r, action, err)
 		}
