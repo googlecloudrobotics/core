@@ -1,6 +1,7 @@
 load("@cloud_robotics//bazel/build_rules/app_chart:run_parallel.bzl", "run_parallel")
 
-def app(name, charts, v2 = False, visibility = None):
+# TODO(ensonic): drop v2 parameter
+def app(name, charts, v2 = True, visibility = None):
     """Macro for a standard Cloud Robotics app.
 
     This macro establishes two subrules for app name "foo":
@@ -13,6 +14,9 @@ def app(name, charts, v2 = False, visibility = None):
       charts: list of targets. Helm charts for this app.
       visibility: Visibility.
     """
+    if not v2:
+        print("NOTE: disabling v2 has no effect.")
+
     pkg = Label("{}//{}".format(native.repository_name(), native.package_name()))
     chart_labels = [pkg.relative(c) for c in charts]
     run_parallel(
@@ -21,18 +25,16 @@ def app(name, charts, v2 = False, visibility = None):
         visibility = visibility,
     )
 
-    if v2:
-        native.genrule(
-            # we name this differently than the file we produce to silence:
-            #   target 'xxx.yaml' is both a rule and a file; please choose another name for the rule
-            name = name + ".manifest",
-            srcs = [
-                "//{}:{}.snippet-v2-yaml".format(c.package, c.name)
-                for c in chart_labels
-                if not c.name.endswith("cloud-per-robot")
-            ],
-            outs = [name + ".yaml"],
-            cmd = """cat - $(SRCS) > $@ <<EOF
+    native.genrule(
+        # we name this differently than the file we produce to silence:
+        #   target 'xxx.yaml' is both a rule and a file; please choose another name for the rule
+        name = name + ".manifest",
+        srcs = [
+            "//{}:{}.snippet-yaml".format(c.package, c.name)
+            for c in chart_labels
+        ],
+        outs = [name + ".yaml"],
+        cmd = """cat - $(SRCS) > $@ <<EOF
 apiVersion: apps.cloudrobotics.com/v1alpha1
 kind: App
 metadata:
@@ -41,21 +43,5 @@ spec:
   components:
 EOF
 """.format(name = name),
-            visibility = visibility,
-        )
-    else:
-        native.genrule(
-            name = name + ".manifest",
-            srcs = ["//{}:{}.snippet-yaml".format(c.package, c.name) for c in chart_labels],
-            outs = [name + ".yaml"],
-            cmd = """cat - $(SRCS) > $@ <<EOF
-apiVersion: registry.cloudrobotics.com/v1alpha1
-kind: App
-metadata:
-  name: {name}
-spec:
-  charts:
-EOF
-""".format(name = name),
-            visibility = visibility,
-        )
+        visibility = visibility,
+    )

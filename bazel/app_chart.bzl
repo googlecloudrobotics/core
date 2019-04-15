@@ -232,25 +232,8 @@ def app_chart(
         srcs = [name],
         outs = [name + ".snippet.yaml"],
         cmd = """cat <<EOF > $@
-  - installation_target: {target}
-    name: {name}
-    version: 0.0.1
-    inline_chart: $$(base64 -w 0 $<)
-EOF
-""".format(
-            name = name,
-            target = chart.upper().replace("-", "_"),
-        ),
-    )
-
-    if chart != "cloud-per-robot":
-        native.genrule(
-            name = name + ".snippet-v2-yaml",
-            srcs = [name],
-            outs = [name + ".snippet-v2.yaml"],
-            cmd = """cat <<EOF > $@
     {target}:
       inline: $$(base64 -w 0 $<)
 EOF
 """.format(name = name, target = chart),
-        )
+    )
