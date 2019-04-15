@@ -93,6 +93,46 @@ type ApplyOptions struct {
 	EnforceNamespace bool
 }
 
+// Init installs the ResourceSet CRD into the cluster and waits for
+// it to become available.
+// It does not need to be called before each use of Synk.
+func (s *Synk) Init() error {
+	crd := &apiextensions.CustomResourceDefinition{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apiextensions.k8s.io/v1beta1",
+			Kind:       "CustomResourceDefinition",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "resourcesets.apps.cloudrobotics.com",
+		},
+		Spec: apiextensions.CustomResourceDefinitionSpec{
+			Group:   "apps.cloudrobotics.com",
+			Version: "v1alpha1",
+			Names: apiextensions.CustomResourceDefinitionNames{
+				Kind:     "ResourceSet",
+				Plural:   "resourcesets",
+				Singular: "resourceset",
+			},
+			Scope: apiextensions.ClusterScoped,
+		},
+	}
+	var u unstructured.Unstructured
+	if err := convert(crd, &u); err != nil {
+		return err
+	}
+	if _, err := s.applyOne(&u, nil); err != nil {
+		return errors.Wrap(err, "create ResourceSet CRD")
+	}
+	err := wait.PollImmediate(2*time.Second, 2*time.Minute, func() (bool, error) {
+		ok, err := s.crdAvailable(&u)
+		return ok && err == nil, err
+	})
+	if err != nil {
+		return errors.Wrap(err, "wait for ResourceSet CRD")
+	}
+	return nil
+}
+
 func (s *Synk) Delete(ctx context.Context, name string) error {
 	return s.client.Resource(resourceSetGVR).DeleteCollection(nil, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("name=%s", name),
@@ -372,6 +412,9 @@ func getAppliedAnnotation(u *unstructured.Unstructured) []byte {
 // validateOwnerRefs returns an error if the resource has ResourceSet owners
 // that are not predecessors of name/version.
 func validateOwnerRefs(r *unstructured.Unstructured, set *apps.ResourceSet) error {
+	if set == nil {
+		return nil
+	}
 	name, version, ok := decodeResourceSetName(set.Name)
 	if !ok {
 		return errors.Errorf("invalid ResourceSet name %q", set.Name)

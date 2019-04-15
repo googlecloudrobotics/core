@@ -34,6 +34,11 @@ var (
 		Use:   "synk",
 		Short: "A tool to sync manifests with a cluster.",
 	}
+	cmdInit = &cobra.Command{
+		Use:   "init",
+		Short: "Initialize cluster for use with synk.",
+		Run:   runInit,
+	}
 	cmdApply = &cobra.Command{
 		Use:   "apply",
 		Short: "Apply manifests to the cluster",
@@ -48,12 +53,48 @@ func main() {
 	restOpts.AddFlags(cmdRoot.PersistentFlags())
 	resourceOpts.AddFlags(cmdApply.PersistentFlags())
 
+	cmdRoot.AddCommand(cmdInit)
 	cmdRoot.AddCommand(cmdApply)
 
 	if err := cmdRoot.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func newSynk() (*synk.Synk, error) {
+	restcfg, err := restOpts.ToRESTConfig()
+	if err != nil {
+		return nil, errors.Wrap(err, "get config")
+	}
+	discovery, err := restOpts.ToDiscoveryClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "get discovery client")
+	}
+	client, err := dynamic.NewForConfig(restcfg)
+	if err != nil {
+		return nil, errors.Wrap(err, "create dynamic client")
+	}
+	s := synk.New(client, discovery)
+
+	// Invalidate to be safe. It seems that a persistent discovery cache
+	// likes to stay out of sync way too often.
+	discovery.Invalidate()
+
+	return s, nil
+}
+
+func runInit(cmd *cobra.Command, args []string) {
+	s, err := newSynk()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+	if err := s.Init(); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+	fmt.Fprintln(os.Stderr, "Initialized successfully")
 }
 
 func runApply(cmd *cobra.Command, args []string) {
@@ -94,24 +135,10 @@ func apply(name string) error {
 		resources = append(resources, i.Object.(*unstructured.Unstructured))
 	}
 
-	restcfg, err := restOpts.ToRESTConfig()
+	s, err := newSynk()
 	if err != nil {
-		return errors.Wrap(err, "get config")
+		return err
 	}
-	discovery, err := restOpts.ToDiscoveryClient()
-	if err != nil {
-		return errors.Wrap(err, "get discovery client")
-	}
-	client, err := dynamic.NewForConfig(restcfg)
-	if err != nil {
-		return errors.Wrap(err, "create dynamic client")
-	}
-	s := synk.New(client, discovery)
-
-	// Invalidate to be safe. It seems that a persistent discovery cache
-	// likes to stay out of sync way too often.
-	discovery.Invalidate()
-
 	opts := &synk.ApplyOptions{
 		Namespace:        namespace,
 		EnforceNamespace: enforceNamespace,
