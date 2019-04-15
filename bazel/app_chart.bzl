@@ -116,12 +116,6 @@ _app_chart_backend = rule(
             default = [],
             doc = "Files for the chart's templates/ directory.",
         ),
-        "extra_values": attr.string(
-            default = "",
-            doc = "This is a YAML string for the \"values\" field  of " +
-                  "the app CR. This can be used to pass extra parameters to " +
-                  "the app.",
-        ),
         "files": attr.label_list(
             allow_empty = True,
             allow_files = True,
@@ -206,7 +200,6 @@ def app_chart(
         docker_tag = docker_tag,
         values = values,
         templates = native.glob([chart + "/*.yaml"]) + (extra_templates or []),
-        extra_values = extra_values,
         files = files,
         images = reversed_images,
         visibility = visibility,
