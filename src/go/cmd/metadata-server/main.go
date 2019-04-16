@@ -150,6 +150,7 @@ func (mh MetadataHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	metadata := map[string]string{
 		"project/project-id":                   mh.ProjectId,
+		"project/numeric-project-id":           fmt.Sprintf("%d", mh.ProjectNumber),
 		"instance/hostname":                    fmt.Sprintf("robot-%s", mh.RobotName),
 		"instance/id":                          fmt.Sprintf("%d", mh.InstanceId),
 		"instance/zone":                        fmt.Sprintf("projects/%d/zones/%s", mh.ProjectNumber, mh.Zone),
