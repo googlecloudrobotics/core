@@ -175,6 +175,15 @@ func apply(name string) error {
 }
 
 func log(r *unstructured.Unstructured, status, msg string) {
+	// Remove some visual clutter by only showing the resource for successes.
+	if status == synk.StatusSuccess {
+		fmt.Fprintf(os.Stderr, "[%s] %s/%s %s/%s\n",
+			strings.ToUpper(status),
+			r.GetAPIVersion(), r.GetKind(),
+			r.GetNamespace(), r.GetName(),
+		)
+		return
+	}
 	fmt.Fprintf(os.Stderr, "[%s] %s/%s %s/%s: %s\n",
 		strings.ToUpper(status),
 		r.GetAPIVersion(), r.GetKind(),
