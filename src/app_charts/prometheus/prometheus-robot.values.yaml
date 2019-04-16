@@ -28,11 +28,11 @@ prometheus:
     retention: "3d"
 
 kubeEtcd:
-  enabled: true
+  enabled: false
 kubeControllerManager:
-  enabled: true
+  enabled: false
 kubeScheduler:
-  enabled: true
+  enabled: false
 coreDns:
   enabled: false
 kubelet:
