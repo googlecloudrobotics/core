@@ -213,6 +213,12 @@ function set_default_vars {
   TERRAFORM_GCS_BUCKET=$( echo "${TF_LOCATION}" | sed "s#${TF_LOCATION_REGEX}#\2#;q" ) \
     || die "ERROR: Invalid GCP storage folder. Accepted format: gs://<bucket>/<folder>"
   TERRAFORM_GCS_PREFIX=$( echo "${TF_LOCATION}" | sed "s#${TF_LOCATION_REGEX}#\4#;q" )
+
+  read_variable PRIVATE_DOCKER_PROJECTS "Do you need to read private Docker images from a GCR project? Space-separated list of numeric project ids, or 'none' for none." \
+    "${PRIVATE_DOCKER_PROJECTS:-none}"
+  if [[ "${PRIVATE_DOCKER_PROJECTS}" == "none" ]]; then
+    PRIVATE_DOCKER_PROJECTS=
+  fi
 }
 
 function set_oauth_vars {
@@ -245,6 +251,7 @@ print_variable "GCP region" "${GCP_REGION}"
 print_variable "GCP zone" "${GCP_ZONE}"
 print_variable "Terraform state bucket" "${TERRAFORM_GCS_BUCKET}"
 print_variable "Terraform state directory" "${TERRAFORM_GCS_PREFIX}"
+print_variable "Projects for private Docker images" "${PRIVATE_DOCKER_PROJECTS}"
 print_variable "OAuth client id" "${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
 print_variable "OAuth client secret" "${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
 print_variable "OAuth cookie secret" "${CLOUD_ROBOTICS_COOKIE_SECRET}"
@@ -276,6 +283,7 @@ save_variable TERRAFORM_GCS_PREFIX "${TERRAFORM_GCS_PREFIX}"
 save_variable CLOUD_ROBOTICS_OAUTH2_CLIENT_ID "${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
 save_variable CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET "${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
 save_variable CLOUD_ROBOTICS_COOKIE_SECRET "${CLOUD_ROBOTICS_COOKIE_SECRET}"
+save_variable PRIVATE_DOCKER_PROJECTS "${PRIVATE_DOCKER_PROJECTS}"
 
 if [[ -z "${FLAG_LOCAL}" ]]; then
   # Upload config to the cloud.

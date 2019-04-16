@@ -109,8 +109,13 @@ function terraform_exec {
 }
 
 function terraform_init {
-  local IMAGE_PROJECT_ID
-  IMAGE_PROJECT_ID="$(echo ${CLOUD_ROBOTICS_CONTAINER_REGISTRY} | sed -n -e 's:^.*gcr.io/::p')"
+  if [[ -z "${PRIVATE_DOCKER_PROJECTS:-}" ]]; then
+    # Transition helper: Until all configs have PRIVATE_DOCKER_PROJECTS,
+    # default to CLOUD_ROBOTICS_CONTAINER_REGISTRY.
+    if [[ -n "${CLOUD_ROBOTICS_CONTAINER_REGISTRY:-}" ]] && [[ "${CLOUD_ROBOTICS_CONTAINER_REGISTRY:-}" != "${GCP_PROJECT_ID}" ]]; then
+      PRIVATE_DOCKER_PROJECTS="$(echo ${CLOUD_ROBOTICS_CONTAINER_REGISTRY} | sed -n -e 's:^.*gcr.io/::p')"
+    fi
+  fi
 
   # Pass CLOUD_ROBOTICS_DOMAIN here and not PROJECT_DOMAIN, as we only create dns resources if a custom
   # domain is used.
@@ -124,9 +129,9 @@ region = "${GCP_REGION}"
 shared_owner_group = "${CLOUD_ROBOTICS_SHARED_OWNER_GROUP}"
 EOF
 
-  if [[ -n "${IMAGE_PROJECT_ID}" ]] && [[ "${IMAGE_PROJECT_ID}" != "${GCP_PROJECT_ID}" ]]; then
+  if [[ -n "${PRIVATE_DOCKER_PROJECTS:-}" ]]; then
     cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
-private_image_repositories = ["${IMAGE_PROJECT_ID}"]
+private_image_repositories = ["${PRIVATE_DOCKER_PROJECTS// /\", \"}"]
 EOF
   fi
 

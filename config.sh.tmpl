@@ -13,6 +13,11 @@ GCP_ZONE=europe-west1-c
 
 ### Optional settings ###
 
+# A space-separated list of GCP alphanumeric project IDs for private image
+# repositories. The installer will provision GCR access to these projects,
+# both for the compute service account and for the robot service account.
+#PRIVATE_IMAGE_REPOSITORIES="my-project my-other-project"
+
 # A Google Group that should be a co-owner of the created GCP project.
 #CLOUD_ROBOTICS_SHARED_OWNER_GROUP=my-group@googlegroups.com
 
