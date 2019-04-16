@@ -49,8 +49,9 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "external_tools",
+    name = "binary_tools",
     srcs = [
+        "//src/go/cmd/synk",
         "@hashicorp_terraform//:terraform",
         "@kubernetes_helm//:helm",
     ],
@@ -69,7 +70,7 @@ pkg_tar(
     deps = [
         ":bazel-bin",
         ":bazel-genfiles",
-        ":external_tools",
+        ":binary_tools",
         ":files",
         ":scripts",
     ],
