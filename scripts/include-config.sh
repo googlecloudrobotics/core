@@ -14,16 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Includes the configuration variables from ./config.sh and ./config.bzl.
-# The config.sh file can be overridden by using a CONFIG environment variable. This can be relative
-# to the project root or absolute.
+# Includes the configuration variables from a config.sh and ./config.bzl.
 
 rootdir="$(dirname "${BASH_SOURCE[0]}")/.."
-configsh="${CONFIG:-config.sh}"
-
-if [[ ! "${configsh}" = /* ]]; then
-  configsh="${rootdir}/${configsh}"
-fi
 configbzl="${rootdir}/config.bzl"
 
 function check_vars_not_empty {
@@ -48,33 +41,31 @@ function check_var_is_one_of {
   fi
 }
 
-# Check that the config file exists.
-if [[ ! -r $configsh ]] ; then
-  echo "ERROR: ${configsh} does not exist or is not readable" >&2
-  exit 1
-fi
+function include_config {
+  local project="$1"
 
-# Import config.sh variables
-source ${configsh}
+  source <(gsutil cat "gs://${project}-cloud-robotics-config/config.sh")
 
-# Check that $configsh defines the following set of configuration variables
-check_vars_not_empty GCP_PROJECT_ID GCP_REGION GCP_ZONE
+  # Check that config defines the following set of configuration variables
+  check_vars_not_empty GCP_PROJECT_ID GCP_REGION GCP_ZONE
 
-# Only import $configbzl for source installs
-if is_source_install; then
-  if [[ ! -r $configbzl ]] ; then
-    echo "ERROR: config.bzl does not exist or is not readable" >&2
-    exit 1
+  # Only import $configbzl for source installs
+  if is_source_install; then
+    if [[ ! -r $configbzl ]] ; then
+      echo "ERROR: config.bzl does not exist or is not readable" >&2
+      exit 1
+    fi
+    # Import config.bzl variables
+    # shellcheck disable=2046
+    # For better or worse, all spaces are removed by sed.
+    export $(sed -e 's/[\ "]//g' -e '/^#/d' $configbzl)
+
+    # Check that $configbzl defines the following union set of
+    # configuration variables
+    check_vars_not_empty DOCKER_TAG CLOUD_ROBOTICS_CONTAINER_REGISTRY
   fi
-  # Import config.bzl variables
-  # shellcheck disable=2046
-  # For better or worse, all spaces are removed by sed.
-  export $(sed -e 's/[\ "]//g' -e '/^#/d' $configbzl)
 
-  # Check that $configbzl and $configsh define the following union set of
-  # configuration variables
-  check_vars_not_empty DOCKER_TAG CLOUD_ROBOTICS_CONTAINER_REGISTRY
-fi
+  CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT:-GCP}
+  check_var_is_one_of CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT "GCP" "GCP-testing"
 
-CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT:-GCP}
-check_var_is_one_of CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT "GCP" "GCP-testing"
+}

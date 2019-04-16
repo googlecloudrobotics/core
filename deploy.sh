@@ -18,6 +18,7 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${DIR}/scripts/common.sh"
+source "${DIR}/scripts/include-config.sh"
 
 set -o pipefail -o errexit
 
@@ -41,16 +42,8 @@ USE_SYNK=${USE_SYNK:-false}
 
 # utility functions
 
-function include_config {
-  local project_id="$1"
-  if [[ -n "${project_id}" ]]; then
-    # If the project id is specified, download the config from the cloud bucket.
-    CONFIG="$( mktemp ).sh"
-    gsutil cp "gs://${project_id}-cloud-robotics-config/config.sh" "${CONFIG}" \
-      || die "Failed to load config.sh from GCP project \"${project_id}\"."
-  fi
-
-  source "${DIR}/scripts/include-config.sh"
+function include_config_and_defaults {
+  include_config "$1"
 
   PROJECT_DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
   PROJECT_OWNER_EMAIL=${CLOUD_ROBOTICS_OWNER_EMAIL:-$(gcloud config get-value account)}
@@ -293,15 +286,11 @@ EOF
 
 function set_config {
   local project_id="$1"
-  if [[ -n "${project_id}" ]]; then
-    ${DIR}/scripts/set-config.sh "${project_id}"
-  else
-    ${DIR}/scripts/set-config.sh --local
-  fi
+  ${DIR}/scripts/set-config.sh "${project_id}"
 }
 
 function create {
-  include_config $1
+  include_config_and_defaults $1
   if is_source_install; then
     prepare_source_install
   fi
@@ -310,7 +299,7 @@ function create {
 }
 
 function delete {
-  include_config $1
+  include_config_and_defaults $1
   if is_source_install; then
     bazel build "@hashicorp_terraform//:terraform"
   fi
@@ -325,7 +314,7 @@ function update {
 
 # This is a shortcut for skipping Terrafrom configs checks if you know the config has not changed.
 function fast_push {
-  include_config $1
+  include_config_and_defaults $1
   if is_source_install; then
     prepare_source_install
   fi
@@ -333,8 +322,8 @@ function fast_push {
 }
 
 # main
-if [[ ! "$1" =~ ^(set_config|create|delete|update|fast_push)$ ]]; then
-  die "Usage: $0 {set_config|create|delete|update|fast_push} [<project id>]"
+if [[ "$#" -lt 2 ]] || [[ ! "$1" =~ ^(set_config|create|delete|update|fast_push)$ ]]; then
+  die "Usage: $0 {set_config|create|delete|update|fast_push} <project id>"
 fi
 
 # call arguments verbatim:

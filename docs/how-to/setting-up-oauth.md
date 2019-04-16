@@ -32,28 +32,16 @@ You'll see a dialog containing the client ID and secret which we will add to you
 
 ## Update your config and redeploy
 
-* If you installed Cloud Robotics from a binary (following the quickstart guide),
-    1. update your `config.sh` which is stored in a cloud bucket:
-        ```shell
-        curl -fS "https://storage.googleapis.com/cloud-robotics-releases/run-install.sh" >run-install.sh
-        bash ./run-install.sh $PROJECT_ID --set-oauth
-        ```
-        Enter the OAuth client ID and secret from the previous step when asked.
-    1. Update your cloud project:
-        ```shell
-        bash ./run-install.sh $PROJECT_ID
-        ```
-
-* If you installed Cloud Robotics from sources,
-    1. update your local `config.sh`:
-        ```shell
-        scripts/set-config.sh --local --edit-oauth
-        ```
-        Enter the OAuth client ID and secret from the previous step when asked.
-    1. Update your cloud project:
-        ```shell
-        ./deploy.sh update
-        ```
+1. update your `config.sh` in the Google Cloud Storage bucket:
+    ```shell
+    curl -fS "https://storage.googleapis.com/cloud-robotics-releases/run-install.sh" >run-install.sh
+    bash ./run-install.sh $PROJECT_ID --set-oauth
+    ```
+    Enter the OAuth client ID and secret from the previous step when asked.
+1. Update your cloud project:
+    ```shell
+    bash ./run-install.sh $PROJECT_ID
+    ```
 
 After the update has been deployed, OAuth is enabled in your cloud project.
 Verify that `oauth2-proxy` is running now:

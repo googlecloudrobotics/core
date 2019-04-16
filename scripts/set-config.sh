@@ -77,18 +77,19 @@ function sed_pattern {
 # Sets the given variable in config.sh. If $value is empty, the variable
 # assignement is commented out in config.sh.
 function save_variable {
-  local name="$1"
-  local value="$2"
+  local config_file="$1"
+  local name="$2"
+  local value="$3"
 
   if [[ -z "${value}" ]]; then
-    sed -i "s/^\(${name}=.*\)$/#\1/" "${CONFIG}"
-  elif grep -q "^\(# *\)\{0,1\}${name}=" "${CONFIG}"; then
+    sed -i "s/^\(${name}=.*\)$/#\1/" "${config_file}"
+  elif grep -q "^\(# *\)\{0,1\}${name}=" "${config_file}"; then
     value=$( double_escape ${value} )
-    sed -i "$( sed_pattern "^\(# *\)\{0,1\}${name}=.*$" "${name}=${value}" )" "${CONFIG}"
+    sed -i "$( sed_pattern "^\(# *\)\{0,1\}${name}=.*$" "${name}=${value}" )" "${config_file}"
   else
     value=$( escape ${value} )
-    echo >>"${CONFIG}"
-    echo "${name}=${value}" >>"${CONFIG}"
+    echo >>"${config_file}"
+    echo "${name}=${value}" >>"${config_file}"
   fi
 }
 
@@ -126,20 +127,17 @@ if [[ ! "$1" = --* ]]; then
 fi
 
 for arg in "$@"; do
-  if [[ "${arg}" = "--local" ]]; then
-    FLAG_LOCAL=1
-  elif [[ "${arg}" = "--ensure-config" ]]; then
+  if [[ "${arg}" = "--ensure-config" ]]; then
     FLAG_ENSURE_CONFIG=1
   elif [[ "${arg}" = "--edit-oauth" ]]; then
     FLAG_EDIT_OAUTH=1
   fi
 done
 
-if [[ -z "${FLAG_LOCAL}" && -z "${GCP_PROJECT_ID}" ]]; then
+if [[ -z "${GCP_PROJECT_ID}" ]]; then
   echo
   echo "Usage: $0 <project id> [<options>]"
   echo "Supported options:"
-  echo "  --local            Creates a local config. Doesn't require the project id."
   echo "  --ensure-config    Does nothing if a config exists already."
   echo "  --edit-oauth       Enables and configures OAuth."
   die
@@ -148,30 +146,20 @@ fi
 # Load config if it exists.
 CLOUD_BUCKET="gs://${GCP_PROJECT_ID}-cloud-robotics-config"
 
-if [[ -z "${FLAG_LOCAL}" ]]; then
-  CONFIG="$( mktemp ).sh"
-  # Download config if it exists. Otherwise, a new file is created later.
-  gsutil cp "${CLOUD_BUCKET}/config.sh" "${CONFIG}" 2>/dev/null || true
-else
-  CONFIG=${CONFIG:-"${DIR}/config.sh"}
-fi
+CONFIG_FILE="$(mktemp)"
+trap '{ rm -f ${CONFIG_FILE}; }' EXIT
 
-if [[ -r ${CONFIG} ]]; then
+if gsutil cp "${CLOUD_BUCKET}/config.sh" "${CONFIG_FILE}" 2>/dev/null; then
   if [[ -n "${FLAG_ENSURE_CONFIG}" ]]; then
     echo "Found Cloud Robotics config."
     exit 0
   fi
-  source ${CONFIG}
+  source ${CONFIG_FILE}
 else
   if [[ -n "${FLAG_EDIT_OAUTH}" ]]; then
     die "You have to create a config before you can enable OAuth."
   fi
-fi
-
-# Ask for project ID, if was not not given as argument or in the local config.
-if [[ -z "${GCP_PROJECT_ID}" ]]; then
-  read_variable GCP_PROJECT_ID "What is the ID of your Google Cloud Platform project?" \
-    "${GCP_PROJECT_ID}"
+  cp ${DIR}/config.sh.tmpl ${CONFIG_FILE}
 fi
 
 CLOUD_BUCKET="gs://${GCP_PROJECT_ID}-cloud-robotics-config"
@@ -272,26 +260,21 @@ fi
 # Save all parameter values.
 echo
 echo "Saving configuration..."
-if [[ ! -r ${CONFIG} ]]; then
-  cp ${DIR}/config.sh.tmpl ${CONFIG}
-fi
-save_variable GCP_PROJECT_ID "${GCP_PROJECT_ID}"
-save_variable GCP_REGION "${GCP_REGION}"
-save_variable GCP_ZONE "${GCP_ZONE}"
-save_variable TERRAFORM_GCS_BUCKET "${TERRAFORM_GCS_BUCKET}"
-save_variable TERRAFORM_GCS_PREFIX "${TERRAFORM_GCS_PREFIX}"
-save_variable CLOUD_ROBOTICS_OAUTH2_CLIENT_ID "${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
-save_variable CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET "${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
-save_variable CLOUD_ROBOTICS_COOKIE_SECRET "${CLOUD_ROBOTICS_COOKIE_SECRET}"
-save_variable PRIVATE_DOCKER_PROJECTS "${PRIVATE_DOCKER_PROJECTS}"
+save_variable "${CONFIG_FILE}" GCP_PROJECT_ID "${GCP_PROJECT_ID}"
+save_variable "${CONFIG_FILE}" GCP_REGION "${GCP_REGION}"
+save_variable "${CONFIG_FILE}" GCP_ZONE "${GCP_ZONE}"
+save_variable "${CONFIG_FILE}" TERRAFORM_GCS_BUCKET "${TERRAFORM_GCS_BUCKET}"
+save_variable "${CONFIG_FILE}" TERRAFORM_GCS_PREFIX "${TERRAFORM_GCS_PREFIX}"
+save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_OAUTH2_CLIENT_ID "${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
+save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET "${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
+save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_COOKIE_SECRET "${CLOUD_ROBOTICS_COOKIE_SECRET}"
+save_variable "${CONFIG_FILE}" PRIVATE_DOCKER_PROJECTS "${PRIVATE_DOCKER_PROJECTS}"
 
-if [[ -z "${FLAG_LOCAL}" ]]; then
-  # Upload config to the cloud.
-  if ! gsutil ls -p ${GCP_PROJECT_ID} | grep "^${CLOUD_BUCKET}/$" >/dev/null; then
-    gsutil mb -p ${GCP_PROJECT_ID} ${CLOUD_BUCKET}
-  fi
-  gsutil mv "${CONFIG}" "${CLOUD_BUCKET}/config.sh"
+# Upload config to the cloud.
+if ! gsutil ls -p ${GCP_PROJECT_ID} | grep "^${CLOUD_BUCKET}/$" >/dev/null; then
+  gsutil mb -p ${GCP_PROJECT_ID} ${CLOUD_BUCKET}
 fi
+gsutil mv "${CONFIG_FILE}" "${CLOUD_BUCKET}/config.sh"
 
 if is_source_install && [[ ! -r "${DIR}/config.bzl" ]]; then
   # Create config.bzl.

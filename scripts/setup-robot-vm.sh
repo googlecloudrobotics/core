@@ -21,8 +21,15 @@ source ${DIR}/include-config.sh
 
 set -euxo pipefail
 
-ROBOT_NAME=${1:-robot-sim}
-USER_NAME=${2:-robot}
+GCP_PROJECT_ID=${1}
+ROBOT_NAME=${2:-robot-sim}
+USER_NAME=${3:-robot}
+
+if [[ -z "${GCP_PROJECT_ID}" ]]; then
+  die "Usage: $0 <project-id> [<robot-name>] [<user-name>]"
+fi
+
+include_config "${GCP_PROJECT_ID}"
 
 gcloud --project=$GCP_PROJECT_ID compute instances create ${ROBOT_NAME} \
   --zone=$GCP_ZONE \

@@ -57,6 +57,12 @@ function text {
   done
 }
 
+if [[ -z "$2" ]]; then
+  die "Usage: $0 <project-id>"
+fi
+
+include_config "$2"
+
 # call arguments verbatim:
 "$@"
 

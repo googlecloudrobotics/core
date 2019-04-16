@@ -50,13 +50,12 @@ and 18.04) Linux.
     gcloud auth application-default login
     ```
 
-1. Import the GCP project you are using:
+1. Create a Cloud Robotics config in your project:
 
     ```shell
-    ./deploy.sh set_config
+    ./deploy.sh set_config <your-project-id>
     ```
 
-    When asked, enter your GCP project id.
     You can keep the defaults for the other settings by hitting `ENTER`.
 
     This command creates two files:
@@ -73,7 +72,7 @@ and 18.04) Linux.
 1. Deploy the cloud project.
 
     ```shell
-    ./deploy.sh create
+    ./deploy.sh create <your-project-id>
     ```
 
 > **Known issue:**
@@ -113,7 +112,7 @@ With the project deployed, you're ready to [connect a robot to the cloud](how-to
 To apply changes made in the source code, run:
 
 ```shell
-./deploy.sh update
+./deploy.sh update <your-project-id>
 ```
 
 ## Clean up
@@ -127,7 +126,7 @@ This can be useful if the cluster is in a broken state.
 Be careful with this invocation, since you'll have to redeploy the project and reconnect any robots afterwards.
 
 ```shell
-./deploy.sh delete
+./deploy.sh delete <your-project-id>
 ```
 
 If you want to completely shut down the project, see [the Resource Manager documentation](https://cloud.google.com/resource-manager/docs/creating-managing-projects#shutting_down_projects).

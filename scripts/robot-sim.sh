@@ -25,24 +25,31 @@ source "${DIR}/include-config.sh"
 
 set -o pipefail -o errexit
 
-INITIAL_KUBECTL_CONTEXT="$(kubectl config current-context)"
-GKE_CLOUD_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
-PROJECT_DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
-APP_MANAGEMENT=${APP_MANAGEMENT:-true}
+function set_defaults {
+  local GCP_PROJECT_ID="$1"
+  include_config "${GCP_PROJECT_ID}"
+  INITIAL_KUBECTL_CONTEXT="$(kubectl config current-context)"
+  GKE_CLOUD_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
+  PROJECT_DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
+  APP_MANAGEMENT=${APP_MANAGEMENT:-true}
 
-if [[ -z "${ROBOT_LABELS}" ]]; then
-  ROBOT_LABELS="simulated=true"
-fi
+  if [[ -z "${ROBOT_LABELS}" ]]; then
+    ROBOT_LABELS="simulated=true"
+  fi
+}
 
 function restore_initial_context {
   kubectl config use-context "${INITIAL_KUBECTL_CONTEXT}"
 }
 
 function create {
-  local ROBOT_NAME="$1"
-  local ROBOT_ROLE="${2:-Navtest (simulated)}"
-  local ROBOT_TYPE="${3:-mir-100}"
+  local GCP_PROJECT_ID="$1"
+  local ROBOT_NAME="$2"
+  local ROBOT_ROLE="${3:-Navtest (simulated)}"
+  local ROBOT_TYPE="${4:-mir-100}"
   local GKE_SIM_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${ROBOT_NAME}"
+
+  set_defaults "${GCP_PROJECT_ID}"
 
   # Create cloud cluster for robot simulation unless already exists
   gcloud >/dev/null 2>&1 container clusters describe "${ROBOT_NAME}" \
@@ -81,7 +88,10 @@ function create {
 }
 
 function delete {
-  local ROBOT_NAME="$1"
+  local GCP_PROJECT_ID="$1"
+  local ROBOT_NAME="$2"
+
+  set_defaults "${GCP_PROJECT_ID}"
 
   kubectl --context=${GKE_CLOUD_CONTEXT} delete robots.registry.cloudrobotics.com "${ROBOT_NAME}" || true
   gcloud container clusters delete "${ROBOT_NAME}" \
@@ -95,8 +105,8 @@ function update {
 
 # main
 
-if [ "$#" -lt 2 ]; then
-  die "Usage: $0 {create|delete|update} <robot-name> [<robot-role>]"
+if [ "$#" -lt 3 ]; then
+  die "Usage: $0 {create|delete|update} <project-id> <robot-name> [<robot-role>]"
 fi
 
 # TODO(b/116303345): usage of 'gcloud' above silently switched the default context.
