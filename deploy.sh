@@ -70,6 +70,7 @@ function prepare_source_install {
       //src/bootstrap/robot:setup-robot-image-reference-txt \
       //src/go/cmd/cr-adapter:cr-adapter.push \
       //src/go/cmd/setup-robot:setup-robot.push \
+      //src/go/cmd/synk \
       //src/proto/map:proto_descriptor \
 
   # `setup-robot.push` is the first container push to avoid a GCR bug with parallel pushes on newly
