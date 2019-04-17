@@ -1,0 +1,24 @@
+load("//bazel:app.bzl", "app")
+load("//bazel/internal:core_app_chart.bzl", "core_app_chart")
+
+core_app_chart(
+    name = "mission-crd-robot",
+    extra_templates = ["//src/proto/mission:mission_cr_crd"],
+    values = "values.yaml",
+)
+
+core_app_chart(
+    name = "mission-crd-cloud",
+    extra_templates = ["//src/proto/mission:mission_cr_crd"],
+    values = "values.yaml",
+)
+
+app(
+    name = "mission-crd",
+    charts = [
+        ":mission-crd-cloud",
+        ":mission-crd-robot",
+    ],
+    v2 = True,
+    visibility = ["//visibility:public"],
+)
