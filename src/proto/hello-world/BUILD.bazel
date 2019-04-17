@@ -57,6 +57,6 @@ go_proto_library(
 go_library(
     name = "go_default_library",
     embed = [":k8s_service_go"],
-    importpath = "cloud-robotics.googlesource.com/cloud-robotics/src/proto/hello-world",
+    importpath = "github.com/googlecloudrobotics/core/src/proto/hello-world",
     visibility = ["//visibility:public"],
 )

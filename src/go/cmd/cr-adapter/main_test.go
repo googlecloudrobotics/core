@@ -19,9 +19,9 @@ import (
 	"strings"
 	"testing"
 
-	helloworld "cloud-robotics.googlesource.com/cloud-robotics/src/proto/hello-world"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
+	helloworld "github.com/googlecloudrobotics/core/src/proto/hello-world"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
