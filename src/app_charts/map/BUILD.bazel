@@ -11,6 +11,5 @@ app(
     charts = [
         ":map-cloud",
     ],
-    v2 = True,
     visibility = ["//visibility:public"],
 )

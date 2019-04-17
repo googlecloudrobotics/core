@@ -1,7 +1,6 @@
 load("@cloud_robotics//bazel/build_rules/app_chart:run_parallel.bzl", "run_parallel")
 
-# TODO(ensonic): drop v2 parameter
-def app(name, charts, v2 = True, visibility = None):
+def app(name, charts, visibility = None):
     """Macro for a standard Cloud Robotics app.
 
     This macro establishes two subrules for app name "foo":
@@ -14,9 +13,6 @@ def app(name, charts, v2 = True, visibility = None):
       charts: list of targets. Helm charts for this app.
       visibility: Visibility.
     """
-    if not v2:
-        print("NOTE: disabling v2 has no effect.")
-
     pkg = Label("{}//{}".format(native.repository_name(), native.package_name()))
     chart_labels = [pkg.relative(c) for c in charts]
     run_parallel(

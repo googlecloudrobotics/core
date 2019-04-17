@@ -49,6 +49,5 @@ app(
         ":prometheus-cloud",
         ":prometheus-robot",
     ],
-    v2 = True,
     visibility = ["//visibility:public"],
 )

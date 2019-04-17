@@ -18,6 +18,5 @@ app(
         ":ros-demo-cloud",
         ":ros-demo-robot",
     ],
-    v2 = True,
     visibility = ["//visibility:public"],
 )

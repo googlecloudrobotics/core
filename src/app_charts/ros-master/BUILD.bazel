@@ -11,6 +11,5 @@ app(
     charts = [
         ":ros-master-robot",
     ],
-    v2 = True,
     visibility = ["//visibility:public"],
 )
