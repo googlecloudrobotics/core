@@ -17,6 +17,7 @@ package main
 import (
 	"bytes"
 	"io/ioutil"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -24,8 +25,22 @@ import (
 
 	pb "src/proto/http-relay"
 
+	hijacktest "github.com/getlantern/httptest"
 	"github.com/golang/protobuf/proto"
 )
+
+func checkResponse(t *testing.T, resp *http.Response, wantStatus int, wantBody string) {
+	if want, got := wantStatus, resp.StatusCode; want != got {
+		t.Errorf("Wrong response code; want %d; got %d", want, got)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Errorf("Failed to read body stream")
+	}
+	if want, got := wantBody, string(body); want != got {
+		t.Errorf("Wrong body; want %s; got %s", want, got)
+	}
+}
 
 func TestClientHandler(t *testing.T) {
 	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
@@ -72,22 +87,55 @@ func TestClientHandler(t *testing.T) {
 
 	wg.Wait()
 	resp := respRecorder.Result()
-	if want, got := 201, resp.StatusCode; want != got {
-		t.Errorf("Wrong response code; want %d; got %d", want, got)
-	}
+	checkResponse(t, resp, 201, "thebody")
 	if want, got := 1, len(resp.Header); want != got {
 		t.Errorf("Wrong # of headers; want %d; got %d", want, got)
 	}
 	if want, got := "google.com", resp.Header.Get("X-GFE"); want != got {
 		t.Errorf("Wrong header value; want %s; got %s", want, got)
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+}
+
+func TestRequestStreamHandler(t *testing.T) {
+	// In a background goroutine, run a client request with post-request data
+	// in the request stream.
+	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
+	req.Header.Add("X-Deadline", "now")
+	respRecorder := hijacktest.NewRecorder([]byte("request stream data"))
+	server := newServer()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() { server.client(respRecorder, req); wg.Done() }()
+
+	// Simulate a 101 Switching Protocols response from the backend.
+	relayRequest, err := server.b.GetRequest("foo")
 	if err != nil {
-		t.Errorf("Failed to read body stream")
+		t.Errorf("Error when getting request: %v", err)
 	}
-	if want, got := "thebody", string(body); want != got {
-		t.Errorf("Wrong body; want %s; got %s", want, got)
-	}
+	server.b.SendResponse(&pb.HttpResponse{
+		Id:         relayRequest.Id,
+		StatusCode: proto.Int(101),
+		Header: []*pb.HttpHeader{{
+			Name:  proto.String("Upgrade"),
+			Value: proto.String("SPDY/3.1"),
+		}},
+		Body: []byte("the"),
+	})
+
+	// Get the data from the request stream and check its contents.
+	reqstreamRecorder := httptest.NewRecorder()
+	streamreq := httptest.NewRequest("POST", "/server/requeststream?id="+*relayRequest.Id, strings.NewReader(""))
+	server.serverRequestStream(reqstreamRecorder, streamreq)
+	checkResponse(t, reqstreamRecorder.Result(), 200, "request stream data")
+
+	// Terminate the client request and verify the response.
+	server.b.SendResponse(&pb.HttpResponse{
+		Id:   relayRequest.Id,
+		Body: []byte("body"),
+		Eof:  proto.Bool(true),
+	})
+	wg.Wait()
+	checkResponse(t, respRecorder.Result(), 101, "thebody")
 }
 
 func TestServerRequestResponseHandler(t *testing.T) {

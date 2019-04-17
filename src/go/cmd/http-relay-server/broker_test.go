@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"log"
 	"sync"
 	"testing"
@@ -23,6 +24,15 @@ import (
 	pb "src/proto/http-relay"
 
 	"github.com/golang/protobuf/proto"
+)
+
+const (
+	// These IDs are used for testing multiple requests. The contents of the
+	// strings are not important, as long as they are unique.
+	idOne     = "idOne"
+	idTwo     = "idTwo"
+	idThree   = "idThree"
+	unknownID = "unknownID"
 )
 
 func runSender(t *testing.T, b *broker, s string, m string, wg *sync.WaitGroup) {
@@ -53,22 +63,75 @@ func runReceiver(t *testing.T, b *broker, s string, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
+// runSenderStream expects two items in the response stream, and it doesn't care about the contents.
+func runSenderStream(t *testing.T, b *broker, s string, m string, wg *sync.WaitGroup) {
+	respChan, err := b.RelayRequest(s, &pb.HttpRequest{Id: proto.String(m)})
+	if err != nil {
+		t.Errorf("Got relay request error: %v", err)
+	}
+	// First response (Eof=false)
+	if _, more := <-respChan; !more {
+		t.Errorf("Got zero responses, want two.")
+	}
+	// Second response (Eof=true)
+	if _, more := <-respChan; !more {
+		t.Errorf("Got one response, want two.")
+	}
+	// Check that channel is closed.
+	if _, more := <-respChan; more {
+		t.Errorf("Got more than two responses, want two.")
+	}
+	wg.Done()
+}
+
+// runReceiverStream sends two items in the response stream, waiting before the second.
+// It returns after the first response has been sent.
+func runReceiverStream(t *testing.T, b *broker, s string, wg *sync.WaitGroup, done <-chan bool) {
+	req, err := b.GetRequest(s)
+	if err != nil {
+		t.Errorf("Error when getting request: %s", err)
+	}
+	err = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(false)})
+	if err != nil {
+		t.Errorf("Error when sending response: %s", err)
+	}
+	go func() {
+		<-done
+		err = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(true)})
+		if err != nil {
+			t.Errorf("Error when sending response: %s", err)
+		}
+		wg.Done()
+	}()
+}
+
 func TestNormalCase(t *testing.T) {
 	b := newBroker()
 	var wg sync.WaitGroup
 	wg.Add(6)
-	go runSender(t, b, "foo", "15", &wg)
-	go runSender(t, b, "foo", "16", &wg)
-	go runSender(t, b, "bar", "17", &wg)
+	go runSender(t, b, "foo", idOne, &wg)
+	go runSender(t, b, "foo", idTwo, &wg)
+	go runSender(t, b, "bar", idThree, &wg)
 	go runReceiver(t, b, "foo", &wg)
 	go runReceiver(t, b, "foo", &wg)
 	go runReceiver(t, b, "bar", &wg)
 	wg.Wait()
 }
 
+func TestResponseStream(t *testing.T) {
+	b := newBroker()
+	var wg sync.WaitGroup
+	done := make(chan bool)
+	wg.Add(2)
+	go runSenderStream(t, b, "foo", idOne, &wg)
+	runReceiverStream(t, b, "foo", &wg, done)
+	done <- true
+	wg.Wait()
+}
+
 func TestMissingId(t *testing.T) {
 	b := newBroker()
-	err := b.SendResponse(&pb.HttpResponse{Id: proto.String("15")})
+	err := b.SendResponse(&pb.HttpResponse{Id: proto.String(idOne)})
 	if err == nil {
 		t.Errorf("Invalid response did not produce an error")
 	}
@@ -78,13 +141,52 @@ func TestDuplicateId(t *testing.T) {
 	b := newBroker()
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go runSender(t, b, "foo", "15", &wg)
+	go runSender(t, b, "foo", idOne, &wg)
 	go runReceiver(t, b, "foo", &wg)
 	wg.Wait()
 
-	err := b.SendResponse(&pb.HttpResponse{Id: proto.String("15")})
+	err := b.SendResponse(&pb.HttpResponse{Id: proto.String(idOne)})
 	if err == nil {
 		t.Errorf("Duplicate response did not produce an error")
+	}
+}
+
+func TestRequestStream(t *testing.T) {
+	// Start a request that won't terminate until we send `done`.
+	b := newBroker()
+	var wg sync.WaitGroup
+	done := make(chan bool)
+	wg.Add(2)
+	go runSenderStream(t, b, "foo", idOne, &wg)
+	runReceiverStream(t, b, "foo", &wg, done)
+
+	// Send a message over the request stream and assert that it arrives.
+	go func() {
+		ok := b.PutRequestStream(idOne, []byte("hello"))
+		if !ok {
+			t.Error("PutRequestStream(idOne, \"hello\") = false, want true")
+		}
+	}()
+	data, ok := b.GetRequestStream(idOne)
+	if !ok {
+		t.Error("data, ok := GetRequestStream(idOne); ok = false, want true")
+	}
+	if !bytes.Equal(data, []byte("hello")) {
+		t.Errorf("data, ok := GetRequestStream(idOne); data = %q, want \"hello\"", data)
+	}
+
+	// Complete the ongoing request.
+	done <- true
+	wg.Wait()
+}
+
+func TestRequestStreamUnknownID(t *testing.T) {
+	b := newBroker()
+	if ok := b.PutRequestStream(unknownID, []byte{}); ok {
+		t.Error("ok := PutRequestStream(unknownID, \"\"); ok = true, want false")
+	}
+	if _, ok := b.GetRequestStream(unknownID); ok {
+		t.Error("_, ok := GetRequestStream(unknownID; ok = true, want false")
 	}
 }
 
@@ -93,7 +195,7 @@ func TestTimeout(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
-		respChan, err := b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String("15")})
+		respChan, err := b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne)})
 		if err != nil {
 			t.Errorf("Got relay request error: %v", err)
 		}

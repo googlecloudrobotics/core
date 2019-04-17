@@ -186,6 +186,7 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(http.StatusSwitchingProtocols)
 	log.Printf("Switched protocols on request %s", id)
 	defer conn.Close()
 
@@ -262,12 +263,14 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 	if header != nil {
 		unmarshalHeader(w, header)
 	}
-	w.WriteHeader(status)
 	if status == http.StatusSwitchingProtocols {
+		// Note: call s.bidirectionalStream before w.WriteHeader so that
+		// bidirectionalStream can set the status on error.
 		s.bidirectionalStream(w, id, response)
 		return
 	}
 
+	w.WriteHeader(status)
 	for bytes := range response {
 		// TODO(b/130706300): detect dropped connection and end request in broker
 		_, _ = w.Write(bytes)

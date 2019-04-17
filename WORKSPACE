@@ -335,6 +335,18 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_getlantern_httptest",
+    commit = "4b40f4c7e590b2afa94729ca7f738e0b14b13749",
+    importpath = "github.com/getlantern/httptest",
+)
+
+go_repository(
+    name = "com_github_getlantern_mockconn",
+    commit = "a8ffa60494a6e58e75e9286aca0eba170d5349b6",
+    importpath = "github.com/getlantern/mockconn",
+)
+
+go_repository(
     name = "com_github_ghodss_yaml",
     commit = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7",
     importpath = "github.com/ghodss/yaml",
