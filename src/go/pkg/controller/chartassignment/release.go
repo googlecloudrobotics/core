@@ -21,7 +21,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -45,20 +44,18 @@ import (
 	"k8s.io/helm/pkg/repo"
 )
 
-// Boolean annotation to toggle between Synk and Helm to deploy manifests.
-const annotationUseSynk = "apps.cloudrobotics.com/use-synk"
-
 // releases is a cache of releases currently handled.
 type releases struct {
 	helm     hclient.Interface
 	recorder record.EventRecorder
 	synk     *synk.Synk
+	useSynk  bool
 
 	mtx sync.Mutex
 	m   map[string]*release
 }
 
-func newReleases(cfg *rest.Config, helm hclient.Interface, rec record.EventRecorder) (*releases, error) {
+func newReleases(cfg *rest.Config, helm hclient.Interface, rec record.EventRecorder, useSynk bool) (*releases, error) {
 	synk, err := synk.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -68,6 +65,7 @@ func newReleases(cfg *rest.Config, helm hclient.Interface, rec record.EventRecor
 		recorder: rec,
 		m:        map[string]*release{},
 		synk:     synk,
+		useSynk:  useSynk,
 	}, nil
 }
 
@@ -136,8 +134,6 @@ func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 	r := rs.add(as.Name)
 	status, _ := rs.status(as.Name)
 
-	useSynk, _ := strconv.ParseBool(as.Annotations[annotationUseSynk])
-
 	// If the last generation we deployed matches the provided one, there's
 	// nothing to do. Unless the previous update set the retry flag due to
 	// a transient error.
@@ -147,7 +143,7 @@ func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 		return true
 	}
 	var started bool
-	if useSynk {
+	if rs.useSynk {
 		started = r.start(func() {
 			r.deleteHelm(as) // Best effort deletion when switching.
 			r.updateSynk(as)

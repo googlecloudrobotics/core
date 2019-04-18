@@ -48,6 +48,9 @@ var (
 
 	webhookPort = flag.Int("webhook-port", 9876,
 		"Listening port of the custom resource webhook")
+
+	useSynk = flag.Bool("use-synk", false,
+		"Install Helm charts with Synk")
 )
 
 func main() {
@@ -103,7 +106,7 @@ func setupAppV2(cfg *rest.Config, cluster string) error {
 	if err != nil {
 		return errors.Wrap(err, "create webhook server")
 	}
-	if err := chartassignment.Add(mgr, cluster, *tillerHost); err != nil {
+	if err := chartassignment.Add(mgr, cluster, *tillerHost, *useSynk); err != nil {
 		return errors.Wrap(err, "add ChartAssignment controller")
 	}
 

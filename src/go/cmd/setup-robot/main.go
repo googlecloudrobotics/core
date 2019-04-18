@@ -308,6 +308,7 @@ func installChartOrDie(nameOld, nameNew, chartPath string, projectNumber int64) 
 		"project":              *project,
 		"project_number":       strconv.FormatInt(projectNumber, 10),
 		"app_management":       strconv.FormatBool(*appManagement),
+		"use_synk":             strconv.FormatBool(*useSynk),
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
 		"robot.name":           *robotName,
 	})

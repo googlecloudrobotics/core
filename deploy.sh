@@ -206,6 +206,7 @@ function helm_charts {
     --set-string region=${GCP_REGION}
     --set-string owner_email=${PROJECT_OWNER_EMAIL}
     --set-string app_management=${APP_MANAGEMENT}
+    --set-string use_synk=${USE_SYNK}
     --set-string deploy_environment=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT}
     --set-string oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}
     --set-string oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}
@@ -213,7 +214,17 @@ function helm_charts {
 EOF
 )
 
+   # We store two configmaps in the cluster to check for existance below:
+   # - "ready-for-synk" signals that an update has been run recently and CRD
+   #   annotations were set so that Helm doesn't delete active CRDs when
+   #   switching
+   # - "synk-enabled" signals that a switch to synk was completed and prevents
+   #   us users from accidentally reverting to Helm
+
   if [ "${USE_SYNK}" == "true" ]; then
+    kubectl get cm ready-for-synk \
+      || die "deploy.sh must be run with USE_SYNK=false once again before enabling it"
+
     # Delete potential Helm variant.
     ${HELM} delete --purge cert-manager &> /dev/null || true
     ${HELM} delete --purge cloud-base &> /dev/null || true
@@ -243,11 +254,12 @@ EOF
       || die "Synk failed for platform-apps-cloud: $synkout"
     echo "synk installed base-cloud to ${KUBE_CONTEXT}: $synkout"
 
+    kubectl create cm synk-enabled || true
+
   else
-    # Delete potential Synk variant.
-    ${KUBECTL} delete resourceset -l name=cert-manager
-    ${KUBECTL} delete resourceset -l name=base-cloud
-    ${KUBECTL} delete resourceset -l name=platform-apps-cloud
+    if kubectl get cm synk-enabled; then
+      die "deploy.sh was called with USE_SYNK=true before and cannot be reverted to Helm anymore"
+    fi
 
     ${HELM} repo update
     # TODO(ensonic): we'd like to use this as part of 'base-cloud', but have no means of
@@ -260,6 +272,7 @@ EOF
     # and the new one from the cert-manager repository should be used.
     helmout=$(${HELM} upgrade --install cert-manager --set rbac.create=false stable/cert-manager --version v0.5.2) \
       || die "Helm failed for jetstack-cert-manager: $helmout"
+    echo "helm installed jetstack-cert-manager to ${KUBE_CONTEXT} $helmout"
 
     # TODO(rodrigoq): during the repo reorg, make sure that the release name
     # matches the chart name. Right now one is "cloud-base" and the other is
@@ -271,6 +284,8 @@ EOF
     helmout=$(${HELM} upgrade --install platform-apps ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz) \
       || die "Helm failed for platform-apps-cloud: $helmout"
     echo "helm installed platform-apps-cloud to ${KUBE_CONTEXT}"
+
+    kubectl create cm ready-for-synk || true
   fi
 }
 

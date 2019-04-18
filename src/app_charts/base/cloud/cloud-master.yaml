@@ -22,6 +22,7 @@ spec:
         - "--namespace={{ .Release.Namespace }}"
         - "--labels=app=cloud-master"
         - "--webhook-port=9876"
+        - "--use-synk={{ .Values.use_synk }}"
         image: {{ .Values.images.cloud_master }}
         env:
         - name: GOOGLE_CLOUD_PROJECT

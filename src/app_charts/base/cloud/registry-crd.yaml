@@ -4,6 +4,7 @@ metadata:
   name: robottypes.registry.cloudrobotics.com
   annotations:
     cr-syncer.cloudrobotics.com/spec-source: cloud
+    helm.sh/resource-policy: keep
 spec:
   group: registry.cloudrobotics.com
   version: v1alpha1
@@ -31,6 +32,7 @@ metadata:
   name: roles.registry.cloudrobotics.com
   annotations:
     cr-syncer.cloudrobotics.com/spec-source: cloud
+    helm.sh/resource-policy: keep
 spec:
   group: registry.cloudrobotics.com
   version: v1alpha1
@@ -70,6 +72,7 @@ metadata:
   name: apps.registry.cloudrobotics.com
   annotations:
     cr-syncer.cloudrobotics.com/spec-source: cloud
+    helm.sh/resource-policy: keep
 spec:
   group: registry.cloudrobotics.com
   version: v1alpha1
@@ -116,6 +119,7 @@ metadata:
     cr-syncer.cloudrobotics.com/filter-by-robot-name: "True"
     cr-syncer.cloudrobotics.com/status-subtree: "robot"
     cr-syncer.cloudrobotics.com/spec-source: cloud
+    helm.sh/resource-policy: keep
 spec:
   group: registry.cloudrobotics.com
   version: v1alpha1

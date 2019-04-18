@@ -5,6 +5,7 @@ deploy_environment: "GCP"
 
 # Setting app_management to "false" will remove layer 2 (robot/cloud-master, etc).
 app_management: "true"
+use_synk: "false"
 
 # Setting robot_authentication to "false" will remove layer 1 resources that are not
 # needed when simulating a robot with a GKE cluster, such as the

@@ -59,7 +59,7 @@ const (
 // Add adds a controller and validation webhook for the ChartAssignment resource type
 // to the manager and server.
 // Handled ChartAssignments are filtered by the provided cluster.
-func Add(mgr manager.Manager, cluster, tillerHost string) error {
+func Add(mgr manager.Manager, cluster, tillerHost string, useSynk bool) error {
 	if tillerHost == "" {
 		tillerHost = DefaultTillerHost
 	}
@@ -70,7 +70,7 @@ func Add(mgr manager.Manager, cluster, tillerHost string) error {
 		cluster:  cluster,
 	}
 	var err error
-	r.releases, err = newReleases(mgr.GetConfig(), r.helm, r.recorder)
+	r.releases, err = newReleases(mgr.GetConfig(), r.helm, r.recorder, useSynk)
 	if err != nil {
 		return err
 	}
