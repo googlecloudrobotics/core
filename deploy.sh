@@ -213,7 +213,7 @@ function helm_charts {
 EOF
 )
 
-  if ${USE_SYNK}; then
+  if [ "${USE_SYNK}" == "true" ]; then
     # Delete potential Helm variant.
     ${HELM} delete --purge cert-manager &> /dev/null || true
     ${HELM} delete --purge cloud-base &> /dev/null || true
