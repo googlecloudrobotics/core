@@ -181,12 +181,14 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 		http.Error(w, "Backend returned 101 Switching Protocols, which is not supported by the relay server", http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(http.StatusSwitchingProtocols)
 	conn, bufrw, err := hj.Hijack()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		// After a failed hijack, the connection is in an unknown state and
+		// we can't report an error to the client.
+		log.Printf("Failed to hijack connection after 101: %v", err)
 		return
 	}
-	w.WriteHeader(http.StatusSwitchingProtocols)
 	log.Printf("Switched protocols on request %s", id)
 	defer conn.Close()
 
