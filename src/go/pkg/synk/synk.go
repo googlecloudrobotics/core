@@ -51,9 +51,10 @@ import (
 
 // Synk allows to synchronize sets of resources with a fixed cluster.
 type Synk struct {
-	discovery discovery.CachedDiscoveryInterface
-	client    dynamic.Interface
-	mapper    meta.RESTMapper
+	discovery   discovery.CachedDiscoveryInterface
+	client      dynamic.Interface
+	mapper      meta.RESTMapper
+	resetMapper func()
 }
 
 // New returns a new Synk object that acts against the cluster for the given configuration.
@@ -62,8 +63,11 @@ func New(client dynamic.Interface, discovery discovery.CachedDiscoveryInterface)
 		discovery: discovery,
 		client:    client,
 	}
-	s.mapper = restmapper.NewDeferredDiscoveryRESTMapper(discovery)
-	s.mapper = restmapper.NewShortcutExpander(s.mapper, discovery)
+	// Store reset function seperately to allow reasonable tests.
+	m := restmapper.NewDeferredDiscoveryRESTMapper(discovery)
+	s.mapper = m
+	s.resetMapper = m.Reset
+
 	return s
 }
 
@@ -260,6 +264,8 @@ func (s *Synk) applyAll(
 	if err != nil {
 		return results, errors.Wrap(err, "wait for CRDs")
 	}
+	// Reset all discovery and mapping once again.
+	s.resetMapper()
 
 	// Try applying until the errors stay the same between iterations. Put in
 	// an upper bound just in case of flapping errors.

@@ -80,6 +80,7 @@ func (f *fixture) newSynk() *Synk {
 		s      = New(client, &fakeCachedDiscoveryClient{})
 	)
 	s.mapper = testrestmapper.TestOnlyStaticRESTMapper(sc)
+	s.resetMapper = func() {}
 	f.fake = &client.Fake
 	return s
 }
