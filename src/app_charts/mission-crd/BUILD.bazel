@@ -19,6 +19,5 @@ app(
         ":mission-crd-cloud",
         ":mission-crd-robot",
     ],
-    v2 = True,
     visibility = ["//visibility:public"],
 )
