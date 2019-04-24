@@ -15,15 +15,24 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"testing"
 	"time"
 
+	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -32,7 +41,9 @@ const (
 	// for >10 minutes is healthy.
 	maxTimeSinceRelevantRestart = 10 * time.Minute
 
-	podInitializationTimeoutSeconds  = 60 * 5
+	appInitializationTimeout = 5 * time.Minute
+
+	podInitializationTimeout         = 5 * time.Minute
 	podMaxToleratedContainerRestarts = 5
 )
 
@@ -52,7 +63,7 @@ func checkHealthOfKubernetesCluster(kubernetesContext string) error {
 
 	timeStart := time.Now()
 
-	for time.Since(timeStart) < podInitializationTimeoutSeconds*time.Second {
+	for time.Since(timeStart) < podInitializationTimeout {
 		log.Printf("Querying pods from context %s...", kubernetesContext)
 		pods, err := clientSet.CoreV1().Pods("").List(metav1.ListOptions{})
 		if err != nil {
@@ -106,10 +117,85 @@ func checkHealthOfKubernetesCluster(kubernetesContext string) error {
 
 	if numNonRunningPods != 0 || failingContainers != 0 {
 		return fmt.Errorf("Unhealthy cluster status after waiting for %d sec: %d non-running pods, %d failing containers\n",
-			podInitializationTimeoutSeconds, numNonRunningPods, failingContainers)
+			podInitializationTimeout/time.Second, numNonRunningPods, failingContainers)
 	}
 	log.Printf("All pods are happily running :)\n")
 	return nil
+}
+
+// convert a resource from one type representation to another one.
+func convert(from, to runtime.Object) error {
+	b, err := json.Marshal(from)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, &to)
+}
+
+func TestCloudClusterAppStatus(t *testing.T) {
+	kubernetesContext, err := kubeutils.GetCloudKubernetesContext()
+	if err != nil {
+		t.Error(err)
+	}
+	k8sCfg, err := kubeutils.LoadOutOfClusterConfig(kubernetesContext)
+	if err != nil {
+		t.Errorf("Loading of kubernetes config failed: %v", err)
+	}
+
+	sc := runtime.NewScheme()
+	scheme.AddToScheme(sc)
+	apps.AddToScheme(sc)
+
+	client, err := ctrlclient.New(k8sCfg, ctrlclient.Options{Scheme: sc})
+	if err != nil {
+		t.Errorf("Failed to create kubernetes client: %v", err)
+	}
+
+	numBadConditions := 0
+
+	timeStart := time.Now()
+
+	for time.Since(timeStart) < appInitializationTimeout {
+		appRollouts := &unstructured.UnstructuredList{}
+		appRollouts.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "apps.cloudrobotics.com",
+			Kind:    "AppRollout",
+			Version: "v1alpha1",
+		})
+		log.Printf("Querying AppRollouts from context %s...", kubernetesContext)
+		err = client.List(context.Background(), &ctrlclient.ListOptions{}, appRollouts)
+		if err != nil {
+			log.Printf("Failed to list AppRollouts: %v", err)
+			time.Sleep(10 * time.Second)
+			continue
+		}
+		log.Printf("...done. Found %d AppRollouts in the cluster.\n", len(appRollouts.Items))
+
+		numBadConditions = 0
+		for _, i := range appRollouts.Items {
+			log.Printf("Checking AppRollout %v status\n", i.GetName())
+			ar := &apps.AppRollout{}
+			if err := convert(&i, ar); err != nil {
+				t.Errorf("Failed to unmarshall AppRollout: %v", err)
+			}
+			for _, c := range ar.Status.Conditions {
+				log.Printf("- condition %v is %v\n", c.Type, c.Status)
+				if c.Status != corev1.ConditionTrue {
+					log.Printf("AppRollout %v condition %v is not met\n", ar.GetName(), c.Type)
+					numBadConditions += 1
+				}
+			}
+		}
+		if numBadConditions == 0 {
+			break
+		}
+
+		time.Sleep(10 * time.Second)
+	}
+	if numBadConditions != 0 {
+		t.Errorf("Unhealthy AppRollout status after waiting for %d sec: %d conditions not met\n",
+			appInitializationTimeout/time.Second, numBadConditions)
+	}
 }
 
 func TestKubernetesCloudClusterStatus(t *testing.T) {

@@ -7,9 +7,16 @@ go_test(
     srcs = ["k8s_integration_test.go"],
     tags = ["external"],
     deps = [
+        "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
         "//src/go/pkg/kubeutils:go_default_library",
+        "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",
+        "@io_k8s_client_go//kubernetes/scheme:go_default_library",
         "@io_k8s_client_go//plugin/pkg/client/auth/gcp:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/client:go_default_library",
     ],
 )
