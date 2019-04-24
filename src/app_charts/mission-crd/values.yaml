@@ -4,4 +4,4 @@ project_number: 0
 robot:
   name: ""
 
-crd_spec_source: "robot"
+crd_spec_source: "cloud"
