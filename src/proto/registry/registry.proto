@@ -64,13 +64,6 @@ message RobotTypeStatus {
   // Roles aren't actuated.
 }
 
-enum InstallationTarget {
-  UNKNOWN = 0;
-  ROBOT = 1;
-  CLOUD_PER_ROBOT = 2;
-  CLOUD = 3;
-}
-
 message AppBinding {
   // References an App object with the given name in the same namespace.
   string app = 1;
@@ -93,25 +86,6 @@ message RoleSpec {
 
 message RoleStatus {
   // Roles aren't actuated.
-}
-
-message HelmChart {
-  string name = 1;
-  string version = 2;
-  InstallationTarget installation_target = 3;
-  // A YAML string that is merged into the apps' values.yaml.
-  string values = 5;
-  // The chart tarball. This is optional: If unset, the master will try to
-  // download the chart based on name+version.
-  bytes inline_chart = 6;
-}
-
-message AppSpec {
-  repeated HelmChart charts = 1;
-}
-
-message AppStatus {
-  // Apps aren't actuated.
 }
 
 message RobotSpec {
