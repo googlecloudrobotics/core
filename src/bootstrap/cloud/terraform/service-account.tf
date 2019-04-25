@@ -4,11 +4,15 @@ resource "google_service_account" "robot-service" {
   project      = "${data.google_project.project.project_id}"
 }
 
+# Allow the the standard compute service account to impersonate the "robot-service"
+# service account and to create new tokens for it.
 data "google_iam_policy" "robot-service" {
   binding {
     # Security note from b/120897889: This permission allows privilege escalation
     # if granted too widely. Make sure that the robot-service can't mint tokens
     # for accounts other than itself! If in doubt, review this section carefully.
+    # In particular, this serves as the default service account for all containers
+    # running in the GKE cluster
     role = "roles/iam.serviceAccountTokenCreator"
 
     members = [
@@ -27,6 +31,13 @@ data "google_iam_policy" "robot-service" {
       "serviceAccount:${google_service_account.robot-service.email}",
     ]
   }
+}
+
+# Bind policy to the "robot-service" service account.
+# More: https://cloud.google.com/iam/docs/service-accounts#service_account_permissions
+resource "google_service_account_iam_policy" "robot-service" {
+  service_account_id = "${google_service_account.robot-service.name}"
+  policy_data        = "${data.google_iam_policy.robot-service.policy_data}"
 }
 
 resource "google_project_iam_member" "robot-service-storage" {
@@ -68,11 +79,6 @@ resource "google_project_iam_member" "robot-service-kubernetes" {
   role = "roles/container.developer"
 
   member = "serviceAccount:${google_service_account.robot-service.email}"
-}
-
-resource "google_service_account_iam_policy" "robot-service" {
-  service_account_id = "${google_service_account.robot-service.name}"
-  policy_data        = "${data.google_iam_policy.robot-service.policy_data}"
 }
 
 # The name is slightly misleading - this is about the compute service account.

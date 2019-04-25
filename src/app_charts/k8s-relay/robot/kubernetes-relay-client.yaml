@@ -4,14 +4,15 @@ metadata:
   name: kubernetes-relay-client
 spec:
   replicas: 1
-  strategy: {}
   template:
     metadata:
       labels:
         app: kubernetes-relay-client
     spec:
       containers:
-      - args:
+      - name: kubernetes-relay-client
+        image: {{ .Values.images.http_relay_client }}
+        args:
         - --backend_address
         - "$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT)"
         - --backend_scheme
@@ -26,6 +27,3 @@ spec:
         - "/apis/core.kubernetes-relay"
         - --server_name
         - "{{ .Values.robot.name }}"
-        image: {{ .Values.images.http_relay_client }}
-        name: kubernetes-relay-client
-        resources: {}
