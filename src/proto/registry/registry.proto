@@ -64,30 +64,6 @@ message RobotTypeStatus {
   // Roles aren't actuated.
 }
 
-message AppBinding {
-  // References an App object with the given name in the same namespace.
-  string app = 1;
-  // DEPRECATED. Use values instead.
-  map<string, string> settings = 2;
-  // A YAML string that is merged into the apps' values.yaml.
-  string values = 3;
-}
-
-// A Role binds Apps to Robot instances. It is typically written by the
-// integrator when building a setup.
-message RoleSpec {
-  // HACK: The display name is a stand-in for real selector support until we
-  // add label support to robots and the UI. Multiple roles may have the same
-  // display name, and all roles with matching display names apply to a robot
-  // with the same display name.
-  string display_name = 1;
-  repeated AppBinding apps = 2;
-}
-
-message RoleStatus {
-  // Roles aren't actuated.
-}
-
 message RobotSpec {
   string type = 1;
   string role = 2;
