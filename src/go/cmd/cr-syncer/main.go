@@ -24,7 +24,7 @@
 //   If specified, only sync the given subtree of the Status field. This is useful
 //   if resources have a shared status.
 // cr-syncer.cloudrobotics.com/spec-source: <string>
-//   If unset or "cloud", the source of truth for object existence and specs (upstream) is
+//   If set to "cloud", the source of truth for object existence and specs (upstream) is
 //   the remote cluster and for status it's local (downstream). If set to "robot", the roles
 //   are reversed.
 package main
