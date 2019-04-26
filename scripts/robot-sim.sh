@@ -45,8 +45,7 @@ function restore_initial_context {
 function create {
   local GCP_PROJECT_ID="$1"
   local ROBOT_NAME="$2"
-  local ROBOT_ROLE="${3:-Navtest (simulated)}"
-  local ROBOT_TYPE="${4:-mir-100}"
+  local ROBOT_TYPE="${3:-mir-100}"
   local GKE_SIM_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${ROBOT_NAME}"
 
   set_defaults "${GCP_PROJECT_ID}"
@@ -80,7 +79,6 @@ function create {
     $DIR/../src/bootstrap/robot/setup_robot.sh \
     ${ROBOT_NAME} \
     --domain ${PROJECT_DOMAIN} --project ${GCP_PROJECT_ID} \
-    --robot-role "${ROBOT_ROLE}" \
     --robot-type "${ROBOT_TYPE}" --robot-authentication=false \
     --labels "${ROBOT_LABELS}" \
     --app-management="${APP_MANAGEMENT}" \
@@ -105,8 +103,8 @@ function update {
 
 # main
 
-if [ "$#" -lt 3 ]; then
-  die "Usage: $0 {create|delete|update} <project-id> <robot-name> [<robot-role>]"
+if [[ "$#" -lt 3 ]]; then
+  die "Usage: $0 {create|delete|update} <project-id> <robot-name> [<robot-type>]"
 fi
 
 # TODO(b/116303345): usage of 'gcloud' above silently switched the default context.

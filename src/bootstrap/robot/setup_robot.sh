@@ -34,11 +34,11 @@ if [[ ! "$*" =~ "--project" && $# -ge 2 ]] ; then
   echo "WARNING: using only positional arguments for setup_robot.sh is deprecated." >&2
   echo "    Please use the following invocation instead. Setup continues in 60 seconds..." >&2
   echo "    setup-robot <robot-name> --project <project-id> \\" >&2
-  echo "        [--robot-type <type>] [--robot-role <role>] [--app-management]" >&2
+  echo "        [--robot-type <type>] [--app-management]" >&2
   # Sleep, as the warning can't be seen after the helm output fills the screen.
   sleep 60
   # Rewrite parameters to new usage.
-  set -- "$2" --project "$1" --robot-role "${3:-}" --robot-type "${4:-}"
+  set -- "$2" --project "$1" --robot-type "${3:-}"
 fi
 
 # Extract the project from the command-line args. It is required to identify the reference for the

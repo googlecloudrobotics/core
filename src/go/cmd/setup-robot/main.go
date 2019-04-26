@@ -53,7 +53,6 @@ var (
 	robotName           = new(string)
 	domain              = flag.String("domain", "", "Domain for the Cloud Robotics project (default: www.endpoints.<project>.cloud.goog)")
 	project             = flag.String("project", "", "Project ID for the Google Cloud Platform")
-	robotRole           = flag.String("robot-role", "", "Robot role. Optional if the robot is already registered.")
 	robotType           = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
 	labels              = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
 	robotAuthentication = flag.Bool("robot-authentication", true, "Set up robot authentication.")
@@ -173,7 +172,7 @@ func main() {
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: envToken})
 	client := oauth2.NewClient(context.Background(), tokenSource)
 
-	if *robotRole != "" || *robotType != "" || *labels != "" {
+	if *robotType != "" || *labels != "" {
 		if err := createOrUpdateRobot(tokenSource, parsedLabels); err != nil {
 			log.Fatalf("Failed to update robot CR %v: %v", *robotName, err)
 		}
@@ -402,7 +401,6 @@ func createOrUpdateRobot(tokenSource oauth2.TokenSource, labels map[string]strin
 			robot.SetName(*robotName)
 			robot.SetLabels(labels)
 			robot.Object["spec"] = map[string]string{
-				"role":    *robotRole,
 				"type":    *robotType,
 				"project": *project,
 			}
@@ -417,7 +415,6 @@ func createOrUpdateRobot(tokenSource oauth2.TokenSource, labels map[string]strin
 	if !ok {
 		return fmt.Errorf("unmarshaling robot failed: spec is not a map")
 	}
-	spec["role"] = *robotRole
 	spec["type"] = *robotType
 	spec["project"] = *project
 	_, err = robotClient.Update(robot, metav1.UpdateOptions{})
