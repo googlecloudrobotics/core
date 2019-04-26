@@ -16,6 +16,7 @@ spec:
         - "--params=\
           domain={{ .Values.domain }},\
           project={{ .Values.project }},\
+          ingress_ip={{ .Values.ingress_ip }},\
           project_number={{ .Values.project_number }},\
           deploy_environment={{ .Values.deploy_environment }}"
         - "--cluster=cloud"
