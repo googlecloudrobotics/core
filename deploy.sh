@@ -51,7 +51,6 @@ function include_config_and_defaults {
 
   HELM="${HELM_COMMAND} --kube-context ${KUBE_CONTEXT}"
   SYNK="${SYNK_COMMAND} --context ${KUBE_CONTEXT}"
-  KUBECTL="kubectl --context ${KUBE_CONTEXT}"
 }
 
 function prepare_source_install {
@@ -60,7 +59,7 @@ function prepare_source_install {
       //src/app_charts/base:base-cloud \
       //src/app_charts/platform-apps:platform-apps-cloud \
       //src/app_charts:push \
-      //src/bootstrap/robot:setup-robot-image-reference-txt \
+      //src/go/cmd/setup-robot:setup-robot-image.digest \
       //src/go/cmd/cr-adapter:cr-adapter.push \
       //src/go/cmd/setup-robot:setup-robot.push \
       //src/go/cmd/synk \
@@ -110,6 +109,8 @@ function terraform_init {
     fi
   fi
 
+  ROBOT_IMAGE_DIGEST=$( cat bazel-bin/src/go/cmd/setup-robot/setup-robot-image.digest )
+
   # Pass CLOUD_ROBOTICS_DOMAIN here and not PROJECT_DOMAIN, as we only create dns resources if a custom
   # domain is used.
   cat > "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
@@ -120,6 +121,7 @@ domain = "${CLOUD_ROBOTICS_DOMAIN}"
 zone = "${GCP_ZONE}"
 region = "${GCP_REGION}"
 shared_owner_group = "${CLOUD_ROBOTICS_SHARED_OWNER_GROUP}"
+robot_image_reference = "${SOURCE_CONTAINER_REGISTRY}/setup-robot@${ROBOT_IMAGE_DIGEST}"
 EOF
 
   if [[ -n "${PRIVATE_DOCKER_PROJECTS:-}" ]]; then

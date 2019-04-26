@@ -23,6 +23,10 @@ variable "shared_owner_group" {
   default     = ""
 }
 
+variable "robot_image_reference" {
+  description = "Reference to the Docker image installed by the  setup-robot script"
+}
+
 variable "private_image_repositories" {
   description = "Projects with private GCR image repositories where we need to add IAM access rules."
   type        = "list"

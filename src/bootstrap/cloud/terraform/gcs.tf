@@ -17,7 +17,7 @@ resource "google_storage_bucket_iam_member" "robot-acl" {
 
 resource "google_storage_bucket_object" "setup_robot_image_reference" {
   name          = "setup_robot_image_reference.txt"
-  source        = "../../../../bazel-genfiles/src/bootstrap/robot/setup_robot_image_reference.txt"
+  content       = "${var.robot_image_reference}"
   bucket        = "${google_storage_bucket.robot.name}"
   cache_control = "private, max-age=0, no-transform"
 }

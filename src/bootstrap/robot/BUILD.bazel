@@ -1,14 +1,4 @@
-load("//:config.bzl", "CLOUD_ROBOTICS_CONTAINER_REGISTRY")
-
 exports_files([
     "install_k8s_on_robot.sh",
     "setup_robot.sh",
 ])
-
-genrule(
-    name = "setup-robot-image-reference-txt",
-    srcs = ["//src/go/cmd/setup-robot:setup-robot-image.digest"],
-    outs = ["setup_robot_image_reference.txt"],
-    cmd = "echo \"%s/setup-robot@$$(cat $<)\" > $@" % CLOUD_ROBOTICS_CONTAINER_REGISTRY,
-    visibility = ["//visibility:public"],
-)
