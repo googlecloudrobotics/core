@@ -61,12 +61,11 @@ message RobotTypeSpec {
 }
 
 message RobotTypeStatus {
-  // Roles aren't actuated.
+  // Types aren't actuated.
 }
 
 message RobotSpec {
   string type = 1;
-  string role = 2;
   string project = 3;
 }
 

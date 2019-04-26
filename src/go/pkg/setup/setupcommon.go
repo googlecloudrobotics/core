@@ -77,14 +77,14 @@ func exitIfNotRunningInTerminal(message ...interface{}) {
 // Ask the user to select the robot from a list. Saves name to disk after
 // selection.
 func selectRobot(f util.Factory, robots []unstructured.Unstructured) (string, error) {
-	fmt.Printf("  # %-20v %-10v %-16v %v\n", "Name", "Type", "Role", "Create Time")
+	fmt.Printf("  # %-20v %-10v %-16v %v\n", "Name", "Type", "Create Time")
 	for i, robot := range robots {
 		spec, ok := robot.Object["spec"].(map[string]interface{})
 		if !ok {
 			log.Print("unmarshaling robot failed: spec is not a map")
 			continue
 		}
-		fmt.Printf("%3v %-20v %-10v %-16v %v\n", i+1, robot.GetName(), spec["type"], spec["role"], robot.GetCreationTimestamp().String())
+		fmt.Printf("%3v %-20v %-10v %v\n", i+1, robot.GetName(), spec["type"], robot.GetCreationTimestamp().String())
 	}
 
 	fmt.Print("Select robot: ")

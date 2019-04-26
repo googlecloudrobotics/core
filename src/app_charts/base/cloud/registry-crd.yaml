@@ -52,7 +52,5 @@ spec:
           properties:
             type:
               type: string
-            role:
-              type: string
             project:
               type: string

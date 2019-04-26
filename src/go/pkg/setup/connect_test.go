@@ -41,7 +41,6 @@ func TestSelectRobot(t *testing.T) {
 				},
 				"spec": map[string]interface{}{
 					"type": "test",
-					"role": "test",
 				},
 			},
 		},
