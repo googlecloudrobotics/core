@@ -72,12 +72,6 @@ function include_config {
   #     in future and will replace CLOUD_ROBOTICS_CONTAINER_REGISTRY in
   #     the deploy script.
   if [[ -z "${SOURCE_CONTAINER_REGISTRY:-}" ]]; then
-    if [[ -n "${PRIVATE_DOCKER_PROJECTS:-}" ]]; then
-      # TODO(skopecki) This is a temporary work-around to define the container registry and should
-      #     be removed once SOURCE_CONTAINER_REGISTRY is set in all projects.
-      SOURCE_CONTAINER_REGISTRY="gcr.io/${PRIVATE_DOCKER_PROJECTS}"
-    else
-      SOURCE_CONTAINER_REGISTRY=${CLOUD_ROBOTICS_CONTAINER_REGISTRY:-gcr.io/cloud-robotics-releases}
-    fi
+    SOURCE_CONTAINER_REGISTRY=${CLOUD_ROBOTICS_CONTAINER_REGISTRY:-gcr.io/cloud-robotics-releases}
   fi
 }
