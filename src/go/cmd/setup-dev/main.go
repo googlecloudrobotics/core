@@ -26,6 +26,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/googlecloudrobotics/core/src/go/pkg/configutil"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
@@ -227,7 +228,12 @@ func startROSAdapter(robotName string) error {
 	for k, v := range env {
 		args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
 	}
-	args = append(args, rosAdapterImage, "dev")
+
+	vars, err := configutil.ReadConfig(*project)
+	if err != nil {
+		return err
+	}
+	args = append(args, vars["SOURCE_CONTAINER_REGISTRY"]+rosAdapterImage, "dev")
 	cmd := exec.Command("docker", args...)
 	cmd.Stderr = os.Stderr
 	log.Println("Starting ros-adapter container")

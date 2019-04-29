@@ -1,5 +1,4 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("//:config.bzl", "CLOUD_ROBOTICS_CONTAINER_REGISTRY")
 
 go_library(
     name = "go_default_library",
@@ -10,6 +9,7 @@ go_library(
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/setup-dev",
     visibility = ["//visibility:public"],
     deps = [
+        "//src/go/pkg/configutil:go_default_library",
         "//src/go/pkg/kubeutils:go_default_library",
         "//src/go/pkg/robotauth:go_default_library",
         "//src/go/pkg/setup:go_default_library",
@@ -32,9 +32,9 @@ genrule(
 cat <<EOF > $@
 package main
 
-const rosAdapterImage = "{}/ros-adapter@$$(cat $<)";
+const rosAdapterImage = "/ros-adapter@$$(cat $<)";
 EOF
-""".format(CLOUD_ROBOTICS_CONTAINER_REGISTRY),
+""",
 )
 
 go_binary(
