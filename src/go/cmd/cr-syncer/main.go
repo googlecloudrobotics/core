@@ -18,17 +18,23 @@
 //
 // The behaviour can be customized by annotations on the CRDs.
 //
-// cr-syncer.cloudrobotics.com/filter-by-robot-name: <bool>
+// Annotation "filter-by-robot-name"
+//
+//   cr-syncer.cloudrobotics.com/filter-by-robot-name: <bool>
 //
 // If true, only sync CRs that have a label 'cloudrobotics.com/robot-name: <robot-name>'
 // that matches the robot-name arg given on the command line.
 //
-// cr-syncer.cloudrobotics.com/status-subtree: <string>
+// Annotation "status-subtree"
+//
+//   cr-syncer.cloudrobotics.com/status-subtree: <string>
 //
 // If specified, only sync the given subtree of the Status field. This is useful
 // if resources have a shared status.
 //
-// cr-syncer.cloudrobotics.com/spec-source: <string>
+// Annotation "spec-source"
+//
+//   cr-syncer.cloudrobotics.com/spec-source: <string>
 //
 // If set to "cloud", the source of truth for object existence and specs (upstream) is
 // the remote cluster and for status it's local (downstream). If set to "robot", the roles
