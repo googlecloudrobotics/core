@@ -69,15 +69,6 @@ message RobotSpec {
   string project = 3;
 }
 
-enum InstallStatus {
-  // Initial state.
-  PENDING = 0;
-  // All resources have been created.
-  READY = 1;
-  // Some resources could not be created.
-  FAILED = 2;
-}
-
 enum RobotState {
   // Default value
   UNDEFINED = 0;
@@ -100,8 +91,6 @@ enum RobotState {
 
 
 message RobotStatusCloud {
-  // TODO(b/113095470): make the cloud-master write to this
-  InstallStatus install_status = 1;
 }
 
 message RobotConfiguration {
@@ -109,8 +98,6 @@ message RobotConfiguration {
 }
 
 message RobotStatusRobot {
-  InstallStatus install_status = 1;
-
   google.protobuf.Timestamp update_time = 2;
   RobotState state = 3;
   google.protobuf.Timestamp last_state_change_time = 4;

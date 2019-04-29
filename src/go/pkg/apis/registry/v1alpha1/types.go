@@ -48,29 +48,19 @@ type RobotStatus struct {
 }
 
 type RobotStatusCloud struct {
-	InstallStatus RobotInstallStatus `json:"install_status"`
 }
 
 type RobotStatusRobot struct {
-	InstallStatus              RobotInstallStatus `json:"install_status"`
-	UpdateTime                 metav1.Time        `json:"update_time,omitempty"`
-	State                      RobotState         `json:"state"`
-	LastStateChange            metav1.Time        `json:"last_state_change,omitempty"`
-	BatteryPercentage          float64            `json:"battery_percentage"`
-	EmergencyStopButtonPressed bool               `json:"emergencyStopButtonPressed"`
+	UpdateTime                 metav1.Time `json:"update_time,omitempty"`
+	State                      RobotState  `json:"state"`
+	LastStateChange            metav1.Time `json:"last_state_change,omitempty"`
+	BatteryPercentage          float64     `json:"battery_percentage"`
+	EmergencyStopButtonPressed bool        `json:"emergencyStopButtonPressed"`
 }
 
 type RobotConfiguration struct {
 	TrolleyAttached bool `json:"trolley_attached"`
 }
-
-type RobotInstallStatus int
-
-const (
-	RobotInstallStatusPending RobotInstallStatus = 0
-	RobotInstallStatusReady                      = 1
-	RobotInstallStatusFailed                     = 2
-)
 
 type RobotState int
 
