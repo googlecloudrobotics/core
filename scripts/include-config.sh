@@ -62,16 +62,14 @@ function include_config {
 
     # Check that $configbzl defines the following union set of
     # configuration variables
-    check_vars_not_empty DOCKER_TAG CLOUD_ROBOTICS_CONTAINER_REGISTRY
+    check_vars_not_empty DOCKER_TAG
+
+    CLOUD_ROBOTICS_CONTAINER_REGISTRY=${CLOUD_ROBOTICS_CONTAINER_REGISTRY:-"gcr.io/${GCP_PROJECT_ID}"}
+    SOURCE_CONTAINER_REGISTRY=${CLOUD_ROBOTICS_CONTAINER_REGISTRY}
+  else
+    SOURCE_CONTAINER_REGISTRY=${SOURCE_CONTAINER_REGISTRY:-gcr.io/cloud-robotics-releases}
   fi
 
   CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT:-GCP}
   check_var_is_one_of CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT "GCP" "GCP-testing"
-
-  # TODO(skopecki) SOURCE_CONTAINER_REGISTRY will be stored in config.sh
-  #     in future and will replace CLOUD_ROBOTICS_CONTAINER_REGISTRY in
-  #     the deploy script.
-  if [[ -z "${SOURCE_CONTAINER_REGISTRY:-}" ]]; then
-    SOURCE_CONTAINER_REGISTRY=${CLOUD_ROBOTICS_CONTAINER_REGISTRY:-gcr.io/cloud-robotics-releases}
-  fi
 }

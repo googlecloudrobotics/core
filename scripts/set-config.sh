@@ -202,7 +202,20 @@ function set_default_vars {
     || die "ERROR: Invalid GCP storage folder. Accepted format: gs://<bucket>/<folder>"
   TERRAFORM_GCS_PREFIX=$( echo "${TF_LOCATION}" | sed "s#${TF_LOCATION_REGEX}#\4#;q" )
 
-  read_variable PRIVATE_DOCKER_PROJECTS "Do you need to read private Docker images from a GCR project? Space-separated list of numeric project ids, or 'none' for none." \
+  # Docker registries.
+  if is_source_install; then
+    read_variable CLOUD_ROBOTICS_CONTAINER_REGISTRY \
+      "Which Docker registry do you want to use when installing from sources? Use \"default\" for gcr.io/${GCP_PROJECT_ID}." \
+      "${CLOUD_ROBOTICS_CONTAINER_REGISTRY:-default}"
+    if [[ "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}" == "default" ]]; then
+      CLOUD_ROBOTICS_CONTAINER_REGISTRY=
+    fi
+  fi
+
+  # TODO(skopecki) If CLOUD_ROBOTICS_CONTAINER_REGISTRY is private and does not belongs to this GCR project,
+  #     it could be added automatically to PRIVATE_DOCKER_PROJECTS.
+  read_variable PRIVATE_DOCKER_PROJECTS \
+    "Do you need to read private Docker images from a GCR project? Space-separated list of alphanumeric project ids, or \"none\" for none." \
     "${PRIVATE_DOCKER_PROJECTS:-none}"
   if [[ "${PRIVATE_DOCKER_PROJECTS}" == "none" ]]; then
     PRIVATE_DOCKER_PROJECTS=
@@ -239,6 +252,7 @@ print_variable "GCP region" "${GCP_REGION}"
 print_variable "GCP zone" "${GCP_ZONE}"
 print_variable "Terraform state bucket" "${TERRAFORM_GCS_BUCKET}"
 print_variable "Terraform state directory" "${TERRAFORM_GCS_PREFIX}"
+print_variable "Docker container registry" "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
 print_variable "Projects for private Docker images" "${PRIVATE_DOCKER_PROJECTS}"
 print_variable "OAuth client id" "${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
 print_variable "OAuth client secret" "${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
@@ -265,10 +279,11 @@ save_variable "${CONFIG_FILE}" GCP_REGION "${GCP_REGION}"
 save_variable "${CONFIG_FILE}" GCP_ZONE "${GCP_ZONE}"
 save_variable "${CONFIG_FILE}" TERRAFORM_GCS_BUCKET "${TERRAFORM_GCS_BUCKET}"
 save_variable "${CONFIG_FILE}" TERRAFORM_GCS_PREFIX "${TERRAFORM_GCS_PREFIX}"
+save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CONTAINER_REGISTRY "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
+save_variable "${CONFIG_FILE}" PRIVATE_DOCKER_PROJECTS "${PRIVATE_DOCKER_PROJECTS}"
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_OAUTH2_CLIENT_ID "${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET "${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_COOKIE_SECRET "${CLOUD_ROBOTICS_COOKIE_SECRET}"
-save_variable "${CONFIG_FILE}" PRIVATE_DOCKER_PROJECTS "${PRIVATE_DOCKER_PROJECTS}"
 
 # Upload config to the cloud.
 if ! gsutil ls -p ${GCP_PROJECT_ID} | grep "^${CLOUD_BUCKET}/$" >/dev/null; then
