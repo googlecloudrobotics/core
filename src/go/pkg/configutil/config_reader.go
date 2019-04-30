@@ -63,7 +63,7 @@ func getConfigFromReader(reader io.Reader) (map[string]string, error) {
 }
 
 func setDefaultVars(vars map[string]string) {
-	// Set defaults values for optional variables.
+	// Keep default in sync with scripts/include-config.sh
 	if vars["CLOUD_ROBOTICS_CONTAINER_REGISTRY"] == "" {
 		vars["CLOUD_ROBOTICS_CONTAINER_REGISTRY"] = "gcr.io/" + vars["GCP_PROJECT_ID"]
 	}

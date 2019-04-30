@@ -64,6 +64,7 @@ function include_config {
     # configuration variables
     check_vars_not_empty DOCKER_TAG
 
+    # Keep default in sync with src/go/pkg/configutil/config-reader.go
     CLOUD_ROBOTICS_CONTAINER_REGISTRY=${CLOUD_ROBOTICS_CONTAINER_REGISTRY:-"gcr.io/${GCP_PROJECT_ID}"}
     SOURCE_CONTAINER_REGISTRY=${CLOUD_ROBOTICS_CONTAINER_REGISTRY}
   else
