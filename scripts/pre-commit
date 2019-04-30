@@ -20,9 +20,15 @@ if [ -z "$files" ]; then
 fi
 
 function files_matching {
+  local include="$1"
+  local exclude="$2"
   # The diff-filter lists all but deleted files. The `echo` puts the output on
   # one line for easier copy-pasting.
-  echo $(echo "$files" | tr ' ' '\n' | grep -E "$1")
+  if [[ -z "${exclude}" ]]; then
+    echo $(echo "$files" | tr ' ' '\n' | grep -E "${include}")
+  else
+    echo $(echo "$files" | tr ' ' '\n' | grep -E "${include}" | grep -vE "${exclude}")
+  fi    
 }
 
 go_files=$(files_matching "\.go$")
@@ -183,7 +189,7 @@ fi
 
 SHELLCHECK_DIR="$HOME/.cache/cloud-robotics"
 SHELLCHECK="${SHELLCHECK_DIR}/shellcheck-v0.6.0/shellcheck"
-sh_files=$(files_matching "(\.sh$|pre-commit$)")
+sh_files=$(files_matching "(\.sh$|pre-commit$)" "deployments/.*/config.sh")
 # TODO(rodrigoq): enable shellcheck in the apps repo.
 if [[ -n "$sh_files" && "$(basename "$PWD")" != "apps" ]] ; then
   if [[ ! -e "$SHELLCHECK" ]] ; then
