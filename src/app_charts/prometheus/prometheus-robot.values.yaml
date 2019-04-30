@@ -52,6 +52,10 @@ prometheus-node-exporter:
     create: false
   podSecurityPolicy:
     enabled: false
+  extraArgs:
+    # This is disabled by default, since it might leak memory
+    # (https://github.com/prometheus/node_exporter/blob/master/CHANGELOG.md#0160-rc1--2018-04-04)
+    collector.wifi: ""
 
 grafana:
   enabled: false
