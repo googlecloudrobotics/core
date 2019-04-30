@@ -233,7 +233,7 @@ func startROSAdapter(robotName string) error {
 	if err != nil {
 		return err
 	}
-	args = append(args, vars["SOURCE_CONTAINER_REGISTRY"]+rosAdapterImage, "dev")
+	args = append(args, vars["CLOUD_ROBOTICS_CONTAINER_REGISTRY"]+rosAdapterImage, "dev")
 	cmd := exec.Command("docker", args...)
 	cmd.Stderr = os.Stderr
 	log.Println("Starting ros-adapter container")

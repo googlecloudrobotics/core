@@ -64,21 +64,15 @@ func getConfigFromReader(reader io.Reader) (map[string]string, error) {
 
 func setDefaultVars(vars map[string]string) {
 	// Set defaults values for optional variables.
-	if vars["SOURCE_CONTAINER_REGISTRY"] == "" {
-		if vars["PRIVATE_DOCKER_PROJECTS"] != "" {
-			// TODO(skopecki) This is a temporary workaround until SOURCE_CONTAINER_REGISTRY is
-			//     defined in all projects.
-			vars["SOURCE_CONTAINER_REGISTRY"] = "gcr.io/" + vars["PRIVATE_DOCKER_PROJECTS"]
-		} else {
-			vars["SOURCE_CONTAINER_REGISTRY"] = "gcr.io/cloud-robotics-releases"
-		}
+	if vars["CLOUD_ROBOTICS_CONTAINER_REGISTRY"] == "" {
+		vars["CLOUD_ROBOTICS_CONTAINER_REGISTRY"] = "gcr.io/" + vars["GCP_PROJECT_ID"]
 	}
 }
 
 // ReadConfig reads the config.sh from the cloud storage of the given project.
 // All variables specified in the config are returned as dictionary.
 // Uses the following defaults if the variables are not set:
-//   SOURCE_CONTAINER_REGISTRY="gcr.io/cloud-robotics-releases"
+//   CLOUD_ROBOTICS_CONTAINER_REGISTRY="gcr.io/<GCP_PROJECT_ID>"
 func ReadConfig(project string) (map[string]string, error) {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)

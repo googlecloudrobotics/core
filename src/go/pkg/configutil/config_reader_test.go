@@ -81,28 +81,21 @@ func TestSetDefaultVars(t *testing.T) {
 	}{
 		{
 			v: map[string]string{
-				"FOO": "foo",
+				"GCP_PROJECT_ID": "foo",
 			},
 			want: map[string]string{
-				"FOO":                       "foo",
-				"SOURCE_CONTAINER_REGISTRY": "gcr.io/cloud-robotics-releases",
+				"GCP_PROJECT_ID":                    "foo",
+				"CLOUD_ROBOTICS_CONTAINER_REGISTRY": "gcr.io/foo",
 			},
 		},
 		{
 			v: map[string]string{
-				"SOURCE_CONTAINER_REGISTRY": "gcr.io/foo",
+				"GCP_PROJECT_ID":                    "foo",
+				"CLOUD_ROBOTICS_CONTAINER_REGISTRY": "gcr.io/bar",
 			},
 			want: map[string]string{
-				"SOURCE_CONTAINER_REGISTRY": "gcr.io/foo",
-			},
-		},
-		{
-			v: map[string]string{
-				"PRIVATE_DOCKER_PROJECTS": "foo-bar",
-			},
-			want: map[string]string{
-				"PRIVATE_DOCKER_PROJECTS":   "foo-bar",
-				"SOURCE_CONTAINER_REGISTRY": "gcr.io/foo-bar",
+				"GCP_PROJECT_ID":                    "foo",
+				"CLOUD_ROBOTICS_CONTAINER_REGISTRY": "gcr.io/bar",
 			},
 		},
 	}
