@@ -223,7 +223,6 @@ def app_chart(
     cache_gcr_credentials(
         name = name + ".push",
         target = name + ".push-cached-credentials",
-        gcr_registry = registry,
         visibility = visibility,
     )
 

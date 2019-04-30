@@ -29,8 +29,8 @@ cache_gcr_credentials = rule(
             mandatory = True,
         ),
         "gcr_registry": attr.string(
-            default = "",
-            doc = "If set, credentials for this GCR registry will be precached",
+            default = "gcr.io",
+            doc = "If set, credentials for this GCR registry's domain will be precached",
         ),
         "_sh_tpl": attr.label(
             default = Label("@cloud_robotics//bazel/build_rules/app_chart:cache_gcr_credentials.sh.tpl"),

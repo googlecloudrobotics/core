@@ -1,4 +1,3 @@
-load("//:config.bzl", "CLOUD_ROBOTICS_CONTAINER_REGISTRY")
 load("//bazel/build_rules/app_chart:cache_gcr_credentials.bzl", "cache_gcr_credentials")
 load("//bazel/build_rules/app_chart:run_parallel.bzl", "run_parallel")
 load("//bazel/build_rules/app_chart:run_sequentially.bzl", "run_sequentially")
@@ -29,7 +28,6 @@ run_parallel(
 
 cache_gcr_credentials(
     name = "push",
-    gcr_registry = CLOUD_ROBOTICS_CONTAINER_REGISTRY,
     target = "push-cached-credentials",
 )
 
