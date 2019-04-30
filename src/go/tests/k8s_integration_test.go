@@ -41,7 +41,7 @@ const (
 	// for >10 minutes is healthy.
 	maxTimeSinceRelevantRestart = 10 * time.Minute
 
-	appInitializationTimeout = 5 * time.Minute
+	appInitializationTimeout = 7 * time.Minute
 
 	podInitializationTimeout         = 5 * time.Minute
 	podMaxToleratedContainerRestarts = 5
@@ -173,13 +173,12 @@ func TestCloudClusterAppStatus(t *testing.T) {
 
 		numBadConditions = 0
 		for _, i := range appRollouts.Items {
-			log.Printf("Checking AppRollout %v status\n", i.GetName())
 			ar := &apps.AppRollout{}
 			if err := convert(&i, ar); err != nil {
 				t.Errorf("Failed to unmarshall AppRollout: %v", err)
 			}
 			for _, c := range ar.Status.Conditions {
-				log.Printf("- condition %v is %v\n", c.Type, c.Status)
+				log.Printf("AppRollout %v condition %v is %v\n", i.GetName(), c.Type, c.Status)
 				if c.Status != corev1.ConditionTrue {
 					log.Printf("AppRollout %v condition %v is not met\n", ar.GetName(), c.Type)
 					numBadConditions += 1
@@ -190,7 +189,7 @@ func TestCloudClusterAppStatus(t *testing.T) {
 			break
 		}
 
-		time.Sleep(10 * time.Second)
+		time.Sleep(15 * time.Second)
 	}
 	if numBadConditions != 0 {
 		t.Errorf("Unhealthy AppRollout status after waiting for %d sec: %d conditions not met\n",
