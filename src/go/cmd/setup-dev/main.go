@@ -17,6 +17,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -26,6 +27,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/googlecloudrobotics/core/src/go/pkg/configutil"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
@@ -196,15 +198,17 @@ func stopContainerIfNeeded(container string) error {
 		return fmt.Errorf("`docker stop %s` failed: %v", container, err)
 	}
 	// Wait for the container to be deleted.
-	for {
-		if stillExists, err := containerExists(container); err != nil {
-			return err
-		} else if !stillExists {
+	return backoff.Retry(
+		func () error {
+			if stillExists, err := containerExists(container); err != nil {
+				return backoff.Permanent(err)
+			} else if stillExists {
+				return errors.New("container exists")
+			}
 			return nil
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	return nil
+		},
+		backoff. NewConstantBackOff(100 * time.Millisecond),
+	)
 }
 
 // startROSAdapter starts a ros-adapter container with the local Docker

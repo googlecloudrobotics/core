@@ -275,6 +275,12 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_cenkalti_backoff",
+    commit = "1e4cf3da559842a91afcb6ea6141451e6c30c618",
+    importpath = "github.com/cenkalti/backoff"
+)
+
+go_repository(
     name = "com_github_cyphar_filepath_securejoin",
     commit = "a261ee33d7a517f054effbf451841abaafe3e0fd",
     importpath = "github.com/cyphar/filepath-securejoin",
