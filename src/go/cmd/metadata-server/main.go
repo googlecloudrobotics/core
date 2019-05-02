@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/cenkalti/backoff"
 	"github.com/fsnotify/fsnotify"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"golang.org/x/oauth2"
@@ -308,15 +309,17 @@ func main() {
 	ctx := context.Background()
 	tokenSource := robotAuth.CreateRobotTokenSource(ctx)
 	var projectNumber int64
-	for {
-		projectNumber, err = getProjectNumber(oauth2.NewClient(ctx, tokenSource), robotAuth.ProjectId)
-		if err != nil {
-			log.Printf("will retry to obtain project number for %s: %v", robotAuth.ProjectId, err)
-			time.Sleep(5 * time.Second)
-		} else {
-			break
-		}
-	}
+	backoff.Retry(
+		func () error {
+			projectNumber, err = getProjectNumber(oauth2.NewClient(ctx, tokenSource), robotAuth.ProjectId)
+			if err != nil {
+				log.Printf("will retry to obtain project number for %s: %v", robotAuth.ProjectId, err)
+			}
+			return err
+		},
+		backoff.NewConstantBackOff(5 * time.Second),
+	)
+
 	tokenHandler := TokenHandler{
 		AllowedSources: allowedSources,
 		TokenSource:    tokenSource,
