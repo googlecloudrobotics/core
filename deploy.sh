@@ -181,18 +181,6 @@ function helm_charts {
 
   ${HELM} init --history-max=10 --upgrade --force-upgrade --wait
 
-  # Transitionary helper:
-  # Delete the obsolete robot-cluster app. It has been merged back into base.
-  ${HELM} delete --purge robot-cluster-cloud 2>/dev/null || true
-  # Delete the synthetic v1 charts.
-  ${HELM} delete --purge cloud-apps 2>/dev/null || true
-  ${HELM} delete --purge cloud-robots 2>/dev/null || true
-  if ${HELM} get cloud-base | grep -q "kind: Apps"; then
-    # Delete the old cloud-base release, since an immutable field changed in
-    # 1d3dfc8.
-    ${HELM} delete --purge cloud-base 2>/dev/null || true
-  fi
-
   values=$(cat <<EOF
     --set-string domain=${PROJECT_DOMAIN}
     --set-string ingress_ip=${INGRESS_IP}
