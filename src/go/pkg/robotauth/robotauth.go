@@ -120,18 +120,6 @@ func (r *RobotAuth) StoreInK8sSecret(clientset *kubernetes.Clientset) error {
 		})
 }
 
-// serviceAccountCredentialsFile is the same file format as used by keys
-// exported for Google's service account credential files.
-type serviceAccountCredentialsFile struct {
-	Type         string `json:"type"` // must be service_account
-	ClientEmail  string `json:"client_email"`
-	ClientId     string `json:"client_id"`
-	PrivateKeyID string `json:"private_key_id"`
-	PrivateKey   string `json:"private_key"`
-	TokenURL     string `json:"token_uri"`
-	ProjectID    string `json:"project_id"`
-}
-
 func (r *RobotAuth) getTokenEndpoint() string {
 	return fmt.Sprintf("https://%s/apis/core.token-vendor/v1/token.oauth2", r.Domain)
 }
