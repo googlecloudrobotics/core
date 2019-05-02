@@ -141,7 +141,7 @@ func publishPublicKeyToCloudRegistry(auth *robotauth.RobotAuth, client *http.Cli
 	url := fmt.Sprintf(
 		"https://%s/apis/core.token-vendor/v1/public-key.publish?device-id=%s",
 		auth.Domain,
-		auth.GetPublicKeyRegistryId())
+		auth.PublicKeyRegistryId)
 
 	response, err := client.Post(
 		url, "application/x-pem-file", strings.NewReader(string(pubKey)))

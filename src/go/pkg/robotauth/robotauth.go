@@ -42,12 +42,8 @@ const (
 
 // Object containing ID, as stored in robot-id.json.
 type RobotAuth struct {
-	RobotName string `json:"id"`
-	ProjectId string `json:"project_id"`
-	// Deprecated: Not written anymore and replaced by PublicKeyRegistryId (a
-	// string ID which can be determined client-side rather than server-side
-	// by the Cloud Iot Registry).
-	IotNumId            uint64 `json:"iot_num_id,string,omitempty"`
+	RobotName           string `json:"id"`
+	ProjectId           string `json:"project_id"`
 	PublicKeyRegistryId string `json:"public_key_registry_id"`
 	PrivateKey          []byte `json:"private_key"`
 	Domain              string `json:"domain"`
@@ -140,22 +136,12 @@ func (r *RobotAuth) getTokenEndpoint() string {
 	return fmt.Sprintf("https://%s/apis/core.token-vendor/v1/token.oauth2", r.Domain)
 }
 
-// Returns the ID by which the robots public key is stored in the cloud.
-func (r *RobotAuth) GetPublicKeyRegistryId() string {
-	if r.PublicKeyRegistryId != "" {
-		return r.PublicKeyRegistryId
-	} else {
-		// Instances parsed from old JSON files on robots have IotNumId instead of PublicKeyRegistryId
-		return fmt.Sprintf("%d", r.IotNumId)
-	}
-}
-
 // CreateRobotTokenSource creates an OAuth2 token source for the token vendor.
 // This token source returns Google Cloud access token minted for the robot-service@
 // service account.
 func (auth *RobotAuth) CreateRobotTokenSource(ctx context.Context) oauth2.TokenSource {
 	c := jwt.Config{
-		Email:      auth.GetPublicKeyRegistryId(), // Will be used as "issuer" of the outgoing JWT.
+		Email:      auth.PublicKeyRegistryId, // Will be used as "issuer" of the outgoing JWT.
 		Expires:    time.Minute * 30,
 		PrivateKey: auth.PrivateKey,
 		Scopes:     []string{auth.getTokenEndpoint()},
