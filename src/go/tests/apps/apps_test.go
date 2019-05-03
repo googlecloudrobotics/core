@@ -15,14 +15,15 @@
 package apps
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	roboapps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubetest"
 	apps "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -42,9 +43,11 @@ func TestAll(t *testing.T) {
 			"robot.name": "testbot",
 		},
 	)
-	if err := wait.Poll(
-		3*time.Second, 2*time.Minute,
-		kubetest.DeploymentReady(env.Ctx(), env.Client("robot"), "default", "robot-master"),
+	if err := backoff.Retry(
+		func() error {
+			return kubetest.DeploymentReady(env.Ctx(), env.Client("robot"), "default", "robot-master")
+		},
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(3*time.Second), 40),
 	); err != nil {
 		t.Errorf("wait for robot-master: %s", err)
 		t.Fatalf("ACCESS_TOKEN set?")
@@ -85,34 +88,37 @@ spec:
 	}
 
 	// We should find a deployment in its own namespace now.
-	if err := wait.Poll(time.Second, time.Minute, func() (bool, error) {
-		// Wait for deployment to be created.
-		var dep apps.Deployment
-		err := robot.Get(f.Ctx(), client.ObjectKey{
-			Namespace: data["namespace"],
-			Name:      "test",
-		}, &dep)
-		if apierrors.IsNotFound(err) {
-			t.Logf("Deployment does not exist yet")
-			return false, nil
-		}
-		if err != nil {
-			return false, err
-		}
-		// Ensure ChartAssignment was deployed successfully.
-		if err = robot.Get(f.Ctx(), f.ObjectKey(&ca), &ca); err != nil {
-			return false, err
-		}
-		if ca.Status.Phase == roboapps.ChartAssignmentPhaseSettled {
-			return true, nil
-		}
-		// Chart should've been deployed exactly once.
-		if ca.Status.Helm.Revision == 1 {
-			return true, nil
-		}
-		t.Logf("Phase: %s, Revision: %d", ca.Status.Phase, ca.Status.Helm.Revision)
-		return false, nil
-	}); err != nil {
+	if err := backoff.Retry(
+		func() error {
+			// Wait for deployment to be created.
+			var dep apps.Deployment
+			err := robot.Get(f.Ctx(), client.ObjectKey{
+				Namespace: data["namespace"],
+				Name:      "test",
+			}, &dep)
+			if apierrors.IsNotFound(err) {
+				t.Logf("Deployment does not exist yet")
+				return fmt.Errorf("deployment does not exist yet")
+			}
+			if err != nil {
+				return backoff.Permanent(err)
+			}
+			// Ensure ChartAssignment was deployed successfully.
+			if err = robot.Get(f.Ctx(), f.ObjectKey(&ca), &ca); err != nil {
+				return backoff.Permanent(err)
+			}
+			if ca.Status.Phase == roboapps.ChartAssignmentPhaseSettled {
+				return nil
+			}
+			// Chart should've been deployed exactly once.
+			if ca.Status.Helm.Revision == 1 {
+				return nil
+			}
+			t.Logf("Phase: %s, Revision: %d", ca.Status.Phase, ca.Status.Helm.Revision)
+			return fmt.Errorf("revision != 1")
+		},
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 60),
+	); err != nil {
 		t.Fatalf("wait for mysql deployment: %s", err)
 	}
 }

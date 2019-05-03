@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -40,7 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	cacheddiscovery "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/dynamic"
@@ -151,13 +151,24 @@ func (s *Synk) Init() error {
 	if _, err := s.applyOne(&u, nil); err != nil {
 		return errors.Wrap(err, "create ResourceSet CRD")
 	}
-	err := wait.PollImmediate(2*time.Second, 2*time.Minute, func() (bool, error) {
-		ok, err := s.crdAvailable(&u)
-		return ok && err == nil, err
-	})
+
+	err := backoff.Retry(
+		func() error {
+			ok, err := s.crdAvailable(&u)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return errors.New("crd not available")
+			}
+			return nil
+		},
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 60),
+	)
 	if err != nil {
 		return errors.Wrap(err, "wait for ResourceSet CRD")
 	}
+
 	return nil
 }
 
@@ -253,14 +264,19 @@ func (s *Synk) applyAll(
 		}
 		results.set(crd, action, err)
 	}
-	err := wait.PollImmediate(2*time.Second, 2*time.Minute, func() (bool, error) {
-		for _, crd := range crds {
-			if ok, err := s.crdAvailable(crd); !ok || err != nil {
-				return false, err
+	err := backoff.Retry(
+		func() error {
+			for _, crd := range crds {
+				if ok, err := s.crdAvailable(crd); err != nil {
+					return backoff.Permanent(err)
+				} else if !ok {
+					return errors.New("crd not yet available")
+				}
 			}
-		}
-		return true, nil
-	})
+			return nil
+		},
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 60),
+	)
 	if err != nil {
 		return results, errors.Wrap(err, "wait for CRDs")
 	}

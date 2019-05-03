@@ -31,6 +31,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -40,7 +41,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -358,24 +358,27 @@ func setupCluster(helmPath string, cluster *cluster) error {
 		if err := c.Create(ctx, secret); err != nil {
 			return errors.Wrap(err, "create pull secret")
 		}
-		if err := wait.Poll(time.Second, time.Minute, func() (bool, error) {
-			var sa core.ServiceAccount
-			err := c.Get(ctx, client.ObjectKey{"default", "default"}, &sa)
-			if k8serrors.IsNotFound(err) {
-				return false, nil
-			} else if err != nil {
-				return false, errors.Wrap(err, "get service account")
-			}
-			sa.ImagePullSecrets = append(sa.ImagePullSecrets, core.LocalObjectReference{
-				Name: gcr.SecretName,
-			})
-			if err = c.Update(ctx, &sa); k8serrors.IsConflict(err) {
-				return false, nil
-			} else if err != nil {
-				return false, errors.Wrap(err, "update service account")
-			}
-			return true, nil
-		}); err != nil {
+		if err := backoff.Retry(
+			func() error {
+				var sa core.ServiceAccount
+				err := c.Get(ctx, client.ObjectKey{"default", "default"}, &sa)
+				if k8serrors.IsNotFound(err) {
+					return errors.New("not found")
+				} else if err != nil {
+					return backoff.Permanent(errors.Wrap(err, "get service account"))
+				}
+				sa.ImagePullSecrets = append(sa.ImagePullSecrets, core.LocalObjectReference{
+					Name: gcr.SecretName,
+				})
+				if err = c.Update(ctx, &sa); k8serrors.IsConflict(err) {
+					return fmt.Errorf("conflict")
+				} else if err != nil {
+					return backoff.Permanent(errors.Wrap(err, "update service account"))
+				}
+				return nil
+			},
+			backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 60),
+		); err != nil {
 			return errors.Wrap(err, "inject pull secret")
 		}
 	}
@@ -385,18 +388,21 @@ func setupCluster(helmPath string, cluster *cluster) error {
 	}
 	// Install Tiller. We wait for all node taints to be removed (e.g. NotReady)
 	// so Tiller doesn't fail permanently (see b/128660997).
-	if err := wait.Poll(time.Second, 2*time.Minute, func() (bool, error) {
-		var nds core.NodeList
-		if err := c.List(ctx, nil, &nds); err != nil {
-			return false, err
-		}
-		for _, n := range nds.Items {
-			if len(n.Spec.Taints) == 0 {
-				return true, nil
+	if err := backoff.Retry(
+		func() error {
+			var nds core.NodeList
+			if err := c.List(ctx, nil, &nds); err != nil {
+				return backoff.Permanent(err)
 			}
-		}
-		return false, nil
-	}); err != nil {
+			for _, n := range nds.Items {
+				if len(n.Spec.Taints) == 0 {
+					return nil
+				}
+			}
+			return fmt.Errorf("taints not removed")
+		},
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 120),
+	); err != nil {
 		return errors.Wrap(err, "wait for node taints to be removed")
 	}
 	cmd := exec.Command(
@@ -415,15 +421,18 @@ func setupCluster(helmPath string, cluster *cluster) error {
 
 // DeploymentReady returns a condition func that checks whether all replicas of a deployment
 // are available.
-func DeploymentReady(ctx context.Context, c client.Client, namespace, name string) wait.ConditionFunc {
-	return func() (bool, error) {
-		var d apps.Deployment
-		if err := c.Get(ctx, client.ObjectKey{namespace, name}, &d); err != nil {
-			return false, errors.Wrapf(err, "get deployment %s/%s", namespace, name)
-		}
-		if d.Spec.Replicas == nil {
-			return d.Status.ReadyReplicas > 0, nil
-		}
-		return d.Status.ReadyReplicas == *d.Spec.Replicas, nil
+func DeploymentReady(ctx context.Context, c client.Client, namespace, name string) error {
+	var d apps.Deployment
+	if err := c.Get(ctx, client.ObjectKey{namespace, name}, &d); err != nil {
+		return backoff.Permanent(errors.Wrapf(err, "get deployment %s/%s", namespace, name))
 	}
+	if d.Spec.Replicas == nil {
+		if d.Status.ReadyReplicas <= 0 {
+			return fmt.Errorf("Replicas not ready")
+		}
+		return nil
+	} else if d.Status.ReadyReplicas != *d.Spec.Replicas {
+		return fmt.Errorf("Replicas not ready")
+	}
+	return nil
 }
