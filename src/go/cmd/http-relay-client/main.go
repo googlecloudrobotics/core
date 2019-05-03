@@ -34,6 +34,7 @@ import (
 	pb "src/proto/http-relay"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
@@ -329,15 +330,26 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 	go streamBytes(body, bodyChannel)
 	go buildResponses(bodyChannel, resp, responseChannel, responseTimeout)
 
+	exponentialBackoff := backoff.ExponentialBackOff{
+		InitialInterval:     time.Second,
+		RandomizationFactor: 0,
+		Multiplier:          2,
+		MaxInterval:         10 * time.Second,
+		MaxElapsedTime:      0,
+		Clock:               backoff.SystemClock,
+	}
+
 	for resp := range responseChannel {
-		for attempts := 0; attempts < 10; attempts += 1 {
-			if err := postResponse(remote, resp); err != nil {
+		exponentialBackoff.Reset()
+		backoff.RetryNotify(
+			func() error {
+				return postResponse(remote, resp)
+			},
+			backoff.WithMaxRetries(&exponentialBackoff, 10),
+			func(err error, _ time.Duration) {
 				log.Printf("Failed to post response for %s to relay: %v", *resp.Id, err)
-				time.Sleep(time.Duration(attempts) * time.Second)
-			} else {
-				break
-			}
-		}
+			},
+		)
 	}
 }
 
