@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	flag "github.com/spf13/pflag"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
@@ -110,16 +111,28 @@ func parseFlags() {
 	}
 }
 
+func newExponentialBackoff(initialInterval time.Duration, multiplier float64, retries uint64) backoff.BackOff {
+	exponentialBackoff := backoff.ExponentialBackOff{
+		InitialInterval: initialInterval,
+		Multiplier:      multiplier,
+		Clock:           backoff.SystemClock,
+	}
+	exponentialBackoff.Reset()
+	return backoff.WithMaxRetries(&exponentialBackoff, retries)
+}
+
 // Since this might be the first interaction with the cluster, manually resolve the
 // domain name with retries to give a better error in the case of failure.
-func waitForDNS(domain string, retries int) error {
+func waitForDNS(domain string, retries uint64) error {
 	log.Printf("DNS lookup for %q", domain)
-	delay := time.Second
-	var err error
-	for i := 0; i < retries; i++ {
-		var ips []net.IP
-		ips, err = net.LookupIP(domain)
-		if err == nil {
+
+	if err := backoff.RetryNotify(
+		func() error {
+			ips, err := net.LookupIP(domain)
+			if err != nil {
+				return err
+			}
+
 			// Check that the results contain an ipv4 addr. Initially, coredns may only
 			// return ipv6 addresses in which case helm will fail.
 			for _, ip := range ips {
@@ -127,29 +140,39 @@ func waitForDNS(domain string, retries int) error {
 					return nil
 				}
 			}
-		}
-		log.Printf("... Retry dns for %q", domain)
-		time.Sleep(delay)
-		delay += delay
+
+			return errors.New("IP not found")
+		},
+		newExponentialBackoff(time.Second, 2, retries),
+		func(_ error, _ time.Duration) {
+			log.Printf("... Retry dns for %q", domain)
+		},
+	); err != nil {
+		return fmt.Errorf("DNS lookup for %q failed: %v", domain, err)
 	}
-	return fmt.Errorf("DNS lookup for %q failed: %v", domain, err)
+
+	return nil
 }
 
 // Tests a given cloud endpoint with a HEAD request a few times. This lets us wait for the service
 // to be available or error with a better message
-func waitForService(client *http.Client, url string, retries int) error {
+func waitForService(client *http.Client, url string, retries uint64) error {
 	log.Printf("Service probe for %q", url)
-	delay := time.Second
-	var err error
-	for i := 0; i < retries; i++ {
-		if _, err = client.Head(url); err == nil {
-			return nil
-		}
-		log.Printf("... Retry service for %q", url)
-		time.Sleep(delay)
-		delay += delay
+
+	if err := backoff.RetryNotify(
+		func() error {
+			_, err := client.Head(url)
+			return err
+		},
+		newExponentialBackoff(time.Second, 2, retries),
+		func(_ error, _ time.Duration) {
+			log.Printf("... Retry service for %q", url)
+		},
+	); err != nil {
+		return fmt.Errorf("service probe for %q failed: %v", url, err)
 	}
-	return fmt.Errorf("service probe for %q failed: %v", url, err)
+
+	return nil
 }
 
 func main() {

@@ -310,14 +310,14 @@ func main() {
 	tokenSource := robotAuth.CreateRobotTokenSource(ctx)
 	var projectNumber int64
 	backoff.Retry(
-		func () error {
+		func() error {
 			projectNumber, err = getProjectNumber(oauth2.NewClient(ctx, tokenSource), robotAuth.ProjectId)
 			if err != nil {
 				log.Printf("will retry to obtain project number for %s: %v", robotAuth.ProjectId, err)
 			}
 			return err
 		},
-		backoff.NewConstantBackOff(5 * time.Second),
+		backoff.NewConstantBackOff(5*time.Second),
 	)
 
 	tokenHandler := TokenHandler{
