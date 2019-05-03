@@ -24,6 +24,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	corev1 "k8s.io/api/core/v1"
@@ -64,16 +65,16 @@ func DockerCfgJSON(token string) []byte {
 
 func patchServiceAccount(k8s *kubernetes.Clientset, name string, namespace string, patchData []byte) error {
 	sa := k8s.CoreV1().ServiceAccounts(namespace)
-	for {
-		_, err := sa.Patch(name, types.StrategicMergePatchType, patchData)
-		if err == nil {
-			break
-		} else if !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("failed to apply %q: %v", patchData, err)
-		}
-		time.Sleep(time.Second)
-	}
-	return nil
+	return backoff.Retry(
+		func() error {
+			_, err := sa.Patch(name, types.StrategicMergePatchType, patchData)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return backoff.Permanent(fmt.Errorf("failed to apply %q: %v", patchData, err))
+			}
+			return err
+		},
+		backoff.NewConstantBackOff(time.Second),
+	)
 }
 
 // UpdateGcrCredentials authenticates to the cloud cluster using the auth config given and updates
