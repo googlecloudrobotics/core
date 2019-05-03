@@ -77,7 +77,7 @@ func exitIfNotRunningInTerminal(message ...interface{}) {
 // Ask the user to select the robot from a list. Saves name to disk after
 // selection.
 func selectRobot(f util.Factory, robots []unstructured.Unstructured) (string, error) {
-	fmt.Printf("  # %-20v %-10v %-16v %v\n", "Name", "Type", "Create Time")
+	fmt.Printf("  # %-20v %-10v %-16v\n", "Name", "Type", "Create Time")
 	for i, robot := range robots {
 		spec, ok := robot.Object["spec"].(map[string]interface{})
 		if !ok {
