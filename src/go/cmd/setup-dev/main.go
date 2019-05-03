@@ -46,7 +46,6 @@ import (
 const iotPrefix = "dev-"
 
 var (
-	domain     = flag.String("domain", "", "Domain for the Cloud Robotics project")
 	rosAdapter = flag.Bool("ros-adapter", false, "set up a local cluster and connect the ROS adapter to the cloud")
 	project    = flag.String("project", "", "Project ID for the Google Cloud Platform")
 	robotName  = flag.String("robot-name", "", "Robot name (default: select interactively)")
@@ -59,20 +58,26 @@ func parseFlags() {
 		fmt.Println("ERROR: --project not specified")
 		os.Exit(1)
 	}
-	if *domain == "" {
-		*domain = fmt.Sprintf("www.endpoints.%s.cloud.goog", *project)
-	}
 }
 
 func main() {
 	parseFlags()
 	f := &util.DefaultFactory{}
 
+	vars, err := configutil.ReadConfig(*project)
+	if err != nil {
+		log.Fatal("Failed to read config for project: ", err)
+	}
+	domain, ok := vars["CLOUD_ROBOTICS_DOMAIN"]
+	if !ok || domain == "" {
+		domain = fmt.Sprintf("www.endpoints.%s.cloud.goog", *project)
+	}
+
 	tokenSource, err := google.DefaultTokenSource(context.Background(), "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
 		log.Fatal("Failed to create OAuth2 token source: ", err)
 	}
-	k8sCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, *domain)
+	k8sCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, domain)
 	k8s, err := dynamic.NewForConfig(k8sCfg)
 	if err != nil {
 		log.Fatal("Failed to create kubernetes client: ", err)
@@ -84,13 +89,13 @@ func main() {
 	if err != nil {
 		log.Fatalln("ERROR:", err)
 	}
-	if err := createKubeRelayEntry(*project, *domain, *robotName); err != nil {
+	if err := createKubeRelayEntry(*project, domain, *robotName); err != nil {
 		log.Fatalln("Failed to create kubectl context:", err)
 	}
 	// TODO(ensonic): these are only used for the ssh-app
 	// dev credentials are always created
 	client := oauth2.NewClient(context.Background(), tokenSource)
-	if err := setupDevCredentials(client, *robotName); err != nil {
+	if err := setupDevCredentials(client, domain, *robotName); err != nil {
 		log.Fatal(err)
 	}
 	if !*rosAdapter {
@@ -99,7 +104,7 @@ func main() {
 	}
 	// TODO(rodrigoq): start local k8s cluster with minikube or kubeadm.
 	// TODO(rodrigoq): setup k8s ConfigMaps
-	if err := startROSAdapter(*robotName); err != nil {
+	if err := startROSAdapter(domain, *robotName, vars["CLOUD_ROBOTICS_CONTAINER_REGISTRY"]); err != nil {
 		log.Fatalln("Failed to start ros-adapter:", err)
 	}
 	log.Println("Setup complete.")
@@ -142,7 +147,7 @@ func createKubeRelayEntry(projectID string, domain string, robotName string) err
 
 // setupDevCredentials generates a workstation ID for use with Cloud IoT then
 // calls in to CreateAndPublishCredentialsToCloud to create and publish a private key.
-func setupDevCredentials(client *http.Client, robotName string) error {
+func setupDevCredentials(client *http.Client, domain string, robotName string) error {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return fmt.Errorf("Failed to query hostname: %v", err)
@@ -150,7 +155,7 @@ func setupDevCredentials(client *http.Client, robotName string) error {
 	auth := &robotauth.RobotAuth{
 		RobotName:           robotName,
 		ProjectId:           *project,
-		Domain:              *domain,
+		Domain:              domain,
 		PublicKeyRegistryId: makeIdentifier(hostname),
 	}
 	if err := setup.CreateAndPublishCredentialsToCloud(client, auth); err != nil {
@@ -199,7 +204,7 @@ func stopContainerIfNeeded(container string) error {
 	}
 	// Wait for the container to be deleted.
 	return backoff.Retry(
-		func () error {
+		func() error {
 			if stillExists, err := containerExists(container); err != nil {
 				return backoff.Permanent(err)
 			} else if stillExists {
@@ -207,7 +212,7 @@ func stopContainerIfNeeded(container string) error {
 			}
 			return nil
 		},
-		backoff. NewConstantBackOff(100 * time.Millisecond),
+		backoff.NewConstantBackOff(100*time.Millisecond),
 	)
 }
 
@@ -215,7 +220,7 @@ func stopContainerIfNeeded(container string) error {
 // daemon.
 // TODO(rodrigoq): replace this with a k8s deployment, or use the docker/moby
 // client.
-func startROSAdapter(robotName string) error {
+func startROSAdapter(domain string, robotName string, containerRegistry string) error {
 	stopContainerIfNeeded("ros-adapter")
 	// TODO(rodrigoq): can we avoid network=host by setting
 	// ROS_MASTER_URI/IP appropriately?
@@ -223,7 +228,7 @@ func startROSAdapter(robotName string) error {
 		"ROS_MASTER_URI":                 "http://127.0.0.1:11311",
 		"ROS_IP":                         "127.0.0.1",
 		"GOOGLE_CLOUD_PROJECT":           *project,
-		"CLOUD_ROBOTICS_DOMAIN":          *domain,
+		"CLOUD_ROBOTICS_DOMAIN":          domain,
 		"ROBOT_NAME":                     robotName,
 		"GOOGLE_APPLICATION_CREDENTIALS": "/gcloud/application_default_credentials.json",
 	}
@@ -233,11 +238,7 @@ func startROSAdapter(robotName string) error {
 		args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
 	}
 
-	vars, err := configutil.ReadConfig(*project)
-	if err != nil {
-		return err
-	}
-	args = append(args, vars["CLOUD_ROBOTICS_CONTAINER_REGISTRY"]+rosAdapterImage, "dev")
+	args = append(args, containerRegistry+rosAdapterImage, "dev")
 	cmd := exec.Command("docker", args...)
 	cmd.Stderr = os.Stderr
 	log.Println("Starting ros-adapter container")
