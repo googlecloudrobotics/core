@@ -256,7 +256,7 @@ func rewriteArchives(ws *build.File) {
 	// TODO(rodrigoq): add progress output during download
 	// This empty iteration blocks until all archives are rewritten and the
 	// channel is closed.
-	for _ = range rewrittenArchives {
+	for range rewrittenArchives {
 	}
 }
 

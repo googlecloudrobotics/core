@@ -52,7 +52,7 @@ func TestPublish(t *testing.T) {
 	r, err := s.Publish(context.Background(), &pb.PublishRequest{
 		Topic: topicName,
 		Messages: []*pb.PubsubMessage{
-			&pb.PubsubMessage{
+			{
 				Data: msgData,
 			},
 		},
@@ -119,7 +119,7 @@ func TestOneMessage(t *testing.T) {
 	_, _ = s.Publish(context.Background(), &pb.PublishRequest{
 		Topic: topicName,
 		Messages: []*pb.PubsubMessage{
-			&pb.PubsubMessage{
+			{
 				Data: msgData,
 			},
 		},
@@ -153,10 +153,10 @@ func TestTwoMessages(t *testing.T) {
 	_, _ = s.Publish(context.Background(), &pb.PublishRequest{
 		Topic: topicName,
 		Messages: []*pb.PubsubMessage{
-			&pb.PubsubMessage{
+			{
 				Data: msgData,
 			},
-			&pb.PubsubMessage{
+			{
 				Data: msgData,
 			},
 		},
