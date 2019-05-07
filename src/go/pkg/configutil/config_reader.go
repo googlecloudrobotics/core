@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
+	"google.golang.org/api/option"
 )
 
 // Unescapes a bash string. Only supports the following three patterns:
@@ -73,9 +74,9 @@ func setDefaultVars(vars map[string]string) {
 // All variables specified in the config are returned as dictionary.
 // Uses the following defaults if the variables are not set:
 //   CLOUD_ROBOTICS_CONTAINER_REGISTRY="gcr.io/<GCP_PROJECT_ID>"
-func ReadConfig(project string) (map[string]string, error) {
+func ReadConfig(project string, opts ...option.ClientOption) (map[string]string, error) {
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx)
+	client, err := storage.NewClient(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}

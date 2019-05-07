@@ -9,6 +9,7 @@ go_library(
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/setup-robot",
     visibility = ["//visibility:private"],
     deps = [
+        "//src/go/pkg/configutil:go_default_library",
         "//src/go/pkg/gcr:go_default_library",
         "//src/go/pkg/kubeutils:go_default_library",
         "//src/go/pkg/robotauth:go_default_library",
@@ -25,6 +26,7 @@ go_library(
         "@io_k8s_client_go//kubernetes:go_default_library",
         "@io_k8s_client_go//rest:go_default_library",
         "@org_golang_google_api//cloudresourcemanager/v1:go_default_library",
+        "@org_golang_google_api//option:go_default_library",
         "@org_golang_x_oauth2//:go_default_library",
     ],
 )

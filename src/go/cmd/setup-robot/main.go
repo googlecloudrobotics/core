@@ -32,6 +32,7 @@ import (
 	"github.com/cenkalti/backoff"
 	flag "github.com/spf13/pflag"
 
+	"github.com/googlecloudrobotics/core/src/go/pkg/configutil"
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
@@ -39,6 +40,7 @@ import (
 
 	"golang.org/x/oauth2"
 	"google.golang.org/api/cloudresourcemanager/v1"
+	"google.golang.org/api/option"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -52,7 +54,6 @@ import (
 
 var (
 	robotName           = new(string)
-	domain              = flag.String("domain", "", "Domain for the Cloud Robotics project (default: www.endpoints.<project>.cloud.goog)")
 	project             = flag.String("project", "", "Project ID for the Google Cloud Platform")
 	robotType           = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
 	labels              = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
@@ -104,10 +105,6 @@ func parseFlags() {
 	if *project == "" {
 		flag.Usage()
 		log.Fatal("ERROR: --project is required.")
-	}
-
-	if *domain == "" {
-		*domain = fmt.Sprintf("www.endpoints.%s.cloud.goog", *project)
 	}
 }
 
@@ -186,17 +183,25 @@ func main() {
 		log.Fatalf("Invalid labels %q: %s", *labels, err)
 	}
 
+	// Set up the OAuth2 token source.
+	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: envToken})
+
+	vars, err := configutil.ReadConfig(*project, option.WithTokenSource(tokenSource))
+	if err != nil {
+		log.Fatal("Failed to read config for project: ", err)
+	}
+	domain, ok := vars["CLOUD_ROBOTICS_DOMAIN"]
+	if !ok || domain == "" {
+		domain = fmt.Sprintf("www.endpoints.%s.cloud.goog", *project)
+	}
+
 	// Make sure the local cluster is ready and can resolve the cloud project
-	if err := waitForDNS(*domain, numDNSRetries); err != nil {
+	if err := waitForDNS(domain, numDNSRetries); err != nil {
 		log.Fatalf("Failed to resolve cloud cluster: %s. Please retry in 5 minutes.", err)
 	}
 
-	// Set up the OAuth2 token source and client.
-	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: envToken})
-	client := oauth2.NewClient(context.Background(), tokenSource)
-
 	if *robotType != "" || *labels != "" {
-		if err := createOrUpdateRobot(tokenSource, parsedLabels); err != nil {
+		if err := createOrUpdateRobot(tokenSource, domain, parsedLabels); err != nil {
 			log.Fatalf("Failed to update robot CR %v: %v", *robotName, err)
 		}
 	}
@@ -211,22 +216,24 @@ func main() {
 		log.Fatal("Failed to create kubernetes client set: ", err)
 	}
 
+	httpClient := oauth2.NewClient(context.Background(), tokenSource)
+
 	if *robotAuthentication {
 		// Set up robot authentication.
 		auth := &robotauth.RobotAuth{
 			RobotName:           *robotName,
 			ProjectId:           *project,
-			Domain:              *domain,
+			Domain:              domain,
 			PublicKeyRegistryId: fmt.Sprintf("robot-%s", *robotName),
 		}
 
 		// Make sure the cloud cluster take requests
-		url := fmt.Sprintf("https://%s/apis/core.token-vendor/v1/public-key.read", *domain)
-		if err := waitForService(client, url, numServiceRetries); err != nil {
+		url := fmt.Sprintf("https://%s/apis/core.token-vendor/v1/public-key.read", domain)
+		if err := waitForService(httpClient, url, numServiceRetries); err != nil {
 			log.Fatalf("Failed to connect to the cloud cluster: %s. Please retry in 5 minutes.", err)
 		}
 
-		if err := setup.CreateAndPublishCredentialsToCloud(client, auth); err != nil {
+		if err := setup.CreateAndPublishCredentialsToCloud(httpClient, auth); err != nil {
 			log.Fatal(err)
 		}
 		if err := auth.StoreInK8sSecret(k8sLocalClientSet); err != nil {
@@ -238,7 +245,7 @@ func main() {
 	}
 
 	// Get the project number, which is passed as a value to the helm charts.
-	projectNumber, err := getProjectNumber(client, *project)
+	projectNumber, err := getProjectNumber(httpClient, *project)
 	if err != nil {
 		log.Fatalf("Failed to get project number: %v", err)
 	}
@@ -296,7 +303,7 @@ func main() {
 	deleteReleaseIfPresent("robot-cluster")
 
 	// Use "robot" as a suffix for consistency for Synk deployments.
-	installChartOrDie("robot-base", "base-robot", "base-robot-0.0.1.tgz", projectNumber)
+	installChartOrDie(domain, "robot-base", "base-robot", "base-robot-0.0.1.tgz", projectNumber)
 }
 
 func helmValuesStringFromMap(varMap map[string]string) string {
@@ -324,9 +331,9 @@ func deleteReleaseIfPresent(name string) {
 
 // installChartOrDie installs a chart using Helm or Synk.
 // nameOld is used for the Helm release name, nameNew for the synk ResourceSet.
-func installChartOrDie(nameOld, nameNew, chartPath string, projectNumber int64) {
+func installChartOrDie(domain, nameOld, nameNew, chartPath string, projectNumber int64) {
 	vars := helmValuesStringFromMap(map[string]string{
-		"domain":               *domain,
+		"domain":               domain,
 		"project":              *project,
 		"project_number":       strconv.FormatInt(projectNumber, 10),
 		"app_management":       strconv.FormatBool(*appManagement),
@@ -402,10 +409,10 @@ func installChartOrDie(nameOld, nameNew, chartPath string, projectNumber int64) 
 	}
 }
 
-func createOrUpdateRobot(tokenSource oauth2.TokenSource, labels map[string]string) error {
+func createOrUpdateRobot(tokenSource oauth2.TokenSource, domain string, labels map[string]string) error {
 	labels["cloudrobotics.com/robot-name"] = *robotName
 	// Set up client for cloud k8s cluster (needed only to obtain list of robots).
-	k8sCloudCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, *domain)
+	k8sCloudCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, domain)
 	k8sDynamicClient, err := dynamic.NewForConfig(k8sCloudCfg)
 	if err != nil {
 		return err
