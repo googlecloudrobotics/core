@@ -20,16 +20,6 @@
 set -e
 set -o pipefail
 
-if [[ -n "$APP_MANAGEMENT" ]] ; then
-  echo "WARNING: using the APP_MANAGEMENT envvar for setup_robot.sh is deprecated." >&2
-  echo "    Please use --app-management instead. Setup continues in 60 seconds..." >&2
-  # Sleep, as the warning can't be seen after the helm output fills the screen.
-  sleep 60
-  APP_MANAGEMENT="--app-management=${APP_MANAGEMENT}"
-else
-  APP_MANAGEMENT=""
-fi
-
 if [[ ! "$*" =~ "--project" && $# -ge 2 ]] ; then
   echo "WARNING: using only positional arguments for setup_robot.sh is deprecated." >&2
   echo "    Please use the following invocation instead. Setup continues in 60 seconds..." >&2
@@ -99,5 +89,4 @@ docker logout https://${REGISTRY}
 
 # Explicitly specify the context to not run this against the cloud cluster.
 kubectl --context="${KUBE_CONTEXT}" run setup-robot --restart=Never -i --rm \
-  --image=${IMAGE_REFERENCE} --env="ACCESS_TOKEN=${ACCESS_TOKEN}" -- \
-   ${APP_MANAGEMENT} "$@"
+  --image=${IMAGE_REFERENCE} --env="ACCESS_TOKEN=${ACCESS_TOKEN}" -- "$@"

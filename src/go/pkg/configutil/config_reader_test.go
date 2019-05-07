@@ -43,9 +43,9 @@ func TestBashUnescape(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tests {
+	for i, tc := range tests {
 		if got := bashUnescape(tc.s); got != tc.want {
-			t.Errorf("bashUnescape(`%s`) = `%s`', want `%s`", tc.s, got, tc.want)
+			t.Errorf("[%d] bashUnescape(`%s`) = `%s`', want `%s`", i, tc.s, got, tc.want)
 		}
 	}
 }
@@ -100,10 +100,46 @@ func TestSetDefaultVars(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tests {
+	for i, tc := range tests {
 		setDefaultVars(tc.v)
 		if !reflect.DeepEqual(tc.v, tc.want) {
-			t.Errorf("got: %v\nwant %v", tc.v, tc.want)
+			t.Errorf("[%d], got: %v\nwant %v", i, tc.v, tc.want)
+		}
+	}
+}
+
+func TestGetBoolean(t *testing.T) {
+	tests := []struct {
+		v    map[string]string
+		def  bool
+		want bool
+	}{
+		{ // good key present
+			v:    map[string]string{"FLAG": "true"},
+			def:  false,
+			want: true,
+		},
+		{ // no values, return def
+			v:    map[string]string{},
+			def:  false,
+			want: false,
+		},
+		{ // key absent, return def
+			v:    map[string]string{"OPTION": "true"},
+			def:  false,
+			want: false,
+		},
+		{ // good key, but bad value present, return def
+			v:    map[string]string{"FLAG": "I am not a flag"},
+			def:  false,
+			want: false,
+		},
+	}
+
+	for i, tc := range tests {
+		r := GetBoolean(tc.v, "FLAG", tc.def)
+		if r != tc.want {
+			t.Errorf("[%d] got: %v\nwant %v", i, r, tc.want)
 		}
 	}
 }

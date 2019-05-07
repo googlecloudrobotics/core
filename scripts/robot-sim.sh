@@ -30,8 +30,6 @@ function set_defaults {
   include_config "${GCP_PROJECT_ID}"
   INITIAL_KUBECTL_CONTEXT="$(kubectl config current-context)"
   GKE_CLOUD_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
-  PROJECT_DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
-  APP_MANAGEMENT=${APP_MANAGEMENT:-true}
 
   if [[ -z "${ROBOT_LABELS}" ]]; then
     ROBOT_LABELS="simulated=true"
@@ -70,19 +68,13 @@ function create {
     --zone=${GCP_ZONE} --project=${GCP_PROJECT_ID}
 
   # shellcheck disable=2097 disable=2098
-  # We intentionally set APP_MANAGEMENT="" in the environment of the
-  # setup_robot.sh because it expects --app-management and complains about the
-  # envvar. This can be removed when the warning is removed from setup_robot.sh.
-  APP_MANAGEMENT="" \
   KUBE_CONTEXT=${GKE_SIM_CONTEXT} \
   ACCESS_TOKEN=$(gcloud auth application-default print-access-token) \
     $DIR/../src/bootstrap/robot/setup_robot.sh \
     ${ROBOT_NAME} \
-    --domain ${PROJECT_DOMAIN} --project ${GCP_PROJECT_ID} \
+    --project ${GCP_PROJECT_ID} \
     --robot-type "${ROBOT_TYPE}" --robot-authentication=false \
-    --labels "${ROBOT_LABELS}" \
-    --app-management="${APP_MANAGEMENT}" \
-    --use-synk="${USE_SYNK}"
+    --labels "${ROBOT_LABELS}"
 }
 
 function delete {

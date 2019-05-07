@@ -58,8 +58,6 @@ var (
 	robotType           = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
 	labels              = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
 	robotAuthentication = flag.Bool("robot-authentication", true, "Set up robot authentication.")
-	appManagement       = flag.Bool("app-management", true, "Set up app management.")
-	useSynk             = flag.Bool("use-synk", false, "Use Synk to install Helm charts.")
 )
 
 const (
@@ -302,8 +300,11 @@ func main() {
 	// Clean up deprecated releases.
 	deleteReleaseIfPresent("robot-cluster")
 
+	useSynk := configutil.GetBoolean(vars, "USE_SYNK", false)
+	appManagement := configutil.GetBoolean(vars, "APP_MANAGEMENT", true)
 	// Use "robot" as a suffix for consistency for Synk deployments.
-	installChartOrDie(domain, "robot-base", "base-robot", "base-robot-0.0.1.tgz", projectNumber)
+	installChartOrDie(domain, "robot-base", "base-robot", "base-robot-0.0.1.tgz",
+		projectNumber, appManagement, useSynk)
 }
 
 func helmValuesStringFromMap(varMap map[string]string) string {
@@ -331,18 +332,18 @@ func deleteReleaseIfPresent(name string) {
 
 // installChartOrDie installs a chart using Helm or Synk.
 // nameOld is used for the Helm release name, nameNew for the synk ResourceSet.
-func installChartOrDie(domain, nameOld, nameNew, chartPath string, projectNumber int64) {
+func installChartOrDie(domain, nameOld, nameNew, chartPath string, projectNumber int64, appManagement, useSynk bool) {
 	vars := helmValuesStringFromMap(map[string]string{
 		"domain":               domain,
 		"project":              *project,
 		"project_number":       strconv.FormatInt(projectNumber, 10),
-		"app_management":       strconv.FormatBool(*appManagement),
-		"use_synk":             strconv.FormatBool(*useSynk),
+		"app_management":       strconv.FormatBool(appManagement),
+		"use_synk":             strconv.FormatBool(useSynk),
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
 		"robot.name":           *robotName,
 	})
 
-	if *useSynk {
+	if useSynk {
 		log.Printf("Installing %s chart using Synk from %s", nameNew, chartPath)
 		// Best effort delete of Helm release.
 		exec.Command(helmPath, "delete", "--purge", nameOld)

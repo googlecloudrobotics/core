@@ -18,7 +18,9 @@ import (
 	"bufio"
 	"context"
 	"io"
+	"log"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"cloud.google.com/go/storage"
@@ -94,4 +96,18 @@ func ReadConfig(project string, opts ...option.ClientOption) (map[string]string,
 	}
 	setDefaultVars(vars)
 	return vars, nil
+}
+
+// GetBoolean returns the config value converted to a boolean. It returns the default if the config
+// value has not been set or could not be converted.
+func GetBoolean(vars map[string]string, key string, def bool) bool {
+	val, ok := vars[key]
+	if ok {
+		if b, err := strconv.ParseBool(val); err == nil {
+			return b
+		} else {
+			log.Printf("failed to convert config[%v]=%v to boolean: %v", key, val, err)
+		}
+	}
+	return def
 }
