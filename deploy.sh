@@ -67,13 +67,10 @@ function prepare_source_install {
 
   # `setup-robot.push` is the first container push to avoid a GCR bug with parallel pushes on newly
   # created projects (see b/123625511).
-  ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push \
-    --name="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot:latest"
+  ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push
 
   # The cr-adapter isn't packaged as a GCR app and hence pushed separately.
-  ${DIR}/bazel-bin/src/go/cmd/cr-adapter/cr-adapter.push \
-    --name="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/cr-adapter:latest"
-
+  ${DIR}/bazel-bin/src/go/cmd/cr-adapter/cr-adapter.push
   # Running :push outside the build system shaves ~3 seconds off an incremental build.
   ${DIR}/bazel-bin/src/app_charts/push
 }
@@ -190,7 +187,6 @@ function helm_charts {
     --set-string project=${GCP_PROJECT_ID}
     --set-string project_number=${GCP_PROJECT_NUMBER}
     --set-string region=${GCP_REGION}
-    --set-string registry=${SOURCE_CONTAINER_REGISTRY}
     --set-string owner_email=${PROJECT_OWNER_EMAIL}
     --set-string app_management=${APP_MANAGEMENT}
     --set-string use_synk=${USE_SYNK}
