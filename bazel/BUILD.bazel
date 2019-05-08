@@ -1,5 +1,6 @@
 exports_files([
     "app.bzl",
     "app_chart.bzl",
+    "container_push.bzl",
     "repositories.bzl",
 ])

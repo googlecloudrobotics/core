@@ -1,7 +1,7 @@
-load("//:config.bzl", "CLOUD_ROBOTICS_CONTAINER_REGISTRY", "DOCKER_TAG")
+load("//bazel:container_push.bzl", "container_push")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
-load("@io_bazel_rules_docker//container:container.bzl", "container_push", "container_image")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 
 go_library(
     name = "go_default_library",
@@ -61,9 +61,6 @@ container_push(
     name = "setup-robot.push",
     format = "Docker",
     image = ":setup-robot-image",
-    registry = CLOUD_ROBOTICS_CONTAINER_REGISTRY,
-    repository = "setup-robot",
-    tag = DOCKER_TAG,
 )
 
 # Ignore this auto-generated target. Gazelle doesn't get that we don't need it.
