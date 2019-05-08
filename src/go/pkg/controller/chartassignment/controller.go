@@ -355,7 +355,7 @@ func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) er
 	// Readiness is only given if the release is settled to begin with.
 	if status.phase != apps.ChartAssignmentPhaseSettled {
 		setCondition(as, apps.ChartAssignmentConditionReady, core.ConditionFalse,
-			"Helm release not settled yet")
+			"Release not settled yet")
 	} else {
 		if ready == total {
 			as.Status.Phase = apps.ChartAssignmentPhaseReady
