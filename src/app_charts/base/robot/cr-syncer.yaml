@@ -22,7 +22,7 @@ spec:
         - -alsologtostderr
         - --verbose=false
         - --listen-address=:80
-        image: {{ .Values.images.cr_syncer }}
+        image: {{ .Values.registry }}{{ .Values.images.cr_syncer }}
         ports:
         - name: http
           containerPort: 80

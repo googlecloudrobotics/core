@@ -75,7 +75,7 @@ function prepare_source_install {
     --name="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/cr-adapter:latest"
 
   # Running :push outside the build system shaves ~3 seconds off an incremental build.
-  ${DIR}/bazel-bin/src/app_charts/push
+  ${DIR}/bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
 }
 
 function clear_iot_devices {

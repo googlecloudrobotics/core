@@ -176,6 +176,10 @@ func main() {
 	if envToken == "" {
 		log.Fatal("ACCESS_TOKEN environment variable is required.")
 	}
+	registry := os.Getenv("REGISTRY")
+	if registry == "" {
+		log.Fatal("REGISTRY environment variable is required.")
+	}
 	parsedLabels, err := parseLabels(*labels)
 	if err != nil {
 		log.Fatalf("Invalid labels %q: %s", *labels, err)
@@ -303,8 +307,8 @@ func main() {
 	useSynk := configutil.GetBoolean(vars, "USE_SYNK", false)
 	appManagement := configutil.GetBoolean(vars, "APP_MANAGEMENT", true)
 	// Use "robot" as a suffix for consistency for Synk deployments.
-	installChartOrDie(domain, "robot-base", "base-robot", "base-robot-0.0.1.tgz",
-		projectNumber, appManagement, useSynk)
+	installChartOrDie(domain, registry, "robot-base", "base-robot",
+		"base-robot-0.0.1.tgz", projectNumber, appManagement, useSynk)
 }
 
 func helmValuesStringFromMap(varMap map[string]string) string {
@@ -332,9 +336,10 @@ func deleteReleaseIfPresent(name string) {
 
 // installChartOrDie installs a chart using Helm or Synk.
 // nameOld is used for the Helm release name, nameNew for the synk ResourceSet.
-func installChartOrDie(domain, nameOld, nameNew, chartPath string, projectNumber int64, appManagement, useSynk bool) {
+func installChartOrDie(domain, registry, nameOld, nameNew, chartPath string, projectNumber int64, appManagement, useSynk bool) {
 	vars := helmValuesStringFromMap(map[string]string{
 		"domain":               domain,
+		"registry":             registry,
 		"project":              *project,
 		"project_number":       strconv.FormatInt(projectNumber, 10),
 		"app_management":       strconv.FormatBool(appManagement),

@@ -34,4 +34,4 @@ cat "${credential_file}"
 EOF
 chmod +x "${credential_script}"
 
-%{command}
+%{command} "$@"

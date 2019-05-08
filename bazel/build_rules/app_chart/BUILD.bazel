@@ -1,6 +1,7 @@
 exports_files([
     "cache_gcr_credentials.sh.tpl",
     "Chart.yaml.template",
+    "push_all.sh.tpl",
     "run_parallel.sh.tpl",
     "run_sequentially.sh.tpl",
     "values-cloud.yaml",

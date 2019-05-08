@@ -16,6 +16,7 @@ package apps
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -41,6 +42,7 @@ func TestAll(t *testing.T) {
 		"src/app_charts/base/base-test-0.0.1.tgz",
 		map[string]string{
 			"robot.name": "testbot",
+			"registry":   os.Getenv("REGISTRY"),
 		},
 	)
 	if err := backoff.Retry(

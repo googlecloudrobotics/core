@@ -73,20 +73,23 @@ fi
 
 # Extract registry from IMAGE_REFERENCE. E.g.:
 # IMAGE_REFERENCE = "eu.gcr.io/my-project/setup-robot@sha256:07...5465244d"
-# REGISTRY = "eu.gcr.io"
-REGISTRY=${IMAGE_REFERENCE%%/*}
+# REGISTRY = "eu.gcr.io/my-project"
+# REGISTRY_DOMAIN = "eu.gcr.io"
+REGISTRY=${IMAGE_REFERENCE%/*}
+REGISTRY_DOMAIN=${IMAGE_REFERENCE%%/*}
 
 # TODO(daschmidt): Remove the login dance when the setup-robot image is available from a public registry.
-echo "Pulling image from ${REGISTRY}..."
+echo "Pulling image from ${REGISTRY_DOMAIN}..."
 
-echo ${ACCESS_TOKEN} | docker login -u oauth2accesstoken --password-stdin https://${REGISTRY} || true
+echo ${ACCESS_TOKEN} | docker login -u oauth2accesstoken --password-stdin https://${REGISTRY_DOMAIN} || true
 
 if ! docker pull ${IMAGE_REFERENCE}; then
-  docker logout https://${REGISTRY}
+  docker logout https://${REGISTRY_DOMAIN}
   exit 1
 fi
-docker logout https://${REGISTRY}
+docker logout https://${REGISTRY_DOMAIN}
 
 # Explicitly specify the context to not run this against the cloud cluster.
 kubectl --context="${KUBE_CONTEXT}" run setup-robot --restart=Never -i --rm \
-  --image=${IMAGE_REFERENCE} --env="ACCESS_TOKEN=${ACCESS_TOKEN}" -- "$@"
+  --image=${IMAGE_REFERENCE} --env="ACCESS_TOKEN=${ACCESS_TOKEN}" \
+  --env="REGISTRY=${REGISTRY}" -- "$@"

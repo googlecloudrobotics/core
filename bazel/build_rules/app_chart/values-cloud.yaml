@@ -2,4 +2,5 @@ domain: "example.com"
 project: "my-gcp-project"
 project_number: 0
 deploy_environment: "GCP"
+registry: "gcr.io/my-gcp-project"
 robots: []

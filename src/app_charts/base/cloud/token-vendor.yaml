@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
       - name: token-vendor
-        image: {{ .Values.images.token_vendor }}
+        image: {{ .Values.registry }}{{ .Values.images.token_vendor }}
         ports:
         - name: token-vendor
           containerPort: 9090

@@ -23,14 +23,21 @@ set -e
 
 echo "Set NO_TEARDOWN=y for preserve \"kind\" clusters past test failures"
 
-CURRENT_DIR=$(pwd)
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-bazel run //src/app_charts:push
+CLOUD_ROBOTICS_CONTAINER_REGISTRY=${CLOUD_ROBOTICS_CONTAINER_REGISTRY:-$1}
+if [[ -z "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}" ]]; then
+  echo "Usage: $0 <container-registry>"
+  exit 1
+fi
+
+bazel run //src/app_charts:push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
 bazel build //src/go/tests/apps:go_default_test
 
 # Run the artifact directly so the kind clusters can be easily accessed for
 # debugging.
 cd ${DIR}/../../../../bazel-bin/src/go/tests/apps/linux_amd64_stripped/go_default_test.runfiles/cloud_robotics
 
-ACCESS_TOKEN="$(gcloud auth application-default print-access-token)" ../../go_default_test
+ACCESS_TOKEN="$(gcloud auth application-default print-access-token)" \
+  REGISTRY="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}" \
+  ../../go_default_test

@@ -21,7 +21,7 @@ spec:
           value: {{ .Values.project }}
         - name: ROBOT_NAME
           value: "{{ .Values.robot.name }}"
-        image: {{ .Values.images.robot_master }}
+        image: {{ .Values.registry }}{{ .Values.images.robot_master }}
         name: robot-master
         volumeMounts:
         - mountPath: /home
@@ -30,7 +30,7 @@ spec:
       # Run `helm init` to create client-side directories in $HOME/.helm which
       # some client library functionality expects to exist.
       - name: helm
-        image: {{ .Values.images.robot_master }}
+        image: {{ .Values.registry }}{{ .Values.images.robot_master }}
         command: ['/helm', 'init', '--client-only']
         volumeMounts:
         - mountPath: /home

@@ -18,13 +18,14 @@ spec:
           project={{ .Values.project }},\
           ingress_ip={{ .Values.ingress_ip }},\
           project_number={{ .Values.project_number }},\
+          registry={{ .Values.registry }},\
           deploy_environment={{ .Values.deploy_environment }}"
         - "--cluster=cloud"
         - "--namespace={{ .Release.Namespace }}"
         - "--labels=app=cloud-master"
         - "--webhook-port=9876"
         - "--use-synk={{ .Values.use_synk }}"
-        image: {{ .Values.images.cloud_master }}
+        image: {{ .Values.registry }}{{ .Values.images.cloud_master }}
         env:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}
@@ -35,7 +36,7 @@ spec:
       # Run `helm init` to create client-side directories in $HOME/.helm which
       # some client library functionality expects to exist.
       - name: helm
-        image: {{ .Values.images.cloud_master }}
+        image: {{ .Values.registry }}{{ .Values.images.cloud_master }}
         command: ['/helm', 'init', '--client-only']
         volumeMounts:
         - mountPath: /home

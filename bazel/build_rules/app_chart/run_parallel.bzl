@@ -15,7 +15,7 @@ def _impl(ctx):
         template = ctx.file._sh_tpl,
         substitutions = {
             "%{commands}": "\n".join([
-                "async \"%s\"" % _get_runfile_path(ctx, command.files_to_run.executable)
+                "async \"%s\" \"$@\"" % _get_runfile_path(ctx, command.files_to_run.executable)
                 for command in ctx.attr.targets
             ]),
         },

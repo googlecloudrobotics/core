@@ -5,6 +5,7 @@ load("@cloud_robotics//bazel/build_rules:expand_vars.bzl", "expand_vars")
 load("@cloud_robotics//bazel/build_rules:helm_chart.bzl", "helm_chart")
 load("@cloud_robotics//bazel/build_rules:qualify_images.bzl", "qualify_images")
 load("@cloud_robotics//bazel/build_rules/app_chart:cache_gcr_credentials.bzl", "cache_gcr_credentials")
+load("@cloud_robotics//bazel/build_rules/app_chart:push_all.bzl", "push_all")
 load("@cloud_robotics//bazel/build_rules/app_chart:run_sequentially.bzl", "run_sequentially")
 
 # Simplified version of _assemble_image_digest found in
@@ -98,13 +99,11 @@ _app_chart_backend = rule(
             doc = "the chart name (robot/cloud/cloud-per-robot)",
             mandatory = True,
         ),
+        # TODO(skopecki) Remove the registry variable once all apps have been migrated to use the
+        #     app_chart without specifying a registry.params
         "registry": attr.string(
             doc = "the docker registry that contains the images in this chart (gcr.io/my-project)",
-            mandatory = True,
-        ),
-        "docker_tag": attr.string(
-            doc = "the docker tag for image pushes, defaults to latest",
-            default = "latest",
+            default = "",
         ),
         "values": attr.label(
             allow_single_file = True,
@@ -147,7 +146,7 @@ _app_chart_backend = rule(
 
 def app_chart(
         name,
-        registry,
+        registry = None,
         docker_tag = "latest",
         values = None,
         extra_templates = None,
@@ -194,7 +193,6 @@ def app_chart(
         name = name,
         chart = chart,
         registry = registry,
-        docker_tag = docker_tag,
         values = values,
         templates = native.glob([chart + "/*.yaml"]) + (extra_templates or []),
         files = files,
@@ -202,27 +200,33 @@ def app_chart(
         visibility = visibility,
     )
 
-    container_bundle(
-        name = name + ".container-bundle",
-        images = qualify_images(images or {}, registry, docker_tag),
-    )
-    container_push(
-        name = name + ".push-all-containers",
-        bundle = name + ".container-bundle",
-        format = "Docker",
-    )
-
-    run_sequentially(
-        name = name + ".push-cached-credentials",
-        # The conditional works around container_push's inability to handle
-        # an empty dict of containers:
-        # https://github.com/bazelbuild/rules_docker/issues/511
-        targets = [name + ".push-all-containers"] if images else [],
-    )
+    if registry:
+        # Legacy push script creation.
+        container_bundle(
+            name = name + ".container-bundle",
+            images = qualify_images(images or {}, registry, docker_tag),
+        )
+        container_push(
+            name = name + ".push-container-bundle",
+            bundle = name + ".container-bundle",
+            format = "Docker",
+        )
+        run_sequentially(
+            name = name + ".push-all-containers",
+            # The conditional works around container_push's inability to handle
+            # an empty dict of containers:
+            # https://github.com/bazelbuild/rules_docker/issues/511
+            targets = [name + ".push-container-bundle"] if images else [],
+        )
+    else:
+        push_all(
+            name = name + ".push-all-containers",
+            images = images,
+        )
 
     cache_gcr_credentials(
         name = name + ".push",
-        target = name + ".push-cached-credentials",
+        target = name + ".push-all-containers",
         visibility = visibility,
     )
 

@@ -29,7 +29,7 @@ spec:
         securityContext:
           capabilities:
             add: ["NET_ADMIN"]
-        image: {{ .Values.images.metadata_server }}
+        image: {{ .Values.registry }}{{ .Values.images.metadata_server }}
         args:
         - --port
         - "8080"
