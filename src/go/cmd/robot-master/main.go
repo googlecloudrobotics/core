@@ -48,7 +48,7 @@ var (
 	certDir = flag.String("cert-dir", "",
 		"Directory for TLS certificates")
 
-	useSynk = flag.Bool("use-synk", false,
+	useSynk = flag.Bool("use-synk", true,
 		"Install Helm charts with Synk")
 )
 

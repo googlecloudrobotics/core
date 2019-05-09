@@ -282,33 +282,23 @@ func main() {
 		log.Println("Failed to create tiller role binding: ", err)
 	}
 
-	log.Println("Initializing Helm")
-	output, err := exec.Command(
-		helmPath,
-		"init",
-		"--history-max=10",
-		"--upgrade",
-		"--force-upgrade",
-		"--wait",
-		"--service-account=tiller").CombinedOutput()
-	if err != nil {
-		log.Fatalf("Helm init failed: %v. Helm output:\n%s\n", err, output)
-	}
-
 	log.Println("Initializing Synk")
-	output, err = exec.Command(synkPath, "init").CombinedOutput()
+	output, err := exec.Command(synkPath, "init").CombinedOutput()
 	if err != nil {
 		log.Fatalf("Synk init failed: %v. Synk output:\n%s\n", err, output)
 	}
 
-	// Clean up deprecated releases.
-	deleteReleaseIfPresent("robot-cluster")
+	// Best-effort delete Tiller and all its configmaps.
+	k8sLocalClientSet.CoreV1().ConfigMaps("kube-system").DeleteCollection(nil, metav1.ListOptions{
+		LabelSelector: "OWNER=TILLER",
+	})
+	k8sLocalClientSet.AppsV1().Deployments("kube-system").Delete("tiller-deploy", nil)
+	k8sLocalClientSet.CoreV1().Services("kube-system").Delete("tiller-deploy", nil)
 
-	useSynk := configutil.GetBoolean(vars, "USE_SYNK", false)
 	appManagement := configutil.GetBoolean(vars, "APP_MANAGEMENT", true)
 	// Use "robot" as a suffix for consistency for Synk deployments.
 	installChartOrDie(domain, registry, "robot-base", "base-robot",
-		"base-robot-0.0.1.tgz", projectNumber, appManagement, useSynk)
+		"base-robot-0.0.1.tgz", projectNumber, appManagement)
 }
 
 func helmValuesStringFromMap(varMap map[string]string) string {
@@ -319,101 +309,45 @@ func helmValuesStringFromMap(varMap map[string]string) string {
 	return strings.Join(varList, ",")
 }
 
-func deleteReleaseIfPresent(name string) {
-	output, err := exec.Command(
-		helmPath,
-		"delete",
-		"--purge",
-		name).CombinedOutput()
-	if err != nil {
-		if !strings.Contains(string(output), "Error: release: \""+name+"\" not found") {
-			log.Printf("Helm delete of %s failed: %v. Helm output:\n%s\n", name, err, output)
-		}
-	} else {
-		log.Printf("%s\nSuccessfully removed %s Helm release", output, name)
-	}
-}
-
 // installChartOrDie installs a chart using Helm or Synk.
 // nameOld is used for the Helm release name, nameNew for the synk ResourceSet.
-func installChartOrDie(domain, registry, nameOld, nameNew, chartPath string, projectNumber int64, appManagement, useSynk bool) {
+func installChartOrDie(domain, registry, nameOld, nameNew, chartPath string, projectNumber int64, appManagement bool) {
 	vars := helmValuesStringFromMap(map[string]string{
 		"domain":               domain,
 		"registry":             registry,
 		"project":              *project,
 		"project_number":       strconv.FormatInt(projectNumber, 10),
 		"app_management":       strconv.FormatBool(appManagement),
-		"use_synk":             strconv.FormatBool(useSynk),
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
 		"robot.name":           *robotName,
 		"webhook.tls.crt":      os.Getenv("TLS_CRT"),
 		"webhook.tls.key":      os.Getenv("TLS_KEY"),
 	})
-
-	if useSynk {
-		log.Printf("Installing %s chart using Synk from %s", nameNew, chartPath)
-		// Best effort delete of Helm release.
-		exec.Command(helmPath, "delete", "--purge", nameOld)
-
-		output, err := exec.Command(
-			helmPath,
-			"template",
-			"--set-string", vars,
-			"--name", nameNew,
-			filepath.Join(filesDir, chartPath),
-		).CombinedOutput()
-		if err != nil {
-			log.Fatalf("Synk install of %s failed: %v\nHelm output:\n%s\n", nameNew, err, output)
-		}
-		cmd := exec.Command(
-			synkPath,
-			"apply",
-			nameNew,
-			"-n", "default",
-			"-f", "-",
-		)
-		// Helm writes the templated manifests and errors alike to stderr.
-		// So we can just take the combined output as is.
-		cmd.Stdin = bytes.NewReader(output)
-
-		if output, err = cmd.CombinedOutput(); err != nil {
-			log.Fatalf("Synk install of %s failed: %v\nSynk output:\n%s\n", nameNew, err, output)
-		}
-		return
-	}
-
-	log.Printf("Installing %s chart using Helm from %s", nameOld, chartPath)
-	// Best effort delete of Synk ResourceSets.
-	exec.Command(synkPath, "delete", nameNew)
+	log.Printf("Installing %s chart using Synk from %s", nameNew, chartPath)
 
 	output, err := exec.Command(
 		helmPath,
-		"upgrade",
-		"--install",
-		"--set-string",
-		vars,
-		nameOld,
-		filepath.Join(filesDir, chartPath)).CombinedOutput()
+		"template",
+		"--set-string", vars,
+		"--name", nameNew,
+		filepath.Join(filesDir, chartPath),
+	).CombinedOutput()
 	if err != nil {
-		log.Printf("Helm install of %s failed: %v. Helm output:\n%s\n", nameOld, err, output)
-	} else {
-		log.Printf("%s\nSuccessfully installed %s Helm chart", output, nameOld)
-		return
+		log.Fatalf("Synk install of %s failed: %v\nHelm output:\n%s\n", nameNew, err, output)
 	}
-	log.Printf("Retrying as force upgrade...")
-	output, err = exec.Command(
-		helmPath,
-		"upgrade",
-		"--install",
-		"--force",
-		"--set-string",
-		vars,
-		nameOld,
-		filepath.Join(filesDir, chartPath)).CombinedOutput()
-	if err != nil {
-		log.Fatalf("Helm install of %s failed: %v. Helm output:\n%s\n", nameOld, err, output)
-	} else {
-		log.Printf("%s\nSuccessfully installed %s Helm chart", output, nameOld)
+	cmd := exec.Command(
+		synkPath,
+		"apply",
+		nameNew,
+		"-n", "default",
+		"-f", "-",
+	)
+	// Helm writes the templated manifests and errors alike to stderr.
+	// So we can just take the combined output as is.
+	cmd.Stdin = bytes.NewReader(output)
+
+	if output, err = cmd.CombinedOutput(); err != nil {
+		log.Fatalf("Synk install of %s failed: %v\nSynk output:\n%s\n", nameNew, err, output)
 	}
 }
 

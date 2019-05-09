@@ -36,7 +36,6 @@ fi
 
 TERRAFORM_DIR="${DIR}/src/bootstrap/cloud/terraform"
 TERRAFORM_APPLY_FLAGS=${TERRAFORM_APPLY_FLAGS:- -auto-approve}
-
 # utility functions
 
 function include_config_and_defaults {
@@ -44,7 +43,6 @@ function include_config_and_defaults {
 
   CLOUD_ROBOTICS_DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
   APP_MANAGEMENT=${APP_MANAGEMENT:-false}
-  USE_SYNK=${USE_SYNK:-false}
 
   CLOUD_ROBOTICS_OWNER_EMAIL=${CLOUD_ROBOTICS_OWNER_EMAIL:-$(gcloud config get-value account)}
   KUBE_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"
@@ -207,8 +205,7 @@ function helm_charts {
     validating-webhook-configuration 2>/dev/null || true
 
   ${SYNK} init
-
-  ${HELM} init --history-max=10 --upgrade --force-upgrade --wait
+  echo "synk init done"
 
   values=$(cat <<EOF
     --set-string domain=${CLOUD_ROBOTICS_DOMAIN}
@@ -219,7 +216,6 @@ function helm_charts {
     --set-string registry=${SOURCE_CONTAINER_REGISTRY}
     --set-string owner_email=${CLOUD_ROBOTICS_OWNER_EMAIL}
     --set-string app_management=${APP_MANAGEMENT}
-    --set-string use_synk=${USE_SYNK}
     --set-string deploy_environment=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT}
     --set-string oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}
     --set-string oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}
@@ -229,79 +225,37 @@ function helm_charts {
 EOF
 )
 
-  # We store two configmaps in the cluster to check for existance below:
-  # - "ready-for-synk" signals that an update has been run recently and CRD
-  #   annotations were set so that Helm doesn't delete active CRDs when
-  #   switching
-  # - "synk-enabled" signals that a switch to synk was completed and prevents
-  #   us users from accidentally reverting to Helm
+  # Delete all legacy HELM resources. Do not delete the Helm charts directly, as
+  # we just want to keep the resources and have synk "adopt" them.
+  kubectl delete cm ready-for-synk 2> /dev/null || true
+  kubectl delete cm synk-enabled 2> /dev/null || true
+  kubectl -n kube-system delete deploy tiller-deploy 2> /dev/null || true
+  kubectl -n kube-system delete service tiller-deploy 2> /dev/null || true
+  kubectl -n kube-system delete cm -l OWNER=TILLER
 
-  if [ "${USE_SYNK}" == "true" ]; then
-    kubectl get cm ready-for-synk \
-      || die "deploy.sh must be run with USE_SYNK=false once again before enabling it"
+  # `helm fetch` neither lets us specify a target file, nor tells us which file it
+  # wrote the chart to. Just fetch it manually.
+  # `helm template` doesn't let us read a tarball from stdin, so we've to save
+  # it to disk first as well.
+  cert_manager_chart="$( mktemp -d)/cert-manager.tgz"
+  curl -o ${cert_manager_chart} https://kubernetes-charts.storage.googleapis.com/cert-manager-v0.5.2.tgz
 
-    # Delete potential Helm variant.
-    ${HELM} delete --purge cert-manager &> /dev/null || true
-    ${HELM} delete --purge cloud-base &> /dev/null || true
-    ${HELM} delete --purge platform-apps &> /dev/null || true
+  synkout=$(${HELM} template -n cert-manager --set rbac.create=false ${cert_manager_chart} \
+    | ${SYNK} apply cert-manager -n default -f -) \
+    || die "Synk failed for cert-manager: $synkout"
+  echo "synk installed cert-manager to ${KUBE_CONTEXT}: $synkout"
 
-    # `helm fetch` neither lets us specify a target file, nor tells us which file it
-    # wrote the chart to. Just fetch it manually.
-    # `helm template` doesn't let us read a tarball from stdin, so we've to save
-    # it to disk first as well.
-    cert_manager_chart="$( mktemp -d)/cert-manager.tgz"
-    curl -o ${cert_manager_chart} https://kubernetes-charts.storage.googleapis.com/cert-manager-v0.5.2.tgz
+  synkout=$(${HELM} template -n base-cloud ${values} \
+      ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz \
+    | ${SYNK} apply base-cloud -n default -f -) \
+    || die "Synk failed for base-cloud: $synkout"
+  echo "synk installed base-cloud to ${KUBE_CONTEXT}: $synkout"
 
-    synkout=$(${HELM} template -n cert-manager --set rbac.create=false ${cert_manager_chart} \
-      | ${SYNK} apply cert-manager -n default -f -) \
-      || die "Synk failed for cert-manager: $synkout"
-    echo "synk installed cert-manager to ${KUBE_CONTEXT}: $synkout"
-
-    synkout=$(${HELM} template -n base-cloud ${values} \
-        ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz \
-      | ${SYNK} apply base-cloud -n default -f -) \
-      || die "Synk failed for base-cloud: $synkout"
-    echo "synk installed base-cloud to ${KUBE_CONTEXT}: $synkout"
-
-    synkout=$(${HELM} template -n platform-apps-cloud ${values} \
-        ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz \
-      | ${SYNK} apply platform-apps-cloud -n default -f -) \
-      || die "Synk failed for platform-apps-cloud: $synkout"
-    echo "synk installed base-cloud to ${KUBE_CONTEXT}: $synkout"
-
-    kubectl create cm synk-enabled || true
-
-  else
-    if kubectl get cm synk-enabled; then
-      die "deploy.sh was called with USE_SYNK=true before and cannot be reverted to Helm anymore"
-    fi
-
-    ${HELM} repo update
-    # TODO(ensonic): we'd like to use this as part of 'base-cloud', but have no means of
-    # enforcing dependencies. The cert-manager chart introduces new CRDs that we are using in
-    # base-cloud.
-    # TODO(rodrigoq): when upgrading to v0.6, make sure the CRDs are manually
-    # installed beforehand: https://github.com/jetstack/cert-manager/pull/1138
-    # TODO(freinartz): this can be moved into the base chart once we fully
-    # migrated to synk. The chart from the Helm repository is deprecated though
-    # and the new one from the cert-manager repository should be used.
-    helmout=$(${HELM} upgrade --install cert-manager --set rbac.create=false stable/cert-manager --version v0.5.2) \
-      || die "Helm failed for jetstack-cert-manager: $helmout"
-    echo "helm installed jetstack-cert-manager to ${KUBE_CONTEXT} $helmout"
-
-    # TODO(rodrigoq): during the repo reorg, make sure that the release name
-    # matches the chart name. Right now one is "cloud-base" and the other is
-    # "base-cloud", which is confusing.
-    helmout=$(${HELM} upgrade --install cloud-base ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz $values) \
-      || die "Helm failed for base-cloud: $helmout"
-    echo "helm installed base-cloud to ${KUBE_CONTEXT}: $helmout"
-
-    helmout=$(${HELM} upgrade --install platform-apps ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz) \
-      || die "Helm failed for platform-apps-cloud: $helmout"
-    echo "helm installed platform-apps-cloud to ${KUBE_CONTEXT}"
-
-    kubectl create cm ready-for-synk || true
-  fi
+  synkout=$(${HELM} template -n platform-apps-cloud ${values} \
+      ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz \
+    | ${SYNK} apply platform-apps-cloud -n default -f -) \
+    || die "Synk failed for platform-apps-cloud: $synkout"
+  echo "synk installed base-cloud to ${KUBE_CONTEXT}: $synkout"
 }
 
 # commands

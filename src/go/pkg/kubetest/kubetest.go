@@ -57,6 +57,7 @@ type Environment struct {
 	cfg         Config
 	scheme      *k8sruntime.Scheme
 	helmPath    string
+	synkPath    string
 	clusters    map[string]*cluster
 	uniqCounter int
 }
@@ -70,8 +71,7 @@ type Config struct {
 }
 
 type ClusterConfig struct {
-	Name        string
-	InstallHelm bool
+	Name string
 }
 
 type cluster struct {
@@ -85,6 +85,7 @@ type cluster struct {
 func New(t *testing.T, cfg Config) *Environment {
 	e := &Environment{
 		helmPath: "../kubernetes_helm/helm",
+		synkPath: "src/go/cmd/synk/linux_amd64_stripped/synk",
 		t:        t,
 		cfg:      cfg,
 		scheme:   k8sruntime.NewScheme(),
@@ -109,7 +110,7 @@ func New(t *testing.T, cfg Config) *Environment {
 		e.clusters[cfg.Name] = cluster
 
 		g.Go(func() error {
-			if err := setupCluster(e.helmPath, cluster); err != nil {
+			if err := setupCluster(e.synkPath, cluster); err != nil {
 				// If cluster has already been created, delete it.
 				if cluster.ctx != nil && os.Getenv("NO_TEARDOWN") == "" {
 					cluster.ctx.Delete()
@@ -148,19 +149,28 @@ func (e *Environment) InstallChartArchive(cluster, name, namespace, path string,
 
 	output, err := exec.Command(
 		e.helmPath,
-		"upgrade",
-		"--kubeconfig", c.ctx.KubeConfigPath(),
-		"--install",
-		"--force",
-		"--set-string",
-		helmValues(args),
-		name,
+		"template",
+		"--set-string", helmValues(args),
+		"--name", name,
 		path,
 	).CombinedOutput()
 	if err != nil {
-		e.t.Fatalf("Helm install of %s failed: %v. Helm output:\n%s\n", name, err, output)
-	} else {
-		e.t.Logf("%s\nSuccessfully installed %s Helm chart", output, name)
+		e.t.Fatalf("Synk install of %s failed: %v\nHelm output:\n%s\n", name, err, output)
+	}
+	cmd := exec.Command(
+		e.synkPath,
+		"apply",
+		name,
+		"--kubeconfig", c.ctx.KubeConfigPath(),
+		"-n", namespace,
+		"-f", "-",
+	)
+	// Helm writes the templated manifests and errors alike to stderr.
+	// So we can just take the combined output as is.
+	cmd.Stdin = bytes.NewReader(output)
+
+	if output, err = cmd.CombinedOutput(); err != nil {
+		e.t.Fatalf("Synk install of %s failed: %v\nSynk output:\n%s\n", name, err, output)
 	}
 }
 
@@ -283,8 +293,8 @@ func (f *Fixture) Client(cluster string) client.Client {
 	return f.env.Client(cluster)
 }
 
-// setupCluster creates a kind cluster and installs Tiller if necessary.
-func setupCluster(helmPath string, cluster *cluster) error {
+// setupCluster creates a kind cluster and installs synk if necessary.
+func setupCluster(synkPath string, cluster *cluster) error {
 	kindcfg := &kindconfig.Cluster{
 		Nodes: []kindconfig.Node{
 			{
@@ -383,9 +393,6 @@ func setupCluster(helmPath string, cluster *cluster) error {
 		}
 	}
 
-	if !cluster.cfg.InstallHelm {
-		return nil
-	}
 	// Install Tiller. We wait for all node taints to be removed (e.g. NotReady)
 	// so Tiller doesn't fail permanently (see b/128660997).
 	if err := backoff.Retry(
@@ -406,12 +413,9 @@ func setupCluster(helmPath string, cluster *cluster) error {
 		return errors.Wrap(err, "wait for node taints to be removed")
 	}
 	cmd := exec.Command(
-		helmPath,
+		synkPath,
 		"init",
 		"--kubeconfig", cluster.ctx.KubeConfigPath(),
-		"--history-max=30",
-		"--wait",
-		"--tiller-connection-timeout=60",
 	)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return errors.Errorf("install Helm: %v; output:\n%s\n", err, output)

@@ -17,7 +17,6 @@ spec:
         - "--webhook-enabled={{ .Values.webhook.enabled }}"
         - "--webhook-port=9876"
         - "--cert-dir=/tls"
-        - "--use-synk={{ .Values.use_synk }}"
         env:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}

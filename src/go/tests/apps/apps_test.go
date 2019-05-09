@@ -31,7 +31,7 @@ import (
 func TestAll(t *testing.T) {
 	env := kubetest.New(t, kubetest.Config{
 		Clusters: []kubetest.ClusterConfig{
-			{Name: "robot", InstallHelm: true},
+			{Name: "robot"},
 		},
 		SchemeFunc: roboapps.AddToScheme,
 	})

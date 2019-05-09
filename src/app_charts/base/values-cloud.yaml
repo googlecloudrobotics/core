@@ -9,7 +9,6 @@ owner_email: "info@example.com"
 
 # Setting app_management to "false" will remove layer 2 (robot/cloud-master, etc).
 app_management: "true"
-use_synk: "false"
 
 oauth2_proxy:
   cookie_secret: ""
