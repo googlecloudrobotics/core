@@ -21,6 +21,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -477,6 +478,13 @@ func newHTTPGetter(url, certFile, keyFile, caFile string) (getter.Getter, error)
 
 func decodeManifests(manifests map[string]string) (res []*unstructured.Unstructured, err error) {
 	for k, v := range manifests {
+		// Sometimes README.md or NOTES.txt files make it into the template directory.
+		// Filter files by extension.
+		switch filepath.Ext(k) {
+		case ".json", ".yml", ".yaml":
+		default:
+			continue
+		}
 		dec := yaml.NewYAMLOrJSONDecoder(strings.NewReader(v), 4096)
 		for i := 0; ; i++ {
 			var u unstructured.Unstructured
