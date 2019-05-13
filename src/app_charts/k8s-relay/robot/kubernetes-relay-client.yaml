@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
       - name: kubernetes-relay-client
-        image: {{ .Values.images.http_relay_client }}
+        image: {{ .Values.registry }}{{ .Values.images.http_relay_client }}
         args:
         - --backend_address
         - "$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT)"

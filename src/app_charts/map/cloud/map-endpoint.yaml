@@ -30,7 +30,7 @@ spec:
             port: 8090
           initialDelaySeconds: 15
       - name: map-endpoint
-        image: {{ .Values.images.map_endpoint }}
+        image: {{ .Values.registry }}{{ .Values.images.map_endpoint }}
         livenessProbe:
           httpGet:
             path: /healthz

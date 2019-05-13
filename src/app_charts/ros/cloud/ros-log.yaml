@@ -27,7 +27,7 @@ spec:
               fieldPath: "status.podIP"
         - name: ROBOT_NAME
           value: "{{ .name }}"
-        image: {{ $.Values.images.ros_log }}
+        image: {{ $.Values.registry }}{{ $.Values.images.ros_log }}
         name: ros-log
 ---
 {{ end }}

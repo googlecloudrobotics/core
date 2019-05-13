@@ -31,7 +31,7 @@ spec:
           value: "{{ .name }}"
         - name: CLOUD_ROBOTICS_DOMAIN
           value: "{{ $.Values.domain }}"
-        image: {{ $.Values.images.ros_adapter }}
+        image: {{ $.Values.registry }}{{ $.Values.images.ros_adapter }}
         name: ros-adapter
 ---
 {{ end }}

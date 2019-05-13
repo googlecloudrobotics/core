@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
       - name: server
-        image: {{ .Values.images.http_relay_server }}
+        image: {{ .Values.registry }}{{ .Values.images.http_relay_server }}
         args:
         - --port=80
         - --project_id={{ .Values.project }}

@@ -1,5 +1,6 @@
 project: "my-gcp-project"
 project_number: 0
+registry: "gcr.io/my-gcp-project"
 
 robot:
   name: ""

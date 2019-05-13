@@ -1,12 +1,12 @@
-load("//bazel/internal:core_app_chart.bzl", "core_app_chart")
+load("//bazel:app_chart.bzl", "app_chart")
 load("//bazel:app.bzl", "app")
 
-core_app_chart(
+app_chart(
     name = "ros-demo-robot",
     values = "values.yaml",
 )
 
-core_app_chart(
+app_chart(
     name = "ros-demo-cloud",
     files = [":roscon-demo-dashboard.json"],
     images = {"ros-demo-server": "//src/python/ros_demo:server"},

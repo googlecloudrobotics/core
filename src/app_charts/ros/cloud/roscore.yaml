@@ -23,9 +23,9 @@ spec:
             fieldRef:
               fieldPath: "status.podIP"
 {{ if eq $.Values.app.sim_suffix "-sim" }}
-        image: {{ $.Values.images.roscore_sim }}
+        image: {{ $.Values.registry }}{{ $.Values.images.roscore_sim }}
 {{ else }}
-        image: {{ $.Values.images.roscore }}
+        image: {{ $.Values.registry }}{{ $.Values.images.roscore }}
 {{ end }}
         name: roscore
         ports:

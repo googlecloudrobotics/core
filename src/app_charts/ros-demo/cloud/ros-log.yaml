@@ -25,7 +25,7 @@ spec:
               fieldPath: "status.podIP"
         - name: ROBOT_NAME
           value: "{{ .name }}"
-        image: {{ $.Values.images.ros_demo_server }}
+        image: {{ $.Values.registry }}{{ $.Values.images.ros_demo_server }}
         name: ros-demo-server
 ---
 apiVersion: monitoring.coreos.com/v1

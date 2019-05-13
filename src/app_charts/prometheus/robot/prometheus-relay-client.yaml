@@ -21,7 +21,7 @@ spec:
         - "/apis/core.prometheus-relay"
         - --server_name
         - "{{ .Values.robot.name }}"
-        image: {{ .Values.images.http_relay_client }}
+        image: {{ .Values.registry }}{{ .Values.images.http_relay_client }}
         name: prometheus-relay-client
         resources:
           requests:

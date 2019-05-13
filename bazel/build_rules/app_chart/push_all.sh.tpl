@@ -25,6 +25,13 @@ function async() {
 
 %{commands}
 
+if [[ "${#PIDS[@]}" = 0 ]]; then
+    # It is valid to generate this script without pushing any images.
+    # Bash before v4.4 considers an empty array an unbound variable and would
+    # choke on the for-loop below.
+    exit 0
+fi
+
 # Wait for all of the subprocesses, failing the script if any of them failed.
 exitcode=0
 for pid in "${PIDS[@]}"; do

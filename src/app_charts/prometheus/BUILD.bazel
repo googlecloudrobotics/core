@@ -1,5 +1,5 @@
 load("//bazel/build_rules:helm_template.bzl", "helm_template")
-load("//bazel/internal:core_app_chart.bzl", "core_app_chart")
+load("//bazel:app_chart.bzl", "app_chart")
 load("//bazel:app.bzl", "app")
 
 helm_template(
@@ -22,7 +22,7 @@ helm_template(
     values = ":prometheus-robot.values.yaml",
 )
 
-core_app_chart(
+app_chart(
     name = "prometheus-cloud",
     files = [
         ":prometheus-operator-chart.cloud",
@@ -32,7 +32,7 @@ core_app_chart(
     },
 )
 
-core_app_chart(
+app_chart(
     name = "prometheus-robot",
     extra_templates = [
         ":cloud/kubelet-service-monitor.yaml",

@@ -35,7 +35,7 @@ spec:
           limits:
             cpu: "400m"
             memory: "400Mi"
-        image: {{ .Values.images.ros_adapter }}
+        image: {{ .Values.registry }}{{ .Values.images.ros_adapter }}
         name: ros-adapter
 ---
 apiVersion: v1

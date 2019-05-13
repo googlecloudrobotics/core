@@ -1,6 +1,6 @@
-load("//bazel/internal:core_app_chart.bzl", "core_app_chart")
+load("//bazel:app_chart.bzl", "app_chart")
 
-core_app_chart(
+app_chart(
     name = "platform-apps-cloud",
     extra_templates = [
         "//src/app_charts:app_resources",

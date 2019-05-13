@@ -1,13 +1,13 @@
 load("//bazel:app.bzl", "app")
-load("//bazel/internal:core_app_chart.bzl", "core_app_chart")
+load("//bazel:app_chart.bzl", "app_chart")
 
-core_app_chart(
+app_chart(
     name = "mission-crd-robot",
     extra_templates = ["//src/proto/mission:mission_cr_crd"],
     values = "values.yaml",
 )
 
-core_app_chart(
+app_chart(
     name = "mission-crd-cloud",
     extra_templates = ["//src/proto/mission:mission_cr_crd"],
     values = "values.yaml",

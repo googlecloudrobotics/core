@@ -1,12 +1,12 @@
-load("//bazel/internal:core_app_chart.bzl", "core_app_chart")
+load("//bazel:app_chart.bzl", "app_chart")
 load("//bazel:app.bzl", "app")
 
-core_app_chart(
+app_chart(
     name = "k8s-relay-cloud",
     images = {"http-relay-server": "//src/go/cmd/http-relay-server"},
 )
 
-core_app_chart(
+app_chart(
     name = "k8s-relay-robot",
     images = {"http-relay-client": "//src/go/cmd/http-relay-client"},
 )
