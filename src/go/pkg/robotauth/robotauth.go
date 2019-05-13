@@ -127,14 +127,14 @@ func (r *RobotAuth) getTokenEndpoint() string {
 // CreateRobotTokenSource creates an OAuth2 token source for the token vendor.
 // This token source returns Google Cloud access token minted for the robot-service@
 // service account.
-func (auth *RobotAuth) CreateRobotTokenSource(ctx context.Context) oauth2.TokenSource {
+func (r *RobotAuth) CreateRobotTokenSource(ctx context.Context) oauth2.TokenSource {
 	c := jwt.Config{
-		Email:      auth.PublicKeyRegistryId, // Will be used as "issuer" of the outgoing JWT.
+		Email:      r.PublicKeyRegistryId, // Will be used as "issuer" of the outgoing JWT.
 		Expires:    time.Minute * 30,
-		PrivateKey: auth.PrivateKey,
-		Scopes:     []string{auth.getTokenEndpoint()},
-		Subject:    auth.RobotName,
-		TokenURL:   auth.getTokenEndpoint(),
+		PrivateKey: r.PrivateKey,
+		Scopes:     []string{r.getTokenEndpoint()},
+		Subject:    r.RobotName,
+		TokenURL:   r.getTokenEndpoint(),
 	}
 	return c.TokenSource(ctx)
 }
