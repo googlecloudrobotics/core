@@ -59,8 +59,9 @@ class TokenVendorHandler implements HttpHandler {
     try {
       logger.atInfo().log("Handling request %s", exchange.getRequestURI());
       logger.atInfo().log("Request remote %s", exchange.getRemoteAddress());
-      String user = tokenVerifier.verifyToken(getJwt(exchange));
-      logger.atInfo().log("JWT is valid");
+      // issuer is robot-<robot-name>, see setup-robot/main.go
+      String issuer = tokenVerifier.verifyToken(getJwt(exchange));
+      logger.atInfo().log("JWT for %s is valid", issuer);
       TokenResponse token = tokenSource.getAccessToken();
       String response = token.toString();
       logger.atInfo().log("Serializing response");
