@@ -15,3 +15,8 @@ oauth2_proxy:
   cookie_secret: ""
   client_id: ""
   client_secret: ""
+
+# Certificate authority used to sign in-cluster certificates.
+certificate_authority:
+  key: ""
+  crt: ""

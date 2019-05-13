@@ -15,3 +15,9 @@ robot_authentication: "true"
 
 robot:
   name: ""
+
+webhook:
+  enabled: "true"
+  tls:
+    key: ""
+    crt: ""

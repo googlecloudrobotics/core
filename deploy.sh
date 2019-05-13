@@ -185,6 +185,28 @@ function helm_charts {
     --project ${GCP_PROJECT_ID} \
     || die "create: failed to get cluster credentials"
 
+  # Generate a certificate authority if none exists yet. It is used by
+  # cert-manager to issue new cluster-internal certificates.
+  # Avoid creating a new one on each run as rotation may cause intermittent
+  # disruptions, which we don't want to trigger on each deploy.
+  if kubectl get secret cluster-authority; then
+    ca_existing=$(kubectl get secret cluster-authority -ojson)
+    ca_crt=$(echo $ca_existing | jq -r '.data["tls.crt"]')
+    ca_key=$(echo $ca_existing | jq -r '.data["tls.key"]')
+  else
+    certdir=$(mktemp -d)
+    openssl genrsa -out "${certdir}/ca.key" 2048
+    openssl req -x509 -new -nodes -key "${certdir}/ca.key" -subj "/CN=${CLOUD_ROBOTICS_DOMAIN}" \
+      -days 36500 -reqexts v3_req -extensions v3_ca -out "${certdir}/ca.crt"
+    ca_crt=$(openssl base64 -A < ${certdir}/ca.crt)
+    ca_key=$(openssl base64 -A < ${certdir}/ca.key)
+  fi
+
+  # The webhook configuration used to be created by a library at runtime. We must
+  # manually delete it as it wasn't part of a Helm chart.
+  kubectl delete validatingwebhookconfiguration \
+    validating-webhook-configuration 2>/dev/null || true
+
   ${SYNK} init
 
   ${HELM} init --history-max=10 --upgrade --force-upgrade --wait
@@ -203,15 +225,17 @@ function helm_charts {
     --set-string oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}
     --set-string oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}
     --set-string oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}
+    --set-string certificate_authority.key=${ca_key}
+    --set-string certificate_authority.crt=${ca_crt}
 EOF
 )
 
-   # We store two configmaps in the cluster to check for existance below:
-   # - "ready-for-synk" signals that an update has been run recently and CRD
-   #   annotations were set so that Helm doesn't delete active CRDs when
-   #   switching
-   # - "synk-enabled" signals that a switch to synk was completed and prevents
-   #   us users from accidentally reverting to Helm
+  # We store two configmaps in the cluster to check for existance below:
+  # - "ready-for-synk" signals that an update has been run recently and CRD
+  #   annotations were set so that Helm doesn't delete active CRDs when
+  #   switching
+  # - "synk-enabled" signals that a switch to synk was completed and prevents
+  #   us users from accidentally reverting to Helm
 
   if [ "${USE_SYNK}" == "true" ]; then
     kubectl get cm ready-for-synk \

@@ -1,0 +1,30 @@
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: "{{ .Values.owner_email }}"
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    # We can't use dns01 since we don't control the dns-zone that endpoints uses.
+    http01: {}
+---
+# A self-signing issuer for cluster-internal services.
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: cluster-authority
+spec:
+  ca:
+    secretName: cluster-authority
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster-authority
+type: kubernetes.io/tls
+data:
+  tls.key: {{ .Values.certificate_authority.key }}
+  tls.crt: {{ .Values.certificate_authority.crt }}

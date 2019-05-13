@@ -6,3 +6,42 @@
 [prune]
   go-tests = true
   unused-packages = true
+  non-go = true
+
+[[constraint]]
+  name = "sigs.k8s.io/controller-runtime"
+  branch = "master"
+
+[[constraint]]
+  name = "k8s.io/client-go"
+  version = "kubernetes-1.13.4"
+
+[[constraint]]
+  name = "k8s.io/api"
+  version = "kubernetes-1.13.4"
+
+[[constraint]]
+  name = "k8s.io/apimachinery"
+  version = "kubernetes-1.13.4"
+
+[[constraint]]
+  name = "k8s.io/cli-runtime"
+  version = "kubernetes-1.13.4"
+
+[[constraint]]
+  name = "k8s.io/apiserver"
+  version = "kubernetes-1.13.4"
+
+# Docker stopped tagging their main repository entirely. dep doesn't seem try
+# a more recent version in those cases by itself.
+[[override]]
+  name = "github.com/docker/docker"
+  branch = "master"
+
+[[override]]
+  name = "github.com/kubernetes/kube-openapi"
+  revision = "c59034cc13d587f5ef4e85ca0ade0c1866ae8e1d"
+
+[[override]]
+  name = "github.com/evanphx/json-patch"
+  version = "v4.2.0"

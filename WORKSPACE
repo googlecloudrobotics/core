@@ -276,8 +276,8 @@ go_repository(
 
 go_repository(
     name = "com_github_cenkalti_backoff",
-    commit = "1e4cf3da559842a91afcb6ea6141451e6c30c618",
-    importpath = "github.com/cenkalti/backoff"
+    commit = "2146c93394225c3732078705043ce9f26584d334",
+    importpath = "github.com/cenkalti/backoff",
 )
 
 go_repository(
@@ -306,7 +306,7 @@ go_repository(
 
 go_repository(
     name = "com_github_docker_docker",
-    commit = "a8a31eff10544860d2188dddabdee4d727545796",
+    commit = "ee399522df7f804e7c68800047631ba9be2b095c",
     importpath = "github.com/docker/docker",
 )
 
@@ -324,7 +324,7 @@ go_repository(
 
 go_repository(
     name = "com_github_evanphx_json_patch",
-    commit = "afac545df32f2287a079e2dfb7ba2745a643747e",
+    commit = "5858425f75500d40c52783dce87d085a483ce135",
     importpath = "github.com/evanphx/json-patch",
 )
 
@@ -402,6 +402,7 @@ go_repository(
 
 go_repository(
     name = "com_github_gogo_protobuf",
+    build_file_proto_mode = "disable",
     commit = "1adfc126b41513cc696b209667c8656ea7aac67c",
     importpath = "github.com/gogo/protobuf",
 )
@@ -716,7 +717,7 @@ go_repository(
 go_repository(
     name = "io_k8s_api",
     build_file_proto_mode = "disable",
-    commit = "05914d821849570fba9eacfb29466f2d8d3cd229",
+    commit = "5cb15d34447165a97c76ed5a60e4e99c8a01ecfe",
     importpath = "k8s.io/api",
 )
 
@@ -731,27 +732,27 @@ go_repository(
 go_repository(
     name = "io_k8s_apimachinery",
     build_file_proto_mode = "disable",
-    commit = "2b1284ed4c93a43499e781493253e2ac5959c4fd",
+    commit = "86fb29eff6288413d76bd8506874fddd9fccdff0",
     importpath = "k8s.io/apimachinery",
 )
 
 go_repository(
     name = "io_k8s_apiserver",
     build_file_proto_mode = "disable",
-    commit = "5a10509a60098c3931d80101eb76f60efe779d22",
+    commit = "79427f02047f9189a75b8cdaadccaf65a126853e",
     importpath = "k8s.io/apiserver",
 )
 
 go_repository(
     name = "io_k8s_cli_runtime",
-    commit = "11047e25a94a7eaa541b92a8bbfd3e1243607219",
+    commit = "a9e421a7932607ce4623ff45add8274499cca193",
     importpath = "k8s.io/cli-runtime",
 )
 
 go_repository(
     name = "io_k8s_client_go",
     build_file_proto_mode = "disable",
-    commit = "8d9ed539ba3134352c586810e749e58df4e94e4f",
+    commit = "b40b2a5939e43f7ffe0028ad67586b7ce50bb675",
     importpath = "k8s.io/client-go",
 )
 
@@ -770,7 +771,7 @@ go_repository(
 go_repository(
     name = "io_k8s_kube_openapi",
     build_file_proto_mode = "disable",
-    commit = "d83b052f768a50a309c692a9c271da3f3276ff88",
+    commit = "c59034cc13d587f5ef4e85ca0ade0c1866ae8e1d",
     importpath = "k8s.io/kube-openapi",
 )
 
@@ -783,7 +784,7 @@ go_repository(
 go_repository(
     name = "io_k8s_sigs_controller_runtime",
     build_extra_args = ["-exclude=vendor"],
-    commit = "12d98582e72927b6cd0123e2b4e819f9341ce62c",
+    commit = "b9f30df3f3a81bad9902b8bec5d92622a363bd4f",
     importpath = "sigs.k8s.io/controller-runtime",
 )
 
@@ -905,6 +906,121 @@ go_repository(
     name = "org_uber_go_zap",
     commit = "ff33455a0e382e8a81d14dd7c922020b6b5e7982",
     importpath = "go.uber.org/zap",
+)
+
+go_repository(
+    name = "com_github_asaskevich_govalidator",
+    commit = "ccb8e960c48f04d6935e72476ae4a51028f9e22f",
+    importpath = "github.com/asaskevich/govalidator",
+)
+
+go_repository(
+    name = "com_github_coreos_etcd",
+    build_file_proto_mode = "disable",
+    commit = "98d308426819d892e149fe45f6fd542464cb1f9d",
+    importpath = "github.com/coreos/etcd",
+)
+
+go_repository(
+    name = "com_github_coreos_go_systemd",
+    commit = "95778dfbb74eb7e4dbaf43bf7d71809650ef8076",
+    importpath = "github.com/coreos/go-systemd",
+)
+
+go_repository(
+    name = "com_github_elazarl_go_bindata_assetfs",
+    commit = "30f82fa23fd844bd5bb1e5f216db87fd77b5eb43",
+    importpath = "github.com/elazarl/go-bindata-assetfs",
+)
+
+go_repository(
+    name = "com_github_emicklei_go_restful_swagger12",
+    commit = "dcef7f55730566d41eae5db10e7d6981829720f6",
+    importpath = "github.com/emicklei/go-restful-swagger12",
+)
+
+go_repository(
+    name = "com_github_globalsign_mgo",
+    commit = "eeefdecb41b842af6dc652aaea4026e8403e62df",
+    importpath = "github.com/globalsign/mgo",
+)
+
+go_repository(
+    name = "com_github_go_openapi_analysis",
+    commit = "e2f3fdbb7ed0e56e070ccbfb6fc75b288a33c014",
+    importpath = "github.com/go-openapi/analysis",
+)
+
+go_repository(
+    name = "com_github_go_openapi_errors",
+    commit = "7a7ff1b7b8020f22574411a32f28b4d168d69237",
+    importpath = "github.com/go-openapi/errors",
+)
+
+go_repository(
+    name = "com_github_go_openapi_loads",
+    commit = "74628589c3b94e3526a842d24f46589980f5ab22",
+    importpath = "github.com/go-openapi/loads",
+)
+
+go_repository(
+    name = "com_github_go_openapi_runtime",
+    commit = "109737172424d8a656fd1199e28c9f5cc89b0cca",
+    importpath = "github.com/go-openapi/runtime",
+)
+
+go_repository(
+    name = "com_github_go_openapi_strfmt",
+    commit = "29177d4b5db488583bb97ebc05d3842ebeda91a8",
+    importpath = "github.com/go-openapi/strfmt",
+)
+
+go_repository(
+    name = "com_github_go_openapi_validate",
+    commit = "5b1623be7460f5a3967a82c00d518048fb190f5e",
+    importpath = "github.com/go-openapi/validate",
+)
+
+go_repository(
+    name = "com_github_hashicorp_yamux",
+    commit = "2f1d1f20f75d5404f53b9edf6b53ed5505508675",
+    importpath = "github.com/hashicorp/yamux",
+)
+
+go_repository(
+    name = "com_github_mitchellh_mapstructure",
+    commit = "3536a929edddb9a5b34bd6861dc4a9647cb459fe",
+    importpath = "github.com/mitchellh/mapstructure",
+)
+
+go_repository(
+    name = "com_github_nytimes_gziphandler",
+    commit = "dd0439581c7657cb652dfe5c71d7d48baf39541d",
+    importpath = "github.com/NYTimes/gziphandler",
+)
+
+go_repository(
+    name = "in_gopkg_natefinch_lumberjack_v2",
+    commit = "a96e63847dc3c67d17befa69c303767e2f84e54f",
+    importpath = "gopkg.in/natefinch/lumberjack.v2",
+)
+
+go_repository(
+    name = "org_bitbucket_ww_goautoneg",
+    commit = "75cd24fc2f2c2a2088577d12123ddee5f54e0675",
+    importpath = "bitbucket.org/ww/goautoneg",
+)
+
+go_repository(
+    name = "com_github_azure_go_ansiterm",
+    commit = "d6e3b3328b783f23731bc4d058875b0371ff8109",
+    importpath = "github.com/Azure/go-ansiterm",
+)
+
+go_repository(
+    name = "com_github_munnerz_goautoneg",
+    commit = "2ae31c8b6b30d2f4c8100c20d527b571e9c433bb",
+    importpath = "github.com/munnerz/goautoneg",
 )
 
 # End of "Generated by gazelle".

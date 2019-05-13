@@ -391,7 +391,7 @@ func setupCluster(helmPath string, cluster *cluster) error {
 	if err := backoff.Retry(
 		func() error {
 			var nds core.NodeList
-			if err := c.List(ctx, nil, &nds); err != nil {
+			if err := c.List(ctx, &nds); err != nil {
 				return backoff.Permanent(err)
 			}
 			for _, n := range nds.Items {

@@ -163,7 +163,7 @@ func TestCloudClusterAppStatus(t *testing.T) {
 			Version: "v1alpha1",
 		})
 		log.Printf("Querying AppRollouts from context %s...", kubernetesContext)
-		err = client.List(context.Background(), &ctrlclient.ListOptions{}, appRollouts)
+		err = client.List(context.Background(), appRollouts)
 		if err != nil {
 			log.Printf("Failed to list AppRollouts: %v", err)
 			time.Sleep(10 * time.Second)

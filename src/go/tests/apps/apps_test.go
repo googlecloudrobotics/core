@@ -41,8 +41,9 @@ func TestAll(t *testing.T) {
 		"robot", "base-test", "default",
 		"src/app_charts/base/base-test-0.0.1.tgz",
 		map[string]string{
-			"robot.name": "testbot",
-			"registry":   os.Getenv("REGISTRY"),
+			"robot.name":      "testbot",
+			"registry":        os.Getenv("REGISTRY"),
+			"webhook.enabled": "false",
 		},
 	)
 	if err := backoff.Retry(

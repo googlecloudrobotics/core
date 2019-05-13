@@ -346,6 +346,8 @@ func installChartOrDie(domain, registry, nameOld, nameNew, chartPath string, pro
 		"use_synk":             strconv.FormatBool(useSynk),
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
 		"robot.name":           *robotName,
+		"webhook.tls.crt":      os.Getenv("TLS_CRT"),
+		"webhook.tls.key":      os.Getenv("TLS_KEY"),
 	})
 
 	if useSynk {

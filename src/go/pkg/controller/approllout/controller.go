@@ -28,7 +28,6 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	"github.com/pkg/errors"
-	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
@@ -46,10 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/builder"
-	admissiontypes "sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 	"sigs.k8s.io/yaml"
 )
 
@@ -164,7 +160,7 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 // enqueueForApp enqueues all AppRollouts for the given app.
 func (r *Reconciler) enqueueForApp(m metav1.Object, q workqueue.RateLimitingInterface) {
 	var rollouts apps.AppRolloutList
-	err := r.kube.List(context.TODO(), kclient.MatchingField(fieldIndexAppName, m.GetName()), &rollouts)
+	err := r.kube.List(context.TODO(), &rollouts, kclient.MatchingField(fieldIndexAppName, m.GetName()))
 	if err != nil {
 		log.Printf("List AppRollouts for appName %s failed: %s", m.GetName(), err)
 		return
@@ -191,7 +187,7 @@ func (r *Reconciler) enqueueForOwner(m metav1.Object, q workqueue.RateLimitingIn
 // enqueueAll enqueues all AppRollouts.
 func (r *Reconciler) enqueueAll(q workqueue.RateLimitingInterface) {
 	var rollouts apps.AppRolloutList
-	err := r.kube.List(context.TODO(), nil, &rollouts)
+	err := r.kube.List(context.TODO(), &rollouts)
 	if err != nil {
 		log.Printf("List AppRollouts failed: %s", err)
 		return
@@ -244,13 +240,13 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	if err != nil {
 		return reconcile.Result{}, r.updateErrorStatus(ctx, ar, err.Error())
 	}
-	err = r.kube.List(ctx, kclient.MatchingField(fieldIndexOwners, string(ar.UID)), &curCAs)
+	err = r.kube.List(ctx, &curCAs, kclient.MatchingField(fieldIndexOwners, string(ar.UID)))
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "list ChartAssignments for owner UID %s", ar.UID)
 	}
 	// NOTE(freinartz): consider pushing this down to generateChartAssignments
 	// and passing the robot selectors directly to the client.
-	if err := r.kube.List(ctx, nil, &robots); err != nil {
+	if err := r.kube.List(ctx, &robots); err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "list all Robots")
 	}
 
@@ -636,16 +632,8 @@ func indexAppName(o runtime.Object) []string {
 }
 
 // NewValidationWebhook returns a new webhook that validates AppRollouts.
-func NewValidationWebhook(mgr manager.Manager) (webhook.Webhook, error) {
-	return builder.NewWebhookBuilder().
-		Name("approllouts.apps.cloudrobotics.com").
-		Validating().
-		Operations(admissionregistration.Create, admissionregistration.Update).
-		FailurePolicy(admissionregistration.Fail).
-		WithManager(mgr).
-		ForType(&apps.AppRollout{}).
-		Handlers(newAppRolloutValidator(mgr.GetScheme())).
-		Build()
+func NewValidationWebhook(mgr manager.Manager) *admission.Webhook {
+	return &admission.Webhook{Handler: newAppRolloutValidator(mgr.GetScheme())}
 }
 
 // appRolloutValidator implements a validation webhook.
@@ -659,16 +647,16 @@ func newAppRolloutValidator(sc *runtime.Scheme) *appRolloutValidator {
 	}
 }
 
-func (v *appRolloutValidator) Handle(_ context.Context, req admissiontypes.Request) admissiontypes.Response {
+func (v *appRolloutValidator) Handle(_ context.Context, req admission.Request) admission.Response {
 	cur := &apps.AppRollout{}
 
 	if err := runtime.DecodeInto(v.decoder, req.AdmissionRequest.Object.Raw, cur); err != nil {
-		return admission.ErrorResponse(http.StatusBadRequest, err)
+		return admission.Errored(http.StatusBadRequest, err)
 	}
 	if err := validate(cur); err != nil {
-		return admission.ValidationResponse(false, err.Error())
+		return admission.Denied(err.Error())
 	}
-	return admission.ValidationResponse(true, "")
+	return admission.Allowed("")
 }
 
 func validate(cur *apps.AppRollout) error {

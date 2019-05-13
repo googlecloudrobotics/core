@@ -33,21 +33,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var (
 	tillerHost = flag.String("tiller-host", chartassignment.DefaultTillerHost,
 		"Host of Tiller")
 
-	namespace = flag.String("namespace", "default",
-		"Namespace of the processes' pod.")
-
-	labels = flag.String("labels", "",
-		"Labels of the processes' pod formatted as key1=value1,key2=value2")
+	webhookEnabled = flag.Bool("webhook-enabled", true,
+		"Whether the webhook should be served")
 
 	webhookPort = flag.Int("webhook-port", 9876,
 		"Listening port of the custom resource webhook")
+
+	certDir = flag.String("cert-dir", "",
+		"Directory for TLS certificates")
 
 	useSynk = flag.Bool("use-synk", false,
 		"Install Helm charts with Synk")
@@ -85,37 +84,21 @@ func setupAppV2(cfg *rest.Config, cluster string) error {
 	scheme.AddToScheme(sc)
 	apps.AddToScheme(sc)
 
-	mgr, err := manager.New(cfg, manager.Options{Scheme: sc})
-	if err != nil {
-		return errors.Wrap(err, "create controller manager")
-	}
-	selectors, err := parseLabels(*labels)
-	if err != nil {
-		return err
-	}
-	srv, err := webhook.NewServer("chartassignment-admission-server", mgr, webhook.ServerOptions{
-		Port: int32(*webhookPort),
-		BootstrapOptions: &webhook.BootstrapOptions{
-			Service: &webhook.Service{
-				Namespace: *namespace,
-				Name:      "cloudrobotics-apps-admission",
-				Selectors: selectors,
-			},
-		},
+	mgr, err := manager.New(cfg, manager.Options{
+		Scheme: sc,
+		Port:   *webhookPort,
 	})
 	if err != nil {
-		return errors.Wrap(err, "create webhook server")
+		return errors.Wrap(err, "create controller manager")
 	}
 	if err := chartassignment.Add(mgr, cluster, *tillerHost, *useSynk); err != nil {
 		return errors.Wrap(err, "add ChartAssignment controller")
 	}
+	if *webhookEnabled {
+		srv := mgr.GetWebhookServer()
+		srv.CertDir = *certDir
 
-	chartassignmentValidation, err := chartassignment.NewValidationWebhook(mgr)
-	if err != nil {
-		return errors.Wrap(err, "create ChartAssignment validation webhook")
-	}
-	if err := srv.Register(chartassignmentValidation); err != nil {
-		return errors.Wrap(err, "register webhooks")
+		srv.Register("/chartassignment/validate", chartassignment.NewValidationWebhook(mgr))
 	}
 
 	go func() {

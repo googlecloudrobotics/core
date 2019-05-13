@@ -12,6 +12,7 @@ spec:
     spec:
       containers:
       - name: cloud-master
+        image: {{ .Values.registry }}{{ .Values.images.cloud_master }}
         args:
         - "--params=\
           domain={{ .Values.domain }},\
@@ -21,17 +22,20 @@ spec:
           registry={{ .Values.registry }},\
           deploy_environment={{ .Values.deploy_environment }}"
         - "--cluster=cloud"
-        - "--namespace={{ .Release.Namespace }}"
-        - "--labels=app=cloud-master"
         - "--webhook-port=9876"
+        - "--cert-dir=/tls"
         - "--use-synk={{ .Values.use_synk }}"
-        image: {{ .Values.registry }}{{ .Values.images.cloud_master }}
         env:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}
+        ports:
+        - name: webhook
+          containerPort: 9876
         volumeMounts:
         - mountPath: /home
           name: home
+        - mountPath: /tls
+          name: tls
       initContainers:
       # Run `helm init` to create client-side directories in $HOME/.helm which
       # some client library functionality expects to exist.
@@ -44,4 +48,75 @@ spec:
       volumes:
       - name: home
         emptyDir: {}
+      - name: tls
+        secret:
+          secretName: cloud-master-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloud-master
+spec:
+  type: ClusterIP
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: webhook
+  selector:
+    app: cloud-master
+---
+# The cloud master runs admission webhooks, which need to be served via TLS.
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: cloud-master
+  namespace: default
+spec:
+  secretName: cloud-master-tls
+  commonName: cloud-master.{{ .Release.Namespace }}.svc
+  issuerRef:
+    kind: Issuer
+    name: cluster-authority
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: cloud-master
+webhooks:
+- name: approllouts.apps.cloudrobotics.com
+  failurePolicy: Fail
+  clientConfig:
+    service:
+      namespace: {{ .Release.Namespace }}
+      name: cloud-master
+      path: /approllout/validate
+    caBundle: {{ .Values.certificate_authority.crt }}
+  rules:
+  - apiGroups:
+    - apps.cloudrobotics.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - approllouts
+- name: chartassignments.apps.cloudrobotics.com
+  failurePolicy: Fail
+  clientConfig:
+    service:
+      namespace: {{ .Release.Namespace }}
+      name: cloud-master
+      path: /chartassignment/validate
+    caBundle: {{ .Values.certificate_authority.crt }}
+  rules:
+  - apiGroups:
+    - apps.cloudrobotics.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - chartassignments
 {{ end }}

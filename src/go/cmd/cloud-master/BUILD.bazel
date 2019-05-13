@@ -21,7 +21,6 @@ go_library(
         "@io_k8s_sigs_controller_runtime//pkg/manager:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/runtime/log:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/runtime/signals:go_default_library",
-        "@io_k8s_sigs_controller_runtime//pkg/webhook:go_default_library",
     ],
 )
 

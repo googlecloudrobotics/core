@@ -11,21 +11,26 @@ spec:
         app: robot-master
     spec:
       containers:
-      - args:
-        - "--namespace={{ .Release.Namespace }}"
-        - "--labels=app=robot-master"
+      - name: robot-master
+        image: {{ .Values.registry }}{{ .Values.images.robot_master }}
+        args:
+        - "--webhook-enabled={{ .Values.webhook.enabled }}"
         - "--webhook-port=9876"
+        - "--cert-dir=/tls"
         - "--use-synk={{ .Values.use_synk }}"
         env:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}
         - name: ROBOT_NAME
           value: "{{ .Values.robot.name }}"
-        image: {{ .Values.registry }}{{ .Values.images.robot_master }}
-        name: robot-master
+        ports:
+        - name: webhook
+          containerPort: 9876
         volumeMounts:
         - mountPath: /home
           name: home
+        - mountPath: /tls
+          name: tls
       initContainers:
       # Run `helm init` to create client-side directories in $HOME/.helm which
       # some client library functionality expects to exist.
@@ -38,4 +43,55 @@ spec:
       volumes:
       - name: home
         emptyDir: {}
+      - name: tls
+        secret:
+          secretName: robot-master-tls
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: robot-master-tls
+type: kubernetes.io/tls
+data:
+  tls.key: {{ .Values.webhook.tls.key }}
+  tls.crt: {{ .Values.webhook.tls.crt }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: robot-master
+spec:
+  type: ClusterIP
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: webhook
+  selector:
+    app: robot-master
+---
+{{ if eq .Values.webhook.enabled "true" }}
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: robot-master
+webhooks:
+- name: chartassignments.apps.cloudrobotics.com
+  failurePolicy: Fail
+  clientConfig:
+    service:
+      namespace: {{ .Release.Namespace }}
+      name: robot-master
+      path: /chartassignment/validate
+    caBundle: {{ .Values.webhook.tls.crt }}
+  rules:
+  - apiGroups:
+    - apps.cloudrobotics.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - chartassignments
+{{ end }}
 {{ end }}

@@ -26,7 +26,6 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"github.com/pkg/errors"
-	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
@@ -43,10 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/builder"
-	admissiontypes "sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
 const (
@@ -66,7 +62,7 @@ func Add(mgr manager.Manager, cluster, tillerHost string, useSynk bool) error {
 	r := &Reconciler{
 		kube:     mgr.GetClient(),
 		helm:     hclient.NewClient(hclient.Host(tillerHost)),
-		recorder: mgr.GetRecorder("chartassignment-controller"),
+		recorder: mgr.GetEventRecorderFor("chartassignment-controller"),
 		cluster:  cluster,
 	}
 	var err error
@@ -118,7 +114,7 @@ func Add(mgr manager.Manager, cluster, tillerHost string, useSynk bool) error {
 
 func (r *Reconciler) enqueueForPod(m meta.Object, q workqueue.RateLimitingInterface) {
 	var cas apps.ChartAssignmentList
-	err := r.kube.List(context.TODO(), kclient.MatchingField(fieldIndexNamespace, m.GetNamespace()), &cas)
+	err := r.kube.List(context.TODO(), &cas, kclient.MatchingField(fieldIndexNamespace, m.GetNamespace()))
 	if err != nil {
 		log.Printf("List ChartAssignments for namespace %s failed: %s", m.GetNamespace(), err)
 		return
@@ -341,7 +337,7 @@ func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) er
 	// Determine readiness based on pods in the app namespace being ready.
 	// This is an incomplete heuristic but it should catch the vast majority of errors.
 	var pods core.PodList
-	if err := r.kube.List(ctx, kclient.InNamespace(as.Spec.NamespaceName), &pods); err != nil {
+	if err := r.kube.List(ctx, &pods, kclient.InNamespace(as.Spec.NamespaceName)); err != nil {
 		return errors.Wrap(err, "list pods")
 	}
 	ready, total := 0, len(pods.Items)
@@ -460,16 +456,8 @@ func setCondition(as *apps.ChartAssignment, t apps.ChartAssignmentConditionType,
 }
 
 // NewValidationWebhook returns a new webhook that validates ChartAssignments.
-func NewValidationWebhook(mgr manager.Manager) (webhook.Webhook, error) {
-	return builder.NewWebhookBuilder().
-		Name("chartassignments.apps.cloudrobotics.com").
-		Validating().
-		Operations(admissionregistration.Create, admissionregistration.Update).
-		FailurePolicy(admissionregistration.Fail).
-		WithManager(mgr).
-		ForType(&apps.ChartAssignment{}).
-		Handlers(newChartAssignmentValidator(mgr.GetScheme())).
-		Build()
+func NewValidationWebhook(mgr manager.Manager) *admission.Webhook {
+	return &admission.Webhook{Handler: newChartAssignmentValidator(mgr.GetScheme())}
 }
 
 // chartAssignmentValidator implements a validation webhook.
@@ -483,24 +471,24 @@ func newChartAssignmentValidator(sc *runtime.Scheme) *chartAssignmentValidator {
 	}
 }
 
-func (v *chartAssignmentValidator) Handle(_ context.Context, req admissiontypes.Request) admissiontypes.Response {
+func (v *chartAssignmentValidator) Handle(_ context.Context, req admission.Request) admission.Response {
 	cur := &apps.ChartAssignment{}
 	old := &apps.ChartAssignment{}
 
 	if err := runtime.DecodeInto(v.decoder, req.AdmissionRequest.Object.Raw, cur); err != nil {
-		return admission.ErrorResponse(http.StatusBadRequest, err)
+		return admission.Errored(http.StatusBadRequest, err)
 	}
 	if len(req.AdmissionRequest.OldObject.Raw) > 0 {
 		if err := runtime.DecodeInto(v.decoder, req.AdmissionRequest.OldObject.Raw, old); err != nil {
-			return admission.ErrorResponse(http.StatusBadRequest, err)
+			return admission.Errored(http.StatusBadRequest, err)
 		}
 	} else {
 		old = nil
 	}
 	if err := validate(cur, old); err != nil {
-		return admission.ValidationResponse(false, err.Error())
+		return admission.Denied(err.Error())
 	}
-	return admission.ValidationResponse(true, "")
+	return admission.Allowed("")
 }
 
 func validate(cur, old *apps.ChartAssignment) error {
