@@ -13,7 +13,7 @@ spec:
 ---
 # A self-signing issuer for cluster-internal services.
 apiVersion: certmanager.k8s.io/v1alpha1
-kind: Issuer
+kind: ClusterIssuer
 metadata:
   name: cluster-authority
 spec:
