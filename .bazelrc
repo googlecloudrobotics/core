@@ -19,3 +19,11 @@ startup --host_jvm_args=-XX:+UnlockDiagnosticVMOptions --host_jvm_args=-XX:-Inli
 # hits between CLI and IntelliJ builds, and will also be useful if we switch to
 # a shared cache.
 build --experimental_strict_action_env
+
+# Workaround https://github.com/googlecloudrobotics/core/issues/9
+# Background: Bazel 0.27 changes how the Python runtime is obtained resulting
+# in Python 3 being used by default instead of Python 2. This causes the build
+# to fail because the version of PyYAML that pip_import downloads is only
+# compatible with Python 2. Until we find a fix for this, we force the use of
+# Python 2.
+build --host_force_python=PY2
