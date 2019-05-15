@@ -5,7 +5,6 @@ package(default_visibility = ["//visibility:public"])
 
 exports_files([
     "config.sh.tmpl",
-    "config.bzl.tmpl",
     "deploy.sh",
 ])
 

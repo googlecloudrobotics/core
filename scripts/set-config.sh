@@ -290,9 +290,3 @@ if ! gsutil ls -p ${GCP_PROJECT_ID} | grep "^${CLOUD_BUCKET}/$" >/dev/null; then
   gsutil mb -p ${GCP_PROJECT_ID} ${CLOUD_BUCKET}
 fi
 gsutil mv "${CONFIG_FILE}" "${CLOUD_BUCKET}/config.sh"
-
-if is_source_install && [[ ! -r "${DIR}/config.bzl" ]]; then
-  # Create config.bzl.
-  sed "s/my-project/${GCP_PROJECT_ID}/" "${DIR}/config.bzl.tmpl" > "${DIR}/config.bzl"
-fi
-

@@ -16,9 +16,6 @@
 
 # Includes the configuration variables from a config.sh and ./config.bzl.
 
-rootdir="$(dirname "${BASH_SOURCE[0]}")/.."
-configbzl="${rootdir}/config.bzl"
-
 function check_vars_not_empty {
   for v in "$@"; do
     [ -n "${!v}" ] || die "Variable $v is not set or is empty"
@@ -49,21 +46,7 @@ function include_config {
   # Check that config defines the following set of configuration variables
   check_vars_not_empty GCP_PROJECT_ID GCP_REGION GCP_ZONE
 
-  # Only import $configbzl for source installs
   if is_source_install; then
-    if [[ ! -r $configbzl ]] ; then
-      echo "ERROR: config.bzl does not exist or is not readable" >&2
-      exit 1
-    fi
-    # Import config.bzl variables
-    # shellcheck disable=2046
-    # For better or worse, all spaces are removed by sed.
-    export $(sed -e 's/[\ "]//g' -e '/^#/d' $configbzl)
-
-    # Check that $configbzl defines the following union set of
-    # configuration variables
-    check_vars_not_empty DOCKER_TAG
-
     # Keep default in sync with src/go/pkg/configutil/config-reader.go
     CLOUD_ROBOTICS_CONTAINER_REGISTRY=${CLOUD_ROBOTICS_CONTAINER_REGISTRY:-"gcr.io/${GCP_PROJECT_ID}"}
     SOURCE_CONTAINER_REGISTRY=${CLOUD_ROBOTICS_CONTAINER_REGISTRY}
