@@ -92,9 +92,8 @@ docker logout https://${REGISTRY_DOMAIN}
 # Generate TLS certificate if none exists yet. It is used by the robot-master
 # to allow the Kubernetes API server to securly connect to webhooks.
 if kubectl get secret robot-master-tls; then
-  tls_existing=$(kubectl get secret robot-master-tls -ojson)
-  tls_crt=$(echo $tls_existing | jq -r '.data["tls.crt"]')
-  tls_key=$(echo $tls_existing | jq -r '.data["tls.key"]')
+  tls_crt=$(kubectl get secret robot-master-tls -o=go-template --template='{{index .data "tls.crt"}}')
+  tls_key=$(kubectl get secret robot-master-tls -o=go-template --template='{{index .data "tls.key"}}')
 else
   certdir=$(mktemp -d)
   openssl genrsa -out "${certdir}/tls.key" 2048

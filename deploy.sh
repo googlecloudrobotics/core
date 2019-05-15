@@ -190,9 +190,8 @@ function helm_charts {
   # Avoid creating a new one on each run as rotation may cause intermittent
   # disruptions, which we don't want to trigger on each deploy.
   if kubectl get secret cluster-authority; then
-    ca_existing=$(kubectl get secret cluster-authority -ojson)
-    ca_crt=$(echo $ca_existing | jq -r '.data["tls.crt"]')
-    ca_key=$(echo $ca_existing | jq -r '.data["tls.key"]')
+    ca_crt=$(kubectl get secret cluster-authority -o=go-template --template='{{index .data "tls.crt"}}')
+    ca_key=$(kubectl get secret cluster-authority -o=go-template --template='{{index .data "tls.key"}}')
   else
     certdir=$(mktemp -d)
     openssl genrsa -out "${certdir}/ca.key" 2048
