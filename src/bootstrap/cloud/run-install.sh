@@ -49,6 +49,10 @@ TMPDIR="$( mktemp -d )"
 curl --silent --show-error --fail "${BUCKET_URI}/${TARGET}" | tar xz -C "${TMPDIR}"
 cd ${TMPDIR}/cloud-robotics-core
 
+# Make subshells inherit shell options (eg xtrace). This means that if you run
+# `bash -x run-install.sh`, you get debugging output from deploy.sh as well.
+export SHELLOPTS
+
 if [[ "${COMMAND}" = "--set-config" ]]; then
   scripts/set-config.sh "${GCP_PROJECT_ID}"
 elif [[ "${COMMAND}" = "--set-oauth" ]]; then
