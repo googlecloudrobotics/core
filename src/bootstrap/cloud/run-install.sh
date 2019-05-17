@@ -49,15 +49,21 @@ TMPDIR="$( mktemp -d )"
 curl --silent --show-error --fail "${BUCKET_URI}/${TARGET}" | tar xz -C "${TMPDIR}"
 cd ${TMPDIR}/cloud-robotics-core
 
+# Pass xtrace on to subshells if set for this shell.
+BASH=bash
+if [[ $SHELLOPTS =~ xtrace ]] ; then
+  BASH="bash -o xtrace"
+fi
+
 if [[ "${COMMAND}" = "--set-config" ]]; then
-  scripts/set-config.sh "${GCP_PROJECT_ID}"
+  $BASH scripts/set-config.sh "${GCP_PROJECT_ID}"
 elif [[ "${COMMAND}" = "--set-oauth" ]]; then
-  scripts/set-config.sh "${GCP_PROJECT_ID}" --set-oauth
+  $BASH scripts/set-config.sh "${GCP_PROJECT_ID}" --set-oauth
 elif [[ "${COMMAND}" = "--delete" ]]; then
-  ./deploy.sh delete "${GCP_PROJECT_ID}"
+  $BASH ./deploy.sh delete "${GCP_PROJECT_ID}"
 else
-  scripts/set-config.sh "${GCP_PROJECT_ID}" --ensure-config
-  ./deploy.sh create "${GCP_PROJECT_ID}"
+  $BASH scripts/set-config.sh "${GCP_PROJECT_ID}" --ensure-config
+  $BASH ./deploy.sh create "${GCP_PROJECT_ID}"
 fi
 
 cd ${DIR}
