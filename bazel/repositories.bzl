@@ -564,11 +564,11 @@ cc_library(
     _maybe(
         http_archive,
         name = "io_bazel_rules_go",
-        sha256 = "9d7d865b92cc1e16e7c1d53b3d0f6532252a512d7e09d6f074fe41423f036cca",
-        strip_prefix = "rules_go-0.17.1",
         urls = [
-            "https://github.com/bazelbuild/rules_go/archive/0.17.1.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/0.18.5/rules_go-0.18.5.tar.gz",
+            "https://github.com/bazelbuild/rules_go/releases/download/0.18.5/rules_go-0.18.5.tar.gz",
         ],
+        sha256 = "a82a352bffae6bee4e95f68a8d80a70e87f42c4741e6a448bec11998fcc82329",
     )
 
     _maybe(
@@ -584,11 +584,11 @@ cc_library(
     _maybe(
         http_archive,
         name = "com_github_bazelbuild_buildtools",
-        sha256 = "7525deb4d74e3aa4cb2b960da7d1c400257a324be4e497f75d265f2f508c518f",
-        strip_prefix = "buildtools-0.22.0",
         urls = [
-            "https://github.com/bazelbuild/buildtools/archive/0.22.0.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/0.17.0/bazel-gazelle-0.17.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-gazelle/releases/download/0.17.0/bazel-gazelle-0.17.0.tar.gz",
         ],
+        sha256 = "3c681998538231a2d24d0c07ed5a7658cb72bfb5fd4bf9911157c0e9ac6a2687",
     )
 
 def _maybe(repo_rule, name, **kwargs):
