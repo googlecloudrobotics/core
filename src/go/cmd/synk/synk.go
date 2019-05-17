@@ -20,6 +20,7 @@ import (
 	"os"
 	"strings"
 
+	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -174,18 +175,18 @@ func apply(name string) error {
 	return nil
 }
 
-func log(r *unstructured.Unstructured, status, msg string) {
+func log(r *unstructured.Unstructured, action apps.ResourceAction, status, msg string) {
 	// Remove some visual clutter by only showing the resource for successes.
 	if status == synk.StatusSuccess {
-		fmt.Fprintf(os.Stderr, "[%s] %s/%s %s/%s\n",
-			strings.ToUpper(status),
+		fmt.Fprintf(os.Stderr, "[%s] %s %s/%s %s/%s\n",
+			strings.ToUpper(status), action,
 			r.GetAPIVersion(), r.GetKind(),
 			r.GetNamespace(), r.GetName(),
 		)
 		return
 	}
-	fmt.Fprintf(os.Stderr, "[%s] %s/%s %s/%s: %s\n",
-		strings.ToUpper(status),
+	fmt.Fprintf(os.Stderr, "[%s] %s %s/%s %s/%s: %s\n",
+		strings.ToUpper(status), action,
 		r.GetAPIVersion(), r.GetKind(),
 		r.GetNamespace(), r.GetName(),
 		msg)

@@ -101,7 +101,7 @@ type ApplyOptions struct {
 	EnforceNamespace bool
 
 	// Log functions to report progress and failures while applying resources.
-	Log func(r *unstructured.Unstructured, status, msg string)
+	Log func(r *unstructured.Unstructured, a apps.ResourceAction, status, msg string)
 }
 
 const (
@@ -109,15 +109,15 @@ const (
 	StatusFailure = "failure"
 )
 
-func (o *ApplyOptions) logf(r *unstructured.Unstructured, msg string, args ...interface{}) {
+func (o *ApplyOptions) logf(r *unstructured.Unstructured, action apps.ResourceAction, msg string, args ...interface{}) {
 	if o.Log != nil {
-		o.Log(r, StatusSuccess, fmt.Sprintf(msg, args...))
+		o.Log(r, action, StatusSuccess, fmt.Sprintf(msg, args...))
 	}
 }
 
-func (o *ApplyOptions) errorf(r *unstructured.Unstructured, msg string, args ...interface{}) {
+func (o *ApplyOptions) errorf(r *unstructured.Unstructured, action apps.ResourceAction, msg string, args ...interface{}) {
 	if o.Log != nil {
-		o.Log(r, StatusFailure, fmt.Sprintf(msg, args...))
+		o.Log(r, action, StatusFailure, fmt.Sprintf(msg, args...))
 	}
 }
 
@@ -258,9 +258,9 @@ func (s *Synk) applyAll(
 		// all its current instances. Update conflicts must be resolved manually.
 		action, err := s.applyOne(crd, rs)
 		if err != nil {
-			opts.errorf(crd, "failed to apply: %s", err)
+			opts.errorf(crd, action, "failed to apply: %s", err)
 		} else {
-			opts.logf(crd, "applied successfully")
+			opts.logf(crd, action, "applied successfully")
 		}
 		results.set(crd, action, err)
 	}
@@ -299,9 +299,9 @@ func (s *Synk) applyAll(
 			action, err := s.applyOne(r, rs)
 			if err != nil {
 				curFailures++
-				opts.errorf(r, "failed to apply, may retry: %s", err)
+				opts.errorf(r, action, "failed to apply, may retry: %s", err)
 			} else {
-				opts.logf(r, "applied successfully")
+				opts.logf(r, action, "applied successfully")
 			}
 			results.set(r, action, err)
 		}
