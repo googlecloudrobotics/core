@@ -15,6 +15,24 @@ def cloud_robotics_repositories():
         ],
     )
 
+    _maybe(
+        http_archive,
+        name = "bazel_skylib",
+        sha256 = "2ef429f5d7ce7111263289644d233707dba35e39696377ebab8b0bc701f7818e",
+        urls = ["https://github.com/bazelbuild/bazel-skylib/releases/download/0.8.0/bazel-skylib.0.8.0.tar.gz"],
+    )
+
+    _maybe(
+        http_archive,
+        name = "com_google_protobuf",
+        sha256 = "f1748989842b46fa208b2a6e4e2785133cfcc3e4d43c17fecb023733f0f5443f",
+        strip_prefix = "protobuf-3.7.1",
+        urls = [
+            "https://mirror.bazel.build/github.com/google/protobuf/archive/v3.7.1.tar.gz",
+            "https://github.com/google/protobuf/archive/v3.7.1.tar.gz",
+        ],
+    )
+
     # protos for the Google APIs
     # TODO(b/119290854): remove "unused import" patch
     _maybe(
@@ -433,6 +451,11 @@ def cloud_robotics_repositories():
             "https://mirror.bazel.build/github.com/madler/zlib/archive/cacf7f1d4e3d44d871b605da3b647f07d718623f.tar.gz",
             "https://github.com/madler/zlib/archive/cacf7f1d4e3d44d871b605da3b647f07d718623f.tar.gz",
         ],
+    )
+
+    native.bind(
+        name = "zlib",
+        actual = "@net_zlib_zlib//:zlib",
     )
 
     # bz2

@@ -6,17 +6,6 @@ load("//bazel:repositories.bzl", "cloud_robotics_repositories")
 # gazelle:repo bazel_gazelle
 cloud_robotics_repositories()
 
-# Protobuf
-http_archive(
-    name = "com_google_protobuf",
-    sha256 = "f1748989842b46fa208b2a6e4e2785133cfcc3e4d43c17fecb023733f0f5443f",
-    strip_prefix = "protobuf-3.7.1",
-    urls = [
-        "https://mirror.bazel.build/github.com/google/protobuf/archive/v3.7.1.tar.gz",
-        "https://github.com/google/protobuf/archive/v3.7.1.tar.gz",
-    ],
-)
-
 # These binds are required by com_google_protobuf.
 bind(
     name = "zlib",
