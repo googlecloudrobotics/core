@@ -564,10 +564,10 @@ cc_library(
     _maybe(
         http_archive,
         name = "io_bazel_rules_go",
-        sha256 = "9d7d865b92cc1e16e7c1d53b3d0f6532252a512d7e09d6f074fe41423f036cca",
-        strip_prefix = "rules_go-0.17.1",
+        sha256 = "eb51fb151226301a169d2fd058cd72dd2c0ee6b20a5d98efa99045551e70f512",
+        strip_prefix = "rules_go-0.18.5",
         urls = [
-            "https://github.com/bazelbuild/rules_go/archive/0.17.1.tar.gz",
+            "https://github.com/bazelbuild/rules_go/archive/0.18.5.tar.gz",
         ],
     )
 
