@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
+	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
@@ -52,7 +52,7 @@ var (
 		Run:   runDelete,
 	}
 
-	restOpts     = genericclioptions.NewConfigFlags()
+	restOpts     = genericclioptions.NewConfigFlags(true)
 	resourceOpts = genericclioptions.NewResourceBuilderFlags()
 )
 

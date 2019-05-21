@@ -612,7 +612,7 @@ func (s *Synk) applyOne(resource *unstructured.Unstructured, set *apps.ResourceS
 	// Additionally the CL doesn't seem to implement valid behavior as the patch
 	// retries will not update to a new resourceVersion and the failure would persist.
 
-	res, err := client.Patch(resource.GetName(), patchType, patch, metav1.UpdateOptions{})
+	res, err := client.Patch(resource.GetName(), patchType, patch, metav1.PatchOptions{})
 	if err != nil {
 		return apps.ResourceActionUpdate, errors.Wrap(err, "apply patch")
 	}

@@ -288,24 +288,6 @@ go_repository(
 )
 
 go_repository(
-    name = "com_github_docker_distribution",
-    commit = "2461543d988979529609e8cb6fca9ca190dc48da",
-    importpath = "github.com/docker/distribution",
-)
-
-go_repository(
-    name = "com_github_docker_docker",
-    commit = "ee399522df7f804e7c68800047631ba9be2b095c",
-    importpath = "github.com/docker/docker",
-)
-
-go_repository(
-    name = "com_github_docker_spdystream",
-    commit = "6480d4af844c189cf5dd913db24ddd339d3a4f85",
-    importpath = "github.com/docker/spdystream",
-)
-
-go_repository(
     name = "com_github_emicklei_go_restful",
     commit = "85d198d05a92d31823b852b4a5928114912e8949",
     importpath = "github.com/emicklei/go-restful",
@@ -327,6 +309,14 @@ go_repository(
     name = "com_github_fsnotify_fsnotify",
     commit = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9",
     importpath = "github.com/fsnotify/fsnotify",
+)
+
+go_repository(
+    name = "in_gopkg_fsnotify_v1",
+    commit = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9",
+    importpath = "gopkg.in/fsnotify.v1",
+    remote = "https://github.com/fsnotify/fsnotify",
+    vcs = "git",
 )
 
 go_repository(
@@ -706,7 +696,7 @@ go_repository(
 go_repository(
     name = "io_k8s_api",
     build_file_proto_mode = "disable",
-    commit = "5cb15d34447165a97c76ed5a60e4e99c8a01ecfe",
+    commit = "6e4e0e4f393bf5e8bbff570acd13217aa5a770cd",
     importpath = "k8s.io/api",
 )
 
@@ -714,34 +704,34 @@ go_repository(
     name = "io_k8s_apiextensions_apiserver",
     build_extra_args = ["-exclude=vendor"],
     build_file_proto_mode = "disable",
-    commit = "7d26de67f177df719a36756e658973478df68485",
+    commit = "727a075fdec8319bf095330e344b3ccc668abc73",
     importpath = "k8s.io/apiextensions-apiserver",
 )
 
 go_repository(
     name = "io_k8s_apimachinery",
     build_file_proto_mode = "disable",
-    commit = "86fb29eff6288413d76bd8506874fddd9fccdff0",
+    commit = "6a84e37a896db9780c75367af8d2ed2bb944022e",
     importpath = "k8s.io/apimachinery",
 )
 
 go_repository(
     name = "io_k8s_apiserver",
     build_file_proto_mode = "disable",
-    commit = "79427f02047f9189a75b8cdaadccaf65a126853e",
+    commit = "1ec86e4da56ce0573788fc12bb3a5530600c0e5d",
     importpath = "k8s.io/apiserver",
 )
 
 go_repository(
     name = "io_k8s_cli_runtime",
-    commit = "a9e421a7932607ce4623ff45add8274499cca193",
+    commit = "d644b00f3b79346b7627329269bb25f2135f941c",
     importpath = "k8s.io/cli-runtime",
 )
 
 go_repository(
     name = "io_k8s_client_go",
     build_file_proto_mode = "disable",
-    commit = "b40b2a5939e43f7ffe0028ad67586b7ce50bb675",
+    commit = "1a26190bd76a9017e289958b9fba936430aa3704",
     importpath = "k8s.io/client-go",
 )
 
@@ -760,7 +750,7 @@ go_repository(
 go_repository(
     name = "io_k8s_kube_openapi",
     build_file_proto_mode = "disable",
-    commit = "c59034cc13d587f5ef4e85ca0ade0c1866ae8e1d",
+    commit = "b3a7cee44a305be0a69e1b9ac03018307287e1b0",
     importpath = "k8s.io/kube-openapi",
 )
 
@@ -773,7 +763,7 @@ go_repository(
 go_repository(
     name = "io_k8s_sigs_controller_runtime",
     build_extra_args = ["-exclude=vendor"],
-    commit = "b9f30df3f3a81bad9902b8bec5d92622a363bd4f",
+    commit = "96b67f231945a8e8550dbdd8bfbd550a0c68097b",
     importpath = "sigs.k8s.io/controller-runtime",
 )
 
@@ -785,7 +775,7 @@ go_repository(
 
 go_repository(
     name = "io_k8s_sigs_kustomize",
-    commit = "53f0deec8f1213cd66595f0279a232ecaa0c61de",
+    commit = "a6f65144121d1955266b0cd836ce954c04122dc8",
     importpath = "sigs.k8s.io/kustomize",
 )
 
@@ -797,7 +787,7 @@ go_repository(
 
 go_repository(
     name = "io_k8s_utils",
-    commit = "21c4ce38f2a793ec01e925ddc31216500183b773",
+    commit = "324c5df7d3f0fafd8ab337871d9f2c86afd1fe64",
     importpath = "k8s.io/utils",
 )
 
@@ -917,18 +907,6 @@ go_repository(
 )
 
 go_repository(
-    name = "com_github_elazarl_go_bindata_assetfs",
-    commit = "30f82fa23fd844bd5bb1e5f216db87fd77b5eb43",
-    importpath = "github.com/elazarl/go-bindata-assetfs",
-)
-
-go_repository(
-    name = "com_github_emicklei_go_restful_swagger12",
-    commit = "dcef7f55730566d41eae5db10e7d6981829720f6",
-    importpath = "github.com/emicklei/go-restful-swagger12",
-)
-
-go_repository(
     name = "com_github_globalsign_mgo",
     commit = "eeefdecb41b842af6dc652aaea4026e8403e62df",
     importpath = "github.com/globalsign/mgo",
@@ -995,23 +973,22 @@ go_repository(
 )
 
 go_repository(
-    name = "org_bitbucket_ww_goautoneg",
-    commit = "75cd24fc2f2c2a2088577d12123ddee5f54e0675",
-    importpath = "bitbucket.org/ww/goautoneg",
-)
-
-go_repository(
-    name = "com_github_azure_go_ansiterm",
-    commit = "d6e3b3328b783f23731bc4d058875b0371ff8109",
-    importpath = "github.com/Azure/go-ansiterm",
-)
-
-go_repository(
     name = "com_github_munnerz_goautoneg",
     commit = "2ae31c8b6b30d2f4c8100c20d527b571e9c433bb",
     importpath = "github.com/munnerz/goautoneg",
 )
 
+go_repository(
+    name = "io_k8s_component_base",
+    commit = "2354f2393ad4e816a2996f727ee030abe4e34727",
+    importpath = "k8s.io/component-base",
+)
+
+go_repository(
+    name = "io_k8s_sigs_structured_merge_diff",
+    commit = "e85c7b244fd2cc57bb829d73a061f93a441e63ce",
+    importpath = "sigs.k8s.io/structured-merge-diff",
+)
 # End of "Generated by gazelle".
 
 load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies")

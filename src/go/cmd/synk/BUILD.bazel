@@ -12,7 +12,7 @@ go_library(
         "@com_github_spf13_cobra//:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
         "@io_k8s_cli_runtime//pkg/genericclioptions:go_default_library",
-        "@io_k8s_cli_runtime//pkg/genericclioptions/resource:go_default_library",
+        "@io_k8s_cli_runtime//pkg/resource:go_default_library",
         "@io_k8s_client_go//dynamic:go_default_library",
         "@io_k8s_client_go//plugin/pkg/client/auth:go_default_library",
     ],

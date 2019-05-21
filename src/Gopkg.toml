@@ -10,38 +10,53 @@
 
 [[constraint]]
   name = "sigs.k8s.io/controller-runtime"
-  branch = "master"
-
-[[constraint]]
-  name = "k8s.io/client-go"
-  version = "kubernetes-1.13.4"
-
-[[constraint]]
-  name = "k8s.io/api"
-  version = "kubernetes-1.13.4"
-
-[[constraint]]
-  name = "k8s.io/apimachinery"
-  version = "kubernetes-1.13.4"
+  revision = "96b67f231945a8e8550dbdd8bfbd550a0c68097b" # master, can be updated to v0.2 when released
 
 [[constraint]]
   name = "k8s.io/cli-runtime"
-  version = "kubernetes-1.13.4"
+  version = "kubernetes-1.14.1"
+
+# Most Kubernetes repos are consistently versioned along the Kubernetes release.
+# kustomize (included by cli-runtime) however has its own scheme and pins its
+# Kubernetes dependencies to master.
+# We have to use 'override' instead of 'constraint' on those repos.
+[[override]]
+  name = "k8s.io/api"
+  version = "kubernetes-1.14.1"
+
+[[override]]
+  name = "k8s.io/apimachinery"
+  version = "kubernetes-1.14.1"
+
+[[override]]
+  name = "k8s.io/client-go"
+  version = "kubernetes-1.14.1"
 
 [[constraint]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.13.4"
+  version = "kubernetes-1.14.1"
 
-# Docker stopped tagging their main repository entirely. dep doesn't seem try
-# a more recent version in those cases by itself.
-[[override]]
-  name = "github.com/docker/docker"
-  branch = "master"
-
-[[override]]
-  name = "github.com/kubernetes/kube-openapi"
-  revision = "c59034cc13d587f5ef4e85ca0ade0c1866ae8e1d"
+[[constraint]]
+  name = "k8s.io/apiextensions-apiserver"
+  version = "kubernetes-1.14.1"
 
 [[override]]
   name = "github.com/evanphx/json-patch"
   version = "v4.2.0"
+
+# These two repositories are unversioned. dep somehow doesn't apply its resolution
+# to satisfy API requirements and these two revisions were deducted manually.
+[[override]]
+  name = "sigs.k8s.io/structured-merge-diff"
+  revision = "e85c7b244fd2cc57bb829d73a061f93a441e63ce"
+
+[[override]]
+  name = "k8s.io/kube-openapi"
+  revision = "b3a7cee44a305be0a69e1b9ac03018307287e1b0"
+
+# Over its lifetime the fsnotify package changed its path and use of canonical
+# import paths several times. Currently it triggers a panic in dep which
+# this override fixes.
+[[override]]
+  name = "gopkg.in/fsnotify.v1"
+  source = "https://github.com/fsnotify/fsnotify"

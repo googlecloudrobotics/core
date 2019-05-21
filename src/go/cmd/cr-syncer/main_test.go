@@ -49,7 +49,7 @@ func TestStreamCrdsSeesPreexistingObject(t *testing.T) {
 		case crd := <-crds:
 			g.Expect(crd.Type).To(Equal(watch.Added))
 			g.Expect(crd.CRD.GetName()).To(Equal("foo"))
-		case <-time.After(1 * time.Minute):
+		case <-time.After(15 * time.Second):
 			t.Errorf("Received no watch event; wanted add for foo")
 		}
 		close(done)
@@ -81,16 +81,8 @@ func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
 	case crd := <-crds:
 		g.Expect(crd.Type).To(Equal(watch.Added))
 		g.Expect(crd.CRD.GetName()).To(Equal("later"))
-	case <-time.After(1 * time.Minute):
+	case <-time.After(15 * time.Second):
 		t.Errorf("Received no watch event; wanted add for later")
-	}
-
-	select {
-	case crd := <-crds:
-		g.Expect(crd.Type).To(Equal(watch.Modified))
-		g.Expect(crd.CRD.GetName()).To(Equal("later"))
-	case <-time.After(1 * time.Minute):
-		t.Errorf("Received no watch event; wanted deleted for later")
 	}
 
 	cs.ApiextensionsV1beta1().CustomResourceDefinitions().Delete("later", &metav1.DeleteOptions{})
@@ -98,7 +90,7 @@ func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
 	case crd := <-crds:
 		g.Expect(crd.Type).To(Equal(watch.Deleted))
 		g.Expect(crd.CRD.GetName()).To(Equal("later"))
-	case <-time.After(1 * time.Minute):
+	case <-time.After(15 * time.Second):
 		t.Errorf("Received no watch event; wanted deleted for later")
 	}
 }
@@ -124,7 +116,7 @@ func TestStreamCrdsSeesUpdate(t *testing.T) {
 	case crd := <-crds:
 		g.Expect(crd.Type).To(Equal(watch.Added))
 		g.Expect(crd.CRD.GetName()).To(Equal("later"))
-	case <-time.After(1 * time.Minute):
+	case <-time.After(15 * time.Second):
 		t.Errorf("Received no watch event; wanted add for later")
 	}
 
@@ -140,7 +132,7 @@ func TestStreamCrdsSeesUpdate(t *testing.T) {
 	case crd := <-crds:
 		g.Expect(crd.Type).To(Equal(watch.Modified))
 		g.Expect(crd.CRD.GetName()).To(Equal("later"))
-	case <-time.After(1 * time.Minute):
+	case <-time.After(15 * time.Second):
 		t.Errorf("Received no watch event; wanted modified for later")
 	}
 }
