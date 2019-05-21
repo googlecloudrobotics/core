@@ -584,11 +584,11 @@ cc_library(
     _maybe(
         http_archive,
         name = "com_github_bazelbuild_buildtools",
+        sha256 = "7525deb4d74e3aa4cb2b960da7d1c400257a324be4e497f75d265f2f508c518f",
+        strip_prefix = "buildtools-0.22.0",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/0.17.0/bazel-gazelle-0.17.0.tar.gz",
-            "https://github.com/bazelbuild/bazel-gazelle/releases/download/0.17.0/bazel-gazelle-0.17.0.tar.gz",
+            "https://github.com/bazelbuild/buildtools/archive/0.22.0.tar.gz",
         ],
-        sha256 = "3c681998538231a2d24d0c07ed5a7658cb72bfb5fd4bf9911157c0e9ac6a2687",
     )
 
 def _maybe(repo_rule, name, **kwargs):
