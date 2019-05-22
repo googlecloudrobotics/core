@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Includes the configuration variables from a config.sh and ./config.bzl.
+# Includes the configuration variables from a config.sh.
 
 function check_vars_not_empty {
   for v in "$@"; do

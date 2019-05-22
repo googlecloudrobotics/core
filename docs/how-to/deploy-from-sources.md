@@ -53,15 +53,19 @@ and 18.04) Linux.
 1. Create a Cloud Robotics config in your project:
 
     ```shell
-    ./deploy.sh set_config <your-project-id>
+    ./deploy.sh set_config [PROJECT_ID]
     ```
 
     You can keep the defaults for the other settings by hitting `ENTER`.
 
-    This command creates two files:
+    This command creates a file `config.sh` containing your choices and stores
+    in into a cloud-storage bucket named `[PROJECT_ID]-cloud-robotics-config`.
+    You can verify the settings using:
 
-    * `config.bzl`, which configures the build system to store its outputs in the Container Registry, and
-    * `config.sh`, which configures the deployment.
+    ```shell
+    gsutil cat gs://[PROJECT_ID]-cloud-robotics-config/config.sh
+    ```
+
 
 1. Build the project. Depending on your computer and internet connection, it may take around 15 minutes.
 
@@ -72,7 +76,7 @@ and 18.04) Linux.
 1. Deploy the cloud project.
 
     ```shell
-    ./deploy.sh create <your-project-id>
+    ./deploy.sh create [PROJECT_ID]
     ```
 
 > **Known issue:**
@@ -112,7 +116,7 @@ With the project deployed, you're ready to [connect a robot to the cloud](how-to
 To apply changes made in the source code, run:
 
 ```shell
-./deploy.sh update <your-project-id>
+./deploy.sh update [PROJECT_ID]
 ```
 
 ## Clean up
@@ -126,7 +130,7 @@ This can be useful if the cluster is in a broken state.
 Be careful with this invocation, since you'll have to redeploy the project and reconnect any robots afterwards.
 
 ```shell
-./deploy.sh delete <your-project-id>
+./deploy.sh delete [PROJECT_ID]
 ```
 
 If you want to completely shut down the project, see [the Resource Manager documentation](https://cloud.google.com/resource-manager/docs/creating-managing-projects#shutting_down_projects).
