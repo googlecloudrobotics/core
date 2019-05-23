@@ -1,4 +1,3 @@
-load("@cloud_robotics//bazel/build_rules:expand_vars.bzl", "expand_vars")
 load("@cloud_robotics//bazel/build_rules:proto_descriptor.bzl", "proto_descriptor")
 load("@cloud_robotics//bazel/proto_crd:proto_crd.bzl", "proto_crd")
 
