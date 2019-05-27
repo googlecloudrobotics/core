@@ -44,10 +44,12 @@ and 18.04) Linux.
     cd core
     ```
 
-1. Create application default credentials, which are used to deploy the cloud project.
+1. Create application default credentials, which are used to deploy the cloud project and
+   authorize access to the cloud docker registry.
 
     ```shell
     gcloud auth application-default login
+    gcloud auth configure-docker
     ```
 
 1. Create a Cloud Robotics config in your project:
