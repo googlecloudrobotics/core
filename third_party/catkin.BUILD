@@ -31,5 +31,6 @@ py_binary(
     name = "catkin_find",
     srcs = ["bin/catkin_find.py"],
     main = "bin/catkin_find.py",
+    python_version = "PY2",
     deps = [":catkin"],
 )

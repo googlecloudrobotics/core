@@ -395,6 +395,7 @@ py_binary(
         "tools/rosmaster/scripts/rosmaster_main.py",
     ],
     main = "tools/rosmaster/scripts/rosmaster_main.py",
+    python_version = "PY2",
     deps = [
         ":rosmaster_lib",
     ],

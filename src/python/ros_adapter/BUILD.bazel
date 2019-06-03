@@ -27,6 +27,7 @@ py_library(
 py_test(
     name = "ros_adapter_test",
     srcs = ["ros_adapter_test.py"],
+    python_version = "PY2",
     deps = [
         ":ros_adapter",
     ],
@@ -36,6 +37,7 @@ ros_py_test(
     name = "shapeshifter_rostest",
     size = "small",
     srcs = ["shapeshifter_rostest.py"],
+    python_version = "PY2",
     deps = [
         ":ros_adapter",
         "@com_github_ros_ros_comm//:rospy",

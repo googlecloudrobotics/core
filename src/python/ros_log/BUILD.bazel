@@ -20,6 +20,7 @@ py_library(
 py_test(
     name = "ros_log_test",
     srcs = ["ros_log_test.py"],
+    python_version = "PY2",
     deps = [
         ":ros_log",
     ],

@@ -18,7 +18,7 @@ _expand_template = rule(
     output_to_genfiles = True,
 )
 
-def ros_py_test(name, srcs, deps = None, main = None, rospkg = None, size = None):
+def ros_py_test(name, srcs, deps = None, main = None, python_version = None, rospkg = None, size = None):
     """Runs a Python test script with rostest.
 
     This can be used for tests that require a roscore. The test script will be
@@ -95,6 +95,7 @@ def ros_py_test(name, srcs, deps = None, main = None, rospkg = None, size = None
         name = test_node_name,
         srcs = srcs,
         main = main,
+        python_version = python_version,
         deps = deps,
     )
 
@@ -110,6 +111,7 @@ def ros_py_test(name, srcs, deps = None, main = None, rospkg = None, size = None
             "$(location :%s)" % test_node_name,
             "$(location :%s)" % test_launch_name,
         ],
+        python_version = python_version,
         tags = ["exclusive"],
         data = [
             ":package.xml",

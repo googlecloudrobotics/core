@@ -24,5 +24,6 @@ py_binary(
     name = "rosversion",
     srcs = ["scripts/rosversion.py"],
     main = "scripts/rosversion.py",
+    python_version = "PY2",
     deps = [":rospkg"],
 )

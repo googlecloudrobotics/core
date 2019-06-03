@@ -21,6 +21,7 @@ py_binary(
     name = "gencpp",
     srcs = ["scripts/gen_cpp.py"],
     main = "scripts/gen_cpp.py",
+    python_version = "PY2",
     deps = [
         ":gencpp_lib",
         "@com_github_ros_genmsg//:genmsg",

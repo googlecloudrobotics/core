@@ -22,6 +22,7 @@ py_library(
 py_binary(
     name = "genmsg_py",
     srcs = ["scripts/genmsg_py.py"],
+    python_version = "PY2",
     deps = [
         ":genpy",
     ],
@@ -30,6 +31,7 @@ py_binary(
 py_binary(
     name = "gensrv_py",
     srcs = ["scripts/gensrv_py.py"],
+    python_version = "PY2",
     deps = [
         ":genpy",
     ],

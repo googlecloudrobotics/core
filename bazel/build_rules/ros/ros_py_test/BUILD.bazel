@@ -11,6 +11,7 @@ ros_py_test(
     name = "example_rostest",
     size = "small",
     srcs = ["example_rostest.py"],
+    python_version = "PY2",
     deps = [
         "@com_github_ros_ros_comm//:rospy",
         "@com_github_ros_ros_comm//:rostest_lib",
