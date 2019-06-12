@@ -58,7 +58,7 @@ fi
 if [[ "${COMMAND}" = "--set-config" ]]; then
   $BASH scripts/set-config.sh "${GCP_PROJECT_ID}"
 elif [[ "${COMMAND}" = "--set-oauth" ]]; then
-  $BASH scripts/set-config.sh "${GCP_PROJECT_ID}" --set-oauth
+  $BASH scripts/set-config.sh "${GCP_PROJECT_ID}" --edit-oauth
 elif [[ "${COMMAND}" = "--delete" ]]; then
   $BASH ./deploy.sh delete "${GCP_PROJECT_ID}"
 else
