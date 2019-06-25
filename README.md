@@ -18,8 +18,6 @@ point in time.
 
 # Documentation
 
-Learn more about Google Cloud’s vision for Cloud Robotics at: https://cloud.google.com/cloud-robotics/
-
 Documentation of the platform and related How-to guides can be found at: https://googlecloudrobotics.github.io/core/
 
 # Get Involved

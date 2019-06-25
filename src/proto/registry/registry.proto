@@ -35,7 +35,7 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
     version: "v1alpha1";
     contact: {
       email: "cloud-robotics-discuss@googlegroups.com";
-      url: "https://cloud.google.com/cloud-robotics/";
+      url: "https://github.com/googlecloudrobotics/core";
     };
     license: {
       name: "Apache 2.0";
