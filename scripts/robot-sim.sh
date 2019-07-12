@@ -26,6 +26,11 @@ source "${DIR}/include-config.sh"
 set -o pipefail -o errexit
 
 function set_defaults {
+  if [[ -z "${GCP_ZONE}" ]] ; then
+    echo "Zone cannot be empty. Please enter the zone:"
+    read GCP_ZONE
+  fi
+
   local GCP_PROJECT_ID="$1"
   include_config "${GCP_PROJECT_ID}"
   INITIAL_KUBECTL_CONTEXT="$(kubectl config current-context)"
