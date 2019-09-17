@@ -521,6 +521,9 @@ func newRobotChartAssignment(
 func newBaseChartAssignment(app *apps.App, rollout *apps.AppRollout, comp *apps.AppComponent) *apps.ChartAssignment {
 	var ca apps.ChartAssignment
 
+	// Use default namespace
+	ca.ObjectMeta.Namespace = core.NamespaceDefault
+
 	// Clone labels and annotations. Just setting the map reference
 	// would cause the map to be shared across objects.
 	for k, v := range rollout.Labels {
