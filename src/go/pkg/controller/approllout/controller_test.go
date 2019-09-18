@@ -75,6 +75,7 @@ metadata:
     lkey1: lval1
   annotations:
     akey1: aval1
+  namespace: default
 spec:
   appName: prometheus
   robots:
@@ -104,6 +105,7 @@ metadata:
     cloudrobotics.com/robot-name: robot1
   annotations:
     akey1: aval1
+  namespace: default
 spec:
   clusterName: robot1
   namespaceName: app-foo-rollout
@@ -145,6 +147,7 @@ metadata:
     lkey1: lval1
   annotations:
     akey1: aval1
+  namespace: default
 spec:
   appName: prometheus
   cloud:
@@ -175,6 +178,7 @@ metadata:
     lkey1: lval1
   annotations:
     akey1: aval1
+  namespace: default
 spec:
   clusterName: cloud
   namespaceName: app-foo-rollout
@@ -237,6 +241,7 @@ metadata:
 	unmarshalYAML(t, &rollout, `
 metadata:
   name: foo-rollout
+  namespace: default
 spec:
   appName: foo
   cloud:
@@ -260,6 +265,7 @@ spec:
 	unmarshalYAML(t, &expected[0], `
 metadata:
   name: foo-rollout-cloud
+  namespace: default
 spec:
   clusterName: cloud
   namespaceName: app-foo-rollout
@@ -277,6 +283,7 @@ metadata:
   name: foo-rollout-robot-robot1
   labels:
     cloudrobotics.com/robot-name: robot1
+  namespace: default
 spec:
   clusterName: robot1
   namespaceName: app-foo-rollout
@@ -292,6 +299,7 @@ metadata:
   name: foo-rollout-robot-robot3
   labels:
     cloudrobotics.com/robot-name: robot3
+  namespace: default
 spec:
   clusterName: robot3
   namespaceName: app-foo-rollout
@@ -345,6 +353,7 @@ metadata:
 	unmarshalYAML(t, &rollout, `
 metadata:
   name: foo-rollout
+  namespace: default
 spec:
   appName: foo
   cloud:
@@ -361,6 +370,7 @@ spec:
 	unmarshalYAML(t, &expected, `
 metadata:
   name: foo-rollout-cloud
+  namespace: default
 spec:
   clusterName: cloud
   namespaceName: app-foo-rollout

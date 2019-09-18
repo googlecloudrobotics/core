@@ -69,6 +69,7 @@ apiVersion: apps.cloudrobotics.com/v1alpha1
 kind: ChartAssignment
 metadata:
   name: {{ .name }}
+  namespace: default
 spec:
   clusterName: testbot
   namespaceName: {{ .namespace }}
