@@ -15,6 +15,8 @@ prometheusOperator:
   # Recent Kubernetes version provide a kube-system/kubelet service by default.
   kubeletService:
     enabled: false
+  tlsProxy:
+    enabled: false
 
 prometheus:
   prometheusSpec:
@@ -38,6 +40,9 @@ coreDns:
 kubelet:
   enabled: false
 
+# Throws a invalid namespace "kube-system" error during deployment
+kubeProxy:
+  enabled: false
 
 # Subcharts
 
