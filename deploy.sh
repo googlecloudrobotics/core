@@ -172,6 +172,43 @@ function terraform_delete {
   terraform_exec destroy -auto-approve || die "terraform destroy failed"
 }
 
+function cleanup_helm_data {
+  # Delete all legacy HELM resources. Do not delete the Helm charts directly, as
+  # we just want to keep the resources and have synk "adopt" them.
+  kubectl delete cm ready-for-synk 2> /dev/null || true
+  kubectl delete cm synk-enabled 2> /dev/null || true
+  kubectl -n kube-system delete deploy tiller-deploy 2> /dev/null || true
+  kubectl -n kube-system delete service tiller-deploy 2> /dev/null || true
+  kubectl -n kube-system delete cm -l OWNER=TILLER
+}
+
+function cleanup_old_cert_manager {
+  # Uninstall and cleanup older versions of cert-manager if needed
+
+  echo "checking for old cert manager .."
+  kubectl >/dev/null 2>&1 get deployments cert-manager || return 0
+  installed_ver=$(kubectl get deployments cert-manager -o jsonpath="{.metadata.labels['chart']}" | rev | cut -d'-' -f1 | rev | tr -d "vV")
+  echo "have cert manager $installed_ver"
+
+  if [[ "$installed_ver" == 0.5.* ]]; then
+    echo "need to cleanup old version"
+
+    # see https://docs.cert-manager.io/en/latest/tasks/upgrading/upgrading-0.5-0.6.html#upgrading-from-older-versions-using-helm
+    # and https://docs.cert-manager.io/en/latest/tasks/backup-restore-crds.html
+
+    # cleanup
+    synk_version=$(kubectl get resourcesets.apps.cloudrobotics.com --output=name | grep cert-manager | cut -d'/' -f2)
+    echo "deleting resourceset ${synk_version}"
+    ${SYNK} delete ${synk_version} -n default
+    kubectl delete crd \
+      certificates.certmanager.k8s.io \
+      issuers.certmanager.k8s.io \
+      clusterissuers.certmanager.k8s.io
+
+    kubectl label namespace default certmanager.k8s.io/disable-validation=true
+  fi
+}
+
 function helm_charts {
   local GCP_PROJECT_NUMBER
   GCP_PROJECT_NUMBER=$(terraform_exec output project-number)
@@ -225,20 +262,19 @@ function helm_charts {
 EOF
 )
 
-  # Delete all legacy HELM resources. Do not delete the Helm charts directly, as
-  # we just want to keep the resources and have synk "adopt" them.
-  kubectl delete cm ready-for-synk 2> /dev/null || true
-  kubectl delete cm synk-enabled 2> /dev/null || true
-  kubectl -n kube-system delete deploy tiller-deploy 2> /dev/null || true
-  kubectl -n kube-system delete service tiller-deploy 2> /dev/null || true
-  kubectl -n kube-system delete cm -l OWNER=TILLER
+  cleanup_helm_data
+
+  cleanup_old_cert_manager
 
   # `helm fetch` neither lets us specify a target file, nor tells us which file it
   # wrote the chart to. Just fetch it manually.
   # `helm template` doesn't let us read a tarball from stdin, so we've to save
   # it to disk first as well.
   cert_manager_chart="$( mktemp -d)/cert-manager.tgz"
-  curl -o ${cert_manager_chart} https://kubernetes-charts.storage.googleapis.com/cert-manager-v0.5.2.tgz
+  cert_manager_version="v0.7.2"
+  curl -o ${cert_manager_chart} https://charts.jetstack.io/charts/cert-manager-${cert_manager_version}.tgz
+
+  kubectl apply -f https://raw.githubusercontent.com/jetstack/cert-manager/${cert_manager_version}/deploy/manifests/00-crds.yaml
 
   synkout=$(${HELM} template -n cert-manager --set rbac.create=false ${cert_manager_chart} \
     | ${SYNK} apply cert-manager -n default -f -) \
