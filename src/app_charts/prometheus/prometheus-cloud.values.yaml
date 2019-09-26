@@ -58,7 +58,7 @@ coreDns:
 kubelet:
   enabled: false
 
-# Throws a invalid namespace "kube-system" error during deployment
+# Throws an invalid namespace "kube-system" error during deployment
 kubeProxy:
   enabled: false
 
