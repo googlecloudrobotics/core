@@ -271,7 +271,7 @@ EOF
   # `helm template` doesn't let us read a tarball from stdin, so we've to save
   # it to disk first as well.
   cert_manager_chart="$( mktemp -d)/cert-manager.tgz"
-  cert_manager_version="v0.7.2"
+  cert_manager_version="v0.8.1"
   curl -o ${cert_manager_chart} https://charts.jetstack.io/charts/cert-manager-${cert_manager_version}.tgz
 
   kubectl apply -f https://raw.githubusercontent.com/jetstack/cert-manager/${cert_manager_version}/deploy/manifests/00-crds.yaml
