@@ -288,7 +288,7 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 	if !stringsContain(as.Finalizers, finalizer) {
 		as.Finalizers = append(as.Finalizers, finalizer)
 		if err := r.kube.Update(ctx, as); err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "add finalizer")
 		}
 	}
 
