@@ -204,8 +204,6 @@ function cleanup_old_cert_manager {
       certificates.certmanager.k8s.io \
       issuers.certmanager.k8s.io \
       clusterissuers.certmanager.k8s.io
-
-    kubectl label namespace default certmanager.k8s.io/disable-validation=true
   fi
 }
 
@@ -275,6 +273,7 @@ EOF
   curl -o ${cert_manager_chart} https://charts.jetstack.io/charts/cert-manager-${cert_manager_version}.tgz
 
   kubectl apply -f https://raw.githubusercontent.com/jetstack/cert-manager/${cert_manager_version}/deploy/manifests/00-crds.yaml
+  kubectl label --overwrite namespace default certmanager.k8s.io/disable-validation=true
 
   synkout=$(${HELM} template -n cert-manager --set rbac.create=false ${cert_manager_chart} \
     | ${SYNK} apply cert-manager -n default -f -) \
