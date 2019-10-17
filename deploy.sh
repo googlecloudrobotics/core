@@ -280,6 +280,10 @@ EOF
     || die "Synk failed for cert-manager: $synkout"
   echo "synk installed cert-manager to ${KUBE_CONTEXT}: $synkout"
 
+  # Wait for webhook installation to avoid the error:
+  #   the server is currently unable to handle the request
+  kubectl wait deployment cert-manager-webhook --for condition=Available
+
   synkout=$(${HELM} template -n base-cloud ${values} \
       ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz \
     | ${SYNK} apply base-cloud -n default -f -) \
