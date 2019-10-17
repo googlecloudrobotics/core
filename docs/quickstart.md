@@ -57,7 +57,8 @@ and 18.04) Linux.
     bash ./run-install.sh $PROJECT_ID
     ```
 
-The install script created a Kubernetes cluster using Google Kubernetes Engine and used Helm to install the Cloud Robotics Core components.
+The install script created a Kubernetes cluster using Google Kubernetes Engine
+and used [Synk][synk] to install the Cloud Robotics Core component helm charts.
 You can browse these components on the [Workloads dashboard][workloads].
 Alternatively, you can list them from the console on your workstation:
 
@@ -137,3 +138,4 @@ If you want to completely shut down the project, see [the Resource Manager docum
 [iam]: https://console.cloud.google.com/iam-admin/iam
 [undelete-service]: https://cloud.google.com/sdk/gcloud/reference/endpoints/services/undelete
 [shutting_down_projects]: https://cloud.google.com/resource-manager/docs/creating-managing-projects#shutting_down_projects
+[synk]: https://github.com/googlecloudrobotics/core/tree/master/src/go/cmd/synk/README.md
