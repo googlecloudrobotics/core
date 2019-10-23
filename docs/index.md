@@ -14,6 +14,7 @@ integrators, and operators. It enables:
 * [Quickstart](quickstart.md): Set up Cloud Robotics from binaries.
 * [Overview](overview.md): Develop a deeper understanding of Cloud Robotics.
 * Concepts
+    * Common: [Project configuration](concepts/config.md)
     * Layer 1: [Federation](concepts/federation.md)
     * Layer 2: [Application Management](concepts/app-management.md)
 * How-to guides
