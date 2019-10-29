@@ -109,7 +109,11 @@ function ask_yn {
   while true; do
     read -n 1 input
     if [[ -z "${input}" ]]; then
-      return "$( [[ ! "${default}" = "n" ]] )"
+      if [[ "${default}" = "n" ]]; then
+        return 1
+      else
+        return 0
+      fi
     fi
     echo
     if [[ "${input}" =~ y|Y ]]; then

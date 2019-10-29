@@ -282,7 +282,10 @@ EOF
 
   # Wait for webhook installation to avoid the error:
   #   the server is currently unable to handle the request
+  # The `sleep` is because it occasionally fails even after `kubectl wait`.
+  # TODO(rodrigoq): work out exactly what we need to wait for
   kubectl wait deployment cert-manager-webhook --for condition=Available
+  sleep 60
 
   synkout=$(${HELM} template -n base-cloud ${values} \
       ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz \
