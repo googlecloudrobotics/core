@@ -1,9 +1,12 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus-relay-client
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-relay-client
   template:
     metadata:
       labels:

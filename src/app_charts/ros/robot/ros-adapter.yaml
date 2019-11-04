@@ -1,10 +1,14 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
   name: ros-adapter-{{ .Values.robot.name }}
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      id: "{{ .Values.robot.name }}"
+      app: ros-adapter
   template:
     metadata:
       creationTimestamp: null
