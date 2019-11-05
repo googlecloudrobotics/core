@@ -3,6 +3,8 @@
 licenses(["notice"])
 
 # TODO(b/118419020): replace copies by upstream versions
+# this chart was downloaded by running:
+# curl -O https://kubernetes-charts.storage.googleapis.com/prometheus-operator-6.11.0.tgz
 
 exports_files(
     glob(["*.tgz"]),
