@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -172,12 +173,15 @@ func (s *Synk) Init() error {
 	return nil
 }
 
+// Delete removed the resources that are part of the ResourceSet specified by
+// 'name'.
 func (s *Synk) Delete(ctx context.Context, name string) error {
 	return s.client.Resource(resourceSetGVR).DeleteCollection(nil, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("name=%s", name),
 	})
 }
 
+// Apply installs or updates the given ResourceSet specifies by 'name'.
 func (s *Synk) Apply(
 	ctx context.Context,
 	name string,
@@ -341,7 +345,7 @@ func (s *Synk) initialize(
 ) (*apps.ResourceSet, []*unstructured.Unstructured, error) {
 	// Cleanup and sort resources.
 	resources = filter(resources, func(r *unstructured.Unstructured) bool {
-		return !reflect.DeepEqual(*r, unstructured.Unstructured{})
+		return !reflect.DeepEqual(*r, unstructured.Unstructured{}) && !isTestResource(r)
 	})
 	sortResources(resources)
 
@@ -804,6 +808,13 @@ func (s *Synk) next(name string) (version int32, err error) {
 		}
 	}
 	return curVersion + 1, nil
+}
+
+// Filter for helm-hooks that mark test resources. See
+// https://github.com/googlecloudrobotics/core/issues/20
+func isTestResource(r *unstructured.Unstructured) bool {
+	hook, ok := r.GetAnnotations()["helm.sh/hook"]
+	return ok && strings.HasPrefix(hook, "test-")
 }
 
 func isCustomResourceDefinition(r *unstructured.Unstructured) bool {

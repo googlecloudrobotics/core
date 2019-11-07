@@ -329,6 +329,46 @@ data:
 	f.verifyWriteActions()
 }
 
+func TestSank_skipsTestResources(t *testing.T) {
+	s := newFixture(t).newSynk()
+
+	testPod := newUnstructured("v1", "Pod", "ns", "pod2")
+	testPod.SetAnnotations(map[string]string{"helm.sh/hook": "test-success"})
+
+	_, _, err := s.initialize(&ApplyOptions{name: "test"},
+		newUnstructured("v1", "Pod", "ns", "pod1"),
+		testPod,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.client.Resource(resourceSetGVR).Get("test.v1", metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want unstructured.Unstructured
+	unmarshalYAML(t, &want, `
+apiVersion: apps.cloudrobotics.com/v1alpha1
+kind: ResourceSet
+metadata:
+  labels:
+    name: test
+  name: test.v1
+spec:
+  resources:
+  - version: v1
+    kind: Pod
+    items:
+    - name: pod1
+      namespace: ns
+status:
+  phase: Pending
+`)
+	if !reflect.DeepEqual(want.Object["spec"], got.Object["spec"]) {
+		t.Errorf("expected spec\n%v\nbut got\n%v", want.Object["spec"], got.Object["spec"])
+	}
+}
+
 func TestSynk_deleteResourceSets(t *testing.T) {
 	f := newFixture(t)
 	f.addObjects(
