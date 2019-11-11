@@ -349,7 +349,7 @@ func (s *server) serverResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Client sent result for id %s", *br.Id)
+	log.Printf("Relay client sent response for id %s", *br.Id)
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte("ok"))
 }
