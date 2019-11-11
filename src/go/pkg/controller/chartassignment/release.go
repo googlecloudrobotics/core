@@ -201,6 +201,13 @@ func (r *release) setFailed(err error, retry bool) {
 }
 
 func (r *release) delete(as *apps.ChartAssignment) {
+	r.mtx.Lock()
+	currentPhase := r.status.phase
+	r.mtx.Unlock()
+	if currentPhase == apps.ChartAssignmentPhaseDeleted {
+		return
+	}
+
 	r.setPhase(apps.ChartAssignmentPhaseDeleting)
 	r.recorder.Event(as, core.EventTypeNormal, "DeleteChart", "deleting chart")
 

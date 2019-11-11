@@ -314,14 +314,18 @@ func condition(b bool) core.ConditionStatus {
 }
 
 func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) error {
-	// Remove old status conditions.
-	// TODO: Should be removed eventually so LastTransitionTime of conditions is accurate.
-	as.Status.Conditions = nil
-
 	status, ok := r.releases.status(as.Name)
 	if !ok {
 		return nil
+	} else if status.phase == apps.ChartAssignmentPhaseDeleted {
+		// The assignment may have been garbage collected already, so
+		// don't try to update the status.
+		return nil
 	}
+
+	// Remove old status conditions.
+	// TODO: Should be removed eventually so LastTransitionTime of conditions is accurate.
+	as.Status.Conditions = nil
 
 	as.Status.ObservedGeneration = as.Generation
 	as.Status.Phase = status.phase
