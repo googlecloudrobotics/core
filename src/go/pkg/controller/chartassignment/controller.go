@@ -49,6 +49,10 @@ const (
 	// In-cluster hostname of tiller in a standard installation.
 	DefaultTillerHost = "tiller-deploy.kube-system.svc:44134"
 
+	// Allow the Service Account Controller some time to create the default
+	// SA in a new namespace.
+	defaultServiceAccountDeadline = time.Minute
+
 	fieldIndexNamespace = "spec.namespaceName"
 )
 
@@ -242,6 +246,10 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, ns *core.Namespac
 	var sa core.ServiceAccount
 	err = r.kube.Get(ctx, kclient.ObjectKey{Namespace: as.Spec.NamespaceName, Name: "default"}, &sa)
 	if err != nil {
+		if k8serrors.IsNotFound(err) && time.Since(ns.CreationTimestamp.Time) < defaultServiceAccountDeadline {
+			// The Service Account Controller hasn't created the default SA yet.
+			return nil
+		}
 		return fmt.Errorf("getting ServiceAccount \"%s:default\" failed: %s", as.Spec.NamespaceName, err)
 	}
 
