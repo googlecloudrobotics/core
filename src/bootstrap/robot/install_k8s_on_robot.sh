@@ -19,10 +19,11 @@
 # directly if one is only interested in getting the bare k8s cluster to run without doing the full
 # robot setup.
 
-# Kubernetes <=1.13 requires Docker 18.06 or earlier.
+# Kubernetes 1.16 requires Docker 18.09 or earlier.
+# TODO(rodrigoq): try updating
 DOCKER_VERSION="18.06.1"
 DOCKER_PACKAGE_VERSION="${DOCKER_VERSION}~ce~3-0~ubuntu"
-K8S_VERSION="1.12.7"
+K8S_VERSION="1.16.3"
 
 # The IP address of the host system on Docker's docker0 bridge network, along with the netmask for
 # the subnet. These are depended on in multiple places, including the allowed subnet in
@@ -251,9 +252,9 @@ function create_default_kubeadm_config {
   local temp_config
   temp_config=$(mktemp -t kubeadm.XXXXXXXX.yaml)
   cat > "${temp_config}" << "EOF"
-apiVersion: kubeadm.k8s.io/v1alpha3
+apiVersion: kubeadm.k8s.io/v1beta2
 kind: InitConfiguration
-apiEndpoint:
+localAPIEndpoint:
   # This should match `bind-address` from `apiServerExtraArgs` so that the
   # apiserver is reachable from the advertised IP.
   advertiseAddress: 192.168.9.1
@@ -282,17 +283,19 @@ nodeRegistration:
   # prevented workloads running on the same node as the apiserver etc.
   taints: []
 ---
-apiVersion: kubeadm.k8s.io/v1alpha3
+apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
-kubernetesVersion: v1.12.2
-apiServerExtraArgs:
-  # Bind to the docker interface to avoid problems when external interfaces
-  # (ethernet, Wi-Fi) drop out. This also prevents connections to the apiserver
-  # from outside the robot.
-  bind-address: 192.168.9.1
-controllerManagerExtraArgs:
-  # Bind to the docker interface to prevent connections from outside the robot.
-  bind-address: 192.168.9.1
+kubernetesVersion: v1.16.3
+apiServer:
+  extraArgs:
+    # Bind to the docker interface to avoid problems when external interfaces
+    # (ethernet, Wi-Fi) drop out. This also prevents connections to the apiserver
+    # from outside the robot.
+    bind-address: 192.168.9.1
+controllerManager:
+  extraArgs:
+    # Bind to the docker interface to prevent connections from outside the robot.
+    bind-address: 192.168.9.1
 ---
 apiVersion: kubeproxy.config.k8s.io/v1alpha1
 kind: KubeProxyConfiguration
