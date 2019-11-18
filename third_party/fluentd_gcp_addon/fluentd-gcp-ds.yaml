@@ -2,6 +2,7 @@
 # Copied from https://github.com/kubernetes/kubernetes/blob/f85649c6cd203263cead3098f7a11137852a9277/cluster/addons/fluentd-gcp/fluentd-gcp-ds.yaml
 # Modifications:
 # - changed namespace to `default`
+# - changed apiVersion to apps/v1
 # - removed `-q` to change log level to INFO
 # - removed all the default parameters
 # - removed liveness probe
@@ -13,7 +14,7 @@
 #
 # License: Apache 2.0
 # https://github.com/kubernetes/kubernetes/blob/master/LICENSE
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: fluentd-gcp-v2.0.10
@@ -22,6 +23,10 @@ metadata:
     k8s-app: fluentd-gcp
     version: v2.0.10
 spec:
+  selector:
+    matchLabels:
+      k8s-app: fluentd-gcp
+      version: v2.0.10
   template:
     metadata:
       labels:
