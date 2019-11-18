@@ -34,8 +34,8 @@ function check_distribution_is_supported {
     echo "ERROR: This script requires Ubuntu, but it detected $(lsb_release -is)." >&2
     return 1
   fi
-  if [[ ! "$(lsb_release -rs)" =~ ^1[468].04$ ]] ; then
-    echo "ERROR: This script only supports Ubuntu 14.04, 16.04, and 18.04, but it" >&2
+  if [[ ! "$(lsb_release -rs)" =~ ^1[68].04$ ]] ; then
+    echo "ERROR: This script only supports Ubuntu 16.04 and 18.04, but it" >&2
     echo "detected $(lsb_release -rs)." >&2
     return 1
   fi
@@ -104,20 +104,7 @@ function install_k8s_deps {
     sudo tee /etc/apt/sources.list.d/kubernetes.list >/dev/null \
       <<< "deb http://apt.kubernetes.io/ kubernetes-xenial main"
 
-    if [[ $(lsb_release -cs) = "trusty" ]]; then
-      add_apt_key https://cloud-robotics-packages.storage.googleapis.com/doc/gpg-public.key
-      sudo tee -a /etc/apt/sources.list.d/kubernetes.list >/dev/null \
-        <<<  "deb https://cloud-robotics-packages.storage.googleapis.com/ trusty main"
-    fi
-
     retry sudo apt-get update
-  fi
-
-  # If ubuntu version <= trusty (=14.04), use the backported packages from the packages
-  # repository (only required for kubelet and kubeadm, kubectl is compatible with trusty).
-  local version_postfix=""
-  if [[ $(lsb_release -cs) = "trusty" ]]; then
-    version_postfix="~ubuntu14.04.1"
   fi
 
   # Install or upgrade k8s binaries
@@ -125,10 +112,10 @@ function install_k8s_deps {
     apt_install "kubectl=${K8S_VERSION}-00"
   fi
   if ! kubelet --version 2>/dev/null | grep -qF "${K8S_VERSION}" ; then
-    apt_install "kubelet=${K8S_VERSION}-00${version_postfix}"
+    apt_install "kubelet=${K8S_VERSION}-00"
   fi
   if ! kubeadm version 2>/dev/null | grep -qF "${K8S_VERSION}" ; then
-    apt_install "kubeadm=${K8S_VERSION}-00${version_postfix}"
+    apt_install "kubeadm=${K8S_VERSION}-00"
 
     # Remove the local cluster, so that it can be safely (re)installed by
     # setup_cluster below.
@@ -163,11 +150,7 @@ EOF
 function restart_system_service {
   local service="$1"
 
-  if [[ $(lsb_release -cs) = "trusty" ]]; then
-    sudo restart "${service}"
-  else
-    sudo systemctl restart "${service}"
-  fi
+  sudo systemctl restart "${service}"
 }
 
 function setup_docker {
