@@ -319,10 +319,14 @@ func (s *Synk) applyAll(
 	// will never make Apply overall successful.
 	allTransient := true
 	numErrors := 0
+	var firstFailure *applyResult
 	for _, r := range results {
 		if r.err != nil {
 			if !IsTransientErr(r.err) {
 				allTransient = false
+			}
+			if firstFailure == nil {
+				firstFailure = r
 			}
 			numErrors++
 		}
@@ -330,7 +334,12 @@ func (s *Synk) applyAll(
 	if numErrors == 0 {
 		return results, nil
 	}
-	err = errors.Errorf("%d/%d resources failed to apply", numErrors, len(results))
+	err = fmt.Errorf("%d/%d resources failed to apply", numErrors, len(results))
+	if numErrors == 1 {
+		err = fmt.Errorf("%s: %s: %s", err, resourceKey(firstFailure.resource), firstFailure.err)
+	} else {
+		err = fmt.Errorf("%s, including %s: %s", err, resourceKey(firstFailure.resource), firstFailure.err)
+	}
 	if allTransient {
 		err = transientErr{err}
 	}

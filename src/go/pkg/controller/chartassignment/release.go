@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -279,6 +280,15 @@ func (r *release) updateSynk(as *apps.ChartAssignment) {
 	opts := &synk.ApplyOptions{
 		Namespace:        as.Spec.NamespaceName,
 		EnforceNamespace: true,
+		Log: func(r *unstructured.Unstructured, action apps.ResourceAction, status, msg string) {
+			if status == synk.StatusSuccess {
+				return
+			}
+			log.Printf("[%s] %s %s/%s %%s: %s\n",
+				strings.ToUpper(status), action,
+				r.GetAPIVersion(), r.GetKind(),
+				r.GetName(), msg)
+		},
 	}
 	_, err = r.synk.Apply(context.Background(), as.Name, opts, resources...)
 	if err != nil {
