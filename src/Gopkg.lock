@@ -2,7 +2,7 @@
 
 
 [[projects]]
-  digest = "1:2975858ac5c55c3cf132fe004a7de1ceb2a5a0813603dbecd8574168f6914b5b"
+  digest = "1:01bd00f2b7ce2244a8f278ee021dcde3e961c7d3189d838d7c14b5f151f0ab22"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
@@ -12,6 +12,9 @@
     "internal/trace",
     "internal/tracecontext",
     "internal/version",
+    "pubsub",
+    "pubsub/apiv1",
+    "pubsub/internal/distribution",
     "storage",
     "trace",
   ]
@@ -259,6 +262,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:e2b86e41f3d669fc36b50d31d32d22c8ac656c75aa5ea89717ce7177e134ff2a"
+  name = "github.com/golang/glog"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
+
+[[projects]]
+  branch = "master"
   digest = "1:b7cb6054d3dff43b38ad2e92492f220f57ae6087ee797dca298139776749ace8"
   name = "github.com/golang/groupcache"
   packages = ["lru"]
@@ -489,11 +500,13 @@
   revision = "42c35bdb11c20ff50bb14ef05750e8dcdfc75ea5"
 
 [[projects]]
-  digest = "1:450495ee4de4bf794a5c92db6530c9248227031a69beca1382454ca41b0f92ca"
+  digest = "1:ac6e658516a8b73fdf62b375a93445d4b768548774940dcedd112d5d30e37015"
   name = "github.com/onsi/gomega"
   packages = [
     ".",
     "format",
+    "gstruct",
+    "gstruct/errors",
     "internal/assertion",
     "internal/asyncassertion",
     "internal/oraclematcher",
@@ -793,7 +806,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:695d86b91c2afde47da9237527711dbabeb9a0ae271b9e235626d92af2db505a"
+  digest = "1:0f386f7aa2e964b53c3e3e00f1aaf8764f9afe528cc0c4fbb4a5c35e570a2dbe"
   name = "google.golang.org/api"
   packages = [
     "cloudresourcemanager/v1",
@@ -807,13 +820,15 @@
     "option",
     "storage/v1",
     "support/bundler",
+    "transport",
+    "transport/grpc",
     "transport/http",
   ]
   pruneopts = "NUT"
   revision = "7c8bab9c4f5dd00b2afd0648fa0d753a46a603e8"
 
 [[projects]]
-  digest = "1:b5aeceb800276be69165a745328380c8a4b6f2edc7a6bac112e22c8596ed8a49"
+  digest = "1:8a3a8e562c362acf2762a091627554f12d49c242dfe905cf7231c66cb5c66b6e"
   name = "google.golang.org/appengine"
   packages = [
     ".",
@@ -824,7 +839,9 @@
     "internal/log",
     "internal/modules",
     "internal/remote_api",
+    "internal/socket",
     "internal/urlfetch",
+    "socket",
     "urlfetch",
   ]
   pruneopts = "NUT"
@@ -847,7 +864,7 @@
   revision = "ff3583edef7de132f219f0efc00e097cabcc0ec0"
 
 [[projects]]
-  digest = "1:6bf78c43ce1ac3523e4923465454a82135eb9b3a4eb9356e1e75a36c416aeaa8"
+  digest = "1:3071448db32093f7f1c16efb94ddd66f0bbab7050d18257ee0c8aa3a506f2bd7"
   name = "google.golang.org/grpc"
   packages = [
     ".",
@@ -857,6 +874,7 @@
     "codes",
     "connectivity",
     "credentials",
+    "credentials/oauth",
     "encoding",
     "encoding/proto",
     "grpclog",
@@ -1382,6 +1400,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "cloud.google.com/go/pubsub",
     "cloud.google.com/go/storage",
     "cloud.google.com/go/trace",
     "github.com/cenkalti/backoff",
@@ -1389,6 +1408,7 @@
     "github.com/getlantern/httptest",
     "github.com/go-openapi/spec",
     "github.com/gogo/protobuf/proto",
+    "github.com/golang/glog",
     "github.com/golang/mock/gomock",
     "github.com/golang/protobuf/descriptor",
     "github.com/golang/protobuf/jsonpb",
@@ -1399,6 +1419,7 @@
     "github.com/jhump/protoreflect/dynamic",
     "github.com/motemen/go-loghttp",
     "github.com/onsi/gomega",
+    "github.com/onsi/gomega/gstruct",
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
@@ -1417,6 +1438,7 @@
     "golang.org/x/oauth2/jwt",
     "golang.org/x/sync/errgroup",
     "google.golang.org/api/cloudresourcemanager/v1",
+    "google.golang.org/api/iterator",
     "google.golang.org/api/option",
     "google.golang.org/genproto/googleapis/pubsub/v1",
     "google.golang.org/grpc",
@@ -1424,6 +1446,7 @@
     "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/status",
     "gopkg.in/h2non/gock.v1",
+    "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
     "k8s.io/api/rbac/v1",

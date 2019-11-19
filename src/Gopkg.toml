@@ -3,6 +3,10 @@
 # dependencies.
 #
 # Run `./dep.sh ensure` to generate WORKSPACE dependencies with the dep tool.
+
+# Required by grpc-gateway.
+required = ["github.com/golang/glog"]
+
 [prune]
   go-tests = true
   unused-packages = true

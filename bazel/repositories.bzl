@@ -25,11 +25,11 @@ def cloud_robotics_repositories():
     _maybe(
         http_archive,
         name = "com_google_protobuf",
-        sha256 = "f1748989842b46fa208b2a6e4e2785133cfcc3e4d43c17fecb023733f0f5443f",
-        strip_prefix = "protobuf-3.7.1",
+        sha256 = "e8c7601439dbd4489fe5069c33d374804990a56c2f710e00227ee5d8fd650e67",
+        strip_prefix = "protobuf-3.11.2",
         urls = [
-            "https://mirror.bazel.build/github.com/google/protobuf/archive/v3.7.1.tar.gz",
-            "https://github.com/google/protobuf/archive/v3.7.1.tar.gz",
+            "https://mirror.bazel.build/github.com/google/protobuf/archive/v3.11.2.tar.gz",
+            "https://github.com/google/protobuf/archive/v3.11.2.tar.gz",
         ],
     )
 
@@ -453,24 +453,6 @@ def cloud_robotics_repositories():
         ],
     )
 
-    # TODO(rodrigoq): remove after updating grpc-java and rules-go
-    _maybe(
-        http_archive,
-        name = "net_zlib",
-        build_file = "@cloud_robotics//third_party:zlib.BUILD",
-        sha256 = "6d4d6640ca3121620995ee255945161821218752b551a1a180f4215f7d124d45",
-        strip_prefix = "zlib-cacf7f1d4e3d44d871b605da3b647f07d718623f",
-        urls = [
-            "https://mirror.bazel.build/github.com/madler/zlib/archive/cacf7f1d4e3d44d871b605da3b647f07d718623f.tar.gz",
-            "https://github.com/madler/zlib/archive/cacf7f1d4e3d44d871b605da3b647f07d718623f.tar.gz",
-        ],
-    )
-
-    native.bind(
-        name = "zlib",
-        actual = "@net_zlib_zlib//:zlib",
-    )
-
     # bz2
     _maybe(
         http_archive,
@@ -591,39 +573,39 @@ cc_library(
     _maybe(
         http_archive,
         name = "io_bazel_rules_docker",
-        sha256 = "8375ff877a956560fc496dd458ff070bd6acf6983475b6c228f48cf40504c5e9",
-        strip_prefix = "rules_docker-b167423d6bcc0ee69e021432d8fc4ab7305b6649",
-        urls = ["https://github.com/bazelbuild/rules_docker/archive/b167423d6bcc0ee69e021432d8fc4ab7305b6649.tar.gz"],
+        # sha256 = "df13123c44b4a4ff2c2f337b906763879d94871d16411bf82dcfeba892b58607",
+        strip_prefix = "rules_docker-0.10.1",
+        urls = ["https://github.com/bazelbuild/rules_docker/archive/v0.10.1.tar.gz"],
     )
 
     # Go rules and proto support
     _maybe(
         http_archive,
         name = "io_bazel_rules_go",
-        sha256 = "a82a352bffae6bee4e95f68a8d80a70e87f42c4741e6a448bec11998fcc82329",
+        sha256 = "e88471aea3a3a4f19ec1310a55ba94772d087e9ce46e41ae38ecebe17935de7b",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/0.18.5/rules_go-0.18.5.tar.gz",
-            "https://github.com/bazelbuild/rules_go/releases/download/0.18.5/rules_go-0.18.5.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.20.3/rules_go-v0.20.3.tar.gz",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.20.3/rules_go-v0.20.3.tar.gz",
         ],
     )
 
     _maybe(
         http_archive,
         name = "bazel_gazelle",
-        sha256 = "960374b7977958b8626102d3512c7f4b1660d61b9668fea3d404ae9ca3d69083",
-        strip_prefix = "bazel-gazelle-0.17.0",
+        sha256 = "d987004a72697334a095bbaa18d615804a28280201a50ed6c234c40ccc41e493",
+        strip_prefix = "bazel-gazelle-0.19.1",
         urls = [
-            "https://github.com/bazelbuild/bazel-gazelle/archive/0.17.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-gazelle/archive/v0.19.1.tar.gz",
         ],
     )
 
     _maybe(
         http_archive,
         name = "com_github_bazelbuild_buildtools",
-        sha256 = "7525deb4d74e3aa4cb2b960da7d1c400257a324be4e497f75d265f2f508c518f",
-        strip_prefix = "buildtools-0.22.0",
+        sha256 = "f3ef44916e6be705ae862c0520bac6834dd2ff1d4ac7e5abc61fe9f12ce7a865",
+        strip_prefix = "buildtools-0.29.0",
         urls = [
-            "https://github.com/bazelbuild/buildtools/archive/0.22.0.tar.gz",
+            "https://github.com/bazelbuild/buildtools/archive/0.29.0.tar.gz",
         ],
     )
 

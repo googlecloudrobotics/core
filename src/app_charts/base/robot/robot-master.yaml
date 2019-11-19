@@ -29,7 +29,7 @@ spec:
         - name: webhook
           containerPort: 9876
         volumeMounts:
-        - mountPath: /home
+        - mountPath: /root
           name: home
         - mountPath: /tls
           name: tls
@@ -40,7 +40,7 @@ spec:
         image: {{ .Values.registry }}{{ .Values.images.robot_master }}
         command: ['/helm', 'init', '--client-only']
         volumeMounts:
-        - mountPath: /home
+        - mountPath: /root
           name: home
       volumes:
       - name: home

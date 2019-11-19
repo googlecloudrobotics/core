@@ -6,27 +6,22 @@ load("//bazel:repositories.bzl", "cloud_robotics_repositories")
 # gazelle:repo bazel_gazelle
 cloud_robotics_repositories()
 
-# These binds are required by com_google_protobuf.
-bind(
-    name = "zlib",
-    actual = "@net_zlib_zlib//:zlib",
-)
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
-bind(
-    name = "error_prone_annotations",
-    actual = "//external:jar/com/google/errorprone/error_prone_annotations",
-)
+protobuf_deps()
 
 # gRPC Java binding
 # If you update this, check if there are new versions of io.grpc:grpc-netty and
 # io.grpc:grpc-services on Maven, and update the versions in
 # maven_dependencies.yaml.
+# Note: we pin a commit shortly after 1.26, because our CI expects `bazel fetch
+# //...` to work.
 http_archive(
     name = "io_grpc_grpc_java",
-    sha256 = "553d1bdbde3ff4035747c184486bae2f084c75c3c4cdf5ef31a6aa48bdccaf9b",
-    strip_prefix = "grpc-java-1.20.0",
+    sha256 = "982e892c339364c83fbf95f17a7d9898594c35a23d9dea894a2d014834eb5da4",
+    strip_prefix = "grpc-java-274bf62e04f66fe9e0ffa4cac052a145e7c7b690",
     urls = [
-        "https://github.com/grpc/grpc-java/archive/v1.20.0.tar.gz",
+        "https://github.com/grpc/grpc-java/archive/274bf62e04f66fe9e0ffa4cac052a145e7c7b690.tar.gz",
     ],
 )
 
@@ -43,7 +38,6 @@ grpc_java_repositories(
     omit_com_google_guava = True,
     omit_com_google_j2objc_j2objc_annotations = True,
     omit_com_google_protobuf = True,
-    omit_com_google_protobuf_nano_protobuf_javanano = True,
     omit_com_google_truth_truth = True,
     omit_com_squareup_okhttp = True,
     omit_com_squareup_okio = True,
@@ -384,6 +378,12 @@ go_repository(
     build_file_proto_mode = "disable",
     commit = "1adfc126b41513cc696b209667c8656ea7aac67c",
     importpath = "github.com/gogo/protobuf",
+)
+
+go_repository(
+    name = "com_github_golang_glog",
+    commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",
+    importpath = "github.com/golang/glog",
 )
 
 go_repository(

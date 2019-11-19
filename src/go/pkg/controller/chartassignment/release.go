@@ -207,6 +207,7 @@ func (r *release) update(as *apps.ChartAssignment) {
 	r.setPhase(apps.ChartAssignmentPhaseLoadingChart)
 	resources, retry, err := loadAndExpandChart(as)
 	if err != nil {
+		r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
 		r.setFailed(err, retry)
 		return
 	}

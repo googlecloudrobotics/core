@@ -99,7 +99,7 @@ def repositories():
     _maybe(
         go_repository,
         name = "grpc_ecosystem_grpc_gateway",
-        commit = "79ff520b46091f8148bafeafd6e798826d6d47c2",
+        commit = "50c55a9810a974dc5a9e7dd1a5c0d295d525f283",
         importpath = "github.com/grpc-ecosystem/grpc-gateway",
     )
 

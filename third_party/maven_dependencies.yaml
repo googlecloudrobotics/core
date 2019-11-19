@@ -152,13 +152,13 @@ dependencies:
   io.grpc:
     grpc:
       lang: java
-      modules: [netty, services]
-      version: "1.20.0"
+      modules: [core, netty, services]
+      version: "1.26.0"
   io.opencensus:
     opencensus:
       lang: java
       modules: [api, contrib-grpc-metrics]
-      version: "0.18.0"
+      version: "0.21.0"
   io.prometheus:
     simpleclient:
       lang: java
