@@ -108,6 +108,17 @@ fi
 kubectl --context="${KUBE_CONTEXT}" delete validatingwebhookconfiguration \
   validating-webhook-configuration 2>/dev/null || true
 
+# Wait for creation of the default service account.
+# https://github.com/kubernetes/kubernetes/issues/66689
+i=0
+until kubectl --context="${KUBE_CONTEXT}" get serviceaccount default &>/dev/null; do
+  sleep 1
+  i=$((i + 1))
+  if ((i >= 60)) ; then
+    exit 1
+  fi
+done
+
 # Explicitly specify the context to not run this against the cloud cluster.
 kubectl --context="${KUBE_CONTEXT}" run setup-robot --restart=Never -i --rm \
   --image=${IMAGE_REFERENCE} \
