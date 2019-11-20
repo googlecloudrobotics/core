@@ -36,9 +36,10 @@ type ResourceSet struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ResourceSetList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ResourceSet
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []ResourceSet `json:"items"`
 }
 
 type ResourceSetSpec struct {
@@ -113,9 +114,10 @@ type App struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type AppList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []App
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []App `json:"items"`
 }
 
 type AppSpec struct {
@@ -150,9 +152,10 @@ type AppRollout struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type AppRolloutList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []AppRollout
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []AppRollout `json:"items"`
 }
 
 type AppRolloutSpec struct {
@@ -218,9 +221,10 @@ type ChartAssignment struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ChartAssignmentList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []ChartAssignment
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []ChartAssignment `json:"items"`
 }
 
 type ChartAssignmentSpec struct {
