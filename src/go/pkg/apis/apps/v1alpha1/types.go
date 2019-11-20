@@ -262,15 +262,27 @@ type ChartAssignmentPhase string
 const (
 	// Accepted is set once the controller has observed the CA and started
 	// taking action.
-	ChartAssignmentPhaseAccepted     ChartAssignmentPhase = "Accepted"
-	ChartAssignmentPhaseLoadingChart                      = "LoadingChart"
-	ChartAssignmentPhaseInstalling                        = "Installing"
-	ChartAssignmentPhaseUpdating                          = "Updating"
-	ChartAssignmentPhaseDeleting                          = "Deleting"
-	ChartAssignmentPhaseSettled                           = "Settled"
-	ChartAssignmentPhaseDeleted                           = "Deleted"
-	ChartAssignmentPhaseFailed                            = "Failed"
-	ChartAssignmentPhaseReady                             = "Ready"
+	ChartAssignmentPhaseAccepted ChartAssignmentPhase = "Accepted"
+	// LoadingChart marks the begin of parsing the chart and its metadata.
+	ChartAssignmentPhaseLoadingChart = "LoadingChart"
+	// TODO(ensonic): Installing is only used with 'helm'.
+	ChartAssignmentPhaseInstalling = "Installing"
+	// TODO(ensonic): Updating is only used with 'synk'.
+	ChartAssignmentPhaseUpdating = "Updating"
+	// Deleting is set when starting deletion to avoid flipping failure status
+	// during turndown.
+	ChartAssignmentPhaseDeleting = "Deleting"
+	// Settled status signals that all resources from the chart have been applied.
+	ChartAssignmentPhaseSettled = "Settled"
+	// Deleted is set when the deletion phase finished.
+	ChartAssignmentPhaseDeleted = "Deleted"
+	// Failed indicates that an error occured. The 'err' fields will give extra
+	// information and 'retry' will indicate if the controller is trying to
+	// recover from the error.
+	ChartAssignmentPhaseFailed = "Failed"
+	// Ready status is set when all pods are running.
+	// TODO(ensonic): check other resource readyness too?
+	ChartAssignmentPhaseReady = "Ready"
 )
 
 type ChartAssignmentCondition struct {
