@@ -31,9 +31,10 @@ type Robot struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type RobotList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
-	Items []Robot
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []Robot `json:"items"`
 }
 
 type RobotSpec struct {
