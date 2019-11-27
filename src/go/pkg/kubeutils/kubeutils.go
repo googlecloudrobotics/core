@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -146,9 +147,11 @@ func UpdateSecret(k8s *kubernetes.Clientset, name string, namespace string, secr
 				Name: name,
 			},
 		})
-	} else {
-		secret.Data = data
-		_, err = s.Update(secret)
+		return errors.Wrap(err, "create secret")
+	} else if err != nil {
+		return errors.Wrap(err, "get secret")
 	}
-	return err
+	secret.Data = data
+	_, err = s.Update(secret)
+	return errors.Wrap(err, "update secret")
 }
