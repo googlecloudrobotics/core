@@ -36,9 +36,6 @@ import (
 )
 
 var (
-	tillerHost = flag.String("tiller-host", chartassignment.DefaultTillerHost,
-		"Host of Tiller")
-
 	webhookEnabled = flag.Bool("webhook-enabled", true,
 		"Whether the webhook should be served")
 
@@ -47,9 +44,6 @@ var (
 
 	certDir = flag.String("cert-dir", "",
 		"Directory for TLS certificates")
-
-	useSynk = flag.Bool("use-synk", true,
-		"Install Helm charts with Synk")
 )
 
 func main() {
@@ -91,7 +85,7 @@ func setupAppV2(cfg *rest.Config, cluster string) error {
 	if err != nil {
 		return errors.Wrap(err, "create controller manager")
 	}
-	if err := chartassignment.Add(mgr, cluster, *tillerHost, *useSynk); err != nil {
+	if err := chartassignment.Add(mgr, cluster); err != nil {
 		return errors.Wrap(err, "add ChartAssignment controller")
 	}
 	if *webhookEnabled {

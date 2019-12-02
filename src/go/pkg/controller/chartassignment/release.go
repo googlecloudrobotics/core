@@ -26,7 +26,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gogo/protobuf/proto"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	"github.com/pkg/errors"
@@ -34,47 +33,40 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/rest"
-	record "k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/downloader"
 	"k8s.io/helm/pkg/getter"
-	hclient "k8s.io/helm/pkg/helm"
 	"k8s.io/helm/pkg/helm/helmpath"
 	"k8s.io/helm/pkg/proto/hapi/chart"
-	hrelease "k8s.io/helm/pkg/proto/hapi/release"
 	"k8s.io/helm/pkg/renderutil"
 	"k8s.io/helm/pkg/repo"
 )
 
 // releases is a cache of releases currently handled.
 type releases struct {
-	helm     hclient.Interface
 	recorder record.EventRecorder
 	synk     *synk.Synk
-	useSynk  bool
 
 	mtx sync.Mutex
 	m   map[string]*release
 }
 
-func newReleases(cfg *rest.Config, helm hclient.Interface, rec record.EventRecorder, useSynk bool) (*releases, error) {
+func newReleases(cfg *rest.Config, rec record.EventRecorder) (*releases, error) {
 	synk, err := synk.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 	return &releases{
-		helm:     helm,
 		recorder: rec,
 		m:        map[string]*release{},
 		synk:     synk,
-		useSynk:  useSynk,
 	}, nil
 }
 
-// release is a cache object which acts as a proxy for Helm releases.
+// release is a cache object which acts as a proxy for Synk ResourceSets.
 type release struct {
 	name       string
-	helm       hclient.Interface
 	synk       *synk.Synk
 	recorder   record.EventRecorder
 	actorc     chan func()
@@ -117,7 +109,6 @@ func (rs *releases) add(name string) *release {
 	}
 	r = &release{
 		name:     name,
-		helm:     rs.helm,
 		synk:     rs.synk,
 		recorder: rs.recorder,
 		actorc:   make(chan func()),
@@ -129,8 +120,8 @@ func (rs *releases) add(name string) *release {
 	return r
 }
 
-// ensureUpdated ensures that the ChartAssignment is installed as a Helm release
-// or Synk ResourceSet.
+// ensureUpdated ensures that the ChartAssignment is installed as a Synk
+// ResourceSet.
 // It returns true if it could initiate an update successfully.
 func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 	r := rs.add(as.Name)
@@ -139,23 +130,14 @@ func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 	// If the last generation we deployed matches the provided one, there's
 	// nothing to do. Unless the previous update set the retry flag due to
 	// a transient error.
-	// For a fresh release object, a first update will always happen as r.generatio
-	// is 0 and resource generations start at 1.
+	// For a fresh release object, a first update will always happen as
+	// r.generation is 0 and resource generations start at 1.
 	if r.generation == as.Generation && !status.retry {
 		return true
 	}
-	var started bool
-	if rs.useSynk {
-		started = r.start(func() {
-			r.deleteHelm(as) // Best effort deletion when switching.
-			r.updateSynk(as)
-		})
-	} else {
-		started = r.start(func() {
-			r.deleteSynk(as) // Best effort deletion when switching.
-			r.updateHelm(as)
-		})
-	}
+	started := r.start(func() {
+		r.updateSynk(as)
+	})
 	if started {
 		r.generation = as.Generation
 	}
@@ -212,14 +194,9 @@ func (r *release) delete(as *apps.ChartAssignment) {
 	r.setPhase(apps.ChartAssignmentPhaseDeleting)
 	r.recorder.Event(as, core.EventTypeNormal, "DeleteChart", "deleting chart")
 
-	err1 := r.deleteSynk(as)
-	err2 := r.deleteHelm(as)
-	if err1 == nil {
-		err1 = err2
-	}
-	if err1 != nil {
-		r.recorder.Event(as, core.EventTypeWarning, "Failure", err1.Error())
-		r.setFailed(errors.Wrap(err1, "delete release"), synk.IsTransientErr(err1))
+	if err := r.deleteSynk(as); err != nil {
+		r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
+		r.setFailed(errors.Wrap(err, "delete release"), synk.IsTransientErr(err))
 	}
 	r.recorder.Event(as, core.EventTypeNormal, "Success", "chart deleted successfully")
 	r.mtx.Lock()
@@ -233,17 +210,6 @@ func (r *release) delete(as *apps.ChartAssignment) {
 
 func (r *release) deleteSynk(as *apps.ChartAssignment) error {
 	return r.synk.Delete(context.Background(), as.Name)
-}
-
-func (r *release) deleteHelm(as *apps.ChartAssignment) error {
-	_, err := r.helm.DeleteRelease(as.Name,
-		hclient.DeletePurge(true),
-		hclient.DeleteTimeout(tillerTimeout),
-	)
-	if err != nil && !strings.Contains(err.Error(), "not found") {
-		return err
-	}
-	return nil
 }
 
 func (r *release) updateSynk(as *apps.ChartAssignment) {
@@ -303,107 +269,6 @@ func (r *release) updateSynk(as *apps.ChartAssignment) {
 	r.status.err = nil
 	r.status.retry = false
 	r.mtx.Unlock()
-}
-
-func (r *release) updateHelm(as *apps.ChartAssignment) {
-	r.setPhase(apps.ChartAssignmentPhaseLoadingChart)
-
-	chart, vals, err := loadChart(&as.Spec.Chart)
-	if err != nil {
-		r.setFailed(err, true)
-		return
-	}
-	deployErr := r.deploy(as, chart, vals)
-	// A deploy error may have been triggered before or after the new release
-	// revision was applied. The only way to find out is checking the most
-	// recent release contents.
-	// If the contents are up-to-date we consider the failure permanent, otherwise
-	// transient (e.g. due to Tiller connectivity issues).
-	// Some states we consider permanent may be recoverable through retries but
-	// only after some user intervention, e.g. when resources are conflicting.
-	// Similarly, some failures before updating release contents may be permanent
-	// but we hope to generally catch them early when loading the chart above.
-	rel, err := r.helm.ReleaseContent(as.Name)
-	if err != nil {
-		// Deployment didn't go through, return the deploy error.
-		if strings.Contains(err.Error(), "not found") {
-			r.setFailed(deployErr, true)
-			return
-		}
-		r.setFailed(err, true)
-		return
-	}
-	r.mtx.Lock()
-	r.status.revision = rel.Release.Version
-	r.status.description = rel.Release.Info.Description
-	r.mtx.Unlock()
-
-	if deployErr != nil {
-		r.setFailed(deployErr, !releaseEquals(rel.Release, chart, vals))
-		return
-	}
-	r.mtx.Lock()
-	r.status.phase = apps.ChartAssignmentPhaseSettled
-	r.status.err = nil
-	r.status.retry = false
-	r.mtx.Unlock()
-}
-
-func releaseEquals(r *hrelease.Release, c *chart.Chart, vals string) bool {
-	return proto.Equal(r.Chart, c) && r.Config.Raw == vals
-}
-
-func (r *release) deploy(as *apps.ChartAssignment, chart *chart.Chart, vals string) error {
-	_, err := r.helm.ReleaseContent(as.Name)
-	if err != nil {
-		if !strings.Contains(err.Error(), "not found") {
-			return errors.Wrap(err, "get release content")
-		}
-		// First instance of this release for the namespace.
-		r.setPhase(apps.ChartAssignmentPhaseInstalling)
-
-		r.recorder.Event(as, core.EventTypeNormal, "InstallChart", "installing chart for the first time")
-		_, err := r.helm.InstallReleaseFromChart(chart, as.Spec.NamespaceName,
-			hclient.ReleaseName(as.Name),
-			hclient.InstallTimeout(tillerTimeout),
-			hclient.ValueOverrides([]byte(vals)),
-		)
-		if err != nil {
-			r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
-			return errors.Wrap(err, "chart installation failed")
-		}
-		r.recorder.Event(as, core.EventTypeNormal, "Success", "chart installed successfully")
-		return nil
-	}
-	// Update to an existing release.
-	r.setPhase(apps.ChartAssignmentPhaseUpdating)
-	r.recorder.Event(as, core.EventTypeNormal, "UpgradeChart", "upgrade chart")
-	// Often upgrades only succeed when force is set to replace resources
-	// that cannot be updated, e.g. services.
-	// Upgrading with force set may result in obfuscated error messages.
-	// Try upgrading regularly first and retry with force on failure.
-	// Return the first error in any case.
-	_, err = r.helm.UpdateReleaseFromChart(as.Name, chart,
-		hclient.UpgradeTimeout(tillerTimeout),
-		hclient.UpdateValueOverrides([]byte(vals)),
-	)
-	if err != nil {
-		_, err2 := r.helm.UpdateReleaseFromChart(as.Name, chart,
-			hclient.UpgradeForce(true),
-			hclient.UpgradeTimeout(tillerTimeout),
-			hclient.UpdateValueOverrides([]byte(vals)),
-		)
-		// Original error was fixed by using force, clear it.
-		if err2 == nil {
-			err = nil
-		}
-	}
-	if err != nil {
-		r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
-		return errors.Wrap(err, "chart upgrade failed")
-	}
-	r.recorder.Event(as, core.EventTypeNormal, "Success", "chart upgraded successfully")
-	return nil
 }
 
 func loadChart(cspec *apps.AssignedChart) (*chart.Chart, string, error) {

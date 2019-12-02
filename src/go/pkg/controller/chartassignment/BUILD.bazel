@@ -12,7 +12,6 @@ go_library(
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
         "//src/go/pkg/gcr:go_default_library",
         "//src/go/pkg/synk:go_default_library",
-        "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
@@ -28,10 +27,8 @@ go_library(
         "@io_k8s_helm//pkg/chartutil:go_default_library",
         "@io_k8s_helm//pkg/downloader:go_default_library",
         "@io_k8s_helm//pkg/getter:go_default_library",
-        "@io_k8s_helm//pkg/helm:go_default_library",
         "@io_k8s_helm//pkg/helm/helmpath:go_default_library",
         "@io_k8s_helm//pkg/proto/hapi/chart:go_default_library",
-        "@io_k8s_helm//pkg/proto/hapi/release:go_default_library",
         "@io_k8s_helm//pkg/renderutil:go_default_library",
         "@io_k8s_helm//pkg/repo:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/client:go_default_library",
@@ -48,17 +45,11 @@ go_library(
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = [
-        "controller_test.go",
-        "release_test.go",
-    ],
+    srcs = ["controller_test.go"],
     embed = [":go_default_library"],
     visibility = ["//visibility:private"],
     deps = [
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
-        "@io_k8s_client_go//tools/record:go_default_library",
-        "@io_k8s_helm//pkg/chartutil:go_default_library",
-        "@io_k8s_helm//pkg/helm:go_default_library",
         "@io_k8s_sigs_yaml//:go_default_library",
     ],
 )

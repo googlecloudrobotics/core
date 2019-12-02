@@ -32,9 +32,8 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	record "k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	hclient "k8s.io/helm/pkg/helm"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -59,18 +58,14 @@ const (
 // Add adds a controller and validation webhook for the ChartAssignment resource type
 // to the manager and server.
 // Handled ChartAssignments are filtered by the provided cluster.
-func Add(mgr manager.Manager, cluster, tillerHost string, useSynk bool) error {
-	if tillerHost == "" {
-		tillerHost = DefaultTillerHost
-	}
+func Add(mgr manager.Manager, cluster string) error {
 	r := &Reconciler{
 		kube:     mgr.GetClient(),
-		helm:     hclient.NewClient(hclient.Host(tillerHost)),
 		recorder: mgr.GetEventRecorderFor("chartassignment-controller"),
 		cluster:  cluster,
 	}
 	var err error
-	r.releases, err = newReleases(mgr.GetConfig(), r.helm, r.recorder, useSynk)
+	r.releases, err = newReleases(mgr.GetConfig(), r.recorder)
 	if err != nil {
 		return err
 	}
@@ -134,16 +129,15 @@ func (r *Reconciler) enqueueForPod(m meta.Object, q workqueue.RateLimitingInterf
 // state consistent with the specification of a ChartAssignment.
 type Reconciler struct {
 	kube     kclient.Client
-	helm     hclient.Interface
 	recorder record.EventRecorder
 	cluster  string // Cluster for which to handle ChartAssignments.
 	releases *releases
 }
 
-// Reconcile creates and updates a Helm release for the given chart assignment.
-// It rolls back releases to the previous revision if an upgrade failed.
-// It continously requeues the ChartAssignment for reconciliation to monitor the
-// status of the Helm release.
+// Reconcile creates and updates a Synk ResourceSet for the given chart
+// assignment. It rolls back releases to the previous revision if an upgrade
+// failed. It continuously requeues the ChartAssignment for reconciliation to
+// monitor the status of the ResourceSet.
 func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) {
 	ctx := context.TODO()
 
@@ -166,14 +160,12 @@ func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 
 const (
 	// The finalizer that's applied to assignments to block their garbage collection
-	// until the Helm release is deleted.
+	// until the Synk ResourceSet is deleted.
 	finalizer = "helm.apps.cloudrobotics.com"
-	// Requeue interval when the underlying Helm release is not in a stable state yet.
+	// Requeue interval when the underlying Synk ResourceSet is not in a stable state yet.
 	requeueFast = 3 * time.Second
-	// Requeue interval after the underlying Helm release reached a stable state.
+	// Requeue interval after the underlying Synk ResourceSete reached a stable state.
 	requeueSlow = 3 * time.Minute
-	// Timeout seconds after which Tiller should abort any attempted release operations.
-	tillerTimeout = 600
 )
 
 func (r *Reconciler) ensureNamespace(ctx context.Context, as *apps.ChartAssignment) (*core.Namespace, error) {
@@ -269,7 +261,7 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, ns *core.Namespac
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (reconcile.Result, error) {
-	// If we are scheduled for deletion, delete the Helm release and drop our
+	// If we are scheduled for deletion, delete the Synk ResourceSet and drop our
 	// finalizer so garbage collection can continue.
 	if as.DeletionTimestamp != nil {
 		log.Printf("Ensure ChartAssignment %q cleanup", as.Name)
@@ -292,7 +284,7 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 		return reconcile.Result{}, fmt.Errorf("ensure service-account: %s", err)
 	}
 	// Ensure a finalizer on the ChartAssignment so we don't get deleted before
-	// we've properly deleted the associated Helm release.
+	// we've properly deleted the associated Synk ResourceSet.
 	if !stringsContain(as.Finalizers, finalizer) {
 		as.Finalizers = append(as.Finalizers, finalizer)
 		if err := r.kube.Update(ctx, as); err != nil {
@@ -374,7 +366,7 @@ func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) er
 	return r.kube.Status().Update(ctx, as)
 }
 
-// ensureDeleted ensures that the Helm release is deleted and the finalizer gets removed.
+// ensureDeleted ensures that the Synk ResourceSet is deleted and the finalizer gets removed.
 func (r *Reconciler) ensureDeleted(ctx context.Context, as *apps.ChartAssignment) error {
 	r.releases.ensureDeleted(as)
 	status, ok := r.releases.status(as.Name)
