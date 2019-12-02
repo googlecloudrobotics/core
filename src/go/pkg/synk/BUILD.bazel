@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["synk.go"],
+    srcs = [
+        "interface.go",
+        "synk.go",
+    ],
     importpath = "github.com/googlecloudrobotics/core/src/go/pkg/synk",
     visibility = ["//visibility:public"],
     deps = [

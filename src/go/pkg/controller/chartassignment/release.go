@@ -46,7 +46,7 @@ import (
 // releases is a cache of releases currently handled.
 type releases struct {
 	recorder record.EventRecorder
-	synk     *synk.Synk
+	synk     synk.Interface
 
 	mtx sync.Mutex
 	m   map[string]*release
@@ -67,7 +67,7 @@ func newReleases(cfg *rest.Config, rec record.EventRecorder) (*releases, error) 
 // release is a cache object which acts as a proxy for Synk ResourceSets.
 type release struct {
 	name       string
-	synk       *synk.Synk
+	synk       synk.Interface
 	recorder   record.EventRecorder
 	actorc     chan func()
 	generation int64 // last deployed generation.
