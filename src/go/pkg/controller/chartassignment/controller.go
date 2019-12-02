@@ -329,8 +329,6 @@ func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) er
 
 	as.Status.ObservedGeneration = as.Generation
 	as.Status.Phase = status.phase
-	as.Status.Helm.Revision = status.revision
-	as.Status.Helm.Description = status.description
 
 	if c := condition(status.phase == apps.ChartAssignmentPhaseSettled); status.err == nil {
 		setCondition(as, apps.ChartAssignmentConditionSettled, c, "")

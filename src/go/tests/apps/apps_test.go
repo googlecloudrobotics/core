@@ -115,11 +115,11 @@ spec:
 				return nil
 			}
 			// Chart should've been deployed exactly once.
-			if ca.Status.Helm.Revision == 1 {
+			if ca.Status.ObservedGeneration == 1 {
 				return nil
 			}
-			t.Logf("Phase: %s, Revision: %d", ca.Status.Phase, ca.Status.Helm.Revision)
-			return fmt.Errorf("revision != 1")
+			t.Logf("Phase: %s, Generation: %d", ca.Status.Phase, ca.Status.ObservedGeneration)
+			return fmt.Errorf("generation != 1")
 		},
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 60),
 	); err != nil {

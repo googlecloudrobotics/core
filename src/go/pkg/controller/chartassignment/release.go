@@ -77,11 +77,9 @@ type release struct {
 }
 
 type releaseStatus struct {
-	phase       apps.ChartAssignmentPhase
-	err         error  // last encountered error
-	retry       bool   // whether deployment should be retried.
-	revision    int32  // current Helm revision
-	description string // current Helm description
+	phase apps.ChartAssignmentPhase
+	err   error // last encountered error
+	retry bool  // whether deployment should be retried.
 }
 
 // status returns the current phase and error of the release. ok is false

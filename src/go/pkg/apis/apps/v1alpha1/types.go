@@ -253,12 +253,6 @@ type ChartAssignmentStatus struct {
 	ObservedGeneration int64                      `json:"observedGeneration,omitempty"`
 	Phase              ChartAssignmentPhase       `json:"phase,omitempty"`
 	Conditions         []ChartAssignmentCondition `json:"conditions,omitempty"`
-	Helm               ChartAssignmentStatusHelm  `json:"helm,omitempty"`
-}
-
-type ChartAssignmentStatusHelm struct {
-	Revision    int32  `json:"revision,omitempty"`
-	Description string `json:"description,omitempty"`
 }
 
 type ChartAssignmentPhase string
