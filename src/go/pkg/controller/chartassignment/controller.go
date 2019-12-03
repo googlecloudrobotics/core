@@ -45,9 +45,6 @@ import (
 )
 
 const (
-	// In-cluster hostname of tiller in a standard installation.
-	DefaultTillerHost = "tiller-deploy.kube-system.svc:44134"
-
 	// Allow the Service Account Controller some time to create the default
 	// SA in a new namespace.
 	defaultServiceAccountDeadline = time.Minute
