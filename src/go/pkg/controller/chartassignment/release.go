@@ -212,32 +212,12 @@ func (r *release) deleteSynk(as *apps.ChartAssignment) error {
 
 func (r *release) updateSynk(as *apps.ChartAssignment) {
 	r.setPhase(apps.ChartAssignmentPhaseLoadingChart)
+	resources, retry, err := loadAndExpandChart(as)
+	if err != nil {
+		r.setFailed(err, retry)
+		return
+	}
 
-	c, vals, err := loadChart(&as.Spec.Chart)
-	if err != nil {
-		r.setFailed(err, true)
-		return
-	}
-	// Expand chart.
-	manifests, err := renderutil.Render(c, &chart.Config{Raw: vals}, renderutil.Options{
-		ReleaseOptions: chartutil.ReleaseOptions{
-			Name:      as.Name,
-			Namespace: as.Spec.NamespaceName,
-			IsInstall: true,
-		},
-	})
-	if err != nil {
-		r.setFailed(errors.Wrap(err, "render chart"), false)
-		return
-	}
-	// TODO: consider giving the synk package first-class support for raw manifests
-	// so that their decoding errors are fully surfaced in the ResourceSet. Otherwise,
-	// common YAML errors will only be surfaced one-by-one, which is tedious to handle.
-	resources, err := decodeManifests(manifests)
-	if err != nil {
-		r.setFailed(err, false)
-		return
-	}
 	r.setPhase(apps.ChartAssignmentPhaseUpdating)
 	r.recorder.Event(as, core.EventTypeNormal, "UpdatChart", "update chart")
 
@@ -269,6 +249,32 @@ func (r *release) updateSynk(as *apps.ChartAssignment) {
 	r.mtx.Unlock()
 }
 
+func loadAndExpandChart(as *apps.ChartAssignment) ([]*unstructured.Unstructured, bool, error) {
+	c, values, err := loadChart(&as.Spec.Chart)
+	if err != nil {
+		return nil, true, err
+	}
+	// Expand chart.
+	manifests, err := renderutil.Render(c, &chart.Config{Raw: values}, renderutil.Options{
+		ReleaseOptions: chartutil.ReleaseOptions{
+			Name:      as.Name,
+			Namespace: as.Spec.NamespaceName,
+			IsInstall: true,
+		},
+	})
+	if err != nil {
+		return nil, false, errors.Wrap(err, "render chart")
+	}
+	// TODO: consider giving the synk package first-class support for raw manifests
+	// so that their decoding errors are fully surfaced in the ResourceSet. Otherwise,
+	// common YAML errors will only be surfaced one-by-one, which is tedious to handle.
+	res, err := decodeManifests(manifests)
+	if err != nil {
+		return nil, false, err
+	}
+	return res, false, nil
+}
+
 func loadChart(cspec *apps.AssignedChart) (*chart.Chart, string, error) {
 	var archive io.Reader
 	var err error
@@ -295,6 +301,7 @@ func loadChart(cspec *apps.AssignedChart) (*chart.Chart, string, error) {
 		return nil, "", errors.Wrap(err, "load chart requirements")
 	}
 
+	// TODO: handle empty c.Values, cspec.Values
 	// Build the full set of values including the default ones. Even though
 	// they are part of the chart, they are ignored if we don't provide
 	// them explicitly.

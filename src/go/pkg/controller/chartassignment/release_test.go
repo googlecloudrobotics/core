@@ -14,6 +14,13 @@ import (
 	"k8s.io/helm/pkg/chartutil"
 )
 
+const (
+	ChartYaml = `
+name: testchart
+version: 2.1.0
+`
+)
+
 func writeFile(t *testing.T, fn string, s string) {
 	t.Helper()
 	if err := ioutil.WriteFile(fn, []byte(strings.TrimSpace(s)), 0666); err != nil {
@@ -57,15 +64,6 @@ func verifyValues(t *testing.T, have string, wantValues chartutil.Values) {
 }
 
 func Test_loadChart_mergesValues(t *testing.T) {
-	chart := buildInlineChart(t, `
-name: testchart
-version: 2.1.0
-	`, `
-foo1:
-  baz1: "hello"
-bar1: 3
-	`)
-
 	var as apps.ChartAssignment
 	unmarshalYAML(t, &as, `
 metadata:
@@ -77,7 +75,11 @@ spec:
       bar2:
         baz2: test
 	`)
-	as.Spec.Chart.Inline = chart
+	as.Spec.Chart.Inline = buildInlineChart(t, ChartYaml, `
+foo1:
+  baz1: "hello"
+bar1: 3
+	`)
 	wantValues := chartutil.Values{
 		"bar1": 4,
 		"bar2": chartutil.Values{"baz2": "test"},
@@ -91,18 +93,29 @@ spec:
 	verifyValues(t, vals, wantValues)
 }
 
+func Test_loadChartWithoutTemplates_returnsZeroManifests(t *testing.T) {
+	var as apps.ChartAssignment
+	unmarshalYAML(t, &as, `
+metadata:
+  name: test-assignment-1
+spec:
+  chart:
+    values:
+	`)
+	as.Spec.Chart.Inline = buildInlineChart(t, ChartYaml, `foo: 1`)
+	resources, _, err := loadAndExpandChart(&as)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resources) > 0 {
+		t.Errorf("Expected no resources, got %d", len(resources))
+	}
+
+}
+
 func Test_updateSynk_callsApply(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
-	chart := buildInlineChart(t, `
-name: testchart
-version: 2.1.0
-	`, `
-foo1:
-  baz1: "hello"
-bar1: 3
-	`)
 
 	var as apps.ChartAssignment
 	unmarshalYAML(t, &as, `
@@ -111,11 +124,8 @@ metadata:
 spec:
   chart:
     values:
-      bar1: 4
-      bar2:
-        baz2: test
 	`)
-	as.Spec.Chart.Inline = chart
+	as.Spec.Chart.Inline = buildInlineChart(t, ChartYaml, `foo: 1`)
 
 	mockSynk := NewMockInterface(ctrl)
 	r := &release{
@@ -134,15 +144,6 @@ func Test_deleteSynk_callsDelete(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	chart := buildInlineChart(t, `
-name: testchart
-version: 2.1.0
-	`, `
-foo1:
-  baz1: "hello"
-bar1: 3
-	`)
-
 	var as apps.ChartAssignment
 	unmarshalYAML(t, &as, `
 metadata:
@@ -150,11 +151,8 @@ metadata:
 spec:
   chart:
     values:
-      bar1: 4
-      bar2:
-        baz2: test
 	`)
-	as.Spec.Chart.Inline = chart
+	as.Spec.Chart.Inline = buildInlineChart(t, ChartYaml, `foo: 1`)
 
 	mockSynk := NewMockInterface(ctrl)
 	r := &release{
