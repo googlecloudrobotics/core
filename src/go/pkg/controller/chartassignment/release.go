@@ -133,9 +133,7 @@ func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 	if r.generation == as.Generation && !status.retry {
 		return true
 	}
-	started := r.start(func() {
-		r.updateSynk(as)
-	})
+	started := r.start(func() { r.updateSynk(as) })
 	if started {
 		r.generation = as.Generation
 	}
@@ -143,7 +141,7 @@ func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 }
 
 // ensureDeleted ensures that deletion of the release is run.
-// It returns true if it could intiiate deletion successfully.
+// It returns true if it could initiate deletion successfully.
 func (rs *releases) ensureDeleted(as *apps.ChartAssignment) bool {
 	r := rs.add(as.Name)
 	return r.start(func() { r.delete(as) })
@@ -170,6 +168,8 @@ func (r *release) start(f func()) bool {
 func (r *release) setPhase(p apps.ChartAssignmentPhase) {
 	r.mtx.Lock()
 	r.status.phase = p
+	r.status.err = nil
+	r.status.retry = false
 	r.mtx.Unlock()
 }
 
@@ -197,10 +197,7 @@ func (r *release) delete(as *apps.ChartAssignment) {
 		r.setFailed(errors.Wrap(err, "delete release"), synk.IsTransientErr(err))
 	}
 	r.recorder.Event(as, core.EventTypeNormal, "Success", "chart deleted successfully")
-	r.mtx.Lock()
-	r.status.err = nil
-	r.status.phase = apps.ChartAssignmentPhaseDeleted
-	r.mtx.Unlock()
+	r.setPhase(apps.ChartAssignmentPhaseDeleted)
 	// Reset last deployed generation to 0 as the ChartAssignment will be deleted
 	// and its generation start at 1 again if it is re-created.
 	r.generation = 0
@@ -219,7 +216,7 @@ func (r *release) updateSynk(as *apps.ChartAssignment) {
 	}
 
 	r.setPhase(apps.ChartAssignmentPhaseUpdating)
-	r.recorder.Event(as, core.EventTypeNormal, "UpdatChart", "update chart")
+	r.recorder.Event(as, core.EventTypeNormal, "UpdateChart", "update chart")
 
 	opts := &synk.ApplyOptions{
 		Namespace:        as.Spec.NamespaceName,
@@ -240,13 +237,8 @@ func (r *release) updateSynk(as *apps.ChartAssignment) {
 		r.setFailed(err, synk.IsTransientErr(err))
 		return
 	}
-	r.recorder.Event(as, core.EventTypeNormal, "Success", "chart upgraded successfully")
-
-	r.mtx.Lock()
-	r.status.phase = apps.ChartAssignmentPhaseSettled
-	r.status.err = nil
-	r.status.retry = false
-	r.mtx.Unlock()
+	r.recorder.Event(as, core.EventTypeNormal, "Success", "chart updated successfully")
+	r.setPhase(apps.ChartAssignmentPhaseSettled)
 }
 
 func loadAndExpandChart(as *apps.ChartAssignment) ([]*unstructured.Unstructured, bool, error) {
