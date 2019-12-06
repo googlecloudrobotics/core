@@ -137,7 +137,7 @@ spec:
 	mockSynk.EXPECT().Apply(gomock.Any(), "test-assignment-1", gomock.Any(), gomock.Any()).Return(rs, nil).Times(1)
 
 	// First apply, the chart should be installed.
-	r.updateSynk(&as)
+	r.update(&as)
 }
 
 func Test_deleteSynk_callsDelete(t *testing.T) {
@@ -163,5 +163,5 @@ spec:
 	mockSynk.EXPECT().Delete(gomock.Any(), "test-assignment-1").Return(nil).Times(1)
 
 	// First apply, the chart should be installed.
-	r.deleteSynk(&as)
+	r.delete(&as)
 }

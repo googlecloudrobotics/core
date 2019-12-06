@@ -133,7 +133,7 @@ func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 	if r.generation == as.Generation && !status.retry {
 		return true
 	}
-	started := r.start(func() { r.updateSynk(as) })
+	started := r.start(func() { r.update(as) })
 	if started {
 		r.generation = as.Generation
 	}
@@ -192,7 +192,7 @@ func (r *release) delete(as *apps.ChartAssignment) {
 	r.setPhase(apps.ChartAssignmentPhaseDeleting)
 	r.recorder.Event(as, core.EventTypeNormal, "DeleteChart", "deleting chart")
 
-	if err := r.deleteSynk(as); err != nil {
+	if err := r.synk.Delete(context.Background(), as.Name); err != nil {
 		r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
 		r.setFailed(errors.Wrap(err, "delete release"), synk.IsTransientErr(err))
 	}
@@ -203,11 +203,7 @@ func (r *release) delete(as *apps.ChartAssignment) {
 	r.generation = 0
 }
 
-func (r *release) deleteSynk(as *apps.ChartAssignment) error {
-	return r.synk.Delete(context.Background(), as.Name)
-}
-
-func (r *release) updateSynk(as *apps.ChartAssignment) {
+func (r *release) update(as *apps.ChartAssignment) {
 	r.setPhase(apps.ChartAssignmentPhaseLoadingChart)
 	resources, retry, err := loadAndExpandChart(as)
 	if err != nil {
