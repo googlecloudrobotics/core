@@ -296,7 +296,7 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 	}
 	// Quickly requeue for status updates when deployment is in progress.
 	switch as.Status.Phase {
-	case apps.ChartAssignmentPhaseSettled, apps.ChartAssignmentPhaseFailed:
+	case apps.ChartAssignmentPhaseReady, apps.ChartAssignmentPhaseFailed:
 		return reconcile.Result{Requeue: true, RequeueAfter: requeueSlow}, nil
 	}
 	return reconcile.Result{Requeue: true, RequeueAfter: requeueFast}, nil
