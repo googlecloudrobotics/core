@@ -23,11 +23,62 @@ import (
 	crcapps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubetest"
 	apps "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
 	robotClusterName = "robot"
+
+	inlineChartTemplate = `
+apiVersion: apps.cloudrobotics.com/v1alpha1
+kind: ChartAssignment
+metadata:
+  name: {{ .name }}
+  namespace: default
+spec:
+  clusterName: {{ .cluster }}
+  namespaceName: {{ .namespace }}
+  chart:
+    inline: "{{ .chart }}"`
+	goodDeployment = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+      - name: test
+        image: "gcr.io/google-containers/busybox:latest"
+        args: ["sleep", "999999999"]`
+	deploymentWithBadLabels = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: this-label-does-not-match
+    spec:
+      containers:
+      - name: test
+        image: "gcr.io/google-containers/busybox:latest"
+        args: ["sleep", "999999999"]`
 )
 
 func TestAll(t *testing.T) {
@@ -60,6 +111,9 @@ func TestAll(t *testing.T) {
 
 	env.Run(
 		testCreateChartAssignment_WithChartReference_Works,
+		testCreateChartAssignment_WithInlineChart_BecomesReady,
+		testCreateChartAssignment_WithBadDeployment_BecomesFailed,
+		testUpdateChartAssignment_WithFixedDeployment_BecomesReady,
 	)
 }
 
@@ -112,5 +166,104 @@ spec:
 	// Chart should've been deployed exactly once.
 	if want, got := int64(1), ca.Status.ObservedGeneration; want != got {
 		t.Errorf("want ca.Status.ObservedGeneration == %d, got %d", want, got)
+	}
+}
+
+func testCreateChartAssignment_WithInlineChart_BecomesReady(t *testing.T, f *kubetest.Fixture) {
+	robot := f.Client(robotClusterName)
+
+	data := map[string]string{
+		"cluster":   robotClusterName,
+		"name":      f.Uniq("example"),
+		"namespace": f.Uniq("ns"),
+		"chart":     f.ToInline("example", goodDeployment),
+	}
+	var ca crcapps.ChartAssignment
+	f.FromYAML(inlineChartTemplate, data, &ca)
+
+	if err := robot.Create(f.Ctx(), &ca); err != nil {
+		t.Fatalf("create ChartAssignment: %s", err)
+	}
+
+	if err := backoff.Retry(
+		f.ChartAssignmentHasStatus(&ca, crcapps.ChartAssignmentPhaseReady),
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 60),
+	); err != nil {
+		t.Fatalf("wait for chart assignment ready: %s", err)
+	}
+}
+
+func testCreateChartAssignment_WithBadDeployment_BecomesFailed(t *testing.T, f *kubetest.Fixture) {
+	robot := f.Client(robotClusterName)
+
+	data := map[string]string{
+		"cluster":   robotClusterName,
+		"name":      f.Uniq("example"),
+		"namespace": f.Uniq("ns"),
+		"chart":     f.ToInline("example", deploymentWithBadLabels),
+	}
+	var ca crcapps.ChartAssignment
+	f.FromYAML(inlineChartTemplate, data, &ca)
+
+	if err := robot.Create(f.Ctx(), &ca); err != nil {
+		t.Fatalf("create ChartAssignment: %s", err)
+	}
+
+	if err := backoff.Retry(
+		f.ChartAssignmentHasStatus(&ca, crcapps.ChartAssignmentPhaseFailed),
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 60),
+	); err != nil {
+		t.Fatalf("wait for chart assignment to fail: %s", err)
+	}
+}
+
+func testUpdateChartAssignment_WithFixedDeployment_BecomesReady(t *testing.T, f *kubetest.Fixture) {
+	robot := f.Client(robotClusterName)
+
+	// First, create a bad ChartAssignment and wait for it to fail.
+	data := map[string]string{
+		"cluster":   robotClusterName,
+		"name":      f.Uniq("example"),
+		"namespace": f.Uniq("ns"),
+		"chart":     f.ToInline("example", deploymentWithBadLabels),
+	}
+	var ca crcapps.ChartAssignment
+	f.FromYAML(inlineChartTemplate, data, &ca)
+
+	if err := robot.Create(f.Ctx(), &ca); err != nil {
+		t.Fatalf("create ChartAssignment: %s", err)
+	}
+
+	if err := backoff.Retry(
+		f.ChartAssignmentHasStatus(&ca, crcapps.ChartAssignmentPhaseFailed),
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 60),
+	); err != nil {
+		t.Fatalf("wait for chart assignment to fail: %s", err)
+	}
+
+	// Next, fix the ChartAssignment and wait for it to become ready. We have
+	// to retry the read-modify-write in case the controller updates the status
+	// in parallel.
+	if err := backoff.Retry(func() error {
+		if err := robot.Get(f.Ctx(), f.ObjectKey(&ca), &ca); err != nil {
+			return backoff.Permanent(err)
+		}
+		ca.Spec.Chart.Inline = f.ToInline("example", goodDeployment)
+		if err := robot.Update(f.Ctx(), &ca); apierrors.IsConflict(err) {
+			return err
+		} else if err != nil {
+			return backoff.Permanent(err)
+		}
+		return nil
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 60),
+	); err != nil {
+		t.Fatalf("update ChartAssignment: %s %s", apierrors.ReasonForError(err), err)
+	}
+
+	if err := backoff.Retry(
+		f.ChartAssignmentHasStatus(&ca, crcapps.ChartAssignmentPhaseReady),
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 60),
+	); err != nil {
+		t.Fatalf("wait for chart assignment to go from Failed to Ready: %s", err)
 	}
 }

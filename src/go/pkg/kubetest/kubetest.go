@@ -17,9 +17,13 @@
 package kubetest
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -286,6 +290,41 @@ func (f *Fixture) FromYAML(tmpl string, vals, dst interface{}) {
 	if err := yaml.Unmarshal(bytes.TrimSpace(buf.Bytes()), dst); err != nil {
 		f.t.Fatal(err)
 	}
+}
+
+// ToInline creates an inline chart string with the given name and template.
+// It doesn't support chart values.
+func (f *Fixture) ToInline(name, tmpl string) string {
+	f.t.Helper()
+
+	chartData := fmt.Sprintf(`{name: %q, version: "0.0.1"}`, name)
+
+	var encoded bytes.Buffer
+	bw := base64.NewEncoder(base64.StdEncoding, &encoded)
+	zw := gzip.NewWriter(bw)
+	tw := tar.NewWriter(zw)
+	if err := addFileToTar(tw, name+"/Chart.yaml", chartData); err != nil {
+		f.t.Fatalf("Failed to add Chart.yaml to tarball: %s", err)
+	}
+	addFileToTar(tw, name+"/values.yaml", "")
+	addFileToTar(tw, name+"/templates/template.yaml", tmpl)
+	tw.Close()
+	zw.Close()
+	bw.Close()
+	return encoded.String()
+}
+
+func addFileToTar(tw *tar.Writer, path, content string) error {
+	if err := tw.WriteHeader(&tar.Header{
+		Name: path,
+		Size: int64(len(content)),
+	}); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(tw, content); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Client returns a new client for the cluster.
