@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
 	"io/ioutil"
 	"log"
 	"os"
@@ -29,9 +28,11 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"text/template"
 	"time"
 
 	"github.com/cenkalti/backoff"
+	crcapps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -219,6 +220,7 @@ func (e *Environment) Run(tests ...TestFunc) {
 					t.Errorf("panic: %s", err)
 				}
 			}()
+			f.t = t
 			f.testFn(t, f)
 		})
 	}
@@ -243,7 +245,6 @@ type Fixture struct {
 func (env *Environment) New(testFn TestFunc) *Fixture {
 	return &Fixture{
 		name:   runtime.FuncForPC(reflect.ValueOf(testFn).Pointer()).Name(),
-		t:      env.t,
 		testFn: testFn,
 		env:    env,
 	}
@@ -393,8 +394,8 @@ func setupCluster(synkPath string, cluster *cluster) error {
 		}
 	}
 
-	// Install Tiller. We wait for all node taints to be removed (e.g. NotReady)
-	// so Tiller doesn't fail permanently (see b/128660997).
+	// Wait for a node to be ready, by checking for node taints (incl. NotReady)
+	// (context: b/128660997)
 	if err := backoff.Retry(
 		func() error {
 			var nds core.NodeList
@@ -408,7 +409,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 			}
 			return fmt.Errorf("taints not removed")
 		},
-		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 120),
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 240),
 	); err != nil {
 		return errors.Wrap(err, "wait for node taints to be removed")
 	}
@@ -439,4 +440,21 @@ func DeploymentReady(ctx context.Context, c client.Client, namespace, name strin
 		return fmt.Errorf("Replicas not ready")
 	}
 	return nil
+}
+
+// ChartAssignmentHasStatus returns a condition func that checks if a given
+// ChartAssignment has the expected status. Calls to the condition func update
+// the ChartAssignment in place.
+func (f *Fixture) ChartAssignmentHasStatus(ca *crcapps.ChartAssignment, expected crcapps.ChartAssignmentPhase) func() error {
+	client := f.Client(ca.Spec.ClusterName)
+	return func() error {
+		if err := client.Get(f.Ctx(), f.ObjectKey(ca), ca); err != nil {
+			return backoff.Permanent(err)
+		}
+		if ca.Status.Phase != expected {
+			f.t.Logf("Status: %+v", ca.Status)
+			return fmt.Errorf("chart status != %s", expected)
+		}
+		return nil
+	}
 }
