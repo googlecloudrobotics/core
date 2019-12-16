@@ -176,7 +176,7 @@ func testCreateChartAssignment_WithInlineChart_BecomesReady(t *testing.T, f *kub
 		"cluster":   robotClusterName,
 		"name":      f.Uniq("example"),
 		"namespace": f.Uniq("ns"),
-		"chart":     f.ToInline("example", goodDeployment),
+		"chart":     kubetest.BuildInlineChart(t, "example", goodDeployment /*values=*/, ""),
 	}
 	var ca crcapps.ChartAssignment
 	f.FromYAML(inlineChartTemplate, data, &ca)
@@ -200,7 +200,7 @@ func testCreateChartAssignment_WithBadDeployment_BecomesFailed(t *testing.T, f *
 		"cluster":   robotClusterName,
 		"name":      f.Uniq("example"),
 		"namespace": f.Uniq("ns"),
-		"chart":     f.ToInline("example", deploymentWithBadLabels),
+		"chart":     kubetest.BuildInlineChart(t, "example", deploymentWithBadLabels /*values=*/, ""),
 	}
 	var ca crcapps.ChartAssignment
 	f.FromYAML(inlineChartTemplate, data, &ca)
@@ -225,7 +225,7 @@ func testUpdateChartAssignment_WithFixedDeployment_BecomesReady(t *testing.T, f 
 		"cluster":   robotClusterName,
 		"name":      f.Uniq("example"),
 		"namespace": f.Uniq("ns"),
-		"chart":     f.ToInline("example", deploymentWithBadLabels),
+		"chart":     kubetest.BuildInlineChart(t, "example", deploymentWithBadLabels /*values=*/, ""),
 	}
 	var ca crcapps.ChartAssignment
 	f.FromYAML(inlineChartTemplate, data, &ca)
@@ -248,7 +248,7 @@ func testUpdateChartAssignment_WithFixedDeployment_BecomesReady(t *testing.T, f 
 		if err := robot.Get(f.Ctx(), f.ObjectKey(&ca), &ca); err != nil {
 			return backoff.Permanent(err)
 		}
-		ca.Spec.Chart.Inline = f.ToInline("example", goodDeployment)
+		ca.Spec.Chart.Inline = kubetest.BuildInlineChart(t, "example", goodDeployment /*values=*/, "")
 		if err := robot.Update(f.Ctx(), &ca); apierrors.IsConflict(err) {
 			return err
 		} else if err != nil {

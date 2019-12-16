@@ -292,10 +292,10 @@ func (f *Fixture) FromYAML(tmpl string, vals, dst interface{}) {
 	}
 }
 
-// ToInline creates an inline chart string with the given name and template.
-// It doesn't support chart values.
-func (f *Fixture) ToInline(name, tmpl string) string {
-	f.t.Helper()
+// BuildInlineChart creates an inline chart string with the given name,
+// template and values.
+func BuildInlineChart(t *testing.T, name, tmpl, values string) string {
+	t.Helper()
 
 	chartData := fmt.Sprintf(`{name: %q, version: "0.0.1"}`, name)
 
@@ -304,10 +304,10 @@ func (f *Fixture) ToInline(name, tmpl string) string {
 	zw := gzip.NewWriter(bw)
 	tw := tar.NewWriter(zw)
 	if err := addFileToTar(tw, name+"/Chart.yaml", chartData); err != nil {
-		f.t.Fatalf("Failed to add Chart.yaml to tarball: %s", err)
+		t.Fatalf("Failed to add Chart.yaml to tarball: %s", err)
 	}
-	addFileToTar(tw, name+"/values.yaml", "")
 	addFileToTar(tw, name+"/templates/template.yaml", tmpl)
+	addFileToTar(tw, name+"/values.yaml", values)
 	tw.Close()
 	zw.Close()
 	bw.Close()
