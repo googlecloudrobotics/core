@@ -275,10 +275,10 @@ EOF
   kubectl apply -f https://raw.githubusercontent.com/jetstack/cert-manager/${cert_manager_version}/deploy/manifests/00-crds.yaml
   kubectl label --overwrite namespace default certmanager.k8s.io/disable-validation=true
 
-  synkout=$(${HELM} template -n cert-manager --set rbac.create=false ${cert_manager_chart} \
-    | ${SYNK} apply cert-manager -n default -f -) \
-    || die "Synk failed for cert-manager: $synkout"
-  echo "synk installed cert-manager to ${KUBE_CONTEXT}: $synkout"
+  echo "installing cert-manager to ${KUBE_CONTEXT}..."
+  ${HELM} template -n cert-manager --set rbac.create=false ${cert_manager_chart} \
+    | ${SYNK} apply cert-manager -n default -f - \
+    || die "Synk failed for cert-manager"
 
   # Wait for webhook installation to avoid the error:
   #   the server is currently unable to handle the request
@@ -287,17 +287,17 @@ EOF
   kubectl wait deployment cert-manager-webhook --for condition=Available
   sleep 60
 
-  synkout=$(${HELM} template -n base-cloud ${values} \
+  echo "installing base-cloud to ${KUBE_CONTEXT}..."
+  ${HELM} template -n base-cloud ${values} \
       ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz \
-    | ${SYNK} apply base-cloud -n default -f -) \
-    || die "Synk failed for base-cloud: $synkout"
-  echo "synk installed base-cloud to ${KUBE_CONTEXT}: $synkout"
+    | ${SYNK} apply base-cloud -n default -f - \
+    || die "Synk failed for base-cloud"
 
-  synkout=$(${HELM} template -n platform-apps-cloud ${values} \
+  echo "installing platform-apps-cloud to ${KUBE_CONTEXT}..."
+  ${HELM} template -n platform-apps-cloud ${values} \
       ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz \
-    | ${SYNK} apply platform-apps-cloud -n default -f -) \
-    || die "Synk failed for platform-apps-cloud: $synkout"
-  echo "synk installed base-cloud to ${KUBE_CONTEXT}: $synkout"
+    | ${SYNK} apply platform-apps-cloud -n default -f - \
+    || die "Synk failed for platform-apps-cloud"
 }
 
 # commands
