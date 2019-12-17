@@ -174,7 +174,7 @@ func (r *Reconciler) ensureNamespace(ctx context.Context, as *apps.ChartAssignme
 		return nil, fmt.Errorf("getting Namespace %q failed: %s", as.Spec.NamespaceName, err)
 	}
 	if ns.DeletionTimestamp != nil {
-		return nil, fmt.Errorf("namespace %q is marked for deletion, skipping", as.Spec.NamespaceName)
+		return nil, fmt.Errorf("namespace %q was marked for deletion at %s, skipping", as.Spec.NamespaceName, ns.DeletionTimestamp)
 	}
 
 	createNamespace := k8serrors.IsNotFound(err)
