@@ -43,6 +43,17 @@ prometheus:
               # If higher ingestion throughput is observed, this should be
               # adjusted linearly.
               storage: 60Gi
+    # Pick up user-created Alertmanager pods with app=alertmanager and a non-empty port.
+    additionalAlertManagerConfigs:
+    - kubernetes_sd_configs:
+        - role: service
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_label_app]
+        regex: kube-alertmanager
+        action: keep
 
 # etcd, scheduler, and controller-manager are managed by GKE and hidden.
 kubeEtcd:
