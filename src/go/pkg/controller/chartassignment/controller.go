@@ -320,10 +320,6 @@ func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) er
 		return nil
 	}
 
-	// Remove old status conditions.
-	// TODO: Should be removed eventually so LastTransitionTime of conditions is accurate.
-	as.Status.Conditions = nil
-
 	as.Status.ObservedGeneration = as.Generation
 	as.Status.Phase = status.phase
 
