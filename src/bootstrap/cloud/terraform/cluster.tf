@@ -1,20 +1,20 @@
 resource "google_container_cluster" "cloud-robotics" {
   name               = "cloud-robotics"
   location           = "${var.zone}"
-  min_master_version = "1.13"
+  min_master_version = "1.14"
   enable_legacy_abac = true
   depends_on         = ["google_project_service.container"]
 
   node_pool {
-    initial_node_count = 1
+    initial_node_count = 2
 
     autoscaling = {
-      min_node_count = 1
+      min_node_count = 2
       max_node_count = 10
     }
 
     node_config {
-      machine_type = "n1-standard-8"
+      machine_type = "n1-standard-4"
 
       oauth_scopes = [
         "https://www.googleapis.com/auth/bigquery",
