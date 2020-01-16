@@ -573,7 +573,7 @@ cc_library(
     _maybe(
         http_archive,
         name = "io_bazel_rules_docker",
-        # sha256 = "df13123c44b4a4ff2c2f337b906763879d94871d16411bf82dcfeba892b58607",
+        sha256 = "9ff889216e28c918811b77999257d4ac001c26c1f7c7fb17a79bc28abf74182e",
         strip_prefix = "rules_docker-0.10.1",
         urls = ["https://github.com/bazelbuild/rules_docker/archive/v0.10.1.tar.gz"],
     )
