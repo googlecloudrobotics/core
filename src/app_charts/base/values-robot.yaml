@@ -7,6 +7,9 @@ registry: "gcr.io/my-gcp-project"
 # Setting app_management to "false" will remove layer 2 (robot/cloud-master, etc).
 app_management: "true"
 
+# Setting cr_syncer to "false" will remove the cr-syncer.
+cr_syncer: "true"
+
 # Setting robot_authentication to "false" will remove layer 1 resources that are not
 # needed when simulating a robot with a GKE cluster, such as the
 # metadata-server or gcr-credential-refresher.
