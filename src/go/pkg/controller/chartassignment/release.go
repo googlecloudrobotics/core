@@ -222,7 +222,7 @@ func (r *release) update(as *apps.ChartAssignment) {
 			if status == synk.StatusSuccess {
 				return
 			}
-			log.Printf("[%s] %s %s/%s %%s: %s\n",
+			log.Printf("[%s] %s %s/%s %s: %s\n",
 				strings.ToUpper(status), action,
 				r.GetAPIVersion(), r.GetKind(),
 				r.GetName(), msg)

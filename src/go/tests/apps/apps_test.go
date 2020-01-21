@@ -132,7 +132,7 @@ spec:
   chart:
     repository: https://kubernetes-charts.storage.googleapis.com/
     name: oauth2-proxy
-    version: 0.10.0
+    version: 2.0.0
     values:
       fullnameOverride: test
 `

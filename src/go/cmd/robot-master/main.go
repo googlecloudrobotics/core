@@ -79,8 +79,9 @@ func setupAppV2(cfg *rest.Config, cluster string) error {
 	apps.AddToScheme(sc)
 
 	mgr, err := manager.New(cfg, manager.Options{
-		Scheme: sc,
-		Port:   *webhookPort,
+		Scheme:             sc,
+		Port:               *webhookPort,
+		MetricsBindAddress: "0", // disabled
 	})
 	if err != nil {
 		return errors.Wrap(err, "create controller manager")

@@ -50,9 +50,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	kinddefaults "sigs.k8s.io/kind/pkg/apis/config/defaults"
+	kindconfig "sigs.k8s.io/kind/pkg/apis/config/v1alpha3"
 	kindcluster "sigs.k8s.io/kind/pkg/cluster"
-	kindconfig "sigs.k8s.io/kind/pkg/cluster/config"
-	kinddefaults "sigs.k8s.io/kind/pkg/cluster/config/defaults"
 	"sigs.k8s.io/yaml"
 )
 
@@ -80,10 +80,11 @@ type ClusterConfig struct {
 }
 
 type cluster struct {
-	genName string
-	cfg     ClusterConfig
-	ctx     *kindcluster.Context
-	restCfg *rest.Config
+	genName        string
+	cfg            ClusterConfig
+	kind           *kindcluster.Provider
+	kubeConfigPath string
+	restCfg        *rest.Config
 }
 
 // New creates a new test environment.
@@ -117,8 +118,11 @@ func New(t *testing.T, cfg Config) *Environment {
 		g.Go(func() error {
 			if err := setupCluster(e.synkPath, cluster); err != nil {
 				// If cluster has already been created, delete it.
-				if cluster.ctx != nil && os.Getenv("NO_TEARDOWN") == "" {
-					cluster.ctx.Delete()
+				if cluster.kind != nil && os.Getenv("NO_TEARDOWN") == "" {
+					cluster.kind.Delete(cfg.Name, "")
+					if cluster.kubeConfigPath != "" {
+						os.Remove(cluster.kubeConfigPath)
+					}
 				}
 				return errors.Wrapf(err, "Create cluster %q", cfg.Name)
 			}
@@ -166,7 +170,7 @@ func (e *Environment) InstallChartArchive(cluster, name, namespace, path string,
 		e.synkPath,
 		"apply",
 		name,
-		"--kubeconfig", c.ctx.KubeConfigPath(),
+		"--kubeconfig", c.kubeConfigPath,
 		"-n", namespace,
 		"-f", "-",
 	)
@@ -203,10 +207,13 @@ func (e *Environment) Teardown() {
 	log.Println("Tearing down...")
 
 	for name, c := range e.clusters {
-		if err := c.ctx.Delete(); err != nil {
+		if err := c.kind.Delete(c.genName, ""); err != nil {
 			e.t.Errorf("Delete cluster %q (%q): %s", name, c.genName, err)
 		} else {
 			log.Printf("Deleted cluster %q (%q)", name, c.genName)
+		}
+		if err := os.Remove(c.kubeConfigPath); err != nil {
+			e.t.Errorf("Failed to delete %q: %s", c.kubeConfigPath, err)
 		}
 	}
 }
@@ -346,12 +353,26 @@ func setupCluster(synkPath string, cluster *cluster) error {
 			},
 		},
 	}
-	cluster.ctx = kindcluster.NewContext(cluster.genName)
+	cluster.kind = kindcluster.NewProvider()
 
-	if err := cluster.ctx.Create(kindcfg); err != nil {
+	// Create kubeconfig file for use by synk or the dev.
+	kubeConfig, err := ioutil.TempFile("", "kubeconfig-")
+	if err != nil {
+		return errors.Wrap(err, "create temp kubeconfig")
+	}
+	cluster.kubeConfigPath = kubeConfig.Name()
+	if err := kubeConfig.Close(); err != nil {
+		return errors.Wrap(err, "close temp kubeconfig")
+	}
+
+	if err := cluster.kind.Create(
+		cluster.genName,
+		kindcluster.CreateWithV1Alpha3Config(kindcfg),
+		kindcluster.CreateWithKubeconfigPath(cluster.kubeConfigPath),
+	); err != nil {
 		return errors.Wrapf(err, "create cluster %q", cluster.genName)
 	}
-	kubecfgRaw, err := ioutil.ReadFile(cluster.ctx.KubeConfigPath())
+	kubecfgRaw, err := ioutil.ReadFile(cluster.kubeConfigPath)
 	if err != nil {
 		return errors.Wrap(err, "read kube config")
 	}
@@ -363,6 +384,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 	if err != nil {
 		return errors.Wrap(err, "get rest config")
 	}
+	log.Printf("To use the cluster, run KUBECONFIG=%s kubectl cluster-info", cluster.kubeConfigPath)
 
 	// Setup permissive binding we also have in cloud and robot clusters.
 	ctx := context.Background()
@@ -455,7 +477,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 	cmd := exec.Command(
 		synkPath,
 		"init",
-		"--kubeconfig", cluster.ctx.KubeConfigPath(),
+		"--kubeconfig", cluster.kubeConfigPath,
 	)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return errors.Errorf("install Helm: %v; output:\n%s\n", err, output)

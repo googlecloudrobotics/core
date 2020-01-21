@@ -276,7 +276,7 @@ EOF
   kubectl label --overwrite namespace default certmanager.k8s.io/disable-validation=true
 
   echo "installing cert-manager to ${KUBE_CONTEXT}..."
-  ${HELM} template -n cert-manager --set rbac.create=false ${cert_manager_chart} \
+  ${HELM} template -n cert-manager --set global.rbac.create=false ${cert_manager_chart} \
     | ${SYNK} apply cert-manager -n default -f - \
     || die "Synk failed for cert-manager"
 

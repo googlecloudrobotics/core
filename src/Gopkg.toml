@@ -12,13 +12,19 @@ required = ["github.com/golang/glog"]
   unused-packages = true
   non-go = true
 
-[[constraint]]
-  name = "sigs.k8s.io/controller-runtime"
-  revision = "96b67f231945a8e8550dbdd8bfbd550a0c68097b" # master, can be updated to v0.2 when released
-
+# If you update to k8s v1.16, you'll need to update the go files in this repo:
+#   s/DirectCodecFactory/WithoutConversionCodecFactory/
 [[constraint]]
   name = "k8s.io/cli-runtime"
-  version = "kubernetes-1.14.1"
+  version = "kubernetes-1.15.8"
+
+[[constraint]]
+  name = "k8s.io/apiextensions-apiserver"
+  version = "kubernetes-1.15.8"
+
+[[constraint]]
+  name = "sigs.k8s.io/kind"
+  version = "v0.7.0"
 
 # Most Kubernetes repos are consistently versioned along the Kubernetes release.
 # kustomize (included by cli-runtime) however has its own scheme and pins its
@@ -26,29 +32,21 @@ required = ["github.com/golang/glog"]
 # We have to use 'override' instead of 'constraint' on those repos.
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.14.1"
+  version = "kubernetes-1.15.8"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.14.1"
+  version = "kubernetes-1.15.8"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.14.1"
-
-[[constraint]]
-  name = "k8s.io/apiserver"
-  version = "kubernetes-1.14.1"
-
-[[constraint]]
-  name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.14.1"
+  version = "kubernetes-1.15.8"
 
 [[override]]
   name = "github.com/evanphx/json-patch"
   version = "v4.2.0"
 
-# These two repositories are unversioned. dep somehow doesn't apply its resolution
+# These repositories are unversioned. dep somehow doesn't apply its resolution
 # to satisfy API requirements and these two revisions were deducted manually.
 [[override]]
   name = "sigs.k8s.io/structured-merge-diff"
@@ -57,6 +55,10 @@ required = ["github.com/golang/glog"]
 [[override]]
   name = "k8s.io/kube-openapi"
   revision = "b3a7cee44a305be0a69e1b9ac03018307287e1b0"
+
+[[override]]
+  name = "k8s.io/utils"
+  revision = "581e00157fb1a0435d4fac54a52d1ca1e481d60e"
 
 # Over its lifetime the fsnotify package changed its path and use of canonical
 # import paths several times. Currently it triggers a panic in dep which

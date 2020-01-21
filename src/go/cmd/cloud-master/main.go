@@ -86,8 +86,9 @@ func setupAppV2(cfg *rest.Config, params map[string]interface{}) error {
 	registry.AddToScheme(sc)
 
 	mgr, err := manager.New(cfg, manager.Options{
-		Scheme: sc,
-		Port:   *webhookPort,
+		Scheme:             sc,
+		Port:               *webhookPort,
+		MetricsBindAddress: "0", // disabled
 	})
 	if err != nil {
 		return errors.Wrap(err, "create controller manager")

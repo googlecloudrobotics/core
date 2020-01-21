@@ -48,8 +48,10 @@ function finalize {
 
   bazel run //:gazelle -- update-repos -from_file "${DIR}/Gopkg.lock"
   echo "Dependencies in bazel WORKSPACE updated."
+  if ! buildozer delete WORKSPACE:com_github_golang_protobuf ; then
+    echo "The repository 'com_github_golang_protobuf' is likely included erroneously and needs to be removed"
+  fi
   echo "Edit the WORKSPACE file to restore proper ordering."
-  echo "The repository 'com_github_golang_protobuf' is likely included erroneously and needs to be removed"
 }
 
 trap finalize EXIT
