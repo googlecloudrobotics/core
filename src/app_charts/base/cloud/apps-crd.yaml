@@ -155,7 +155,7 @@ spec:
     kind: ChartAssignment
     plural: chartassignments
     singular: chartassignment
-  scope: Namespaced
+  scope: Cluster
   additionalPrinterColumns:
   - JSONPath: .status.phase
     name: Phase

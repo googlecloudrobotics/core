@@ -32,6 +32,9 @@ resource "google_container_cluster" "cloud-robotics" {
         "https://www.googleapis.com/auth/servicecontrol",
         "https://www.googleapis.com/auth/trace.append",
         "https://www.googleapis.com/auth/userinfo.email",
+
+        # taskqueue is unused: add/remove it to trigger cluster recreation.
+        "https://www.googleapis.com/auth/taskqueue",
       ]
     }
   }
