@@ -63,6 +63,13 @@ function prepare_source_install {
       //src/go/cmd/synk \
       //src/proto/map:proto_descriptor \
 
+  # TODO(rodrigoq): the containerregistry API would be enabled by Terraform, but
+  # that doesn't run until later, as it needs the digest of the setup-robot
+  # image. Consider splitting prepare_source_install into source_install_build
+  # and source_install_push and using Terraform to enable the API in between.
+  gcloud services enable containerregistry.googleapis.com \
+    --project "${GCP_PROJECT_ID}"
+
   # `setup-robot.push` is the first container push to avoid a GCR bug with parallel pushes on newly
   # created projects (see b/123625511).
   ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push \

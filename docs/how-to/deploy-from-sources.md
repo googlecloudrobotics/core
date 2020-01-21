@@ -84,6 +84,7 @@ and 18.04) Linux.
 > **Known issue:**
 > Sometimes, this command fails with an error message like
 > `Error 403: The caller does not have permission`,
+> `Error 403: Service ... not found or permission denied',
 > `Bad status during token exchange: 503`, or
 > `Error enabling service`.
 > In these cases, wait for a minute and try again.
