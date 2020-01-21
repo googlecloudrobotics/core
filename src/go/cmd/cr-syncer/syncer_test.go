@@ -145,7 +145,7 @@ func sprintAction(a k8stest.Action) string {
 // testCRD returns a basic resource definition we use for custom testing.
 // It may be altered for specific tests.
 // By default it has set the spec-source annotation to "cloud".
-func testCRD() crdtypes.CustomResourceDefinition {
+func testCRD(scope crdtypes.ResourceScope) crdtypes.CustomResourceDefinition {
 	return crdtypes.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "goals.crds.example.com",
@@ -162,11 +162,12 @@ func testCRD() crdtypes.CustomResourceDefinition {
 				Singular: "goal",
 				Plural:   "goals",
 			},
+			Scope: scope,
 		},
 	}
 }
 
-// newTestCR creates a new custom resource that matches the definition of testCRD().
+// newTestCR creates a new custom resource that matches the definition of testCRD("Namespaced").
 func newTestCR(name string, spec, status interface{}) *unstructured.Unstructured {
 	o := &unstructured.Unstructured{}
 
@@ -181,8 +182,22 @@ func newTestCR(name string, spec, status interface{}) *unstructured.Unstructured
 	return o
 }
 
+// newClusterScopedTestCR creates a new custom resource that matches the definition of testCRD("Cluster").
+func newClusterScopedTestCR(name string, spec, status interface{}) *unstructured.Unstructured {
+	o := &unstructured.Unstructured{}
+
+	o.SetKind("Goal")
+	o.SetAPIVersion("crds.example.com/v1beta1")
+	o.SetName(name)
+
+	o.Object["spec"] = spec
+	o.Object["status"] = status
+
+	return o
+}
+
 func TestSyncUpstream_createSpec(t *testing.T) {
-	crd := testCRD()
+	crd := testCRD(crdtypes.NamespaceScoped)
 	f := newFixture(t)
 
 	// When an upstream resource is seen for the first time, it should be
@@ -211,8 +226,38 @@ func TestSyncUpstream_createSpec(t *testing.T) {
 	f.verifyWriteActions()
 }
 
+func TestSyncClusterScopedCRUpstream_createSpec(t *testing.T) {
+	crd := testCRD(crdtypes.ClusterScoped)
+	f := newFixture(t)
+
+	// When an upstream resource is seen for the first time, it should be
+	// created in the downstream cluster including its current status.
+	// The finalizer must be added upstream and downstream.
+	tcrRemote := newClusterScopedTestCR("resource1", "spec1", "status1")
+	f.addRemoteObjects(tcrRemote)
+
+	crs, gvr := f.newCRSyncer(crd, "cluster1")
+	defer crs.stop()
+
+	crs.startInformers()
+	if err := crs.syncUpstream("resource1"); err != nil {
+		t.Fatal(err)
+	}
+	var (
+		finalizer    = finalizerFor("robot-cluster1")
+		tcrLocalNew  = newClusterScopedTestCR("resource1", "spec1", "status1")
+		tcrRemoteNew = newClusterScopedTestCR("resource1", "spec1", "status1")
+	)
+	tcrLocalNew.SetFinalizers([]string{finalizer})
+	tcrRemoteNew.SetFinalizers([]string{finalizer})
+
+	f.expectRemoteActions(k8stest.NewUpdateAction(gvr, "", tcrRemoteNew))
+	f.expectLocalActions(k8stest.NewCreateAction(gvr, "", tcrLocalNew))
+	f.verifyWriteActions()
+}
+
 func TestSyncUpstream_updateSpec(t *testing.T) {
-	crd := testCRD()
+	crd := testCRD(crdtypes.NamespaceScoped)
 	f := newFixture(t)
 
 	// On upstream update, the spec in the downstream cluster should be adjusted
@@ -245,7 +290,7 @@ func TestSyncUpstream_updateSpec(t *testing.T) {
 }
 
 func TestSyncUpstream_propagateDelete(t *testing.T) {
-	crd := testCRD()
+	crd := testCRD(crdtypes.NamespaceScoped)
 	f := newFixture(t)
 
 	var (
@@ -280,7 +325,7 @@ func TestSyncUpstream_propagateDelete(t *testing.T) {
 }
 
 func TestSyncDownstream_deleteOrphan(t *testing.T) {
-	crd := testCRD()
+	crd := testCRD(crdtypes.NamespaceScoped)
 	f := newFixture(t)
 
 	// We have a local resource that has no matching resource in the upstream cluster.
@@ -308,7 +353,7 @@ func TestSyncDownstream_deleteOrphan(t *testing.T) {
 }
 
 func TestSyncDownstream_statusFull(t *testing.T) {
-	crd := testCRD()
+	crd := testCRD(crdtypes.NamespaceScoped)
 	f := newFixture(t)
 
 	var (
@@ -338,7 +383,7 @@ func TestSyncDownstream_statusFull(t *testing.T) {
 }
 
 func TestSyncDownstream_statusSubtree(t *testing.T) {
-	crd := testCRD()
+	crd := testCRD(crdtypes.NamespaceScoped)
 	f := newFixture(t)
 
 	var (
@@ -378,7 +423,7 @@ func TestSyncDownstream_statusSubtree(t *testing.T) {
 }
 
 func TestSyncDownstream_removeFinalizers(t *testing.T) {
-	crd := testCRD()
+	crd := testCRD(crdtypes.NamespaceScoped)
 	f := newFixture(t)
 
 	// If a deletion timestamp is set on the local resource, the finalizer
@@ -431,7 +476,7 @@ func TestSyncDownstream_removeFinalizers(t *testing.T) {
 }
 
 func TestCRSyncer_populateWorkqueue(t *testing.T) {
-	crd := testCRD()
+	crd := testCRD(crdtypes.NamespaceScoped)
 	f := newFixture(t)
 
 	cr1 := newTestCR("cr1", "spec1", "status1")
@@ -472,7 +517,7 @@ func TestCRSyncer_populateWorkqueue(t *testing.T) {
 }
 
 func TestCRSyncer_populateWorkqueueWithFilter(t *testing.T) {
-	crd := testCRD()
+	crd := testCRD(crdtypes.NamespaceScoped)
 	crd.ObjectMeta.Annotations[annotationFilterByRobotName] = "true"
 
 	f := newFixture(t)

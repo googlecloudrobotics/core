@@ -155,11 +155,16 @@ func newCRSyncer(
 		Version:  crd.Spec.Version,
 		Resource: crd.Spec.Names.Plural,
 	}
+	ns := ""
+	if crd.Spec.Scope == crdtypes.NamespaceScoped {
+		// TODO(https://github.com/googlecloudrobotics/core/issues/19): allow syncing CRs in other namespaces
+		ns = "default"
+	}
 	s := &crSyncer{
 		crd:             crd,
 		subtree:         annotations[annotationStatusSubtree],
-		upstream:        remote.Resource(gvr).Namespace("default"),
-		downstream:      local.Resource(gvr).Namespace("default"),
+		upstream:        remote.Resource(gvr).Namespace(ns),
+		downstream:      local.Resource(gvr).Namespace(ns),
 		upstreamQueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "upstream"),
 		downstreamQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "downstream"),
 		done:            make(chan struct{}),
@@ -425,7 +430,7 @@ func (s *crSyncer) syncDownstream(key string) error {
 }
 
 // syncUpstream reconciles the state after receiving a change event from upstream.
-// It synchronizes the spec changes from usptream to the downstream cluster and propagates
+// It synchronizes the spec changes from upstream to the downstream cluster and propagates
 // deletions.
 // It attaches a finalizer to the upstream and downstream resource in order to
 // ensure that downstream resources are properly cleaned up before the upstream resource
