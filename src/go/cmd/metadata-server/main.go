@@ -328,6 +328,12 @@ func main() {
 	http.Handle("/computeMetadata/v1/instance/service-accounts/default/token", tokenHandler)
 	serviceAccountHandler := ServiceAccountHandler{}
 	http.Handle("/computeMetadata/v1/instance/service-accounts/default/", serviceAccountHandler)
+	http.HandleFunc("/computeMetadata/v1/instance/service-accounts/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Metadata-Flavor", "Google")
+		w.Header().Set("Content-Type", "application/text")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("default/\n"))
+	})
 	metadataHandler := MetadataHandler{
 		ClusterName:   "robot-robotics",
 		ProjectId:     robotAuth.ProjectId,
