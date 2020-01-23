@@ -30,14 +30,12 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
-	flag "github.com/spf13/pflag"
-
 	"github.com/googlecloudrobotics/core/src/go/pkg/configutil"
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
-
+	flag "github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/option"
@@ -57,6 +55,8 @@ var (
 	project             = flag.String("project", "", "Project ID for the Google Cloud Platform")
 	robotType           = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
 	labels              = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
+	crSyncer            = flag.Bool("cr-syncer", true, "Set up the cr-syncer.")
+	fluentd             = flag.Bool("fluentd", true, "Set up fluentd to upload logs to Stackdriver.")
 	robotAuthentication = flag.Bool("robot-authentication", true, "Set up robot authentication.")
 )
 
@@ -318,6 +318,8 @@ func installChartOrDie(domain, registry, nameOld, nameNew, chartPath string, pro
 		"project":              *project,
 		"project_number":       strconv.FormatInt(projectNumber, 10),
 		"app_management":       strconv.FormatBool(appManagement),
+		"cr_syncer":            strconv.FormatBool(*crSyncer),
+		"fluentd":              strconv.FormatBool(*fluentd),
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
 		"robot.name":           *robotName,
 		"webhook.tls.crt":      os.Getenv("TLS_CRT"),
