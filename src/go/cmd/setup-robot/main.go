@@ -54,6 +54,7 @@ var (
 	robotName           = new(string)
 	project             = flag.String("project", "", "Project ID for the Google Cloud Platform")
 	robotType           = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
+	registryID          = flag.String("registry-id", "", "The ID used when writing the public key to the cloud registry. Default: robot-<robot-name>.")
 	labels              = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
 	crSyncer            = flag.Bool("cr-syncer", true, "Set up the cr-syncer.")
 	fluentd             = flag.Bool("fluentd", true, "Set up fluentd to upload logs to Stackdriver.")
@@ -103,6 +104,9 @@ func parseFlags() {
 	if *project == "" {
 		flag.Usage()
 		log.Fatal("ERROR: --project is required.")
+	}
+	if *registryID == "" {
+		*registryID = fmt.Sprintf("robot-%s", *robotName)
 	}
 }
 
@@ -226,7 +230,7 @@ func main() {
 			RobotName:           *robotName,
 			ProjectId:           *project,
 			Domain:              domain,
-			PublicKeyRegistryId: fmt.Sprintf("robot-%s", *robotName),
+			PublicKeyRegistryId: *registryID,
 		}
 
 		// Make sure the cloud cluster take requests
