@@ -755,7 +755,8 @@ go_repository(
 
 go_repository(
     name = "io_k8s_helm",
-    commit = "79d07943b03aea2b76c12644b4b54733bc5958d6",
+    # v2.16.1 - Tue Nov 12 13:29:17 2019
+    commit = "bbdfe5e7803a12bbdf97e94cd847859890cf4050",
     importpath = "k8s.io/helm",
 )
 
