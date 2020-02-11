@@ -7,23 +7,25 @@
 #
 #   bazel build src/app_charts/prometheus/prometheus-operator-chart.cloud.yaml
 
-global:
-  rbac:
-    create: false
-    pspEnabled: false
-
 nameOverride: kube
 fullnameOverride: kube
+
+kubeTargetVersionOverride: "v1.14.10"
 
 # Alertmanagers have to be deployed individually by users.
 alertmanager:
   enabled: false
 
+defaultRules:
+  rules: # https://github.com/helm/charts/issues/20726
+    k8s: false
+    kubernetesApps: false
+    node: false
+    prometheus: false
+
 prometheusOperator:
   # Recent Kubernetes version provide a kube-system/kubelet service by default.
   kubeletService:
-    enabled: false
-  tlsProxy:
     enabled: false
 
 prometheus:
@@ -82,22 +84,7 @@ kubeProxy:
 
 # Subcharts
 
-kube-state-metrics:
-  rbac:
-    create: false
-  podSecurityPolicy:
-    enabled: false
-
-prometheus-node-exporter:
-  rbac:
-    create: false
-  podSecurityPolicy:
-    enabled: false
-
 grafana:
-  rbac:
-    create: false
-    pspEnabled: false
   env:
     GF_SERVER_DOMAIN: "${CLOUD_ROBOTICS_DOMAIN}"
     GF_SERVER_ROOT_URL: "https://${CLOUD_ROBOTICS_DOMAIN}/grafana"

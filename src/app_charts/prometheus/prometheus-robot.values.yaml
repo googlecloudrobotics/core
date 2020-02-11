@@ -7,22 +7,20 @@
 #
 #   bazel build src/app_charts/prometheus/prometheus-operator-chart.robot.yaml
 
-global:
-  rbac:
-    create: false
-    pspEnabled: false
-
 nameOverride: kube
 fullnameOverride: kube
+
+kubeTargetVersionOverride: "v1.14.10"
 
 alertmanager:
   enabled: false
 
+defaultRules:
+  create: false
+
 prometheusOperator:
   # Recent Kubernetes version provide a kube-system/kubelet service by default.
   kubeletService:
-    enabled: false
-  tlsProxy:
     enabled: false
 
 prometheus:
@@ -53,17 +51,7 @@ kubeProxy:
 
 # Subcharts
 
-kube-state-metrics:
-  rbac:
-    create: false
-  podSecurityPolicy:
-    enabled: false
-
 prometheus-node-exporter:
-  rbac:
-    create: false
-  podSecurityPolicy:
-    enabled: false
   extraArgs:
     # This is disabled by default, since it might leak memory
     # (https://github.com/prometheus/node_exporter/blob/master/CHANGELOG.md#0160-rc1--2018-04-04)

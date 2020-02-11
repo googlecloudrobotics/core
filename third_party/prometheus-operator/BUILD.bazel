@@ -5,9 +5,19 @@ licenses(["notice"])
 # TODO(b/118419020): replace copies by upstream versions
 # this chart was downloaded by running:
 # curl -O https://kubernetes-charts.storage.googleapis.com/prometheus-operator-6.11.0.tgz
-# then editing prometheus-operator/charts/prometheus-node-exporter/templates/daemonset.yaml
-# to use apps/v1.
+# then editing:
+# - prometheus-operator/charts/prometheus-node-exporter/templates/daemonset.yaml
+#   to use apps/v1
+# - prometheus-operator/charts/prometheus-node-exporter/templates/psp.yaml
+#   prometheus-operator/charts/grafana/templates/podsecuritypolicy.yaml
+#   prometheus-operator/charts/grafana/templates/tests/test-podsecuritypolicy.yaml
+#   to use policy/v1beta1
+# - prometheus-operator/templates/prometheus/rules-1.14/prometheus.yaml
+#   to be conditional on .Values.defaultRules.rules.prometheus
+#
 # TODO(rodrigoq): upgrade to a more recent release that doesn't require manual editing.
+# check for newer version using:
+#   gsutil ls gs://kubernetes-charts/prometheus-operator*
 
 exports_files(
     glob(["*.tgz"]),

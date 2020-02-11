@@ -9,7 +9,7 @@ helm_template(
     namespace = "HELM-NAMESPACE",
     # Pick a short release name as it will be used as a prefix for a lot of resources.
     release_name = "prom",
-    values = ":prometheus-cloud.values.yaml",
+    values = "prometheus-cloud.values.yaml",
 )
 
 helm_template(
@@ -19,7 +19,7 @@ helm_template(
     namespace = "HELM-NAMESPACE",
     # Pick a short release name as it will be used as a prefix for a lot of resources.
     release_name = "prom",
-    values = ":prometheus-robot.values.yaml",
+    values = "prometheus-robot.values.yaml",
 )
 
 app_chart(
@@ -35,7 +35,7 @@ app_chart(
 app_chart(
     name = "prometheus-robot",
     extra_templates = [
-        ":cloud/kubelet-service-monitor.yaml",
+        "cloud/kubelet-service-monitor.yaml",
     ],
     files = [
         ":prometheus-operator-chart.robot",
