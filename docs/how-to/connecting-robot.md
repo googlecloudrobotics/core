@@ -54,7 +54,7 @@ The installation script installs and configures:
       --robot-type my-robot-type
     ```
 
-    Replace `[PROJECT_ID]` with your GCP project ID. When prompted for an access token, provide the authentication token you generated earlier.
+    Set `${PROJECT_ID}` to your GCP project ID. When prompted for an access token, provide the authentication token you generated earlier.
 
     > **Note:** `my-robot-type` is a placeholder and you can ignore it for now.
 
