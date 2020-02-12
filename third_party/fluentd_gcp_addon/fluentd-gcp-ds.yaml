@@ -1,14 +1,15 @@
-###################################
-# Copied from https://github.com/kubernetes/kubernetes/blob/f85649c6cd203263cead3098f7a11137852a9277/cluster/addons/fluentd-gcp/fluentd-gcp-ds.yaml
-# Modifications:
-# - changed namespace to `default`
-# - changed apiVersion to apps/v1
-# - removed `-q` to change log level to INFO
-# - removed all the default parameters
-# - removed liveness probe
-# - removed the prometheus-to-sd-exporter container
-# - removed the scheduling annotations, selectors & tolerations
-# - removed `terminationGracePeriodSeconds: 30`
+# Copied from https://github.com/kubernetes/kubernetes/
+# - removed:
+#   - addonmanager.kubernetes.io/mode, kubernetes.io/cluster-service label
+#   - serviceAccountName
+#   - liveness probe
+#   - scheduling annotations
+#   - priorityClassName
+#   - nodeSelectors
+#   - tolerations
+#   - terminationGracePeriodSeconds
+#   - NODE_NAME, STACKDRIVER_METADATA_AGENT_URL env
+#   - hostNetwork: true (otherwise it won't find the metadata server)
 # - modified the path to local libs (/usr/lib) because it's different on MIR
 # - set the fluentd-gcp-config volume mode to 420
 #
@@ -17,45 +18,39 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: fluentd-gcp-v2.0.10
+  name: fluentd-gcp-v3.2.0
   namespace: default
   labels:
     k8s-app: fluentd-gcp
-    version: v2.0.10
+    version: v3.2.0
 spec:
   selector:
     matchLabels:
       k8s-app: fluentd-gcp
-      version: v2.0.10
+      version: v3.2.0
+  updateStrategy:
+    type: RollingUpdate
   template:
     metadata:
       labels:
         k8s-app: fluentd-gcp
-        version: v2.0.10
+        version: v3.2.0
     spec:
+      dnsPolicy: Default
       containers:
       - name: fluentd-gcp
-        image: gcr.io/google-containers/fluentd-gcp:2.0.10
-        env:
-        - name: FLUENTD_ARGS
-          value: --no-supervisor
-        resources:
-          limits:
-            memory: 300Mi
-          requests:
-            cpu: 100m
-            memory: 200Mi
+        image: gcr.io/stackdriver-agents/stackdriver-logging-agent:1.6.17
         volumeMounts:
-        - mountPath: /var/log
-          name: varlog
-        - mountPath: /var/lib/docker/containers
-          name: varlibdockercontainers
+        - name: varlog
+          mountPath: /var/log
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
           readOnly: true
         - mountPath: /host/lib
           name: libsystemddir
           readOnly: true
-        - mountPath: /etc/fluent/config.d
-          name: config-volume
+        - name: config-volume
+          mountPath: /etc/google-fluentd/config.d
       volumes:
       - name: varlog
         hostPath:
@@ -68,5 +63,5 @@ spec:
           path: /usr/lib
       - name: config-volume
         configMap:
-          name: fluentd-gcp-config-v1.2.3
+          name: fluentd-gcp-config-v1.2.5
           defaultMode: 420
