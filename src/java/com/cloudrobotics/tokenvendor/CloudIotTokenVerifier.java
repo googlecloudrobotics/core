@@ -118,7 +118,10 @@ class CloudIotTokenVerifier {
         reasons.add(e.getMessage());
       }
     }
-    throw new InvalidTokenException("no usable credentials: " + String.join(", ", reasons));
+    throw new InvalidTokenException(
+        String.format(
+            "No usable credentials for device %s : %s",
+            deviceId.value(), String.join(", ", reasons)));
   }
 
   private void verifyCredential(SignedJWT token, PublicKeyPem publicKey)
