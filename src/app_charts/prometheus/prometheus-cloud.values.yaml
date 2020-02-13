@@ -1,5 +1,12 @@
 # Configuration for the prometheus-operator chart.
 # Reference: https://github.com/helm/charts/blob/master/stable/prometheus-operator/values.yaml
+#
+# WARNING: the prometheus-operator chart is complicated and error-prone. If you
+# edit this file, run the following command to generate the output with `helm
+# template`, and verify that your changes have the expected effect.
+#
+#   bazel build src/app_charts/prometheus/prometheus-operator-chart.cloud.yaml
+
 global:
   rbac:
     create: false
