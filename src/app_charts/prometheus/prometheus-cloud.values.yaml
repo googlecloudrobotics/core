@@ -8,8 +8,6 @@ global:
 nameOverride: kube
 fullnameOverride: kube
 
-kubeTargetVersionOverride: "v1.14.10"
-
 # Alertmanagers have to be deployed individually by users.
 alertmanager:
   enabled: false
