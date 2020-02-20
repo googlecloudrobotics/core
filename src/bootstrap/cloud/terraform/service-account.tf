@@ -65,6 +65,12 @@ resource "google_project_iam_member" "robot-service-monitoring" {
   member  = "serviceAccount:${google_service_account.robot-service.email}"
 }
 
+resource "google_project_iam_member" "robot-service-tracing" {
+  project = "${data.google_project.project.project_id}"
+  role    = "roles/cloudtrace.agent"
+  member  = "serviceAccount:${google_service_account.robot-service.email}"
+}
+
 resource "google_project_iam_member" "robot-service-logging" {
   project = "${data.google_project.project.project_id}"
   role    = "roles/logging.logWriter"
