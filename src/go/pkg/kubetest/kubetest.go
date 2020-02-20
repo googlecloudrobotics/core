@@ -512,6 +512,10 @@ func (f *Fixture) ChartAssignmentHasStatus(ca *crcapps.ChartAssignment, expected
 		if err := client.Get(f.Ctx(), f.ObjectKey(ca), ca); err != nil {
 			return backoff.Permanent(err)
 		}
+		if expected == crcapps.ChartAssignmentPhaseSettled && ca.Status.Phase == crcapps.ChartAssignmentPhaseReady {
+			// phase can go straight from Updating->Ready and skip Settled, this is OK.
+			return nil
+		}
 		if ca.Status.Phase != expected {
 			f.t.Logf("Status: %+v", ca.Status)
 			return fmt.Errorf("chart status != %s", expected)
