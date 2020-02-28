@@ -93,7 +93,7 @@ func TestMetadataHandlerReturnsZone(t *testing.T) {
 	req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/zone", strings.NewReader("body"))
 	respRecorder := httptest.NewRecorder()
 	mh := MetadataHandler{
-		ClusterName:   "robot-robotics",
+		ClusterName:   "28",
 		ProjectId:     "foo",
 		ProjectNumber: 512,
 		RobotName:     "28",

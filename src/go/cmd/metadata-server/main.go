@@ -335,7 +335,7 @@ func main() {
 		w.Write([]byte("default/\n"))
 	})
 	metadataHandler := MetadataHandler{
-		ClusterName:   "robot-robotics",
+		ClusterName:   robotAuth.RobotName,
 		ProjectId:     robotAuth.ProjectId,
 		ProjectNumber: projectNumber,
 		RobotName:     robotAuth.RobotName,
