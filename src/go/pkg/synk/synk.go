@@ -524,6 +524,33 @@ func setOwnerRef(r *unstructured.Unstructured, set *apps.ResourceSet) {
 	r.SetOwnerReferences(newRefs)
 }
 
+// canReplace determines whether an "apply patch" error is likely to be
+// resolved by deleting and recreating the resource. Some resources have
+// immutable fields (eg Job.spec.template) that can only be changed this way.
+// This is analogous to `kubectl apply --force`.
+func canReplace(resource *unstructured.Unstructured, patchErr error) bool {
+	if resource.GetKind() == "Job" && strings.Contains(patchErr.Error(), "field is immutable") {
+		return true
+	}
+	// TODO(rodrigoq): can other resources be safely replaced?
+	return false
+}
+
+func replace(client dynamic.ResourceInterface, resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	// Foreground deletion means that the new job can't be created until the old
+	// pods are gone, so updates to a currently-running job are safer.
+	policy := metav1.DeletePropagationForeground
+	deleteOpts := &metav1.DeleteOptions{PropagationPolicy: &policy}
+	if err := client.Delete(resource.GetName(), deleteOpts); err != nil {
+		return nil, errors.Wrap(err, "delete")
+	}
+	res, err := client.Create(resource, metav1.CreateOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "create")
+	}
+	return res, nil
+}
+
 func (s *Synk) applyOne(resource *unstructured.Unstructured, set *apps.ResourceSet) (apps.ResourceAction, error) {
 	// If name is unset, we'd retrieve a list below and panic.
 	// TODO: This may be valid if generateName is set instead. In this case we
@@ -626,15 +653,22 @@ func (s *Synk) applyOne(resource *unstructured.Unstructured, set *apps.ResourceS
 	// retries will not update to a new resourceVersion and the failure would persist.
 
 	res, err := client.Patch(resource.GetName(), patchType, patch, metav1.PatchOptions{})
-	if err != nil {
+	if err == nil {
+		// Successfully patched.
+		*resource = *res
+		return apps.ResourceActionUpdate, nil
+	}
+
+	// If patching failed, consider deleting and recreating the resource.
+	if !canReplace(resource, err) {
 		return apps.ResourceActionUpdate, errors.Wrap(err, "apply patch")
 	}
+	res, err = replace(client, resource)
+	if err != nil {
+		return apps.ResourceActionReplace, errors.Wrap(err, "replace")
+	}
 	*resource = *res
-
-	// TODO: kubectl additionally provides a --force flag to do replacement
-	// on failing patches. Let's first analyze some of these cases as patches
-	// handle the ones we know from update errors.
-	return apps.ResourceActionUpdate, nil
+	return apps.ResourceActionReplace, nil
 }
 
 func (s *Synk) crdAvailable(ucrd *unstructured.Unstructured) (bool, error) {
