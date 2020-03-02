@@ -165,6 +165,17 @@ const (
 	requeueSlow = 3 * time.Minute
 )
 
+// namespaceDeletionError indicates that a namespace could not be created
+// because a previously-created namespace with the same name is pending
+// deletion. This occurs when you delete and recreate a chartassignment. It is
+// transient, but may last seconds or minutes if the namespace contains
+// resources that are slow to delete.
+type namespaceDeletionError struct {
+	msg string
+}
+
+func (e *namespaceDeletionError) Error() string { return e.msg }
+
 func (r *Reconciler) ensureNamespace(ctx context.Context, as *apps.ChartAssignment) (*core.Namespace, error) {
 	// Create application namespace if it doesn't exist.
 	var ns core.Namespace
@@ -174,7 +185,9 @@ func (r *Reconciler) ensureNamespace(ctx context.Context, as *apps.ChartAssignme
 		return nil, fmt.Errorf("getting Namespace %q failed: %s", as.Spec.NamespaceName, err)
 	}
 	if ns.DeletionTimestamp != nil {
-		return nil, fmt.Errorf("namespace %q was marked for deletion at %s, skipping", as.Spec.NamespaceName, ns.DeletionTimestamp)
+		return nil, &namespaceDeletionError{
+			msg: fmt.Sprintf("namespace %q was marked for deletion at %s, skipping", as.Spec.NamespaceName, ns.DeletionTimestamp),
+		}
 	}
 
 	createNamespace := k8serrors.IsNotFound(err)
@@ -275,6 +288,11 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 
 	ns, err := r.ensureNamespace(ctx, as)
 	if err != nil {
+		if _, ok := err.(*namespaceDeletionError); ok {
+			log.Printf("ensure namespace: %s", err)
+			// Requeue to track deletion progress.
+			return reconcile.Result{Requeue: true, RequeueAfter: requeueFast}, nil
+		}
 		return reconcile.Result{}, fmt.Errorf("ensure namespace: %s", err)
 	}
 	if err := r.ensureServiceAccount(ctx, ns, as); err != nil {
