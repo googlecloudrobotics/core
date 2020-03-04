@@ -310,6 +310,12 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 	r.releases.ensureUpdated(as)
 
 	if err := r.setStatus(ctx, as); err != nil {
+		if k8serrors.IsConflict(err) {
+			// The cache has an old status. This can be ignored, as
+			// controller-runtime will reconcile again when the cache updates:
+			// https://github.com/kubernetes-sigs/controller-runtime/issues/377
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, errors.Wrap(err, "update status")
 	}
 	// Quickly requeue for status updates when deployment is in progress.

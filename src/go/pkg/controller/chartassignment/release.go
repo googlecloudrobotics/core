@@ -175,7 +175,13 @@ func (r *release) setPhase(p apps.ChartAssignmentPhase) {
 
 func (r *release) setFailed(err error, retry bool) {
 	r.mtx.Lock()
-	r.status.phase = apps.ChartAssignmentPhaseFailed
+	if !retry {
+		// We only update the phase for non-retriable errors. This mitigates a
+		// race condition between ensureUpdated, which sets phase=Updating when
+		// retrying, and setStatus, which reads either the old phase or Updating
+		// and copies it to the chartassignment status.
+		r.status.phase = apps.ChartAssignmentPhaseFailed
+	}
 	r.status.err = err
 	r.status.retry = retry
 	r.mtx.Unlock()

@@ -546,6 +546,9 @@ func replace(client dynamic.ResourceInterface, resource *unstructured.Unstructur
 	}
 	res, err := client.Create(resource, metav1.CreateOptions{})
 	if err != nil {
+		// This is likely to occur if deletion is not immediate, in which case
+		// this returns a transient AlreadyExists error, and the outer loop will
+		// retry until the resource is deleted.
 		return nil, errors.Wrap(err, "create")
 	}
 	return res, nil
