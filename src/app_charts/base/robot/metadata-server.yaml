@@ -32,7 +32,7 @@ spec:
         image: {{ .Values.registry }}{{ .Values.images.metadata_server }}
         args:
         - --port
-        - "8080"
+        - "8965"
         - --robot_id_file
         - /credentials/robot-id.json
         - --source_cidr
