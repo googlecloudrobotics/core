@@ -94,6 +94,8 @@ function install_docker_deps {
        stable"
     retry sudo apt-get update
     apt_install docker-ce="${DOCKER_PACKAGE_VERSION}"
+    echo "Pinning Docker version..."
+    sudo apt-mark hold docker-ce
   fi
 }
 
@@ -111,12 +113,18 @@ function install_k8s_deps {
   # Install or upgrade k8s binaries
   if ! kubectl version --client 2>/dev/null | grep -qF "${K8S_VERSION}" ; then
     apt_install "kubectl=${K8S_VERSION}-00"
+    echo "Pinning kubectl version..."
+    sudo apt-mark hold kubectl
   fi
   if ! kubelet --version 2>/dev/null | grep -qF "${K8S_VERSION}" ; then
     apt_install "kubelet=${K8S_VERSION}-00"
+    echo "Pinning kubelet version..."
+    sudo apt-mark hold kubelet
   fi
   if ! kubeadm version 2>/dev/null | grep -qF "${K8S_VERSION}" ; then
     apt_install "kubeadm=${K8S_VERSION}-00"
+    echo "Pinning kubeadm version..."
+    sudo apt-mark hold kubeadm
 
     # Remove the local cluster, so that it can be safely (re)installed by
     # setup_cluster below.
