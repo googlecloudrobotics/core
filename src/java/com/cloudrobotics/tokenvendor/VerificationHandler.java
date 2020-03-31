@@ -54,6 +54,7 @@ final class VerificationHandler implements HttpHandler {
   private static final List<String> roleAccounts = ImmutableList.of("human-acl", "robot-service");
   private final Iam iam;
   private final Configuration configuration;
+  // cache for each roleAccount of token -> validationRequestStatusCode
   private final Map<String, LoadingCache<String, Integer>> cache;
 
   @Inject Clock clock;
@@ -71,10 +72,11 @@ final class VerificationHandler implements HttpHandler {
               .expireAfterWrite(5, TimeUnit.MINUTES)
               .build(
                   new CacheLoader<String, Integer>() {
-                    public Integer load(String key) {
+                    @Override
+                    public Integer load(String token) {
                       try {
-                        logger.atInfo().log("verifying token with IAM");
-                        return new Integer(checkAuth(roleAccount, key));
+                        logger.atInfo().log("verifying token for %s with IAM", roleAccount);
+                        return new Integer(checkAuth(roleAccount, token));
                       } catch (Exception e) {
                         logger.atWarning().log("verify failed: %s", e.getMessage());
                         return new Integer(HttpURLConnection.HTTP_INTERNAL_ERROR);
