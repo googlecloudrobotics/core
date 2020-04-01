@@ -23,6 +23,7 @@ spec:
         - --pass-access-token
         - --pass-host-header
         - "--scope=https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email"
+        - --cookie-expire=1h
         env:
         - name: OAUTH2_PROXY_CLIENT_ID
           value: {{ .Values.oauth2_proxy.client_id }}
