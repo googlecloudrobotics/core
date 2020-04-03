@@ -65,6 +65,8 @@ class TokenSource {
     logger.atInfo().log("Requesting name: %s", name);
     GenerateAccessTokenResponse response =
         iam.projects().serviceAccounts().generateAccessToken(name, request).execute();
+    // We don't set a 'lifetime' on the request, so we get the default value (3600 sec = 1h).
+    // This needs to be in sync with the cookie-expire duration configured on oauth2-proxy.
     Instant expirationTime = Instant.parse(response.getExpireTime());
     Instant now = clock.instant();
     TokenResponse result = new TokenResponse();

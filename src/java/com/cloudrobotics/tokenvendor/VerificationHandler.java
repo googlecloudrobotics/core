@@ -51,7 +51,9 @@ final class VerificationHandler implements HttpHandler {
   public static final String X_ORIGINAL_URI = "X-Original-URI";
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
-  private static final List<String> roleAccounts = ImmutableList.of("human-acl", "robot-service");
+  private static final String HUMAN_ROLE = "human-acl";
+  private static final String ROBOT_ROLE = "robot-service";
+  private static final List<String> roleAccounts = ImmutableList.of(HUMAN_ROLE, ROBOT_ROLE);
   private final Iam iam;
   private final Configuration configuration;
   // cache for each roleAccount of token -> validationRequestStatusCode
@@ -93,9 +95,9 @@ final class VerificationHandler implements HttpHandler {
     try {
       token = getToken(exchange.getRequestHeaders());
       boolean robotsAllowed = getRobotsAllowedParameter(exchange.getRequestURI());
-      statusCode = cache.get("human-acl").get(token).intValue();
+      statusCode = cache.get(HUMAN_ROLE).get(token).intValue();
       if (robotsAllowed && statusCode != HttpURLConnection.HTTP_OK) {
-        statusCode = cache.get("robot-service").get(token).intValue();
+        statusCode = cache.get(ROBOT_ROLE).get(token).intValue();
       }
     } catch (Exception e) {
       logger.atInfo().log("Unable to obtain token: %s", e.getMessage());
