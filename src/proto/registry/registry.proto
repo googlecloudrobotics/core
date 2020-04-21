@@ -94,14 +94,14 @@ message RobotStatusCloud {
 }
 
 message RobotConfiguration {
-  bool trolley_attached = 1;
+  bool trolleyAttached = 1;
 }
 
 message RobotStatusRobot {
-  google.protobuf.Timestamp update_time = 2;
+  google.protobuf.Timestamp updateTime = 2;
   RobotState state = 3;
-  google.protobuf.Timestamp last_state_change_time = 4;
-  float battery_percentage = 5;
+  google.protobuf.Timestamp lastStateChangeTime = 4;
+  float batteryPercentage = 5;
 
   bool emergencyStopButtonPressed = 6;
 }
