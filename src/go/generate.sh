@@ -21,6 +21,12 @@
 
 set -e
 
+# K8S branch for code-generator and apimachinery
+K8S_BRANCH="release-1.15"
+GIT_API="https://github.com/kubernetes/api"
+GIT_APIMACHINERY="https://github.com/kubernetes/apimachinery.git"
+GIT_CODEGENERATOR="https://github.com/kubernetes/code-generator.git"
+
 CURRENT_DIR=$(pwd)
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -29,8 +35,16 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SHADOW_REPO="${DIR}/../.gopath/src/github.com/googlecloudrobotics/core/src/go"
 
 export GOPATH="${DIR}/../.gopath"
-export GO111MODULE=off
-go get k8s.io/code-generator/...
+# from "release-1.15" onwards k8s repositories are using go modules
+export GO111MODULE=auto
+rm -Rf "${DIR}/../.gopath/src/k8s.io"
+mkdir -p "${DIR}/../.gopath/src/k8s.io"
+cd "${DIR}/../.gopath/src/k8s.io"
+git clone --branch $K8S_BRANCH $GIT_API
+git clone --branch $K8S_BRANCH $GIT_APIMACHINERY
+git clone --branch $K8S_BRANCH $GIT_CODEGENERATOR
+cd code-generator
+go install ./cmd/{defaulter-gen,client-gen,lister-gen,informer-gen,deepcopy-gen}
 
 export PATH="$PATH:$GOPATH/bin"
 mkdir -p ${SHADOW_REPO}
