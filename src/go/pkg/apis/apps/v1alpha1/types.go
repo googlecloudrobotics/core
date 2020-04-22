@@ -32,7 +32,6 @@ type ResourceSet struct {
 	Status ResourceSetStatus `json:"status"`
 }
 
-// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ResourceSetList struct {
@@ -86,17 +85,17 @@ type ResourceSetPhase string
 
 const (
 	ResourceSetPhasePending ResourceSetPhase = "Pending"
-	ResourceSetPhaseFailed                   = "Failed"
-	ResourceSetPhaseSettled                  = "Settled"
+	ResourceSetPhaseFailed  ResourceSetPhase = "Failed"
+	ResourceSetPhaseSettled ResourceSetPhase = "Settled"
 )
 
 type ResourceAction string
 
 const (
 	ResourceActionNone    ResourceAction = "None"
-	ResourceActionCreate                 = "Create"
-	ResourceActionUpdate                 = "Update"
-	ResourceActionReplace                = "Replace"
+	ResourceActionCreate  ResourceAction = "Create"
+	ResourceActionUpdate  ResourceAction = "Update"
+	ResourceActionReplace ResourceAction = "Replace"
 )
 
 // +genclient
@@ -110,7 +109,6 @@ type App struct {
 	Spec AppSpec `json:"spec,omitempty"`
 }
 
-// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type AppList struct {
@@ -148,7 +146,6 @@ type AppRollout struct {
 	Status AppRolloutStatus `json:"status,omitempty"`
 }
 
-// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type AppRolloutList struct {
@@ -202,7 +199,7 @@ type AppRolloutConditionType string
 
 const (
 	AppRolloutConditionSettled AppRolloutConditionType = "Settled"
-	AppRolloutConditionReady                           = "Ready"
+	AppRolloutConditionReady   AppRolloutConditionType = "Ready"
 )
 
 // +genclient
@@ -217,7 +214,6 @@ type ChartAssignment struct {
 	Status ChartAssignmentStatus `json:"status,omitempty"`
 }
 
-// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ChartAssignmentList struct {
@@ -262,25 +258,25 @@ const (
 	// taking action.
 	ChartAssignmentPhaseAccepted ChartAssignmentPhase = "Accepted"
 	// LoadingChart marks the begin of parsing the chart and its metadata.
-	ChartAssignmentPhaseLoadingChart = "LoadingChart"
+	ChartAssignmentPhaseLoadingChart ChartAssignmentPhase = "LoadingChart"
 	// TODO(ensonic): Installing is only used with 'helm'.
-	ChartAssignmentPhaseInstalling = "Installing"
+	ChartAssignmentPhaseInstalling ChartAssignmentPhase = "Installing"
 	// TODO(ensonic): Updating is only used with 'synk'.
-	ChartAssignmentPhaseUpdating = "Updating"
+	ChartAssignmentPhaseUpdating ChartAssignmentPhase = "Updating"
 	// Deleting is set when starting deletion to avoid flipping failure status
 	// during turndown.
-	ChartAssignmentPhaseDeleting = "Deleting"
+	ChartAssignmentPhaseDeleting ChartAssignmentPhase = "Deleting"
 	// Settled status signals that all resources from the chart have been applied.
-	ChartAssignmentPhaseSettled = "Settled"
+	ChartAssignmentPhaseSettled ChartAssignmentPhase = "Settled"
 	// Deleted is set when the deletion phase finished.
-	ChartAssignmentPhaseDeleted = "Deleted"
+	ChartAssignmentPhaseDeleted ChartAssignmentPhase = "Deleted"
 	// Failed indicates that an error occured. The 'err' fields will give extra
 	// information and 'retry' will indicate if the controller is trying to
 	// recover from the error.
-	ChartAssignmentPhaseFailed = "Failed"
+	ChartAssignmentPhaseFailed ChartAssignmentPhase = "Failed"
 	// Ready status is set when all pods are running.
 	// TODO(ensonic): check other resource readyness too?
-	ChartAssignmentPhaseReady = "Ready"
+	ChartAssignmentPhaseReady ChartAssignmentPhase = "Ready"
 )
 
 type ChartAssignmentCondition struct {
@@ -295,5 +291,5 @@ type ChartAssignmentConditionType string
 
 const (
 	ChartAssignmentConditionSettled ChartAssignmentConditionType = "Settled"
-	ChartAssignmentConditionReady                                = "Ready"
+	ChartAssignmentConditionReady   ChartAssignmentConditionType = "Ready"
 )

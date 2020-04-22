@@ -68,8 +68,8 @@ type RobotState string
 
 const (
 	RobotStateUndefined     RobotState = "UNDEFINED"
-	RobotStateUnavailable              = "UNAVAILABLE"
-	RobotStateAvailable                = "AVAILABLE"
-	RobotStateEmergencyStop            = "EMERGENCY_STOP"
-	RobotStateError                    = "ERROR"
+	RobotStateUnavailable   RobotState = "UNAVAILABLE"
+	RobotStateAvailable     RobotState = "AVAILABLE"
+	RobotStateEmergencyStop RobotState = "EMERGENCY_STOP"
+	RobotStateError         RobotState = "ERROR"
 )
