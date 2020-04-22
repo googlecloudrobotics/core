@@ -147,6 +147,8 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 				r.enqueueAll(q)
 			},
 			UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+				// Robots don't have the status subresource enabled. Filter updates that didn't
+				// change robot name or labels.
 				change := !reflect.DeepEqual(e.MetaOld.GetLabels(), e.MetaNew.GetLabels())
 				change = change || e.MetaOld.GetName() != e.MetaNew.GetName()
 				if change {
