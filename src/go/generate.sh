@@ -21,6 +21,9 @@
 
 set -e
 
+# K8S release for api, apimachinery and code-generator
+K8S_RELEASE="release-1.15"
+
 CURRENT_DIR=$(pwd)
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -29,8 +32,15 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SHADOW_REPO="${DIR}/../.gopath/src/github.com/googlecloudrobotics/core/src/go"
 
 export GOPATH="${DIR}/../.gopath"
+
+# Activate Go modules for installation
+export GO111MODULE=on
+go get k8s.io/api/...@$K8S_RELEASE
+go get k8s.io/apimachinery/...@$K8S_RELEASE
+go get k8s.io/code-generator/...@$K8S_RELEASE
+
+# Deactivate Go modules for generating files. Cloud Robotics repo does not use Go modules
 export GO111MODULE=off
-go get k8s.io/code-generator/...
 
 export PATH="$PATH:$GOPATH/bin"
 mkdir -p ${SHADOW_REPO}

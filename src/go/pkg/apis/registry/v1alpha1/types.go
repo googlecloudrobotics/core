@@ -25,7 +25,8 @@ type Robot struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec RobotSpec `json:"spec,omitempty"`
+	Spec   RobotSpec   `json:"spec,omitempty"`
+	Status RobotStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -52,22 +53,23 @@ type RobotStatusCloud struct {
 }
 
 type RobotStatusRobot struct {
-	UpdateTime                 metav1.Time `json:"update_time,omitempty"`
-	State                      RobotState  `json:"state"`
-	LastStateChange            metav1.Time `json:"last_state_change,omitempty"`
-	BatteryPercentage          float64     `json:"battery_percentage"`
-	EmergencyStopButtonPressed bool        `json:"emergencyStopButtonPressed"`
+	UpdateTime                 metav1.Time `json:"updateTime,omitempty"`
+	State                      RobotState  `json:"state,omitempty"`
+	LastStateChange            metav1.Time `json:"lastStateChangeTime,omitempty"`
+	BatteryPercentage          float64     `json:"batteryPercentage,omitempty"`
+	EmergencyStopButtonPressed bool        `json:"emergencyStopButtonPressed,omitempty"`
 }
 
 type RobotConfiguration struct {
-	TrolleyAttached bool `json:"trolley_attached"`
+	TrolleyAttached bool `json:"trolleyAttached,omitempty"`
 }
 
-type RobotState int
+type RobotState string
 
 const (
-	RobotStateUndefined     RobotState = 0
-	RobotStateAvailable                = 1
-	RobotStateEmergencyStop            = 2
-	RobotStateError                    = 3
+	RobotStateUndefined     RobotState = "UNDEFINED"
+	RobotStateUnavailable   RobotState = "UNAVAILABLE"
+	RobotStateAvailable     RobotState = "AVAILABLE"
+	RobotStateEmergencyStop RobotState = "EMERGENCY_STOP"
+	RobotStateError         RobotState = "ERROR"
 )

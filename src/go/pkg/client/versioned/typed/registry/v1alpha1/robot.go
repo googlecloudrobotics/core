@@ -1,4 +1,4 @@
-// Copyright 2019 The Cloud Robotics Authors
+// Copyright 2020 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ type RobotsGetter interface {
 type RobotInterface interface {
 	Create(*v1alpha1.Robot) (*v1alpha1.Robot, error)
 	Update(*v1alpha1.Robot) (*v1alpha1.Robot, error)
+	UpdateStatus(*v1alpha1.Robot) (*v1alpha1.Robot, error)
 	Delete(name string, options *v1.DeleteOptions) error
 	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
 	Get(name string, options v1.GetOptions) (*v1alpha1.Robot, error)
@@ -124,6 +125,22 @@ func (c *robots) Update(robot *v1alpha1.Robot) (result *v1alpha1.Robot, err erro
 		Namespace(c.ns).
 		Resource("robots").
 		Name(robot.Name).
+		Body(robot).
+		Do().
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+
+func (c *robots) UpdateStatus(robot *v1alpha1.Robot) (result *v1alpha1.Robot, err error) {
+	result = &v1alpha1.Robot{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("robots").
+		Name(robot.Name).
+		SubResource("status").
 		Body(robot).
 		Do().
 		Into(result)

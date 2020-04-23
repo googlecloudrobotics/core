@@ -1,4 +1,4 @@
-// Copyright 2019 The Cloud Robotics Authors
+// Copyright 2020 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -91,6 +91,18 @@ func (c *FakeRobots) Create(robot *v1alpha1.Robot) (result *v1alpha1.Robot, err 
 func (c *FakeRobots) Update(robot *v1alpha1.Robot) (result *v1alpha1.Robot, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(robotsResource, c.ns, robot), &v1alpha1.Robot{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.Robot), err
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeRobots) UpdateStatus(robot *v1alpha1.Robot) (*v1alpha1.Robot, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceAction(robotsResource, "status", c.ns, robot), &v1alpha1.Robot{})
 
 	if obj == nil {
 		return nil, err

@@ -54,3 +54,32 @@ spec:
               type: string
             project:
               type: string
+        status:
+          type: object
+          properties:
+            cloud:
+              type: object
+            robot:
+              type: object
+              properties:
+                updateTime:
+                  type: string
+                state:
+                  type: string
+                  enum:
+                    - UNDEFINED
+                    - UNAVAILABLE
+                    - AVAILABLE
+                    - EMERGENCY_STOP
+                    - ERROR
+                lastStateChangeTime:
+                  type: string
+                batteryPercentage:
+                  type: number
+                emergencyStopButtonPressed:
+                  type: boolean
+            configuration:
+              type: object
+              properties:
+                trolleyAttached:
+                  type: boolean
