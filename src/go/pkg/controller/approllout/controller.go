@@ -393,7 +393,9 @@ func setCondition(ar *apps.AppRollout, t apps.AppRolloutConditionType, s core.Co
 			continue
 		}
 		// Update existing condition.
-		c.LastUpdateTime = now
+		if c.Status != s || c.Message != msg {
+			c.LastUpdateTime = now
+		}
 		if c.Status != s {
 			c.LastTransitionTime = now
 		}

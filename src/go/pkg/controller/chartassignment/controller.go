@@ -486,7 +486,9 @@ func setCondition(as *apps.ChartAssignment, t apps.ChartAssignmentConditionType,
 			continue
 		}
 		// Update existing condition.
-		c.LastUpdateTime = now
+		if c.Status != v || c.Message != msg {
+			c.LastUpdateTime = now
+		}
 		if c.Status != v {
 			c.LastTransitionTime = now
 		}
