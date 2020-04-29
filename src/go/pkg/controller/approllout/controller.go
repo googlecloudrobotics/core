@@ -123,6 +123,7 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 				change := !reflect.DeepEqual(e.MetaOld.GetLabels(), e.MetaNew.GetLabels())
 				change = change || e.MetaOld.GetName() != e.MetaNew.GetName()
 				if change {
+					log.Printf("AppRollout controller received update event for Robot %q", e.MetaNew.GetName())
 					r.enqueueAll(q)
 				}
 			},
@@ -141,12 +142,15 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 		&source.Kind{Type: &apps.App{}},
 		&handler.Funcs{
 			CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+				log.Printf("AppRollout controller received create event for App %q", e.Meta.GetName())
 				r.enqueueForApp(e.Meta, q)
 			},
 			UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+				log.Printf("AppRollout controller received update event for App %q", e.MetaNew.GetName())
 				r.enqueueForApp(e.MetaNew, q)
 			},
 			DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+				log.Printf("AppRollout controller received update event for App %q", e.Meta.GetName())
 				r.enqueueForApp(e.Meta, q)
 			},
 		},
@@ -360,7 +364,9 @@ func setCondition(ar *apps.AppRollout, t apps.AppRolloutConditionType, s core.Co
 			continue
 		}
 		// Update existing condition.
-		c.LastUpdateTime = now
+		if c.Status != s || c.Message != msg {
+			c.LastUpdateTime = now
+		}
 		if c.Status != s {
 			c.LastTransitionTime = now
 		}
