@@ -80,36 +80,7 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 
 	err = c.Watch(
 		&source.Kind{Type: &apps.AppRollout{}},
-		&handler.Funcs{
-			CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("AppRollout controller received create event for AppRollout %q", e.Meta.GetName())
-				q.Add(reconcile.Request{
-					NamespacedName: types.NamespacedName{Name: e.Meta.GetName()},
-				})
-			},
-			UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-				// Compare spec of old and new AppRollout to avoid Reconcile loop because of status updates of AppRollout
-				change := !reflect.DeepEqual(e.ObjectNew.(*apps.AppRollout).Spec, e.ObjectOld.(*apps.AppRollout).Spec)
-				change = change || e.MetaOld.GetName() != e.MetaNew.GetName()
-				if change {
-					log.Printf("AppRollout controller received update event for AppRollout %q", e.MetaNew.GetName())
-					q.Add(reconcile.Request{
-						NamespacedName: types.NamespacedName{Name: e.MetaNew.GetName()},
-					})
-					if e.MetaOld.GetName() != e.MetaNew.GetName() {
-						q.Add(reconcile.Request{
-							NamespacedName: types.NamespacedName{Name: e.MetaOld.GetName()},
-						})
-					}
-				}
-			},
-			DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("AppRollout controller received delete event for AppRollout %q", e.Meta.GetName())
-				q.Add(reconcile.Request{
-					NamespacedName: types.NamespacedName{Name: e.Meta.GetName()},
-				})
-			},
-		},
+		&handler.EnqueueRequestForObject{},
 	)
 	if err != nil {
 		return errors.Wrap(err, "watch AppRollouts")

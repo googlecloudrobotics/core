@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"reflect"
 	"strings"
 	"time"
 
@@ -33,7 +32,6 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -85,36 +83,7 @@ func Add(mgr manager.Manager, cluster string) error {
 	}
 	err = c.Watch(
 		&source.Kind{Type: &apps.ChartAssignment{}},
-		&handler.Funcs{
-			CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("ChartAssignment controller received create event for ChartAssignment %q", e.Meta.GetName())
-				q.Add(reconcile.Request{
-					NamespacedName: types.NamespacedName{Name: e.Meta.GetName()},
-				})
-			},
-			UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-				// Compare spec of old and new ChartAssignment to avoid Reconcile loop because of status updates of ChartAssignment
-				change := !reflect.DeepEqual(e.ObjectNew.(*apps.ChartAssignment).Spec, e.ObjectOld.(*apps.ChartAssignment).Spec)
-				change = change || e.MetaOld.GetName() != e.MetaNew.GetName()
-				if change {
-					log.Printf("ChartAssignment controller received update event for ChartAssignment %q", e.MetaNew.GetName())
-					q.Add(reconcile.Request{
-						NamespacedName: types.NamespacedName{Name: e.MetaNew.GetName()},
-					})
-					if e.MetaOld.GetName() != e.MetaNew.GetName() {
-						q.Add(reconcile.Request{
-							NamespacedName: types.NamespacedName{Name: e.MetaOld.GetName()},
-						})
-					}
-				}
-			},
-			DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("ChartAssignment controller received delete event for ChartAssignment %q", e.Meta.GetName())
-				q.Add(reconcile.Request{
-					NamespacedName: types.NamespacedName{Name: e.Meta.GetName()},
-				})
-			},
-		},
+		&handler.EnqueueRequestForObject{},
 	)
 	if err != nil {
 		return err
