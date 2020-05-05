@@ -36,7 +36,7 @@ gcloud --project=$GCP_PROJECT_ID compute instances create ${ROBOT_NAME} \
   --image-family ubuntu-1604-lts \
   --image-project ubuntu-os-cloud \
   --boot-disk-size=200GB \
-  --machine-type=n1-standard-4 \
+  --machine-type=e2-standard-2 \
   --scopes=cloud-platform
 gcloud --project=$GCP_PROJECT_ID compute instances add-tags ${ROBOT_NAME}  \
   --tags=kokoro-ssh

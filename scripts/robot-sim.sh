@@ -58,7 +58,7 @@ function create {
     --zone=${GCP_ZONE} --project=${GCP_PROJECT_ID} || \
   gcloud container clusters create "${ROBOT_NAME}" \
     --enable-legacy-authorization \
-    --machine-type="n1-standard-8" \
+    --machine-type="e2-standard-2" \
     --num-nodes=1 \
     --max-nodes=2 \
     --enable-ip-alias \
