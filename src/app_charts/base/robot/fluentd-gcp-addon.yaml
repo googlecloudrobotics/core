@@ -1,5 +1,5 @@
 {{ if and (eq .Values.robot_authentication "true") (eq .Values.fluentd "true") }}
 {{ .Files.Get "files/fluentd-gcp-configmap.yaml" }}
 ---
-{{ .Files.Get "files/fluentd-gcp-ds.yaml" }}
+{{ .Files.Get "files/fluentd-gcp-ds.yaml" | replace "/var/lib/docker" .Values.docker_data_root }}
 {{ end }}

@@ -58,6 +58,7 @@ var (
 	labels              = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
 	crSyncer            = flag.Bool("cr-syncer", true, "Set up the cr-syncer.")
 	fluentd             = flag.Bool("fluentd", true, "Set up fluentd to upload logs to Stackdriver.")
+	dockerDataRoot      = flag.String("docker-data-root", "/var/lib/docker", "This should match data-root in /etc/docker/daemon.json.")
 	robotAuthentication = flag.Bool("robot-authentication", true, "Set up robot authentication.")
 )
 
@@ -324,6 +325,7 @@ func installChartOrDie(domain, registry, nameOld, nameNew, chartPath string, pro
 		"app_management":       strconv.FormatBool(appManagement),
 		"cr_syncer":            strconv.FormatBool(*crSyncer),
 		"fluentd":              strconv.FormatBool(*fluentd),
+		"docker_data_root":     *dockerDataRoot,
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
 		"robot.name":           *robotName,
 		"webhook.tls.crt":      os.Getenv("TLS_CRT"),
