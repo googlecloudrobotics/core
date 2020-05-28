@@ -481,9 +481,18 @@ func NewValidationWebhook(mgr manager.Manager) *admission.Webhook {
 	return &admission.Webhook{Handler: newChartAssignmentValidator(mgr.GetScheme())}
 }
 
+// NewValidationWebhookForEdgeCluster returns a webhook that checks
+// ChartAssignments are valid and apply to a cluster with the given name.
+func NewValidationWebhookForEdgeCluster(mgr manager.Manager, clusterName string) *admission.Webhook {
+	v := newChartAssignmentValidator(mgr.GetScheme())
+	v.clusterName = clusterName
+	return &admission.Webhook{Handler: v}
+}
+
 // chartAssignmentValidator implements a validation webhook.
 type chartAssignmentValidator struct {
-	decoder runtime.Decoder
+	decoder     runtime.Decoder
+	clusterName string
 }
 
 func newChartAssignmentValidator(sc *runtime.Scheme) *chartAssignmentValidator {
@@ -506,15 +515,18 @@ func (v *chartAssignmentValidator) Handle(_ context.Context, req admission.Reque
 	} else {
 		old = nil
 	}
-	if err := validate(cur, old); err != nil {
+	if err := v.validate(cur, old); err != nil {
 		return admission.Denied(err.Error())
 	}
 	return admission.Allowed("")
 }
 
-func validate(cur, old *apps.ChartAssignment) error {
+func (v *chartAssignmentValidator) validate(cur, old *apps.ChartAssignment) error {
 	if cur.Spec.ClusterName == "" {
 		return fmt.Errorf("cluster name missing")
+	}
+	if v.clusterName != "" && cur.Spec.ClusterName != v.clusterName {
+		return fmt.Errorf("invalid cluster name %q, expected %q", cur.Spec.ClusterName, v.clusterName)
 	}
 	if cur.Spec.NamespaceName == "" {
 		return fmt.Errorf("namespace name missing")

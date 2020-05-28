@@ -170,6 +170,7 @@ spec:
 		},
 	}
 	for _, c := range cases {
+		v := newChartAssignmentValidator(nil)
 		t.Run(c.name, func(t *testing.T) {
 			var old, cur *apps.ChartAssignment
 
@@ -181,7 +182,53 @@ spec:
 				cur = &apps.ChartAssignment{}
 				unmarshalYAML(t, &cur, c.cur)
 			}
-			err := validate(cur, old)
+			err := v.validate(cur, old)
+			if err == nil && c.shouldFail {
+				t.Fatal("expected failure but got none")
+			}
+			if err != nil && !c.shouldFail {
+				t.Fatalf("unexpected error: %s", err)
+			}
+		})
+	}
+}
+
+func TestValidateForOnPremCluster(t *testing.T) {
+	cases := []struct {
+		name       string
+		old        string
+		cur        string
+		shouldFail bool
+	}{
+		{
+			name: "valid-with-correct-name",
+			cur: `
+spec:
+  clusterName: my-cluster
+  namespaceName: ns1
+  chart:
+    inline: abc
+	`,
+		},
+		{
+			name: "valid-with-incorrect-name",
+			cur: `
+spec:
+  clusterName: not-my-cluster
+  namespaceName: ns1
+  chart:
+    inline: abc
+	`,
+			shouldFail: true,
+		},
+	}
+	for _, c := range cases {
+		v := newChartAssignmentValidator(nil)
+		v.clusterName = "my-cluster"
+		t.Run(c.name, func(t *testing.T) {
+			cur := &apps.ChartAssignment{}
+			unmarshalYAML(t, &cur, c.cur)
+			err := v.validate(cur, nil)
 			if err == nil && c.shouldFail {
 				t.Fatal("expected failure but got none")
 			}

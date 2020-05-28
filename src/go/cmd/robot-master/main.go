@@ -93,7 +93,8 @@ func setupAppV2(cfg *rest.Config, cluster string) error {
 		srv := mgr.GetWebhookServer()
 		srv.CertDir = *certDir
 
-		srv.Register("/chartassignment/validate", chartassignment.NewValidationWebhook(mgr))
+		webhook := chartassignment.NewValidationWebhookForEdgeCluster(mgr, cluster)
+		srv.Register("/chartassignment/validate", webhook)
 	}
 
 	go func() {
