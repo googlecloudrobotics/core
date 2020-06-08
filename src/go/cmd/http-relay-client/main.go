@@ -41,6 +41,11 @@ import (
 )
 
 const (
+	// Timeout for requests to the relay-server. It should be longer than
+	// the timeout in broker.GetRequest to avoid confusing error messages.
+	// If it is too long, connection problems in getRequests could cause
+	// the relay to stall indefinitely.
+	remoteRequestTimeout = 60 * time.Second
 	// When streaming response data to the client (eg `kubectl logs -f`), we
 	// accumulate data to avoid sending too many requests to the relay-server.
 	// responseTimeout specifies how long to accumulate before sending response
@@ -372,6 +377,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("unable to set up credentials: %v", err)
 	}
+	remote.Timeout = remoteRequestTimeout
 	transport := &http.Transport{}
 	if *rootCAFile != "" {
 		rootCAs := x509.NewCertPool()
