@@ -155,7 +155,7 @@ func (r *broker) PutRequestStream(id string, data []byte) bool {
 }
 
 // SendResponse delivers the HttpResponse to the client handler that created the
-// request.
+// request. It fails if and only if the request ID is not recognized.
 func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	id := *resp.Id
 	r.m.Lock()
@@ -163,7 +163,7 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	if pr == nil {
 		r.m.Unlock()
 		brokerResponses.WithLabelValues("server_response", "invalid").Inc()
-		return fmt.Errorf("Duplicate or invalid response id %s", id)
+		return fmt.Errorf("Duplicate or invalid request ID %s", id)
 	}
 	if resp.GetEof() {
 		delete(r.resp, id)

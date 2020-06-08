@@ -207,3 +207,29 @@ func TestServerRequestResponseHandler(t *testing.T) {
 		t.Errorf("Encapsulated response was garbled; want %s; got %s", backendResp, serverResp)
 	}
 }
+
+func TestServerResponseHandlerWithInvalidRequestID(t *testing.T) {
+	backendResp := &pb.HttpResponse{
+		Id:         proto.String("not found"),
+		StatusCode: proto.Int(201),
+		Header: []*pb.HttpHeader{{
+			Name:  proto.String("X-GFE"),
+			Value: proto.String("google.com"),
+		}},
+		Body: []byte("thebody"),
+		Eof:  proto.Bool(true),
+	}
+	backendRespBody, err := proto.Marshal(backendResp)
+	if err != nil {
+		t.Errorf("Failed to marshal test response: %s", err)
+	}
+
+	resp := httptest.NewRequest("POST", "/server/response", bytes.NewReader(backendRespBody))
+	respRecorder := httptest.NewRecorder()
+	server := newServer()
+	server.serverResponse(respRecorder, resp)
+
+	if want, got := http.StatusBadRequest, respRecorder.Result().StatusCode; want != got {
+		t.Errorf("serverResponse() gave wrong status code; want %d; got %d", want, got)
+	}
+}

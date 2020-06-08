@@ -167,15 +167,20 @@ func postResponse(remote *http.Client, br *pb.HttpResponse) error {
 	}
 	resp, err := remote.Post(responseUrl.String(), "application/octet-data", bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("Couldn't post response to relay server: %v", err)
+		return fmt.Errorf("couldn't post response to relay server: %v", err)
 	}
 	defer resp.Body.Close()
 	body, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("Couldn't read relay server's response body: %v", err)
+		return fmt.Errorf("couldn't read relay server's response body: %v", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Relay server responded %s: %s", http.StatusText(resp.StatusCode), body)
+		err := fmt.Errorf("relay server responded %s: %s", http.StatusText(resp.StatusCode), body)
+		if resp.StatusCode == http.StatusBadRequest {
+			// http-relay-server may have restarted during the request.
+			return backoff.Permanent(err)
+		}
+		return err
 	}
 
 	return nil
@@ -346,7 +351,7 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 
 	for resp := range responseChannel {
 		exponentialBackoff.Reset()
-		backoff.RetryNotify(
+		err := backoff.RetryNotify(
 			func() error {
 				return postResponse(remote, resp)
 			},
@@ -355,6 +360,10 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 				log.Printf("Failed to post response for %s to relay: %v", *resp.Id, err)
 			},
 		)
+		if _, ok := err.(*backoff.PermanentError); ok {
+			// A permanent error suggests the request should be aborted.
+			break
+		}
 	}
 }
 

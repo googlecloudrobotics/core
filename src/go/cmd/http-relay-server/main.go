@@ -345,7 +345,8 @@ func (s *server) serverResponse(w http.ResponseWriter, r *http.Request) {
 
 	err = s.b.SendResponse(br)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		// SendResponse fails if and only if the request ID is bad.
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
