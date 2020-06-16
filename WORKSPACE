@@ -520,6 +520,12 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_masterminds_goutils",
+    commit = "41ac8693c5c10a92ea1ff5ac3a7f95646f6123b0",
+    importpath = "github.com/Masterminds/goutils",
+)
+
+go_repository(
     name = "com_github_masterminds_semver",
     commit = "c7af12943936e8c39859482e61f0574c2fd7fc75",
     importpath = "github.com/Masterminds/semver",
@@ -527,7 +533,7 @@ go_repository(
 
 go_repository(
     name = "com_github_masterminds_sprig",
-    commit = "544a9b1d90f323f6509491b389714fbbd126bee3",
+    commit = "e4c0945838d570720d876a6ad9b4568ed32317b4",
     importpath = "github.com/Masterminds/sprig",
 )
 
@@ -538,9 +544,21 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_mitchellh_copystructure",
+    commit = "9a1b6f44e8da0e0e374624fb0a825a231b00c537",
+    importpath = "github.com/mitchellh/copystructure",
+)
+
+go_repository(
     name = "com_github_mitchellh_go_wordwrap",
     commit = "9e67c67572bc5dd02aef930e2b0ae3c02a4b5a5c",
     importpath = "github.com/mitchellh/go-wordwrap",
+)
+
+go_repository(
+    name = "com_github_mitchellh_reflectwalk",
+    commit = "3e2c75dfad4fbf904b58782a80fd595c760ad185",
+    importpath = "github.com/mitchellh/reflectwalk",
 )
 
 go_repository(
@@ -756,7 +774,7 @@ go_repository(
 go_repository(
     name = "io_k8s_helm",
     # v2.16.1 - Tue Nov 12 13:29:17 2019
-    commit = "bbdfe5e7803a12bbdf97e94cd847859890cf4050",
+    commit = "79d07943b03aea2b76c12644b4b54733bc5958d6",
     importpath = "k8s.io/helm",
 )
 

@@ -26,6 +26,12 @@ required = ["github.com/golang/glog"]
   name = "sigs.k8s.io/kind"
   version = "v0.7.0"
 
+# This pulls in a slightly newer sprig, enabling `concat` etc in Helm
+# templates.
+[[override]]
+  name = "github.com/Masterminds/sprig"
+  version = "v2.22.0"
+
 # Most Kubernetes repos are consistently versioned along the Kubernetes release.
 # kustomize (included by cli-runtime) however has its own scheme and pins its
 # Kubernetes dependencies to master.
