@@ -51,6 +51,10 @@ function include_config_and_defaults {
   SYNK="${SYNK_COMMAND} --context ${KUBE_CONTEXT}"
 }
 
+function kc {
+  kubectl --context="${KUBE_CONTEXT}" "$@"
+}
+
 function prepare_source_install {
   bazel build "@hashicorp_terraform//:terraform" \
       "@kubernetes_helm//:helm" \
@@ -182,19 +186,19 @@ function terraform_delete {
 function cleanup_helm_data {
   # Delete all legacy HELM resources. Do not delete the Helm charts directly, as
   # we just want to keep the resources and have synk "adopt" them.
-  kubectl delete cm ready-for-synk 2> /dev/null || true
-  kubectl delete cm synk-enabled 2> /dev/null || true
-  kubectl -n kube-system delete deploy tiller-deploy 2> /dev/null || true
-  kubectl -n kube-system delete service tiller-deploy 2> /dev/null || true
-  kubectl -n kube-system delete cm -l OWNER=TILLER
+  kc delete cm ready-for-synk 2> /dev/null || true
+  kc delete cm synk-enabled 2> /dev/null || true
+  kc -n kube-system delete deploy tiller-deploy 2> /dev/null || true
+  kc -n kube-system delete service tiller-deploy 2> /dev/null || true
+  kc -n kube-system delete cm -l OWNER=TILLER
 }
 
 function cleanup_old_cert_manager {
   # Uninstall and cleanup older versions of cert-manager if needed
 
   echo "checking for old cert manager .."
-  kubectl >/dev/null 2>&1 get deployments cert-manager || return 0
-  installed_ver=$(kubectl get deployments cert-manager -o jsonpath="{.metadata.labels['chart']}" | rev | cut -d'-' -f1 | rev | tr -d "vV")
+  kc &>/dev/null get deployments cert-manager || return 0
+  installed_ver=$(kc get deployments cert-manager -o jsonpath="{.metadata.labels['chart']}" | rev | cut -d'-' -f1 | rev | tr -d "vV")
   echo "have cert manager $installed_ver"
 
   if [[ "$installed_ver" == 0.5.* ]]; then
@@ -204,10 +208,10 @@ function cleanup_old_cert_manager {
     # and https://docs.cert-manager.io/en/latest/tasks/backup-restore-crds.html
 
     # cleanup
-    synk_version=$(kubectl get resourcesets.apps.cloudrobotics.com --output=name | grep cert-manager | cut -d'/' -f2)
+    synk_version=$(kc get resourcesets.apps.cloudrobotics.com --output=name | grep cert-manager | cut -d'/' -f2)
     echo "deleting resourceset ${synk_version}"
     ${SYNK} delete ${synk_version} -n default
-    kubectl delete crd \
+    kc delete crd \
       certificates.certmanager.k8s.io \
       issuers.certmanager.k8s.io \
       clusterissuers.certmanager.k8s.io
@@ -220,18 +224,21 @@ function helm_charts {
   local INGRESS_IP
   INGRESS_IP=$(terraform_exec output ingress-ip)
 
+  local CURRENT_CONTEXT
+  CURRENT_CONTEXT=$(kubectl config current-context)
   gcloud container clusters get-credentials "${PROJECT_NAME}" \
     --zone ${GCP_ZONE} \
     --project ${GCP_PROJECT_ID} \
     || die "create: failed to get cluster credentials"
+  [[ -n "${CURRENT_CONTEXT}" ]] && kubectl config use-context "${CURRENT_CONTEXT}"
 
   # Generate a certificate authority if none exists yet. It is used by
   # cert-manager to issue new cluster-internal certificates.
   # Avoid creating a new one on each run as rotation may cause intermittent
   # disruptions, which we don't want to trigger on each deploy.
-  if kubectl get secret cluster-authority; then
-    ca_crt=$(kubectl get secret cluster-authority -o=go-template --template='{{index .data "tls.crt"}}')
-    ca_key=$(kubectl get secret cluster-authority -o=go-template --template='{{index .data "tls.key"}}')
+  if kc get secret cluster-authority; then
+    ca_crt=$(kc get secret cluster-authority -o=go-template --template='{{index .data "tls.crt"}}')
+    ca_key=$(kc get secret cluster-authority -o=go-template --template='{{index .data "tls.key"}}')
   else
     certdir=$(mktemp -d)
     openssl genrsa -out "${certdir}/ca.key" 2048
@@ -243,7 +250,7 @@ function helm_charts {
 
   # The webhook configuration used to be created by a library at runtime. We must
   # manually delete it as it wasn't part of a Helm chart.
-  kubectl delete validatingwebhookconfiguration \
+  kc delete validatingwebhookconfiguration \
     validating-webhook-configuration 2>/dev/null || true
 
   ${SYNK} init
@@ -279,8 +286,8 @@ EOF
   cert_manager_version="v0.8.1"
   curl -o ${cert_manager_chart} https://charts.jetstack.io/charts/cert-manager-${cert_manager_version}.tgz
 
-  kubectl apply -f https://raw.githubusercontent.com/jetstack/cert-manager/${cert_manager_version}/deploy/manifests/00-crds.yaml
-  kubectl label --overwrite namespace default certmanager.k8s.io/disable-validation=true
+  kc apply -f https://raw.githubusercontent.com/jetstack/cert-manager/${cert_manager_version}/deploy/manifests/00-crds.yaml
+  kc label --overwrite namespace default certmanager.k8s.io/disable-validation=true
 
   echo "installing cert-manager to ${KUBE_CONTEXT}..."
   ${HELM} template -n cert-manager --set global.rbac.create=false ${cert_manager_chart} \
@@ -291,7 +298,7 @@ EOF
   #   the server is currently unable to handle the request
   # The `sleep` is because it occasionally fails even after `kubectl wait`.
   # TODO(rodrigoq): work out exactly what we need to wait for
-  kubectl wait deployment cert-manager-webhook --for condition=Available
+  kc wait deployment cert-manager-webhook --for condition=Available
   sleep 60
 
   echo "installing base-cloud to ${KUBE_CONTEXT}..."
