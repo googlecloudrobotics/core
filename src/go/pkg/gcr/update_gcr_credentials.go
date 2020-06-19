@@ -101,7 +101,19 @@ func UpdateGcrCredentials(k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) 
 		}
 		namespace := ns.ObjectMeta.Name
 
-		// Create a docker config with the access-token and store as secret
+		// Only ever create secrets in the 'default' namespace. For app namespaces the ChartAssignment
+		// controller will create the initial secret and patch the service account.
+		// This avoids us putting pull secrets into eg foreign namespaces.
+		s := k8s.CoreV1().Secrets(namespace)
+		if _, err := s.Get(SecretName, metav1.GetOptions{}); k8serrors.IsNotFound(err) {
+			if namespace != "default" {
+				continue
+			}
+		}
+		// If we get here, the namespace has a secret that we need to update or
+		// it is the default namespace where it is okay to create the secret.
+
+		// Create or update a secret containing a docker config with the access-token.
 		err = kubeutils.UpdateSecret(k8s, SecretName, namespace, corev1.SecretTypeDockercfg,
 			cfgData)
 		if err != nil {

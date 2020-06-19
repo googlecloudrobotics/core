@@ -129,17 +129,11 @@ func BuildCloudKubernetesConfig(ts oauth2.TokenSource, remoteServer string) *res
 }
 
 // UpdateSecret (over-) writes a k8s secret.
-// Only ever create one in the 'default' namespace. For other namespaces the ChartAssignment
-// controller will create the initial secret and only those we update. This avoids us putting pull
-// secrets into eg foreign namespaces.
 func UpdateSecret(k8s *kubernetes.Clientset, name string, namespace string, secretType corev1.SecretType, data map[string][]byte) error {
 	s := k8s.CoreV1().Secrets(namespace)
 
 	secret, err := s.Get(name, metav1.GetOptions{})
 	if err != nil && k8serrors.IsNotFound(err) {
-		if namespace != "default" {
-			return nil
-		}
 		_, err = s.Create(&corev1.Secret{
 			Type: secretType,
 			Data: data,
