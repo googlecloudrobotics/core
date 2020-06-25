@@ -573,9 +573,9 @@ cc_library(
     _maybe(
         http_archive,
         name = "io_bazel_rules_docker",
-        sha256 = "9ff889216e28c918811b77999257d4ac001c26c1f7c7fb17a79bc28abf74182e",
-        strip_prefix = "rules_docker-0.10.1",
-        urls = ["https://github.com/bazelbuild/rules_docker/archive/v0.10.1.tar.gz"],
+        sha256 = "feb53c560be2f97b7d02b23a1738a3154ba89fe630f09a7a838dcad38731b0b8",
+        strip_prefix = "rules_docker-faaa10a72fa9abde070e2a20d6046e9f9b849e9a",
+        urls = ["https://github.com/bazelbuild/rules_docker/archive/faaa10a72fa9abde070e2a20d6046e9f9b849e9a.tar.gz"],
     )
 
     # Go rules and proto support
