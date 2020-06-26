@@ -17,7 +17,7 @@ def _impl(ctx):
         template = ctx.file._sh_tpl,
         substitutions = {
             "%{commands}": "\n".join([
-                "async {command} --name=\"${{CONTAINER_REGISTRY}}/{repository}:latest\"".format(
+                "async {command} --dst=\"${{CONTAINER_REGISTRY}}/{repository}:latest\"".format(
                     command = _get_runfile_path(ctx, target.files_to_run.executable),
                     repository = repository,
                 )
