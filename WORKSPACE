@@ -23,6 +23,8 @@ http_archive(
     urls = [
         "https://github.com/grpc/grpc-java/archive/274bf62e04f66fe9e0ffa4cac052a145e7c7b690.tar.gz",
     ],
+    patches = ["//third_party:io_grpc_grpc_java-d3c77f2d870baf8c8340890eb5aed590a5f3940c.patch"],
+    patch_args = ["-p1"],
 )
 
 load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
