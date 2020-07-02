@@ -1,0 +1,32 @@
+# Adds a Prometheus ServiceMonitor for scraping the fluentd metrics.
+# By default, google-fluentd exports some Prometheus metrics on port 24231.
+{{ if and (eq .Values.robot_authentication "true") (eq .Values.fluentd "true") }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: fluentd-metrics
+  labels:
+    app: fluentd-metrics
+spec:
+  ports:
+  - port: 24231
+    name: metrics
+  selector:
+    k8s-app: fluentd-gcp
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: fluentd-metrics
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 10s
+  selector:
+    matchLabels:
+      app: fluentd-metrics
+{{ end }}
