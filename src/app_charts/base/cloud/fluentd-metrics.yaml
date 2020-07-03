@@ -6,7 +6,6 @@ metadata:
   name: fluentd-metrics
   labels:
     app: fluentd-metrics
-  namespace: kube-system
 spec:
   ports:
   - port: 24231
@@ -21,7 +20,6 @@ metadata:
   name: fluentd-metrics
   labels:
     prometheus: kube-prometheus
-  namespace: kube-system
 spec:
   endpoints:
   - port: metrics
