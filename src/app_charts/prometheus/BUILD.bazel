@@ -4,7 +4,7 @@ load("//bazel:app.bzl", "app")
 
 helm_template(
     name = "prometheus-operator-chart.cloud",
-    chart = "//third_party/prometheus-operator:prometheus-operator-6.11.0.tgz",
+    chart = "//third_party/prometheus-operator:prometheus-operator-6.12.0.tgz",
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
     # Pick a short release name as it will be used as a prefix for a lot of resources.
@@ -14,7 +14,7 @@ helm_template(
 
 helm_template(
     name = "prometheus-operator-chart.robot",
-    chart = "//third_party/prometheus-operator:prometheus-operator-6.11.0.tgz",
+    chart = "//third_party/prometheus-operator:prometheus-operator-6.12.0.tgz",
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
     # Pick a short release name as it will be used as a prefix for a lot of resources.

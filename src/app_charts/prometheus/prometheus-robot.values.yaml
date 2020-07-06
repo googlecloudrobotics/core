@@ -30,6 +30,11 @@ prometheus:
       any: true
     serviceMonitorSelector:
       any: true
+    # Pick up all pod monitors across all namespaces.
+    podMonitorNamespaceSelector:
+      any: true
+    podMonitorSelector:
+      any: true
     ruleNamespaceSelector:
       any: true
     retention: "3d"

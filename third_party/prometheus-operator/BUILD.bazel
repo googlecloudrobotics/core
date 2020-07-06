@@ -4,7 +4,7 @@ licenses(["notice"])
 
 # TODO(b/118419020): replace copies by upstream versions
 # this chart was downloaded by running:
-# curl -O https://kubernetes-charts.storage.googleapis.com/prometheus-operator-6.11.0.tgz
+# curl -O https://kubernetes-charts.storage.googleapis.com/prometheus-operator-6.12.0.tgz
 # then editing:
 # - prometheus-operator/charts/prometheus-node-exporter/templates/daemonset.yaml
 #   to use apps/v1
