@@ -1,18 +1,10 @@
 resource "google_storage_bucket" "robot" {
-  name          = "${var.id}-robot"
-  location      = "${var.region}"
-  storage_class = "REGIONAL"
-  force_destroy = "true"
-  depends_on    = ["google_project_service.compute"]
-}
-
-# Make the bucket, and its contents, public. Making the individual objects
-# public is hard because of
-# https://github.com/terraform-providers/terraform-provider-google/issues/2213
-resource "google_storage_bucket_iam_member" "robot-acl" {
-  bucket = "${google_storage_bucket.robot.name}"
-  role   = "roles/storage.objectViewer"
-  member = "allUsers"
+  name               = "${var.id}-robot"
+  location           = "${var.region}"
+  storage_class      = "REGIONAL"
+  bucket_policy_only = "true"
+  force_destroy      = "true"
+  depends_on         = ["google_project_service.compute"]
 }
 
 resource "google_storage_bucket_object" "setup_robot_image_reference" {
@@ -37,9 +29,10 @@ resource "google_storage_bucket_object" "install_k8s_on_robot" {
 }
 
 resource "google_storage_bucket" "tools" {
-  name          = "${var.id}-tools"
-  location      = "${var.region}"
-  storage_class = "REGIONAL"
-  force_destroy = "true"
-  depends_on    = ["google_project_service.compute"]
+  name               = "${var.id}-tools"
+  location           = "${var.region}"
+  storage_class      = "REGIONAL"
+  bucket_policy_only = "true"
+  force_destroy      = "true"
+  depends_on         = ["google_project_service.compute"]
 }

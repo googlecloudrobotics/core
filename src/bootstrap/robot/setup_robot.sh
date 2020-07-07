@@ -50,16 +50,6 @@ if [[ -z "${KUBE_CONTEXT}" ]] ; then
   KUBE_CONTEXT=kubernetes-admin@kubernetes
 fi
 
-# Full reference to the setup-robot image. The default is filled in by a genrule.
-IMAGE_REFERENCE=$(curl -fsSL \
-  "https://storage.googleapis.com/${PROJECT}-robot/setup_robot_image_reference.txt") || \
-  IMAGE_REFERENCE=""
-
-if [[ -z "$IMAGE_REFERENCE" ]] ; then
-  echo "ERROR: failed to get setup_robot_image_reference.txt from GCS" >&2
-  exit 1
-fi
-
 if [[ -n "$ACCESS_TOKEN_FILE" ]]; then
   ACCESS_TOKEN=$(cat ${ACCESS_TOKEN_FILE})
 fi
@@ -69,6 +59,16 @@ if [[ -z "$ACCESS_TOKEN" ]]; then
   echo "    gcloud auth application-default print-access-token"
   echo "Enter access token:"
   read ACCESS_TOKEN
+fi
+
+# Full reference to the setup-robot image.
+IMAGE_REFERENCE=$(curl -fsSL -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+"https://storage.googleapis.com/${PROJECT}-robot/setup_robot_image_reference.txt") || \
+  IMAGE_REFERENCE=""
+
+if [[ -z "$IMAGE_REFERENCE" ]] ; then
+  echo "ERROR: failed to get setup_robot_image_reference.txt from GCS" >&2
+  exit 1
 fi
 
 # Extract registry from IMAGE_REFERENCE. E.g.:

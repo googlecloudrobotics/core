@@ -49,7 +49,7 @@ The installation script installs and configures:
     ```shell
     mkdir -p ~/cloud-robotics-core
     cd ~/cloud-robotics-core
-    curl https://storage.googleapis.com/${PROJECT_ID}-robot/setup_robot.sh >setup_robot.sh
+    curl https://raw.githubusercontent.com/googlecloudrobotics/core/master/src/bootstrap/robot/setup_robot.sh >setup_robot.sh
     bash setup_robot.sh my-robot --project ${PROJECT_ID} \
       --robot-type my-robot-type
     ```
