@@ -1,11 +1,19 @@
 # Adds a Prometheus ServiceMonitor for scraping the fluentd metrics.
 # By default, google-fluentd exports some Prometheus metrics on port 24231.
+#
+# This is in the "cloud-extra" directory as this cannot de deployed together
+# with the other YAMLs in cloud/ since this is deployed to a different
+# (non-default) namespace. One alterantive would have been to use a PodMonitor
+# instead of Service+ServiceMonitor, but that seems to require a ContainerPort
+# on the app to be monitored, which we cannot easily add to fluentd given we
+# are using the standard GKE installation.
 apiVersion: v1
 kind: Service
 metadata:
   name: fluentd-metrics
   labels:
     app: fluentd-metrics
+  namespace: kube-system
 spec:
   ports:
   - port: 24231
@@ -20,6 +28,7 @@ metadata:
   name: fluentd-metrics
   labels:
     prometheus: kube-prometheus
+  namespace: kube-system
 spec:
   endpoints:
   - port: metrics

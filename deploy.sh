@@ -308,6 +308,9 @@ EOF
     | ${SYNK} apply base-cloud -n default -f - \
     || die "Synk failed for base-cloud"
 
+  echo "installing cloud-extra to ${KUBE_CONTEXT}..."
+  kc apply -f "src/app_charts/base/cloud-extra/"
+
   echo "installing platform-apps-cloud to ${KUBE_CONTEXT}..."
   ${HELM} template -n platform-apps-cloud ${values} \
       ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz \
