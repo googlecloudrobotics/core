@@ -59,6 +59,7 @@ function prepare_source_install {
   bazel build "@hashicorp_terraform//:terraform" \
       "@kubernetes_helm//:helm" \
       //src/app_charts/base:base-cloud \
+      //src/app_charts/base/cloud-extra:all_yamls \
       //src/app_charts/platform-apps:platform-apps-cloud \
       //src/app_charts:push \
       //src/go/cmd/setup-robot:setup-robot-image.digest \
@@ -309,7 +310,7 @@ EOF
     || die "Synk failed for base-cloud"
 
   echo "installing cloud-extra to ${KUBE_CONTEXT}..."
-  kc apply -f "src/app_charts/base/cloud-extra/"
+  kc apply -f "./bazel-bin/src/app_charts/base/cloud-extra/all.yaml"
 
   echo "installing platform-apps-cloud to ${KUBE_CONTEXT}..."
   ${HELM} template -n platform-apps-cloud ${values} \
