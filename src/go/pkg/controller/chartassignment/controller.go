@@ -176,6 +176,15 @@ type namespaceDeletionError struct {
 
 func (e *namespaceDeletionError) Error() string { return e.msg }
 
+// missingServiceAccountError indicates that the default ServiceAccount has not
+// yet been created, and that the chart should not be updated to avoid creating
+// pods before the ImagePullSecrets have been applied.
+type missingServiceAccountError struct {
+	msg string
+}
+
+func (e *missingServiceAccountError) Error() string { return e.msg }
+
 func (r *Reconciler) ensureNamespace(ctx context.Context, as *apps.ChartAssignment) (*core.Namespace, error) {
 	// Create application namespace if it doesn't exist.
 	var ns core.Namespace
@@ -250,7 +259,9 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, ns *core.Namespac
 	if err != nil {
 		if k8serrors.IsNotFound(err) && time.Since(ns.CreationTimestamp.Time) < defaultServiceAccountDeadline {
 			// The Service Account Controller hasn't created the default SA yet.
-			return nil
+			return &missingServiceAccountError{
+				msg: fmt.Sprintf("ServiceAccount \"%s:default\" not yet created", ns.Name),
+			}
 		}
 		return fmt.Errorf("getting ServiceAccount \"%s:default\" failed: %s", as.Spec.NamespaceName, err)
 	}
@@ -296,7 +307,12 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 		return reconcile.Result{}, fmt.Errorf("ensure namespace: %s", err)
 	}
 	if err := r.ensureServiceAccount(ctx, ns, as); err != nil {
-		return reconcile.Result{}, fmt.Errorf("ensure service-account: %s", err)
+		if _, ok := err.(*missingServiceAccountError); ok {
+			log.Printf("Failed: %q. This is expected to occur rarely.", err)
+			return reconcile.Result{Requeue: true, RequeueAfter: requeueFast}, nil
+		} else {
+			return reconcile.Result{}, fmt.Errorf("ensure service-account: %s", err)
+		}
 	}
 	// Ensure a finalizer on the ChartAssignment so we don't get deleted before
 	// we've properly deleted the associated Synk ResourceSet.
