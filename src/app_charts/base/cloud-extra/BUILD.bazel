@@ -5,7 +5,7 @@ filegroup(
 
 genrule(
     name = "all_yamls",
-    srcs = [":all_yaml_filegroup",],
+    srcs = [":all_yaml_filegroup"],
     outs = ["all.yaml"],
     # Concat all files into one with a '---' separator.
     cmd = "for i in $(locations :all_yaml_filegroup) ; do cat $${i} ; echo '---' ; done >$@",
