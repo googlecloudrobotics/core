@@ -27,6 +27,8 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment"
 	"github.com/pkg/errors"
+	"go.opencensus.io/exporter/stackdriver"
+	"go.opencensus.io/trace"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -44,10 +46,24 @@ var (
 
 	certDir = flag.String("cert-dir", "",
 		"Directory for TLS certificates")
+
+	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "",
+		"If not empty, traces will be uploaded to this Google Cloud Project")
 )
 
 func main() {
 	flag.Parse()
+	if *stackdriverProjectID != "" {
+		sd, err := stackdriver.NewExporter(stackdriver.Options{
+			ProjectID: *stackdriverProjectID,
+		})
+		if err != nil {
+			log.Fatalf("Failed to create the Stackdriver exporter: %v", err)
+		}
+		trace.RegisterExporter(sd)
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+		defer sd.Flush()
+	}
 
 	robotName := os.Getenv("ROBOT_NAME")
 	if robotName == "" {

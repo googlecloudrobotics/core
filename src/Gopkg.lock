@@ -2,7 +2,7 @@
 
 
 [[projects]]
-  digest = "1:01bd00f2b7ce2244a8f278ee021dcde3e961c7d3189d838d7c14b5f151f0ab22"
+  digest = "1:b7bd5c8d6493510926bb77cae68b52afcd99ce650f7d59a7fd7932cc427f6417"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
@@ -12,11 +12,10 @@
     "internal/trace",
     "internal/tracecontext",
     "internal/version",
-    "pubsub",
-    "pubsub/apiv1",
-    "pubsub/internal/distribution",
+    "monitoring/apiv3",
     "storage",
     "trace",
+    "trace/apiv2",
   ]
   pruneopts = "NUT"
   revision = "777200caa7fb8936aed0f12b1fd79af64cc83ec9"
@@ -302,7 +301,7 @@
   ]
   pruneopts = "NUT"
   revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
-  version = "v1.1.0"
+  version = "v1.4.0"
 
 [[projects]]
   branch = "master"
@@ -530,13 +529,11 @@
   revision = "42c35bdb11c20ff50bb14ef05750e8dcdfc75ea5"
 
 [[projects]]
-  digest = "1:ac6e658516a8b73fdf62b375a93445d4b768548774940dcedd112d5d30e37015"
+  digest = "1:450495ee4de4bf794a5c92db6530c9248227031a69beca1382454ca41b0f92ca"
   name = "github.com/onsi/gomega"
   packages = [
     ".",
     "format",
-    "gstruct",
-    "gstruct/errors",
     "internal/assertion",
     "internal/asyncassertion",
     "internal/oraclematcher",
@@ -646,20 +643,18 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:16830e40cf6c97fad75dbf736be4df1c41a4ea14b1dba66821e702fbedab1e45"
+  digest = "1:0dcabc802c472aacedaf3c4c5f287b447100ef58f463452e30bb0c9b406cb366"
   name = "go.opencensus.io"
   packages = [
     ".",
     "exporter/prometheus",
+    "exporter/stackdriver",
     "exporter/stackdriver/propagation",
     "internal",
     "internal/tagencoding",
-    "metric/metricdata",
-    "metric/metricproducer",
     "plugin/ocgrpc",
     "plugin/ochttp",
     "plugin/ochttp/propagation/b3",
-    "resource",
     "stats",
     "stats/internal",
     "stats/view",
@@ -667,13 +662,12 @@
     "trace",
     "trace/internal",
     "trace/propagation",
-    "trace/tracestate",
     "zpages",
     "zpages/internal",
   ]
   pruneopts = "NUT"
-  revision = "46618d076d80f4eab85adbcb3be9a370be1dc4e0"
-  version = "v0.20.0"
+  revision = "e262766cd0d230a1bb7c37281e345e465f19b41b"
+  version = "v0.14.0"
 
 [[projects]]
   digest = "1:22f696cee54865fb8e9ff91df7b633f6b8f22037a8015253c6b6a71ca82219c7"
@@ -880,11 +874,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:5a055cd2cc1158f1f7886ca4f0705431425fa9538bfac94a504ca7af3e22ccc2"
+  digest = "1:c859c9ccc7f6ef1350284a99813a7f08c123d4e735d352eed888df16ac0bc5ec"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
+    "googleapis/api/distribution",
+    "googleapis/api/label",
+    "googleapis/api/metric",
+    "googleapis/api/monitoredres",
+    "googleapis/devtools/cloudtrace/v2",
     "googleapis/iam/v1",
+    "googleapis/monitoring/v3",
     "googleapis/pubsub/v1",
     "googleapis/rpc/code",
     "googleapis/rpc/status",
@@ -1427,7 +1427,6 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "cloud.google.com/go/pubsub",
     "cloud.google.com/go/storage",
     "cloud.google.com/go/trace",
     "github.com/cenkalti/backoff",
@@ -1445,17 +1444,18 @@
     "github.com/jhump/protoreflect/dynamic",
     "github.com/motemen/go-loghttp",
     "github.com/onsi/gomega",
-    "github.com/onsi/gomega/gstruct",
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/spf13/cobra",
     "github.com/spf13/pflag",
     "go.opencensus.io/exporter/prometheus",
+    "go.opencensus.io/exporter/stackdriver",
     "go.opencensus.io/plugin/ochttp",
     "go.opencensus.io/stats",
     "go.opencensus.io/stats/view",
     "go.opencensus.io/tag",
+    "go.opencensus.io/trace",
     "go.opencensus.io/zpages",
     "golang.org/x/crypto/ssh/terminal",
     "golang.org/x/net/context",
@@ -1464,7 +1464,6 @@
     "golang.org/x/oauth2/jwt",
     "golang.org/x/sync/errgroup",
     "google.golang.org/api/cloudresourcemanager/v1",
-    "google.golang.org/api/iterator",
     "google.golang.org/api/option",
     "google.golang.org/genproto/googleapis/pubsub/v1",
     "google.golang.org/grpc",
@@ -1472,7 +1471,6 @@
     "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/status",
     "gopkg.in/h2non/gock.v1",
-    "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
     "k8s.io/api/rbac/v1",

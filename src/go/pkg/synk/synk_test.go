@@ -15,6 +15,7 @@
 package synk
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -292,7 +293,7 @@ data:
 	set.Name = "test.v1"
 	set.UID = "deadbeef"
 
-	results, err := f.newSynk().applyAll(set, &ApplyOptions{name: "test"},
+	results, err := f.newSynk().applyAll(context.Background(), set, &ApplyOptions{name: "test"},
 		toUnstructured(t, &cmUpdate).DeepCopy(),
 		rollout.DeepCopy(),
 		deploy.DeepCopy(),

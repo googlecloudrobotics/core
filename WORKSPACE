@@ -18,13 +18,13 @@ protobuf_deps()
 # //...` to work.
 http_archive(
     name = "io_grpc_grpc_java",
+    patch_args = ["-p1"],
+    patches = ["//third_party:io_grpc_grpc_java-d3c77f2d870baf8c8340890eb5aed590a5f3940c.patch"],
     sha256 = "982e892c339364c83fbf95f17a7d9898594c35a23d9dea894a2d014834eb5da4",
     strip_prefix = "grpc-java-274bf62e04f66fe9e0ffa4cac052a145e7c7b690",
     urls = [
         "https://github.com/grpc/grpc-java/archive/274bf62e04f66fe9e0ffa4cac052a145e7c7b690.tar.gz",
     ],
-    patches = ["//third_party:io_grpc_grpc_java-d3c77f2d870baf8c8340890eb5aed590a5f3940c.patch"],
-    patch_args = ["-p1"],
 )
 
 load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
@@ -513,7 +513,7 @@ go_repository(
 
 go_repository(
     name = "com_github_konsorten_go_windows_terminal_sequences",
-    commit = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e",
+    commit = "edb144dfd453055e1e49a3d8b410a660b5a87613",
     importpath = "github.com/konsorten/go-windows-terminal-sequences",
 )
 
@@ -681,7 +681,7 @@ go_repository(
 
 go_repository(
     name = "com_github_sirupsen_logrus",
-    commit = "e1e72e9de974bd926e5c56f83753fba2df402ce5",
+    commit = "60c74ad9be0d874af0ab0daef6ab07c5c5911f0d",
     importpath = "github.com/sirupsen/logrus",
 )
 
@@ -840,7 +840,7 @@ go_repository(
 
 go_repository(
     name = "io_opencensus_go",
-    commit = "46618d076d80f4eab85adbcb3be9a370be1dc4e0",
+    commit = "e262766cd0d230a1bb7c37281e345e465f19b41b",
     importpath = "go.opencensus.io",
 )
 

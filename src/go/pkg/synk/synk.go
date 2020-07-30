@@ -30,6 +30,7 @@ import (
 	"github.com/cenkalti/backoff"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -149,7 +150,7 @@ func (s *Synk) Init() error {
 	if err := convert(crd, &u); err != nil {
 		return err
 	}
-	if _, err := s.applyOne(&u, nil); err != nil {
+	if _, err := s.applyOne(context.Background(), &u, nil); err != nil {
 		return errors.Wrap(err, "create ResourceSet CRD")
 	}
 
@@ -181,13 +182,16 @@ func (s *Synk) Delete(ctx context.Context, name string) error {
 	})
 }
 
-// Apply installs or updates the given ResourceSet specifies by 'name'.
+// Apply installs or updates the ResourceSet specified by 'name'.
 func (s *Synk) Apply(
 	ctx context.Context,
 	name string,
 	opts *ApplyOptions,
 	resources ...*unstructured.Unstructured,
 ) (*apps.ResourceSet, error) {
+	ctx, span := trace.StartSpan(ctx, "Apply "+name)
+	defer span.End()
+
 	if opts == nil {
 		opts = &ApplyOptions{}
 	}
@@ -197,7 +201,7 @@ func (s *Synk) Apply(
 	if err != nil {
 		return rs, err
 	}
-	results, applyErr := s.applyAll(rs, opts, resources...)
+	results, applyErr := s.applyAll(ctx, rs, opts, resources...)
 
 	if err := s.updateResourceSetStatus(rs, results); err != nil {
 		return rs, err
@@ -245,6 +249,7 @@ func IsTransientErr(err error) bool {
 }
 
 func (s *Synk) applyAll(
+	ctx context.Context,
 	rs *apps.ResourceSet,
 	opts *ApplyOptions,
 	resources ...*unstructured.Unstructured,
@@ -260,7 +265,7 @@ func (s *Synk) applyAll(
 	for _, crd := range crds {
 		// CRDs must never be replaced as deleting them will delete
 		// all its current instances. Update conflicts must be resolved manually.
-		action, err := s.applyOne(crd, rs)
+		action, err := s.applyOne(ctx, crd, rs)
 		if err != nil {
 			opts.errorf(crd, action, "failed to apply: %s", err)
 		} else {
@@ -300,7 +305,7 @@ func (s *Synk) applyAll(
 			if i > 0 && !results.failed(r) {
 				continue
 			}
-			action, err := s.applyOne(r, rs)
+			action, err := s.applyOne(ctx, r, rs)
 			if err != nil {
 				curFailures++
 				opts.errorf(r, action, "failed to apply, may retry: %s", err)
@@ -554,13 +559,15 @@ func replace(client dynamic.ResourceInterface, resource *unstructured.Unstructur
 	return res, nil
 }
 
-func (s *Synk) applyOne(resource *unstructured.Unstructured, set *apps.ResourceSet) (apps.ResourceAction, error) {
+func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured, set *apps.ResourceSet) (apps.ResourceAction, error) {
 	// If name is unset, we'd retrieve a list below and panic.
 	// TODO: This may be valid if generateName is set instead. In this case we
 	// want to create the resource in any case.
 	if resource.GetName() == "" {
 		return apps.ResourceActionNone, errors.New("missing resource name")
 	}
+	ctx, span := trace.StartSpan(ctx, "Apply "+resource.GetName())
+	defer span.End()
 	// GroupVersionKind is not sufficient to determine the REST API path to use
 	// for the resource. We need to get this information from the RESTMapper,
 	// which uses the discovery API to determine the right GroupVersionResource.
@@ -584,9 +591,13 @@ func (s *Synk) applyOne(resource *unstructured.Unstructured, set *apps.ResourceS
 	setAppliedAnnotation(resource)
 
 	// Create the resource if it doesn't exist yet.
+	_, getSpan := trace.StartSpan(ctx, "Get "+resource.GetName())
 	current, err := client.Get(resource.GetName(), metav1.GetOptions{})
+	getSpan.End()
 	if k8serrors.IsNotFound(err) {
+		_, createSpan := trace.StartSpan(ctx, "Create "+resource.GetName())
 		res, err := client.Create(resource, metav1.CreateOptions{})
+		createSpan.End()
 		if err != nil {
 			return apps.ResourceActionCreate, errors.Wrap(err, "create resource")
 		}
@@ -655,7 +666,9 @@ func (s *Synk) applyOne(resource *unstructured.Unstructured, set *apps.ResourceS
 	// Additionally the CL doesn't seem to implement valid behavior as the patch
 	// retries will not update to a new resourceVersion and the failure would persist.
 
+	_, patchSpan := trace.StartSpan(ctx, "Patch "+resource.GetName())
 	res, err := client.Patch(resource.GetName(), patchType, patch, metav1.PatchOptions{})
+	patchSpan.End()
 	if err == nil {
 		// Successfully patched.
 		*resource = *res
@@ -666,7 +679,9 @@ func (s *Synk) applyOne(resource *unstructured.Unstructured, set *apps.ResourceS
 	if !canReplace(resource, err) {
 		return apps.ResourceActionUpdate, errors.Wrap(err, "apply patch")
 	}
+	_, replace_span := trace.StartSpan(ctx, "Replace "+resource.GetName())
 	res, err = replace(client, resource)
+	replace_span.End()
 	if err != nil {
 		return apps.ResourceActionReplace, errors.Wrap(err, "replace")
 	}
