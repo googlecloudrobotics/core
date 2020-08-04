@@ -49,6 +49,9 @@ var (
 
 	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "",
 		"If not empty, traces will be uploaded to this Google Cloud Project")
+
+	maxQPS = flag.Int("apiserver-max-qps", 50,
+		"Maximum number of calls to the API server per second.")
 )
 
 func main() {
@@ -74,6 +77,9 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	config.QPS = float32(*maxQPS)
+	// The default value of twice the max QPS seems to work well.
+	config.Burst = *maxQPS * 2
 
 	if err := setupAppV2(config, robotName); err != nil {
 		log.Fatalln(err)
