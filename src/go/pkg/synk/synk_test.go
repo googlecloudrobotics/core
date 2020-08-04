@@ -113,7 +113,7 @@ func (f *fixture) verifyWriteActions() {
 func TestSynk_initialize(t *testing.T) {
 	s := newFixture(t).newSynk()
 
-	_, _, err := s.initialize(&ApplyOptions{name: "test"},
+	_, _, err := s.initialize(context.Background(), &ApplyOptions{name: "test"},
 		newUnstructured("v1", "Pod", "ns2", "pod1"),
 		newUnstructured("apps/v1", "Deployment", "ns1", "deploy1"),
 		newUnstructured("v1", "Pod", "ns1", "pod1"),
@@ -336,7 +336,7 @@ func TestSank_skipsTestResources(t *testing.T) {
 	testPod := newUnstructured("v1", "Pod", "ns", "pod2")
 	testPod.SetAnnotations(map[string]string{"helm.sh/hook": "test-success"})
 
-	_, _, err := s.initialize(&ApplyOptions{name: "test"},
+	_, _, err := s.initialize(context.Background(), &ApplyOptions{name: "test"},
 		newUnstructured("v1", "Pod", "ns", "pod1"),
 		testPod,
 	)
@@ -417,6 +417,7 @@ spec:
   scope: Namespaced`)
 
 	if err := s.populateNamespaces(
+		context.Background(),
 		"ns2",
 		[]*unstructured.Unstructured{&exampleCRD},
 		ns1, pod1, pod2, cr1,

@@ -197,7 +197,7 @@ func (s *Synk) Apply(
 	}
 	opts.name = name
 
-	rs, resources, err := s.initialize(opts, resources...)
+	rs, resources, err := s.initialize(ctx, opts, resources...)
 	if err != nil {
 		return rs, err
 	}
@@ -354,6 +354,7 @@ func (s *Synk) applyAll(
 // initialize a new ResourceSet version for the given name and prepare resources
 // for it.
 func (s *Synk) initialize(
+	ctx context.Context,
 	opts *ApplyOptions,
 	resources ...*unstructured.Unstructured,
 ) (*apps.ResourceSet, []*unstructured.Unstructured, error) {
@@ -368,7 +369,7 @@ func (s *Synk) initialize(
 	})
 	crds := filter(resources, isCustomResourceDefinition)
 
-	if err := s.populateNamespaces(opts.Namespace, crds, regulars...); err != nil {
+	if err := s.populateNamespaces(ctx, opts.Namespace, crds, regulars...); err != nil {
 		return nil, nil, errors.Wrap(err, "set default namespaces")
 	}
 	// TODO: consider putting this and other validation as a step after initialize
@@ -426,11 +427,14 @@ func (s *Synk) initialize(
 
 // Set default namespace on all namespaced resources.
 func (s *Synk) populateNamespaces(
+	ctx context.Context,
 	ns string,
 	crds []*unstructured.Unstructured,
 	resources ...*unstructured.Unstructured,
 ) error {
+	_, span := trace.StartSpan(ctx, "Discover server resources")
 	list, err := s.discovery.ServerResources()
+	span.End()
 	if err != nil {
 		return errors.Wrap(err, "discover server resources")
 	}
