@@ -43,7 +43,7 @@ prometheus:
     ruleNamespaceSelector:
       any: true
     externalUrl: "https://${CLOUD_ROBOTICS_DOMAIN}/prometheus/"
-    retention: "30d"
+    retention: "120d"
     storageSpec:
       volumeClaimTemplate:
         spec:
@@ -54,11 +54,12 @@ prometheus:
 # To compute the disk space required we used the formula in
 # https://devops.stackexchange.com/questions/9298/how-to-calculate-disk-space-required-by-prometheus-v2-2
 #
-# retention_time_seconds = 30 * 24 * 60 * 60
-# ingested_samples_per_second = avg(sum(rate(prometheus_tsdb_head_samples_appended_total[1d]))) = ~10500
+# retention_time_seconds = 120 * 24 * 60 * 60
+# ingested_samples_per_second = avg(sum(rate(prometheus_tsdb_head_samples_appended_total[1d]))) = ~7000
 # bytes_per_sample = avg(sum(rate(prometheus_tsdb_compaction_chunk_size_bytes_sum[1d]) /
-#                            rate(prometheus_tsdb_compaction_chunk_samples_sum[1d]))) = 6.4
-# needed_disk_space = retention_time_seconds * ingested_samples_per_second * bytes_per_sample = ~174G
+#                            rate(prometheus_tsdb_compaction_chunk_samples_sum[1d]))) = ~1.0
+# needed_disk_space = retention_time_seconds * ingested_samples_per_second * bytes_per_sample = ~72G
+# Use a larger volume to account for future growth.
               storage: 200Gi
     # Pick up user-created Alertmanager pods with app=alertmanager and a non-empty port.
     additionalAlertManagerConfigs:
