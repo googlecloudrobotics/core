@@ -9,6 +9,6 @@ licenses(["permissive"])  # Apache 2.0
 filegroup(
     name = "app_crd",
     srcs = [
-        "config/crds/app_v1beta1_application.yaml",
+        "config/crd/bases/app.k8s.io_applications.yaml",
     ],
 )
