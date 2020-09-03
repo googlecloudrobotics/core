@@ -20,6 +20,10 @@
 set -e
 set -o pipefail
 
+function kc {
+  kubectl --context="${KUBE_CONTEXT}" "$@"
+}
+
 if [[ ! "$*" =~ "--project" && $# -ge 2 ]] ; then
   echo "WARNING: using only positional arguments for setup_robot.sh is deprecated." >&2
   echo "    Please use the following invocation instead. Setup continues in 60 seconds..." >&2
@@ -91,9 +95,9 @@ docker logout https://${REGISTRY_DOMAIN}
 
 # Generate TLS certificate if none exists yet. It is used by the robot-master
 # to allow the Kubernetes API server to securly connect to webhooks.
-if kubectl get secret robot-master-tls; then
-  tls_crt=$(kubectl get secret robot-master-tls -o=go-template --template='{{index .data "tls.crt"}}')
-  tls_key=$(kubectl get secret robot-master-tls -o=go-template --template='{{index .data "tls.key"}}')
+if kc get secret robot-master-tls; then
+  tls_crt=$(kc get secret robot-master-tls -o=go-template --template='{{index .data "tls.crt"}}')
+  tls_key=$(kc get secret robot-master-tls -o=go-template --template='{{index .data "tls.key"}}')
 else
   certdir=$(mktemp -d)
   openssl genrsa -out "${certdir}/tls.key" 2048
@@ -105,13 +109,13 @@ fi
 
 # The webhook configuration used to be created by a library at runtime. We must
 # manually delete it as it wasn't part of a Helm chart.
-kubectl --context="${KUBE_CONTEXT}" delete validatingwebhookconfiguration \
+kc delete validatingwebhookconfiguration \
   validating-webhook-configuration 2>/dev/null || true
 
 # Wait for creation of the default service account.
 # https://github.com/kubernetes/kubernetes/issues/66689
 i=0
-until kubectl --context="${KUBE_CONTEXT}" get serviceaccount default &>/dev/null; do
+until kc get serviceaccount default &>/dev/null; do
   sleep 1
   i=$((i + 1))
   if ((i >= 60)) ; then
@@ -119,8 +123,7 @@ until kubectl --context="${KUBE_CONTEXT}" get serviceaccount default &>/dev/null
   fi
 done
 
-# Explicitly specify the context to not run this against the cloud cluster.
-kubectl --context="${KUBE_CONTEXT}" run setup-robot --restart=Never -i --rm \
+kc run setup-robot --restart=Never -i --rm \
   --image=${IMAGE_REFERENCE} \
   --env="ACCESS_TOKEN=${ACCESS_TOKEN}" \
   --env="REGISTRY=${REGISTRY}" \
