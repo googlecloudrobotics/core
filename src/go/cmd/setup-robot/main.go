@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -208,7 +209,13 @@ func main() {
 	}
 
 	if *robotType != "" || *labels != "" {
-		if err := createOrUpdateRobot(tokenSource, domain, parsedLabels); err != nil {
+		// Set up client for cloud k8s cluster (needed only to obtain list of robots).
+		k8sCloudCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, domain)
+		k8sDynamicClient, err := dynamic.NewForConfig(k8sCloudCfg)
+		if err != nil {
+			log.Fatalf("Failed to create k8s client: %v", err)
+		}
+		if err := createOrUpdateRobot(k8sDynamicClient, parsedLabels); err != nil {
 			log.Fatalf("Failed to update robot CR %v: %v", *robotName, err)
 		}
 	}
@@ -359,14 +366,39 @@ func installChartOrDie(domain, registry, nameOld, nameNew, chartPath string, pro
 	}
 }
 
-func createOrUpdateRobot(tokenSource oauth2.TokenSource, domain string, labels map[string]string) error {
-	labels["cloudrobotics.com/robot-name"] = *robotName
-	// Set up client for cloud k8s cluster (needed only to obtain list of robots).
-	k8sCloudCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, domain)
-	k8sDynamicClient, err := dynamic.NewForConfig(k8sCloudCfg)
-	if err != nil {
-		return err
+// checkExistingRobot makes sure that a robot with the same name is not
+// already registered to a different host. This is to prevent accidentally
+// overwriting the robot.
+func checkExistingRobot(robot *unstructured.Unstructured) error {
+	host := os.Getenv("HOST_HOSTNAME")
+	if host == "" {
+		return nil
 	}
+	prevHost, ok, err := unstructured.NestedString(robot.Object, "metadata", "labels", "cloudrobotics.com/master-host")
+	if err != nil {
+		return fmt.Errorf("failed parsing robot labels: %v", err)
+	}
+	if !ok {
+		// The robot might not have the host label.
+		return nil
+	}
+	if prevHost != host {
+		// Since this image is run with `kubectl run`, there is a risk that logs
+		// that are printed too early get lost because the container hasn't
+		// properly attached yet:
+		// https://github.com/kubernetes/kubernetes/issues/27264
+		time.Sleep(5 * time.Second)
+		redBg := "\x1b[41m"
+		resetBg := "\x1b[49m"
+		log.Printf(`%sWarning%s: about to register robot %q to master host %q when a robot with the same name is already registered to %q.
+This will break the authentication flow on the host that was registered earlier, so you should only proceed if you are intentionally replacing that host.
+Press Ctrl+C to stop or Enter to continue.`, redBg, resetBg, *robotName, host, prevHost)
+		bufio.NewScanner(os.Stdin).Scan()
+	}
+	return nil
+}
+
+func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]string) error {
 	robotGVR := schema.GroupVersionResource{
 		Group:    "registry.cloudrobotics.com",
 		Version:  "v1alpha1",
@@ -379,8 +411,14 @@ func createOrUpdateRobot(tokenSource oauth2.TokenSource, domain string, labels m
 			robot.SetKind("Robot")
 			robot.SetAPIVersion("registry.cloudrobotics.com/v1alpha1")
 			robot.SetName(*robotName)
+
+			labels["cloudrobotics.com/robot-name"] = *robotName
+			host := os.Getenv("HOST_HOSTNAME")
+			if host != "" {
+				labels["cloudrobotics.com/master-host"] = host
+			}
 			robot.SetLabels(labels)
-			robot.Object["spec"] = map[string]string{
+			robot.Object["spec"] = map[string]interface{}{
 				"type":    *robotType,
 				"project": *project,
 			}
@@ -390,6 +428,11 @@ func createOrUpdateRobot(tokenSource oauth2.TokenSource, domain string, labels m
 		} else {
 			return fmt.Errorf("Failed to get robot %v: %v", *robotName, err)
 		}
+	}
+
+	// A robot with the same name already exists.
+	if err := checkExistingRobot(robot); err != nil {
+		return err
 	}
 	spec, ok := robot.Object["spec"].(map[string]interface{})
 	if !ok {

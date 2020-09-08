@@ -15,6 +15,12 @@
 package main
 
 import (
+	"os"
+
+	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic/fake"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -34,5 +40,82 @@ func TestParseLabels_ReturnsEmptyMapOnEmptyInput(t *testing.T) {
 	_, err := parseLabels("")
 	if err != nil {
 		t.Errorf("Empty should be okay, but returned %v", err)
+	}
+}
+
+func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		t.Fatal("Could not determine hostname")
+	}
+	os.Setenv("HOST_HOSTNAME", hostname)
+
+	sc := runtime.NewScheme()
+	registry.AddToScheme(sc)
+	*robotName = "robot_name"
+
+	tests := []struct {
+		desc  string
+		robot *registry.Robot
+	}{
+		{
+			"other robot",
+			&registry.Robot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "other_robot",
+					Namespace: "default",
+				},
+			},
+		},
+		{
+			"robot without label",
+			&registry.Robot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      *robotName,
+					Namespace: "default",
+				},
+			},
+		},
+		{
+			"robot with other label",
+			&registry.Robot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      *robotName,
+					Namespace: "default",
+					Labels:    map[string]string{"cloudrobotics.com/ssh-port": "22"},
+				},
+			},
+		},
+		{
+			"robot with same hostname",
+			&registry.Robot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      *robotName,
+					Namespace: "default",
+					Labels:    map[string]string{"cloudrobotics.com/master-host": hostname},
+				},
+			},
+		},
+		// This should ask user to confirm or Ctrl+C the app. We expect
+		// success in a test environment where stdin is empty.
+		{
+			"robot with different hostname",
+			&registry.Robot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      *robotName,
+					Namespace: "default",
+					Labels:    map[string]string{"cloudrobotics.com/master-host": "other-host"},
+				},
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			c := fake.NewSimpleDynamicClient(sc, tc.robot)
+			labels := map[string]string{}
+			if err := createOrUpdateRobot(c, labels); err != nil {
+				t.Errorf("createOrUpdateRobot() failed unexpectedly:  %v", err)
+			}
+		})
 	}
 }

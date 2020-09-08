@@ -37,6 +37,12 @@ go_test(
     srcs = ["main_test.go"],
     embed = [":go_default_library"],
     visibility = ["//visibility:private"],
+    deps = [
+        "//src/go/pkg/apis/registry/v1alpha1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime:go_default_library",
+        "@io_k8s_client_go//dynamic/fake:go_default_library",
+    ],
 )
 
 container_image(

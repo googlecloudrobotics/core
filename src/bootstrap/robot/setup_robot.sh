@@ -123,10 +123,11 @@ until kc get serviceaccount default &>/dev/null; do
   fi
 done
 
-kc run setup-robot --restart=Never -i --rm \
+kc run setup-robot --restart=Never -it --rm \
   --image=${IMAGE_REFERENCE} \
   --env="ACCESS_TOKEN=${ACCESS_TOKEN}" \
   --env="REGISTRY=${REGISTRY}" \
   --env="TLS_KEY=${tls_key}" \
   --env="TLS_CRT=${tls_crt}" \
+  --env="HOST_HOSTNAME=$(hostname)" \
   -- "$@"
