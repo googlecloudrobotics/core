@@ -89,6 +89,7 @@ echo ${ACCESS_TOKEN} | docker login -u oauth2accesstoken --password-stdin https:
 
 if ! docker pull ${IMAGE_REFERENCE}; then
   docker logout https://${REGISTRY_DOMAIN}
+  echo "ERROR: failed to pull setup-robot image" >&2
   exit 1
 fi
 docker logout https://${REGISTRY_DOMAIN}
@@ -119,6 +120,7 @@ until kc get serviceaccount default &>/dev/null; do
   sleep 1
   i=$((i + 1))
   if ((i >= 60)) ; then
+    echo "ERROR: 'kubectl get serviceaccount default' failed" >&2
     exit 1
   fi
 done
