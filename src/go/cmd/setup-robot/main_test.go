@@ -36,10 +36,59 @@ func TestWaitForService_OkIfServiceResponds(t *testing.T) {
 	}
 }
 
-func TestParseLabels_ReturnsEmptyMapOnEmptyInput(t *testing.T) {
-	_, err := parseLabels("")
+func TestParseKeyValues_ReturnsEmptyMapOnEmptyInput(t *testing.T) {
+	_, err := parseKeyValues("")
 	if err != nil {
 		t.Errorf("Empty should be okay, but returned %v", err)
+	}
+}
+
+func TestParseKeyValues_HandlesSingleEntry(t *testing.T) {
+	l, err := parseKeyValues("foo=bar")
+	if err != nil {
+		t.Errorf("Failed to parse single entry, but returned %v", err)
+	}
+	v, ok := l["foo"]
+	if !ok {
+		t.Errorf("No 'foo' entry created")
+	}
+	if v != "bar" {
+		t.Errorf("labels['foo'] should be 'bar', but is %q", v)
+	}
+}
+
+func TestParseKeyValues_HandlesMultipleEntries(t *testing.T) {
+	l, err := parseKeyValues("foo=bar,zoo=zar")
+	if err != nil {
+		t.Errorf("Failed to parse single entry, but returned %v", err)
+	}
+	v, ok := l["foo"]
+	if !ok {
+		t.Errorf("No 'foo' entry created")
+	}
+	if v != "bar" {
+		t.Errorf("labels['foo'] should be 'bar', but is %q", v)
+	}
+	v, ok = l["zoo"]
+	if !ok {
+		t.Errorf("No 'zoo' entry created")
+	}
+	if v != "zar" {
+		t.Errorf("labels['zoo'] should be 'zar', but is %q", v)
+	}
+}
+
+func TestParseKeyValues_HandlesSpaces(t *testing.T) {
+	l, err := parseKeyValues("foo=bar baz")
+	if err != nil {
+		t.Errorf("Failed to parse single entry, but returned %v", err)
+	}
+	v, ok := l["foo"]
+	if !ok {
+		t.Errorf("No 'foo' entry created")
+	}
+	if v != "bar baz" {
+		t.Errorf("labels['foo'] should be 'bar baz', but is %q", v)
 	}
 }
 
@@ -113,7 +162,8 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			c := fake.NewSimpleDynamicClient(sc, tc.robot)
 			labels := map[string]string{}
-			if err := createOrUpdateRobot(c, labels); err != nil {
+			annotations := map[string]string{}
+			if err := createOrUpdateRobot(c, labels, annotations); err != nil {
 				t.Errorf("createOrUpdateRobot() failed unexpectedly:  %v", err)
 			}
 		})

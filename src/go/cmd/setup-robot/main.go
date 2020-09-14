@@ -57,6 +57,7 @@ var (
 	robotType           = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
 	registryID          = flag.String("registry-id", "", "The ID used when writing the public key to the cloud registry. Default: robot-<robot-name>.")
 	labels              = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
+	annotations         = flag.String("annotations", "", "Robot annotations. Optional if the robot is already registered.")
 	crSyncer            = flag.Bool("cr-syncer", true, "Set up the cr-syncer.")
 	fluentd             = flag.Bool("fluentd", true, "Set up fluentd to upload logs to Stackdriver.")
 	dockerDataRoot      = flag.String("docker-data-root", "/var/lib/docker", "This should match data-root in /etc/docker/daemon.json.")
@@ -186,9 +187,13 @@ func main() {
 	if registry == "" {
 		log.Fatal("REGISTRY environment variable is required.")
 	}
-	parsedLabels, err := parseLabels(*labels)
+	parsedLabels, err := parseKeyValues(*labels)
 	if err != nil {
 		log.Fatalf("Invalid labels %q: %s", *labels, err)
+	}
+	parsedAnnotations, err := parseKeyValues(*annotations)
+	if err != nil {
+		log.Fatalf("Invalid annotations %q: %s", *annotations, err)
 	}
 
 	// Set up the OAuth2 token source.
@@ -208,14 +213,14 @@ func main() {
 		log.Fatalf("Failed to resolve cloud cluster: %s. Please retry in 5 minutes.", err)
 	}
 
-	if *robotType != "" || *labels != "" {
+	if *robotType != "" || *labels != "" || *annotations != "" {
 		// Set up client for cloud k8s cluster (needed only to obtain list of robots).
 		k8sCloudCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, domain)
 		k8sDynamicClient, err := dynamic.NewForConfig(k8sCloudCfg)
 		if err != nil {
 			log.Fatalf("Failed to create k8s client: %v", err)
 		}
-		if err := createOrUpdateRobot(k8sDynamicClient, parsedLabels); err != nil {
+		if err := createOrUpdateRobot(k8sDynamicClient, parsedLabels, parsedAnnotations); err != nil {
 			log.Fatalf("Failed to update robot CR %v: %v", *robotName, err)
 		}
 	}
@@ -398,7 +403,7 @@ Press Ctrl+C to stop or Enter to continue.`, redBg, resetBg, *robotName, host, p
 	return nil
 }
 
-func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]string) error {
+func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]string, annotations map[string]string) error {
 	robotGVR := schema.GroupVersionResource{
 		Group:    "registry.cloudrobotics.com",
 		Version:  "v1alpha1",
@@ -418,6 +423,7 @@ func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]s
 				labels["cloudrobotics.com/master-host"] = host
 			}
 			robot.SetLabels(labels)
+			robot.SetAnnotations(annotations)
 			robot.Object["spec"] = map[string]interface{}{
 				"type":    *robotType,
 				"project": *project,
@@ -444,7 +450,8 @@ func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]s
 	return err
 }
 
-func parseLabels(s string) (map[string]string, error) {
+// parseKeyValues splits a string on ',' and the entries on '=' to build a map.
+func parseKeyValues(s string) (map[string]string, error) {
 	lset := map[string]string{}
 
 	if s == "" {
