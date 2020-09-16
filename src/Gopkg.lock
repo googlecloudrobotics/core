@@ -826,6 +826,7 @@
   packages = ["v2"]
   pruneopts = "NUT"
   revision = "e8422f09d27ee2c8cfb2c7f8089eb9eeb0764849"
+  source = "https://github.com/gomodules/jsonpatch.git"
   version = "v2.0.1"
 
 [[projects]]
