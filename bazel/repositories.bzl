@@ -25,11 +25,11 @@ def cloud_robotics_repositories():
     _maybe(
         http_archive,
         name = "com_google_protobuf",
-        sha256 = "a79d19dcdf9139fa4b81206e318e33d245c4c9da1ffed21c87288ed4380426f9",
-        strip_prefix = "protobuf-3.11.4",
+        sha256 = "1c744a6a1f2c901e68c5521bc275e22bdc66256eeb605c2781923365b7087e5f",
+        strip_prefix = "protobuf-3.13.0",
         urls = [
-            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.4.tar.gz",
-            "https://github.com/protocolbuffers/protobuf/archive/v3.11.4.tar.gz",
+            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.13.0.zip",
+            "https://github.com/protocolbuffers/protobuf/archive/v3.13.0.zip",
         ],
     )
 
