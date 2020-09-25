@@ -217,6 +217,23 @@ function cleanup_old_cert_manager {
       issuers.certmanager.k8s.io \
       clusterissuers.certmanager.k8s.io
   fi
+
+  if [[ "$installed_ver" == 0.8.* ]]; then
+    echo "need to cleanup old version"
+    # see https://cert-manager.io/docs/installation/upgrading/upgrading-0.8-0.9/
+    # and https://cert-manager.io/docs/installation/upgrading/upgrading-0.9-0.10/
+
+    # cleanup
+    kc delete deployments --namespace default \
+      cert-manager \
+      cert-manager-cainjector \
+      cert-manager-webhook
+
+    kc delete -n default issuer cert-manager-webhook-ca cert-manager-webhook-selfsign
+    kc delete -n default certificate cert-manager-webhook-ca cert-manager-webhook-webhook-tls
+    kc delete apiservice v1beta1.admission.certmanager.k8s.io
+
+  fi
 }
 
 function helm_charts {
@@ -285,13 +302,17 @@ EOF
   # `helm template` doesn't let us read a tarball from stdin, so we've to save
   # it to disk first as well.
   cert_manager_chart="$( mktemp -d)/cert-manager.tgz"
-  cert_manager_version="v0.8.1"
+  cert_manager_version="v0.10.1"
   curl -o ${cert_manager_chart} https://charts.jetstack.io/charts/cert-manager-${cert_manager_version}.tgz
 
-  kc apply -f https://raw.githubusercontent.com/jetstack/cert-manager/${cert_manager_version}/deploy/manifests/00-crds.yaml
+  kc apply --validate=false -f https://raw.githubusercontent.com/jetstack/cert-manager/${cert_manager_version}/deploy/manifests/00-crds.yaml
   kc label --overwrite namespace default certmanager.k8s.io/disable-validation=true
 
   echo "installing cert-manager to ${KUBE_CONTEXT}..."
+  # Installation of cert-manager fails if apiservice v1beta1.metrics.k8s.io is not available
+  #   this happens when terraform upgraded the Kubernetes control plane before
+  kc wait apiservice v1beta1.metrics.k8s.io --for condition=Available --timeout=600s
+
   ${HELM} template -n cert-manager --set global.rbac.create=false ${cert_manager_chart} \
     | ${SYNK} apply cert-manager -n default -f - \
     || die "Synk failed for cert-manager"
@@ -300,7 +321,7 @@ EOF
   #   the server is currently unable to handle the request
   # The `sleep` is because it occasionally fails even after `kubectl wait`.
   # TODO(rodrigoq): work out exactly what we need to wait for
-  kc wait deployment cert-manager-webhook --for condition=Available
+  kc wait deployment cert-manager-webhook --for condition=Available --timeout=600s
   sleep 60
 
   echo "installing base-cloud to ${KUBE_CONTEXT}..."
