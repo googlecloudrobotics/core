@@ -24,6 +24,7 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta/testrestmapper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -107,6 +108,49 @@ func (f *fixture) verifyWriteActions() {
 		for i, a := range f.actions {
 			f.Logf("%d: %s", i, sprintAction(a))
 		}
+	}
+}
+
+func TestSynk_IsTransientErr(t *testing.T) {
+	tests := []struct {
+		err  error
+		want bool
+	}{
+		{
+			errors.New("generic error"),
+			false,
+		},
+		{
+			transientErr{errors.New("transientErr struct")},
+			true,
+		},
+		{
+			&transientErr{errors.New("transientErr pointer")},
+			true,
+		},
+		{
+			k8serrors.NewUnauthorized("unauthorized"),
+			false,
+		},
+		{
+			k8serrors.NewGone("gone"),
+			true,
+		},
+		{
+			k8serrors.NewForbidden(schema.GroupResource{
+				Group:    "apps",
+				Resource: "deployments",
+			}, "my-deployment", errors.New("unable to create new content in namespace app-test-chart because it is being terminated")),
+			true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.err.Error(), func(t *testing.T) {
+			if got := IsTransientErr(tc.err); got != tc.want {
+				t.Errorf("IsTransientErr(%v)=%v, want %v", tc.err, got, tc.want)
+			}
+		})
 	}
 }
 
