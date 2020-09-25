@@ -7,6 +7,7 @@ licenses(["notice"])
 # curl -O https://kubernetes-charts.storage.googleapis.com/prometheus-operator-6.12.0.tgz
 # then editing:
 # - prometheus-operator/charts/prometheus-node-exporter/templates/daemonset.yaml
+#   prometheus-operator/charts/grafana/templates/deployment.yaml
 #   to use apps/v1
 # - prometheus-operator/charts/prometheus-node-exporter/templates/psp.yaml
 #   prometheus-operator/charts/grafana/templates/podsecuritypolicy.yaml
