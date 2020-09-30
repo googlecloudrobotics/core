@@ -194,7 +194,7 @@ sh_files=$(files_matching "(\.sh$|pre-commit$)" "deployments/.*/config.sh")
 if [[ -n "$sh_files" && "$(basename "$PWD")" != "apps" ]] ; then
   if [[ ! -e "$SHELLCHECK" ]] ; then
     mkdir -p "$SHELLCHECK_DIR"
-    curl -fsSL https://storage.googleapis.com/shellcheck/shellcheck-v0.6.0.linux.x86_64.tar.xz \
+    curl -fsSL https://github.com/koalaman/shellcheck/releases/download/v0.6.0/shellcheck-v0.6.0.linux.x86_64.tar.xz \
       | tar -C "$SHELLCHECK_DIR" -xJf - || exit 1
   fi
   # Note: using a lower severity than `warning` is quite noisy.
