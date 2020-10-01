@@ -18,18 +18,21 @@ def cloud_robotics_repositories():
     _maybe(
         http_archive,
         name = "bazel_skylib",
-        sha256 = "2ef429f5d7ce7111263289644d233707dba35e39696377ebab8b0bc701f7818e",
-        urls = ["https://github.com/bazelbuild/bazel-skylib/releases/download/0.8.0/bazel-skylib.0.8.0.tar.gz"],
+        sha256 = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+        ],
     )
 
     _maybe(
         http_archive,
         name = "com_google_protobuf",
-        sha256 = "a79d19dcdf9139fa4b81206e318e33d245c4c9da1ffed21c87288ed4380426f9",
-        strip_prefix = "protobuf-3.11.4",
+        sha256 = "1c744a6a1f2c901e68c5521bc275e22bdc66256eeb605c2781923365b7087e5f",
+        strip_prefix = "protobuf-3.13.0",
         urls = [
-            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.4.tar.gz",
-            "https://github.com/protocolbuffers/protobuf/archive/v3.11.4.tar.gz",
+            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.13.0.zip",
+            "https://github.com/protocolbuffers/protobuf/archive/v3.13.0.zip",
         ],
     )
 
