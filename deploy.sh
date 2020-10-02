@@ -319,10 +319,7 @@ EOF
 
   # Wait for webhook installation to avoid the error:
   #   the server is currently unable to handle the request
-  # The `sleep` is because it occasionally fails even after `kubectl wait`.
-  # TODO(rodrigoq): work out exactly what we need to wait for
   kc wait deployment cert-manager-webhook --for condition=Available --timeout=600s
-  sleep 60
 
   echo "installing base-cloud to ${KUBE_CONTEXT}..."
   ${HELM} template -n base-cloud ${values} \
