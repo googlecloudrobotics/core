@@ -546,8 +546,17 @@ func setOwnerRef(r *unstructured.Unstructured, set *apps.ResourceSet) {
 // immutable fields (eg Job.spec.template) that can only be changed this way.
 // This is analogous to `kubectl apply --force`.
 func canReplace(resource *unstructured.Unstructured, patchErr error) bool {
-	if resource.GetKind() == "Job" && strings.Contains(patchErr.Error(), "field is immutable") {
+	k := resource.GetKind()
+	e := patchErr.Error()
+	if k == "Job" && strings.Contains(e, "field is immutable") {
 		return true
+	}
+	if k == "PersistentVolume" && strings.Contains(e, "is immutable after creation") {
+		v, ok, err := unstructured.NestedString(resource.Object, "spec", "persistentVolumeReclaimPolicy")
+		if err == nil && ok && v == "Retain" {
+			return true
+		}
+		log.Printf("Not replacing PersistentVolume since reclaim policy is not Retain but %q", v)
 	}
 	// TODO(rodrigoq): can other resources be safely replaced?
 	return false
