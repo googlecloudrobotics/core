@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 	"regexp"
 	"sort"
@@ -156,6 +157,7 @@ func (s *Synk) Init() error {
 
 	err := backoff.Retry(
 		func() error {
+			s.discovery.Invalidate()
 			ok, err := s.crdAvailable(&u)
 			if err != nil {
 				return err
@@ -280,11 +282,12 @@ func (s *Synk) applyAll(
 	}
 	err := backoff.Retry(
 		func() error {
+			s.discovery.Invalidate()
 			for _, crd := range crds {
 				if ok, err := s.crdAvailable(crd); err != nil {
 					return backoff.Permanent(err)
 				} else if !ok {
-					return errors.New("crd not yet available")
+					return fmt.Errorf("crd not yet available: %q", crd.GetName())
 				}
 			}
 			return nil
@@ -698,27 +701,46 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 	return apps.ResourceActionReplace, nil
 }
 
+// crdAvailable checks if all versions of the given CRD are present in the
+// server's discovery information. Callers must use s.Discovery.Invalidate()
+// to clear the discovery cache before calling this method to check against the
+// latest server state.
 func (s *Synk) crdAvailable(ucrd *unstructured.Unstructured) (bool, error) {
-	// As we are waiting for CRDs to become available, our discovery cache may still
-	// have a state without it.
-	s.discovery.Invalidate()
-
 	var crd apiextensions.CustomResourceDefinition
 	if err := convert(ucrd, &crd); err != nil {
 		return false, err
 	}
-	list, err := s.discovery.ServerResourcesForGroupVersion(crd.Spec.Group + "/" + crd.Spec.Version)
-	if err != nil {
-		// We'd like to detect "not found" vs network errors here. But unfortunately
-		// there's no canonical error being used.
-		return false, nil
+
+	// Get a list of versions to check for.
+	var versions []string
+	for _, v := range crd.Spec.Versions {
+		versions = append(versions, v.Name)
 	}
-	for _, r := range list.APIResources {
-		if r.Name == crd.Spec.Names.Plural {
-			return true, nil
+	if len(versions) == 0 {
+		// Use legacy `version` field when versions list omitted.
+		versions = []string{crd.Spec.Version}
+	}
+
+	for _, v := range versions {
+		list, err := s.discovery.ServerResourcesForGroupVersion(crd.Spec.Group + "/" + v)
+		if err != nil {
+			// We'd like to detect "not found" vs network errors here. But unfortunately
+			// there's no canonical error being used.
+			log.Printf("ServerResourcesForGroupVersion(%s/%s) failed: %v", crd.Spec.Group, v, err)
+			return false, nil
+		}
+		found := false
+		for _, r := range list.APIResources {
+			if r.Name == crd.Spec.Names.Plural {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false, nil
 		}
 	}
-	return false, nil
+	return true, nil
 }
 
 var resourceSetGVR = schema.GroupVersionResource{
@@ -888,7 +910,7 @@ func isTestResource(r *unstructured.Unstructured) bool {
 }
 
 func isCustomResourceDefinition(r *unstructured.Unstructured) bool {
-	return r.GetAPIVersion() == "apiextensions.k8s.io/v1beta1" && r.GetKind() == "CustomResourceDefinition"
+	return strings.HasPrefix(r.GetAPIVersion(), "apiextensions.k8s.io/") && r.GetKind() == "CustomResourceDefinition"
 }
 
 func resourceSetName(s string, v int32) string {
