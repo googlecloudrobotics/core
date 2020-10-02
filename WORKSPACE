@@ -305,7 +305,7 @@ go_repository(
 
 go_repository(
     name = "com_github_evanphx_json_patch",
-    commit = "5858425f75500d40c52783dce87d085a483ce135",
+    commit = "162e5629780b286cc21cd80f1114a71f5917951f",
     importpath = "github.com/evanphx/json-patch",
 )
 

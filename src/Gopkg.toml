@@ -48,9 +48,11 @@ required = ["github.com/golang/glog"]
   name = "k8s.io/client-go"
   version = "kubernetes-1.15.8"
 
+# This pulls in a newer json-patch, avoiding exponential runtime for
+# deeply-nested resources.
 [[override]]
   name = "github.com/evanphx/json-patch"
-  version = "v4.2.0"
+  version = "v5.0.0"
 
 # These repositories are unversioned. dep somehow doesn't apply its resolution
 # to satisfy API requirements and these two revisions were deducted manually.

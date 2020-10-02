@@ -2,7 +2,7 @@
 
 
 [[projects]]
-  digest = "1:b7bd5c8d6493510926bb77cae68b52afcd99ce650f7d59a7fd7932cc427f6417"
+  digest = "1:a6ff649b3e966ee4bca9cec9bac6a6d6df8f00b53561b344b730ab52aba81a2d"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
@@ -13,6 +13,9 @@
     "internal/tracecontext",
     "internal/version",
     "monitoring/apiv3",
+    "pubsub",
+    "pubsub/apiv1",
+    "pubsub/internal/distribution",
     "storage",
     "trace",
     "trace/apiv2",
@@ -144,12 +147,12 @@
   version = "v2.9.0"
 
 [[projects]]
-  digest = "1:db115eee0ae265dab922fecbb7966c3fcdc4eae3c2e9caae302fdcba3ba422c7"
+  digest = "1:dcc10b0bd570a2a2cd5e2ca92285a2ebad855f7ff893f6d81f55a8327b3e77f1"
   name = "github.com/evanphx/json-patch"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "5858425f75500d40c52783dce87d085a483ce135"
-  version = "v4.2.0"
+  revision = "162e5629780b286cc21cd80f1114a71f5917951f"
+  version = "v5.1.0"
 
 [[projects]]
   digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"
@@ -529,11 +532,13 @@
   revision = "42c35bdb11c20ff50bb14ef05750e8dcdfc75ea5"
 
 [[projects]]
-  digest = "1:450495ee4de4bf794a5c92db6530c9248227031a69beca1382454ca41b0f92ca"
+  digest = "1:ac6e658516a8b73fdf62b375a93445d4b768548774940dcedd112d5d30e37015"
   name = "github.com/onsi/gomega"
   packages = [
     ".",
     "format",
+    "gstruct",
+    "gstruct/errors",
     "internal/assertion",
     "internal/asyncassertion",
     "internal/oraclematcher",
@@ -826,7 +831,6 @@
   packages = ["v2"]
   pruneopts = "NUT"
   revision = "e8422f09d27ee2c8cfb2c7f8089eb9eeb0764849"
-  source = "https://github.com/gomodules/jsonpatch.git"
   version = "v2.0.1"
 
 [[projects]]
@@ -1428,6 +1432,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "cloud.google.com/go/pubsub",
     "cloud.google.com/go/storage",
     "cloud.google.com/go/trace",
     "github.com/cenkalti/backoff",
@@ -1445,6 +1450,7 @@
     "github.com/jhump/protoreflect/dynamic",
     "github.com/motemen/go-loghttp",
     "github.com/onsi/gomega",
+    "github.com/onsi/gomega/gstruct",
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
@@ -1465,6 +1471,7 @@
     "golang.org/x/oauth2/jwt",
     "golang.org/x/sync/errgroup",
     "google.golang.org/api/cloudresourcemanager/v1",
+    "google.golang.org/api/iterator",
     "google.golang.org/api/option",
     "google.golang.org/genproto/googleapis/pubsub/v1",
     "google.golang.org/grpc",
@@ -1472,6 +1479,7 @@
     "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/status",
     "gopkg.in/h2non/gock.v1",
+    "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
     "k8s.io/api/rbac/v1",
