@@ -408,6 +408,12 @@ func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]s
 		Group:    "registry.cloudrobotics.com",
 		Version:  "v1alpha1",
 		Resource: "robots"}
+	labels["cloudrobotics.com/robot-name"] = *robotName
+	host := os.Getenv("HOST_HOSTNAME")
+	if host != "" {
+		labels["cloudrobotics.com/master-host"] = host
+	}
+
 	robotClient := k8sDynamicClient.Resource(robotGVR).Namespace("default")
 	robot, err := robotClient.Get(*robotName, metav1.GetOptions{})
 	if err != nil {
@@ -417,11 +423,6 @@ func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]s
 			robot.SetAPIVersion("registry.cloudrobotics.com/v1alpha1")
 			robot.SetName(*robotName)
 
-			labels["cloudrobotics.com/robot-name"] = *robotName
-			host := os.Getenv("HOST_HOSTNAME")
-			if host != "" {
-				labels["cloudrobotics.com/master-host"] = host
-			}
 			robot.SetLabels(labels)
 			robot.SetAnnotations(annotations)
 			robot.Object["spec"] = map[string]interface{}{
@@ -440,6 +441,8 @@ func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]s
 	if err := checkExistingRobot(robot); err != nil {
 		return err
 	}
+	robot.SetLabels(labels)
+	robot.SetAnnotations(annotations)
 	spec, ok := robot.Object["spec"].(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("unmarshaling robot failed: spec is not a map")

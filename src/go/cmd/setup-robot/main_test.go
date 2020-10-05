@@ -19,7 +19,9 @@ import (
 
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/fake"
 	"net/http"
 	"net/http/httptest"
@@ -164,7 +166,27 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 			labels := map[string]string{}
 			annotations := map[string]string{}
 			if err := createOrUpdateRobot(c, labels, annotations); err != nil {
-				t.Errorf("createOrUpdateRobot() failed unexpectedly:  %v", err)
+				t.Fatalf("createOrUpdateRobot() failed unexpectedly:  %v", err)
+			}
+
+			robotGVR := schema.GroupVersionResource{
+				Group:    "registry.cloudrobotics.com",
+				Version:  "v1alpha1",
+				Resource: "robots"}
+			robotClient := c.Resource(robotGVR).Namespace("default")
+			robot, err := robotClient.Get(*robotName, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("Failed getting robot: %v", err)
+			}
+			registeredHost, ok, err := unstructured.NestedString(robot.Object, "metadata", "labels", "cloudrobotics.com/master-host")
+			if err != nil {
+				t.Fatalf("failed parsing robot labels: %v", err)
+			}
+			if !ok {
+				t.Fatalf("robot %q is missing the master host label", *robotName)
+			}
+			if registeredHost != hostname {
+				t.Errorf("Unexpected hostname: %v, want %v", registeredHost, hostname)
 			}
 		})
 	}
