@@ -100,6 +100,9 @@ func parseFlags() {
 	} else if flag.NArg() > 1 {
 		flag.Usage()
 		log.Fatalf("ERROR: too many positional arguments (%d), expected 1.", flag.NArg())
+	} else if flag.Arg(0) == "" {
+		flag.Usage()
+		log.Fatal("ERROR: robot-name must not be empty.")
 	}
 
 	*robotName = flag.Arg(0)
