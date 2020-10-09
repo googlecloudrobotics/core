@@ -16,6 +16,7 @@ package main
 
 import (
 	"os"
+	"reflect"
 
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -106,8 +107,9 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 	*robotName = "robot_name"
 
 	tests := []struct {
-		desc  string
-		robot *registry.Robot
+		desc       string
+		robot      *registry.Robot
+		wantLabels map[string]string
 	}{
 		{
 			"other robot",
@@ -117,6 +119,10 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 					Namespace: "default",
 				},
 			},
+			map[string]string{
+				"cloudrobotics.com/master-host": hostname,
+				"cloudrobotics.com/robot-name":  "robot_name",
+			},
 		},
 		{
 			"robot without label",
@@ -125,6 +131,10 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 					Name:      *robotName,
 					Namespace: "default",
 				},
+			},
+			map[string]string{
+				"cloudrobotics.com/master-host": hostname,
+				"cloudrobotics.com/robot-name":  "robot_name",
 			},
 		},
 		{
@@ -136,6 +146,11 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 					Labels:    map[string]string{"cloudrobotics.com/ssh-port": "22"},
 				},
 			},
+			map[string]string{
+				"cloudrobotics.com/master-host": hostname,
+				"cloudrobotics.com/robot-name":  "robot_name",
+				"cloudrobotics.com/ssh-port":    "22",
+			},
 		},
 		{
 			"robot with same hostname",
@@ -145,6 +160,10 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 					Namespace: "default",
 					Labels:    map[string]string{"cloudrobotics.com/master-host": hostname},
 				},
+			},
+			map[string]string{
+				"cloudrobotics.com/master-host": hostname,
+				"cloudrobotics.com/robot-name":  "robot_name",
 			},
 		},
 		// This should ask user to confirm or Ctrl+C the app. We expect
@@ -157,6 +176,10 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 					Namespace: "default",
 					Labels:    map[string]string{"cloudrobotics.com/master-host": "other-host"},
 				},
+			},
+			map[string]string{
+				"cloudrobotics.com/master-host": hostname,
+				"cloudrobotics.com/robot-name":  "robot_name",
 			},
 		},
 	}
@@ -178,15 +201,15 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed getting robot: %v", err)
 			}
-			registeredHost, ok, err := unstructured.NestedString(robot.Object, "metadata", "labels", "cloudrobotics.com/master-host")
+			got, ok, err := unstructured.NestedStringMap(robot.Object, "metadata", "labels")
 			if err != nil {
 				t.Fatalf("failed parsing robot labels: %v", err)
 			}
 			if !ok {
 				t.Fatalf("robot %q is missing the master host label", *robotName)
 			}
-			if registeredHost != hostname {
-				t.Errorf("Unexpected hostname: %v, want %v", registeredHost, hostname)
+			if !reflect.DeepEqual(got, tc.wantLabels) {
+				t.Errorf("labels:\n%q\nwant:\n%q", got, tc.wantLabels)
 			}
 		})
 	}

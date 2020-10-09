@@ -406,6 +406,19 @@ Press Ctrl+C to stop or Enter to continue.`, redBg, resetBg, *robotName, host, p
 	return nil
 }
 
+// megeMaps returns `base` with `additions` added on top.
+// I.e., if the same key is present in both maps, the one from `additions` wins.
+func mergeMaps(base, additions map[string]string) map[string]string {
+	result := make(map[string]string)
+	for k, v := range base {
+		result[k] = v
+	}
+	for k, v := range additions {
+		result[k] = v
+	}
+	return result
+}
+
 func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]string, annotations map[string]string) error {
 	robotGVR := schema.GroupVersionResource{
 		Group:    "registry.cloudrobotics.com",
@@ -444,8 +457,8 @@ func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]s
 	if err := checkExistingRobot(robot); err != nil {
 		return err
 	}
-	robot.SetLabels(labels)
-	robot.SetAnnotations(annotations)
+	robot.SetLabels(mergeMaps(robot.GetLabels(), labels))
+	robot.SetAnnotations(mergeMaps(robot.GetAnnotations(), annotations))
 	spec, ok := robot.Object["spec"].(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("unmarshaling robot failed: spec is not a map")
