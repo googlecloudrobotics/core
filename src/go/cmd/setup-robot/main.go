@@ -15,7 +15,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -374,38 +373,6 @@ func installChartOrDie(domain, registry, nameOld, nameNew, chartPath string, pro
 	}
 }
 
-// checkExistingRobot makes sure that a robot with the same name is not
-// already registered to a different host. This is to prevent accidentally
-// overwriting the robot.
-func checkExistingRobot(robot *unstructured.Unstructured) error {
-	host := os.Getenv("HOST_HOSTNAME")
-	if host == "" {
-		return nil
-	}
-	prevHost, ok, err := unstructured.NestedString(robot.Object, "metadata", "labels", "cloudrobotics.com/master-host")
-	if err != nil {
-		return fmt.Errorf("failed parsing robot labels: %v", err)
-	}
-	if !ok {
-		// The robot might not have the host label.
-		return nil
-	}
-	if prevHost != host {
-		// Since this image is run with `kubectl run`, there is a risk that logs
-		// that are printed too early get lost because the container hasn't
-		// properly attached yet:
-		// https://github.com/kubernetes/kubernetes/issues/27264
-		time.Sleep(5 * time.Second)
-		redBg := "\x1b[41m"
-		resetBg := "\x1b[49m"
-		log.Printf(`%sWarning%s: about to register robot %q to master host %q when a robot with the same name is already registered to %q.
-This will break the authentication flow on the host that was registered earlier, so you should only proceed if you are intentionally replacing that host.
-Press Ctrl+C to stop or Enter to continue.`, redBg, resetBg, *robotName, host, prevHost)
-		bufio.NewScanner(os.Stdin).Scan()
-	}
-	return nil
-}
-
 // megeMaps returns `base` with `additions` added on top.
 // I.e., if the same key is present in both maps, the one from `additions` wins.
 func mergeMaps(base, additions map[string]string) map[string]string {
@@ -454,9 +421,6 @@ func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]s
 	}
 
 	// A robot with the same name already exists.
-	if err := checkExistingRobot(robot); err != nil {
-		return err
-	}
 	robot.SetLabels(mergeMaps(robot.GetLabels(), labels))
 	robot.SetAnnotations(mergeMaps(robot.GetAnnotations(), annotations))
 	spec, ok := robot.Object["spec"].(map[string]interface{})

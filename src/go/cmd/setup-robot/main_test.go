@@ -166,8 +166,6 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 				"cloudrobotics.com/robot-name":  "robot_name",
 			},
 		},
-		// This should ask user to confirm or Ctrl+C the app. We expect
-		// success in a test environment where stdin is empty.
 		{
 			"robot with different hostname",
 			&registry.Robot{
