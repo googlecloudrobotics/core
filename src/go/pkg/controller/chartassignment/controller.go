@@ -549,11 +549,11 @@ func (v *chartAssignmentValidator) validate(cur, old *apps.ChartAssignment) erro
 	}
 	errs := validation.ValidateNamespaceName(cur.Spec.NamespaceName, false)
 	if len(errs) > 0 {
-		return fmt.Errorf("invalid namespace name: %s", strings.Join(errs, ", "))
+		return fmt.Errorf("invalid namespace name %q: %s", cur.Spec.NamespaceName, strings.Join(errs, ", "))
 	}
 	errs = validation.ValidateClusterName(cur.Spec.ClusterName, false)
 	if len(errs) > 0 {
-		return fmt.Errorf("invalid cluster name: %s", strings.Join(errs, ", "))
+		return fmt.Errorf("invalid cluster name %q: %s", cur.Spec.ClusterName, strings.Join(errs, ", "))
 	}
 	if old != nil {
 		if cur.Spec.NamespaceName != old.Spec.NamespaceName {

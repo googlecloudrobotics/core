@@ -42,6 +42,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -99,9 +100,8 @@ func parseFlags() {
 	} else if flag.NArg() > 1 {
 		flag.Usage()
 		log.Fatalf("ERROR: too many positional arguments (%d), expected 1.", flag.NArg())
-	} else if flag.Arg(0) == "" {
-		flag.Usage()
-		log.Fatal("ERROR: robot-name must not be empty.")
+	} else if errs := validation.ValidateClusterName(flag.Arg(0), false); len(errs) > 0 {
+		log.Fatalf("ERROR: invalid cluster name %q: %s", flag.Arg(0), strings.Join(errs, ", "))
 	}
 
 	*robotName = flag.Arg(0)
