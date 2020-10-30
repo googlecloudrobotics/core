@@ -132,12 +132,18 @@ function terraform_init {
   fi
 
   # This variable is set by src/bootstrap/cloud/run-install.sh for binary installs
-  CRC_VERSION="${TARGET}"
-  if [[ -z "${CRC_VERSION}" ]]; then
+  if [[ -z "${TARGET}" ]]; then
     # TODO(ensonic): keep this in sync with the nighly release script
     VERSION=${VERSION:-"0.1.0"}
-    SHA=$(git rev-parse --short HEAD)
+    if [[ -d .git ]]; then
+      SHA=$(git rev-parse --short HEAD)
+    else
+      echo "WARNING: no git dir and no \$TARGET env set"
+      SHA="unknown"
+    fi
     CRC_VERSION="crc-${VERSION}/crc-${VERSION}+${SHA}"
+  else
+    CRC_VERSION="${TARGET%.tar.gz}"
   fi
 
   cat > "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
