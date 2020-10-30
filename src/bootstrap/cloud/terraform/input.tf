@@ -24,7 +24,11 @@ variable "shared_owner_group" {
 }
 
 variable "robot_image_reference" {
-  description = "Reference to the Docker image installed by the  setup-robot script"
+  description = "Reference to the Docker image installed by the setup-robot script"
+}
+
+variable "crc_version" {
+  description = "cloudrobotics-core version tag stored with the setup-robot script to align cloud and robot versions."
 }
 
 variable "private_image_repositories" {
