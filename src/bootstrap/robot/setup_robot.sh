@@ -70,6 +70,10 @@ IMAGE_REFERENCE=$(curl -fsSL -H "Authorization: Bearer ${ACCESS_TOKEN}" \
 "https://storage.googleapis.com/${PROJECT}-robot/setup_robot_image_reference.txt") || \
   IMAGE_REFERENCE=""
 
+CRC_VERSION=$(curl -fsSL -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+"https://storage.googleapis.com/${PROJECT}-robot/setup_robot_crc_version.txt") || \
+  CRC_VERSION=""
+
 if [[ -z "$IMAGE_REFERENCE" ]] ; then
   echo "ERROR: failed to get setup_robot_image_reference.txt from GCS" >&2
   exit 1
@@ -132,4 +136,5 @@ kc run setup-robot --restart=Never -it --rm \
   --env="TLS_KEY=${tls_key}" \
   --env="TLS_CRT=${tls_crt}" \
   --env="HOST_HOSTNAME=$(hostname)" \
+  --env="CRC_VERSION=${CRC_VERSION}" \
   -- "$@"

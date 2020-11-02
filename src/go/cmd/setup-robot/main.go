@@ -396,6 +396,10 @@ func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]s
 	if host != "" {
 		labels["cloudrobotics.com/master-host"] = host
 	}
+	crc_version := os.Getenv("CRC_VERSION")
+	if crc_version != "" {
+		annotations["cloudrobotics.com/crc-version"] = crc_version
+	}
 
 	robotClient := k8sDynamicClient.Resource(robotGVR).Namespace("default")
 	robot, err := robotClient.Get(*robotName, metav1.GetOptions{})
