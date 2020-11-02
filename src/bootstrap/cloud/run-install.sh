@@ -62,6 +62,9 @@ elif [[ "${COMMAND}" = "--set-oauth" ]]; then
 elif [[ "${COMMAND}" = "--delete" ]]; then
   $BASH ./deploy.sh delete "${GCP_PROJECT_ID}"
 else
+  # We tag the setup-robot files with this information to be able to check if
+  # cloud and robot-installations are in sync
+  export TARGET
   $BASH scripts/set-config.sh "${GCP_PROJECT_ID}" --ensure-config
   $BASH ./deploy.sh create "${GCP_PROJECT_ID}"
 fi

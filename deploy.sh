@@ -132,6 +132,7 @@ function terraform_init {
   fi
 
   # This variable is set by src/bootstrap/cloud/run-install.sh for binary installs
+  local CRC_VERSION
   if [[ -z "${TARGET}" ]]; then
     # TODO(ensonic): keep this in sync with the nighly release script
     VERSION=${VERSION:-"0.1.0"}
