@@ -85,14 +85,26 @@ data:
       </parse>
     </source>
 
+    # BEGIN modifications
+    # Concatenate multi line log entries.
+    # We search for the expected prefix using the same regex as the parser below
+    # and group all consecutive lines until the prefix is encountered again.
+    <filter reform.**>
+      @type concat
+      key log
+      multiline_start_regexp /^\w\d{4} [^\s]*\s+\d+\s+[^ \]]+\]/
+      separator ""
+    </filter>
+
     <filter reform.**>
       @type parser
-      format /^(?<severity>\w)(?<time>\d{4} [^\s]*)\s+(?<pid>\d+)\s+(?<source>[^ \]]+)\] (?<log>.*)/
+      format /^(?<severity>\w)(?<time>\d{4} [^\s]*)\s+(?<pid>\d+)\s+(?<source>[^ \]]+)\] (?<log>(.|\n)*.)/
       reserve_data true
       suppress_parse_error_log true
       emit_invalid_record_to_error false
       key_name log
     </filter>
+    # END modifications
 
     <match reform.**>
       @type record_reformer

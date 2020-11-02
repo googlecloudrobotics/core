@@ -20,6 +20,9 @@
 #   done
 #
 # and apply changes as noted in each file.
+#
+# NOTE: The configmap has been amended to support multi line log entries
+# (search for "BEGIN modifications" in fluentd-gcp-configmap.yaml).
 
 licenses(["permissive"])  # Apache 2.0
 
