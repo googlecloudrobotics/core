@@ -634,6 +634,22 @@ py_library(
         urls = ["https://github.com/bazelbuild/rules_docker/archive/faaa10a72fa9abde070e2a20d6046e9f9b849e9a.tar.gz"],
     )
 
+    # Override platforms declared in rules_go with later version, to support new
+    # definitions that bazel toolchains need.
+    # This should be removed when rules_go version is updated.
+    _maybe(
+        http_archive,
+        name = "platforms",
+        strip_prefix = "platforms-681f1ee032566aa2d443cf0335d012925d9c58d4",
+        # master, as of 2020-08-24
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/681f1ee032566aa2d443cf0335d012925d9c58d4.zip",
+            "https://github.com/bazelbuild/platforms/archive/681f1ee032566aa2d443cf0335d012925d9c58d4.zip",
+        ],
+        sha256 = "ae95e4bfcd9f66e9dc73a92cee0107fede74163f788e3deefe00f3aaae75c431",
+    )
+
+
     # Go rules and proto support
     _maybe(
         http_archive,
