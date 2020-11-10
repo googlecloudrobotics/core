@@ -27,8 +27,9 @@ import (
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	// Necessary because one of the mocks needs the metadata package.
+	// Necessary because the mocks needs these packages.
 	_ "google.golang.org/grpc/metadata"
+	_ "google.golang.org/protobuf/runtime/protoiface"
 )
 
 func doGetCall(t *testing.T, restResponse string, restError error) (*helloworld.HelloWorld, error) {

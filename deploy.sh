@@ -27,7 +27,7 @@ PROJECT_NAME="cloud-robotics"
 if is_source_install; then
   TERRAFORM="${DIR}/bazel-out/../../../external/hashicorp_terraform/terraform"
   HELM_COMMAND="${DIR}/bazel-out/../../../external/kubernetes_helm/helm"
-  SYNK_COMMAND="${DIR}/bazel-bin/src/go/cmd/synk/linux_amd64_stripped/synk"
+  SYNK_COMMAND="${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk"
 else
   TERRAFORM="${DIR}/bin/terraform"
   HELM_COMMAND="${DIR}/bin/helm"

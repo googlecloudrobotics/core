@@ -339,3 +339,8 @@ func (s *pubsubServer) DeleteSnapshot(ctx context.Context, r *pb.DeleteSnapshotR
 func (s *pubsubServer) Seek(ctx context.Context, r *pb.SeekRequest) (*pb.SeekResponse, error) {
 	return &pb.SeekResponse{}, nil
 }
+
+// Detaches a subscription from this topic.
+func (s *pubsubServer) DetachSubscription(ctx context.Context, r *pb.DetachSubscriptionRequest) (*pb.DetachSubscriptionResponse, error) {
+	return &pb.DetachSubscriptionResponse{}, nil
+}

@@ -91,7 +91,7 @@ type cluster struct {
 func New(t *testing.T, cfg Config) *Environment {
 	e := &Environment{
 		helmPath: "../kubernetes_helm/helm",
-		synkPath: "src/go/cmd/synk/linux_amd64_stripped/synk",
+		synkPath: "src/go/cmd/synk/synk_/synk",
 		t:        t,
 		cfg:      cfg,
 		scheme:   k8sruntime.NewScheme(),
