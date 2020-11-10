@@ -93,7 +93,7 @@ func buildMethods(obj *crdtypes.CustomResourceDefinition, config *rest.Config) (
 	c := *config
 	c.APIPath = "/apis"
 	c.GroupVersion = &schema.GroupVersion{obj.Spec.Group, version}
-	c.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+	c.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
 
 	// Build Kubernetes REST client.
 	client, err := rest.RESTClientFor(&c)

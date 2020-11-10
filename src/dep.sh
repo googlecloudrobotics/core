@@ -48,6 +48,12 @@ function finalize {
 
   bazel run //:gazelle -- update-repos -from_file "${DIR}/Gopkg.lock"
   echo "Dependencies in bazel WORKSPACE updated."
+  if ! buildozer \
+      'set remote "https://github.com/gomodules/jsonpatch.git"' \
+      'set vcs "git"' \
+      WORKSPACE:xyz_gomodules_jsonpatch ; then
+    echo "The repository 'xyz_gomodules_jsonpatch' has likely been broken and must be reverted"
+  fi
   if ! buildozer delete WORKSPACE:com_github_golang_protobuf ; then
     echo "The repository 'com_github_golang_protobuf' is likely included erroneously and needs to be removed"
   fi

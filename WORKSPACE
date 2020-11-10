@@ -323,7 +323,7 @@ go_repository(
 
 go_repository(
     name = "in_gopkg_fsnotify_v1",
-    commit = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9",
+    commit = "45d7d09e39ef4ac08d493309fa031790c15bfe8a",
     importpath = "gopkg.in/fsnotify.v1",
     remote = "https://github.com/fsnotify/fsnotify",
     vcs = "git",
@@ -742,7 +742,7 @@ go_repository(
 go_repository(
     name = "io_k8s_api",
     build_file_proto_mode = "disable",
-    commit = "e5d50f8f22e887ddf1c37e65226339182bc7086d",
+    commit = "2034b8ee98796b95962f75a871718523ce607887",
     importpath = "k8s.io/api",
 )
 
@@ -750,14 +750,14 @@ go_repository(
     name = "io_k8s_apiextensions_apiserver",
     build_extra_args = ["-exclude=vendor"],
     build_file_proto_mode = "disable",
-    commit = "06f78d76bd12e63c35b17621b40270d838665a5f",
+    commit = "d98e7f9a1a1453e929a814d2d067f92776972da2",
     importpath = "k8s.io/apiextensions-apiserver",
 )
 
 go_repository(
     name = "io_k8s_apimachinery",
     build_file_proto_mode = "disable",
-    commit = "31ade1b30762be61c32b2e8db2a11aa8b0b8960e",
+    commit = "657cd094317c09d73696c12abec7b97f840fa75e",
     importpath = "k8s.io/apimachinery",
 )
 
@@ -770,14 +770,14 @@ go_repository(
 
 go_repository(
     name = "io_k8s_cli_runtime",
-    commit = "84c6f8c58c3b8e683c539644ccf109cc48014afb",
+    commit = "c2e1885581d0f2b27818e3070f0b4dd4417c3493",
     importpath = "k8s.io/cli-runtime",
 )
 
 go_repository(
     name = "io_k8s_client_go",
     build_file_proto_mode = "disable",
-    commit = "0d8ac07342ee709db3e0dd057b9667cd0d49c7c6",
+    commit = "e6017390cea53c17205f14dc91694f14bf8db50a",
     importpath = "k8s.io/client-go",
 )
 
@@ -810,7 +810,7 @@ go_repository(
 go_repository(
     name = "io_k8s_sigs_controller_runtime",
     build_extra_args = ["-exclude=vendor"],
-    commit = "fc5542c693e3340f8abbe91c6345bd64c494a60c",
+    commit = "9dc73700f6a8711204f8d4f12242c6b48fbcf7da",
     importpath = "sigs.k8s.io/controller-runtime",
 )
 
@@ -1080,3 +1080,15 @@ load(
 )
 
 proto_crd_repositories()
+
+go_repository(
+    name = "com_github_liggitt_tabwriter",
+    commit = "89fcab3d43de07060e4fd4c1547430ed57e87f24",
+    importpath = "github.com/liggitt/tabwriter",
+)
+
+go_repository(
+    name = "org_golang_google_protobuf",
+    commit = "3f7a61f89bb6813f89d981d1870ed68da0b3c3f1",
+    importpath = "google.golang.org/protobuf",
+)

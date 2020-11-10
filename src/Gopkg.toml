@@ -12,19 +12,21 @@ required = ["github.com/golang/glog"]
   unused-packages = true
   non-go = true
 
-# If you update to k8s v1.16, you'll need to update the go files in this repo:
-#   s/DirectCodecFactory/WithoutConversionCodecFactory/
 [[constraint]]
   name = "k8s.io/cli-runtime"
-  version = "kubernetes-1.15.8"
+  version = "kubernetes-1.17.13"
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.15.8"
+  version = "kubernetes-1.17.13"
 
 [[constraint]]
   name = "sigs.k8s.io/kind"
   version = "v0.7.0"
+
+[[constraint]]
+  name = "sigs.k8s.io/controller-runtime"
+  version = "v0.5.10"
 
 # This pulls in a slightly newer sprig, enabling `concat` etc in Helm
 # templates.
@@ -38,15 +40,15 @@ required = ["github.com/golang/glog"]
 # We have to use 'override' instead of 'constraint' on those repos.
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.15.8"
+  version = "kubernetes-1.17.13"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.15.8"
+  version = "kubernetes-1.17.13"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.15.8"
+  version = "kubernetes-1.17.13"
 
 # This pulls in a newer json-patch, avoiding exponential runtime for
 # deeply-nested resources.
