@@ -13,8 +13,8 @@ _COMMON_CMD_CODE = """
 # bindir.
 # TODO(rodrigoq): use providers for the include directories instead of find(1).
 ROS_INCLUDE_DIRS=( $$(find $(GENDIR) bazel-out/host/bin \\
-    \( -name "*.msg" -or -name "*.srv" \) \\
-    -exec dirname {{}} \; | sort -u) )
+    \\( -name "*.msg" -or -name "*.srv" \\) \\
+    -exec dirname {{}} \\; | sort -u) )
 
 # Construct the arguments for the generation scripts.
 ROS_INCLUDE_FLAGS=( )
