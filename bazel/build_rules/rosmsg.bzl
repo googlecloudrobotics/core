@@ -29,6 +29,7 @@ ROS_FLAGS="-p{rospkg} $${{ROS_INCLUDE_FLAGS[@]}}"
 
 _CPP_CMD_TEMPLATE = _COMMON_CMD_CODE + """
 # Run the generation script for each .msg and .srv.
+export PYTHONHASHSEED=0
 for i in $(SRCS); do
   $(location @com_github_ros_gencpp//:gencpp) \\
     $$ROS_FLAGS \\
@@ -40,6 +41,7 @@ done"""
 _PY_CMD_TEMPLATE = _COMMON_CMD_CODE + """
 # Run the generation script for each .msg. This generates
 # some_msgs/msg/_MsgName.py.
+export PYTHONHASHSEED=0
 for i in $$(find $(SRCS) -name '*.msg'); do
   $(location @com_github_ros_genpy//:genmsg_py) \\
     -o {output_dir}/msg \\
