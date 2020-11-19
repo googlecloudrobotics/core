@@ -12,9 +12,6 @@ test --test_tag_filters="-external,-requires-docker"
 # Workaround https://github.com/bazelbuild/bazel/issues/3236
 build --sandbox_tmpfs_path=/tmp
 
-# Workaround https://github.com/bazelbuild/bazel/issues/6136
-startup --host_jvm_args=-XX:+UnlockDiagnosticVMOptions --host_jvm_args=-XX:-InlineUnsafeOps
-
 # This uses fixed values of PATH, LD_LIBRARY_PATH and TMPDIR. It allows cache
 # hits between CLI and IntelliJ builds, and will also be useful if we switch to
 # a shared cache.
