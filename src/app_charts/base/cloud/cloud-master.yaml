@@ -21,7 +21,6 @@ spec:
           domain={{ .Values.domain }},\
           project={{ .Values.project }},\
           ingress_ip={{ .Values.ingress_ip }},\
-          project_number={{ .Values.project_number }},\
           registry={{ .Values.registry }},\
           deploy_environment={{ .Values.deploy_environment }},\
           certificate_authority.crt={{ .Values.certificate_authority.crt }}"

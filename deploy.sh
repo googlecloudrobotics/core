@@ -254,8 +254,6 @@ function cleanup_old_cert_manager {
 }
 
 function helm_charts {
-  local GCP_PROJECT_NUMBER
-  GCP_PROJECT_NUMBER=$(terraform_exec output project-number)
   local INGRESS_IP
   INGRESS_IP=$(terraform_exec output ingress-ip)
 
@@ -296,7 +294,6 @@ function helm_charts {
     --set-string domain=${CLOUD_ROBOTICS_DOMAIN}
     --set-string ingress_ip=${INGRESS_IP}
     --set-string project=${GCP_PROJECT_ID}
-    --set-string project_number=${GCP_PROJECT_NUMBER}
     --set-string region=${GCP_REGION}
     --set-string registry=${SOURCE_CONTAINER_REGISTRY}
     --set-string owner_email=${CLOUD_ROBOTICS_OWNER_EMAIL}

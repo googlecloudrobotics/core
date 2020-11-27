@@ -335,7 +335,6 @@ func installChartOrDie(domain, registry, nameOld, nameNew, chartPath string, pro
 		"domain":               domain,
 		"registry":             registry,
 		"project":              *project,
-		"project_number":       strconv.FormatInt(projectNumber, 10),
 		"app_management":       strconv.FormatBool(appManagement),
 		"cr_syncer":            strconv.FormatBool(*crSyncer),
 		"fluentd":              strconv.FormatBool(*fluentd),
