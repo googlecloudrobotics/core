@@ -37,7 +37,6 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/oauth2"
-	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/option"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -71,18 +70,6 @@ const (
 	numDNSRetries     = 6
 	numServiceRetries = 6
 )
-
-func getProjectNumber(client *http.Client, projectID string) (int64, error) {
-	crm, err := cloudresourcemanager.New(client)
-	if err != nil {
-		return 0, err
-	}
-	project, err := crm.Projects.Get(projectID).Do()
-	if err != nil {
-		return 0, err
-	}
-	return project.ProjectNumber, nil
-}
 
 func parseFlags() {
 	flag.Usage = func() {
@@ -265,12 +252,6 @@ func main() {
 		}
 	}
 
-	// Get the project number, which is passed as a value to the helm charts.
-	projectNumber, err := getProjectNumber(httpClient, *project)
-	if err != nil {
-		log.Fatalf("Failed to get project number: %v", err)
-	}
-
 	// Create service account and role binding for Tiller.
 	// (this isn't strictly necessary until we're using auth properly, but it's
 	//  one less thing to fix when RBAC is used properly)
@@ -316,8 +297,8 @@ func main() {
 
 	appManagement := configutil.GetBoolean(vars, "APP_MANAGEMENT", true)
 	// Use "robot" as a suffix for consistency for Synk deployments.
-	installChartOrDie(domain, registry, "robot-base", "base-robot",
-		"base-robot-0.0.1.tgz", projectNumber, appManagement)
+	installChartOrDie(domain, registry, "base-robot", "base-robot-0.0.1.tgz",
+		appManagement)
 }
 
 func helmValuesStringFromMap(varMap map[string]string) string {
@@ -328,9 +309,8 @@ func helmValuesStringFromMap(varMap map[string]string) string {
 	return strings.Join(varList, ",")
 }
 
-// installChartOrDie installs a chart using Helm or Synk.
-// nameOld is used for the Helm release name, nameNew for the synk ResourceSet.
-func installChartOrDie(domain, registry, nameOld, nameNew, chartPath string, projectNumber int64, appManagement bool) {
+// installChartOrDie installs a chart using Synk.
+func installChartOrDie(domain, registry, name, chartPath string, appManagement bool) {
 	vars := helmValuesStringFromMap(map[string]string{
 		"domain":               domain,
 		"registry":             registry,
@@ -344,22 +324,22 @@ func installChartOrDie(domain, registry, nameOld, nameNew, chartPath string, pro
 		"webhook.tls.crt":      os.Getenv("TLS_CRT"),
 		"webhook.tls.key":      os.Getenv("TLS_KEY"),
 	})
-	log.Printf("Installing %s chart using Synk from %s", nameNew, chartPath)
+	log.Printf("Installing %s chart using Synk from %s", name, chartPath)
 
 	output, err := exec.Command(
 		helmPath,
 		"template",
 		"--set-string", vars,
-		"--name", nameNew,
+		"--name", name,
 		filepath.Join(filesDir, chartPath),
 	).CombinedOutput()
 	if err != nil {
-		log.Fatalf("Synk install of %s failed: %v\nHelm output:\n%s\n", nameNew, err, output)
+		log.Fatalf("Synk install of %s failed: %v\nHelm output:\n%s\n", name, err, output)
 	}
 	cmd := exec.Command(
 		synkPath,
 		"apply",
-		nameNew,
+		name,
 		"-n", "default",
 		"-f", "-",
 	)
@@ -368,7 +348,7 @@ func installChartOrDie(domain, registry, nameOld, nameNew, chartPath string, pro
 	cmd.Stdin = bytes.NewReader(output)
 
 	if output, err = cmd.CombinedOutput(); err != nil {
-		log.Fatalf("Synk install of %s failed: %v\nSynk output:\n%s\n", nameNew, err, output)
+		log.Fatalf("Synk install of %s failed: %v\nSynk output:\n%s\n", name, err, output)
 	}
 }
 
