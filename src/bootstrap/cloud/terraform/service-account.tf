@@ -103,14 +103,6 @@ resource "google_service_account" "human-acl" {
   project      = data.google_project.project.project_id
 }
 
-# TODO(swolter): I'm 90% sure that we don't need this permission anymore.
-resource "google_service_account_iam_member" "human-acl-shared-owner-token-creator" {
-  count              = var.shared_owner_group == "" ? 0 : 1
-  service_account_id = google_service_account.human-acl.name
-  role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "group:${var.shared_owner_group}"
-}
-
 resource "google_service_account_iam_member" "human-acl-shared-owner-account-user" {
   count              = var.shared_owner_group == "" ? 0 : 1
   service_account_id = google_service_account.human-acl.name
