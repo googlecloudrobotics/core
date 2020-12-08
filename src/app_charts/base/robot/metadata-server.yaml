@@ -28,7 +28,11 @@ spec:
       - name: metadata-server
         securityContext:
           capabilities:
-            add: ["NET_ADMIN"]
+            drop:
+              - all
+            add:
+              - NET_ADMIN
+              - NET_RAW
         image: {{ .Values.registry }}{{ .Values.images.metadata_server }}
         args:
         - --port
