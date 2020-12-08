@@ -1,9 +1,9 @@
 resource "google_container_cluster" "cloud-robotics" {
   name               = "cloud-robotics"
-  location           = "${var.zone}"
+  location           = var.zone
   min_master_version = "1.16"
   enable_legacy_abac = true
-  depends_on         = ["google_project_service.container"]
+  depends_on         = [google_project_service.container]
 
   # We can't create a cluster with no node pool defined, but we want to only use
   # separately managed node pools. So we create the smallest possible default
@@ -21,12 +21,12 @@ resource "google_container_cluster" "cloud-robotics" {
 
 resource "google_container_node_pool" "cloud-robotics" {
   name     = "cloud-robotics"
-  location = "${var.zone}"
-  cluster  = "${google_container_cluster.cloud-robotics.name}"
+  location = var.zone
+  cluster  = google_container_cluster.cloud-robotics.name
 
   initial_node_count = 2
 
-  autoscaling = {
+  autoscaling {
     min_node_count = 2
     max_node_count = 10
   }

@@ -150,10 +150,15 @@ fi
 
 tf_files=$(files_matching "\.tf$")
 
-# Caveat when moving to Terraform-from-bazel: This script is also used from the
-# apps repo, which doesn't have a top-level bazel-out directory.
-TERRAFORM="$HOME/.cache/cloud-robotics/terraform"
 if [ -n "$tf_files" ]; then
+  if [[ -f WORKSPACE ]] ; then
+    # cloud-robotics
+    bazel build @hashicorp_terraform//:terraform
+    TERRAFORM="${PWD}/bazel-out/../../../external/hashicorp_terraform/terraform"
+  else
+    # infrastructure
+    TERRAFORM="/google/data/ro/teams/terraform/bin/terraform"
+  fi
   tf_dirs=$(dirname $tf_files | sort | uniq)
   for tf_dir in $tf_dirs; do
     if ! ${TERRAFORM} fmt -write=false -list=false -check=true $tf_dir; then

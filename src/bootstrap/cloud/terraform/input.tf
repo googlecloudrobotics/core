@@ -33,6 +33,6 @@ variable "crc_version" {
 
 variable "private_image_repositories" {
   description = "Projects with private GCR image repositories where we need to add IAM access rules."
-  type        = "list"
+  type        = list
   default     = []
 }

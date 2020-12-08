@@ -565,9 +565,9 @@ cc_library(
         http_archive,
         name = "hashicorp_terraform",
         build_file = "@cloud_robotics//third_party:terraform.BUILD",
-        sha256 = "5925cd4d81e7d8f42a0054df2aafd66e2ab7408dbed2bd748f0022cfe592f8d2",
+        sha256 = "872245d9c6302b24dc0d98a1e010aef1e4ef60865a2d1f60102c8ad03e9d5a1d",
         urls = [
-            "https://releases.hashicorp.com/terraform/0.11.13/terraform_0.11.13_linux_amd64.zip",
+            "https://releases.hashicorp.com/terraform/0.12.29/terraform_0.12.29_linux_amd64.zip",
         ],
     )
 
