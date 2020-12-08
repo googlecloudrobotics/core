@@ -287,6 +287,15 @@ function helm_charts {
   kc delete validatingwebhookconfiguration \
     validating-webhook-configuration 2>/dev/null || true
 
+  # Create a permissive policy if none exists yet. This allows code running in the
+  # cluster to administer it.
+  if ! kc get clusterrolebinding permissive-binding &>/dev/null; then
+    kc create clusterrolebinding permissive-binding \
+      --clusterrole=cluster-admin \
+      --user=admin \
+      --group=system:serviceaccounts
+  fi
+
   ${SYNK} init
   echo "synk init done"
 
@@ -327,6 +336,7 @@ EOF
   #   this happens when terraform upgraded the Kubernetes control plane before
   kc wait apiservice v1beta1.metrics.k8s.io --for condition=Available --timeout=600s
 
+  # cert-manager/templates/webhook-rbac.yaml has hard-coded 'kube-system' ns
   ${HELM} template -n cert-manager --set global.rbac.create=false ${cert_manager_chart} \
     | ${SYNK} apply cert-manager -n default -f - \
     || die "Synk failed for cert-manager"

@@ -2,7 +2,6 @@ resource "google_container_cluster" "cloud-robotics" {
   name               = "cloud-robotics"
   location           = var.zone
   min_master_version = "1.16"
-  enable_legacy_abac = true
   depends_on         = [google_project_service.container]
 
   # We can't create a cluster with no node pool defined, but we want to only use
