@@ -18,15 +18,16 @@ import (
 	"os"
 	"reflect"
 
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/fake"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 func TestWaitForService_OkIfServiceResponds(t *testing.T) {
@@ -108,11 +109,13 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 
 	tests := []struct {
 		desc       string
+		labels     map[string]string
 		robot      *registry.Robot
 		wantLabels map[string]string
 	}{
 		{
 			"other robot",
+			map[string]string{},
 			&registry.Robot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "other_robot",
@@ -126,6 +129,7 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 		},
 		{
 			"robot without label",
+			map[string]string{},
 			&registry.Robot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      *robotName,
@@ -139,6 +143,7 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 		},
 		{
 			"robot with other label",
+			map[string]string{},
 			&registry.Robot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      *robotName,
@@ -154,6 +159,7 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 		},
 		{
 			"robot with same hostname",
+			map[string]string{},
 			&registry.Robot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      *robotName,
@@ -168,6 +174,7 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 		},
 		{
 			"robot with different hostname",
+			map[string]string{},
 			&registry.Robot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      *robotName,
@@ -180,13 +187,29 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 				"cloudrobotics.com/robot-name":  "robot_name",
 			},
 		},
+		{
+			"master-host given as input",
+			map[string]string{
+				"cloudrobotics.com/master-host": "correct-host",
+			},
+			&registry.Robot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      *robotName,
+					Namespace: "default",
+					Labels:    map[string]string{"cloudrobotics.com/master-host": "other-host"},
+				},
+			},
+			map[string]string{
+				"cloudrobotics.com/master-host": "correct-host",
+				"cloudrobotics.com/robot-name":  "robot_name",
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			c := fake.NewSimpleDynamicClient(sc, tc.robot)
-			labels := map[string]string{}
 			annotations := map[string]string{}
-			if err := createOrUpdateRobot(c, labels, annotations); err != nil {
+			if err := createOrUpdateRobot(c, tc.labels, annotations); err != nil {
 				t.Fatalf("createOrUpdateRobot() failed unexpectedly:  %v", err)
 			}
 

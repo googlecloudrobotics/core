@@ -372,7 +372,7 @@ func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]s
 		Resource: "robots"}
 	labels["cloudrobotics.com/robot-name"] = *robotName
 	host := os.Getenv("HOST_HOSTNAME")
-	if host != "" {
+	if host != "" && labels["cloudrobotics.com/master-host"] == "" {
 		labels["cloudrobotics.com/master-host"] = host
 	}
 	crc_version := os.Getenv("CRC_VERSION")
