@@ -86,17 +86,21 @@ fi
 REGISTRY=${IMAGE_REFERENCE%/*}
 REGISTRY_DOMAIN=${IMAGE_REFERENCE%%/*}
 
-# TODO(daschmidt): Remove the login dance when the setup-robot image is available from a public registry.
-echo "Pulling image from ${REGISTRY_DOMAIN}..."
+if [[ "$REGISTRY" != "gcr.io/cloud-robotics-releases" ]] ; then
+  # The user has built setup-robot from source and pushed it to a private
+  # registry. If so, k8s may not yet have credentials that can pull from a
+  # private registry, so use `docker pull` to do this.
+  echo "Pulling image from ${REGISTRY_DOMAIN}..."
 
-echo ${ACCESS_TOKEN} | docker login -u oauth2accesstoken --password-stdin https://${REGISTRY_DOMAIN} || true
+  echo ${ACCESS_TOKEN} | docker login -u oauth2accesstoken --password-stdin https://${REGISTRY_DOMAIN} || true
 
-if ! docker pull ${IMAGE_REFERENCE}; then
+  if ! docker pull ${IMAGE_REFERENCE}; then
+    docker logout https://${REGISTRY_DOMAIN}
+    echo "ERROR: failed to pull setup-robot image" >&2
+    exit 1
+  fi
   docker logout https://${REGISTRY_DOMAIN}
-  echo "ERROR: failed to pull setup-robot image" >&2
-  exit 1
 fi
-docker logout https://${REGISTRY_DOMAIN}
 
 # Generate TLS certificate if none exists yet. It is used by the robot-master
 # to allow the Kubernetes API server to securly connect to webhooks.
