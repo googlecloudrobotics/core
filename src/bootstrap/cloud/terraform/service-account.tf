@@ -42,7 +42,7 @@ resource "google_service_account_iam_policy" "robot-service" {
 
 resource "google_project_iam_member" "robot-service-storage" {
   project = data.google_project.project.project_id
-  role    = "roles/storage.admin"
+  role    = "roles/storage.objectAdmin"
   member  = "serviceAccount:${google_service_account.robot-service.email}"
 }
 
