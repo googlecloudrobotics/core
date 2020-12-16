@@ -22,6 +22,7 @@
 set -e
 
 echo "Set NO_TEARDOWN=y for preserve \"kind\" clusters past test failures"
+echo "run 'docker ps | grep kind' and 'docker stop <container-id>' to cleanup when done"
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
