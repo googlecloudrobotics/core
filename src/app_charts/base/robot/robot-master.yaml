@@ -30,7 +30,7 @@ spec:
         - name: webhook
           containerPort: 9876
         volumeMounts:
-        - mountPath: /root
+        - mountPath: /home/nonroot
           name: home
         - mountPath: /tls
           name: tls
@@ -41,7 +41,7 @@ spec:
         image: {{ .Values.registry }}{{ .Values.images.robot_master }}
         command: ['/helm', 'init', '--client-only']
         volumeMounts:
-        - mountPath: /root
+        - mountPath: /home/nonroot
           name: home
       volumes:
       - name: home
@@ -49,6 +49,9 @@ spec:
       - name: tls
         secret:
           secretName: robot-master-tls
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
 ---
 apiVersion: v1
 kind: Secret

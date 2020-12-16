@@ -27,6 +27,9 @@ spec:
         ports:
         - name: http
           containerPort: 80
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
 ---
 apiVersion: v1
 kind: Service

@@ -37,6 +37,9 @@ spec:
             path: /healthz
             port: 9090
           initialDelaySeconds: 15
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
 ---
 apiVersion: extensions/v1beta1
 kind: Ingress
