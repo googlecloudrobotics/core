@@ -30,3 +30,7 @@ spec:
         - "/apis/core.kubernetes-relay"
         - --server_name
         - "{{ .Values.robot.name }}"
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+

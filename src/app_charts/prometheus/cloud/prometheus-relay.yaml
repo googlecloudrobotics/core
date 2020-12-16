@@ -18,16 +18,19 @@ spec:
       - name: server
         image: {{ .Values.registry }}{{ .Values.images.http_relay_server }}
         args:
-        - --port=80
+        - --port=8080
         - --project_id={{ .Values.project }}
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 80
+            port: 8080
           initialDelaySeconds: 15
         ports:
         - name: http
-          containerPort: 80
+          containerPort: 8080
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
 ---
 apiVersion: v1
 kind: Service
@@ -40,7 +43,7 @@ metadata:
 spec:
   ports:
   - port: 80
-    targetPort: 80
+    targetPort: 8080
     protocol: TCP
     name: http
   selector:
