@@ -163,9 +163,9 @@ spec:
   clusterName: {{ .cluster }}
   namespaceName: {{ .namespace }}
   chart:
-    repository: https://kubernetes-charts.storage.googleapis.com/
+    repository: https://k8s-at-home.com/charts/
     name: oauth2-proxy
-    version: 2.0.0
+    version: 4.0.1
     values:
       fullnameOverride: test
 `
