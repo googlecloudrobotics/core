@@ -22,11 +22,11 @@ spec:
         - "{{ .Values.robot.name }}"
         - -alsologtostderr
         - --verbose=false
-        - --listen-address=:80
+        - --listen-address=:8080
         image: {{ .Values.registry }}{{ .Values.images.cr_syncer }}
         ports:
         - name: http
-          containerPort: 80
+          containerPort: 8080
       securityContext:
         runAsUser: 65532
         runAsGroup: 65532
@@ -43,5 +43,5 @@ spec:
   ports:
   - name: http
     port: 80
-    targetPort: http
+    targetPort: 8080
 {{ end }}
