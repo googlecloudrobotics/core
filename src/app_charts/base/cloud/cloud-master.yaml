@@ -43,7 +43,7 @@ spec:
       # some client library functionality expects to exist.
       - name: helm
         image: {{ .Values.registry }}{{ .Values.images.cloud_master }}
-        command: ['/helm', 'init', '--client-only']
+        command: ['/helm', 'init', '--client-only', '--stable-repo-url', 'https://k8s-at-home.com/charts']
         volumeMounts:
         - mountPath: /home
           name: home
