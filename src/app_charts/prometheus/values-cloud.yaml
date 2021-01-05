@@ -1,0 +1,11 @@
+domain: "example.com"
+project: "my-gcp-project"
+registry: "gcr.io/my-gcp-project"
+robots: []
+
+# The default requests are sufficient for small deployments with a few
+# robots. For a large deployment with ~30 robots, you might need ~2CPU and
+# ~12Gi mem.
+# TODO(rodrigoq): can we reduce this by updating prometheus?
+cpu_request: "200m"
+memory_request: "2Gi"

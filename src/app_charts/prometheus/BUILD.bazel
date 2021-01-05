@@ -30,6 +30,7 @@ app_chart(
     images = {
         "http-relay-server": "//src/go/cmd/http-relay-server",
     },
+    values = "values-cloud.yaml",
 )
 
 app_chart(

@@ -44,6 +44,14 @@ prometheus:
       any: true
     externalUrl: "https://${CLOUD_ROBOTICS_DOMAIN}/prometheus/"
     retention: "120d"
+    resources:
+      requests:
+        cpu: "${CPU_REQUEST}"
+        memory: "${MEMORY_REQUEST}"
+      # We need to set the limit to override GKE's default LimitRange.
+      limits:
+        cpu: "${CPU_REQUEST}"
+        memory: "${MEMORY_REQUEST}"
     storageSpec:
       volumeClaimTemplate:
         spec:
