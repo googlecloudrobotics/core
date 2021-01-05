@@ -57,7 +57,7 @@ kubeProxy:
 # Default scraping interval is 20s and these metrics result in a large amount of data  
 kubeApiServer:
   serviceMonitor:
-    interval: 1m
+    interval: 10m
 
 # Subcharts
 

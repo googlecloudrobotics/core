@@ -3,4 +3,4 @@
 # Some pseudo-variables that were inserted there are replaced with actual runtime values.
 # TODO(rodrigoq): This severely limits how the end-user can customize the
 # prometheus deployment. How could we let them override prometheus-cloud.values.yaml?
-{{ .Files.Get "files/prometheus-operator-chart.cloud.yaml" | replace "${CLOUD_ROBOTICS_DOMAIN}" .Values.domain | replace "${GCP_PROJECT_ID}" .Values.project | replace "HELM-NAMESPACE" .Release.Namespace | replace "${MEMORY_REQUEST}" .Values.memory_request | replace "${CPU_REQUEST}" .Values.cpu_request }}
+{{ .Files.Get "files/prometheus-operator-chart.cloud.yaml" | replace "${CLOUD_ROBOTICS_DOMAIN}" .Values.domain | replace "${GCP_PROJECT_ID}" .Values.project | replace "HELM-NAMESPACE" .Release.Namespace | replace "${LIMITS_MEMORY}" .Values.limits.memory | replace "${LIMITS_CPU}" .Values.limits.cpu }}
