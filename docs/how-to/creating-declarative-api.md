@@ -230,10 +230,28 @@ spec:
     plural: chargeactions
     singular: chargeaction
   scope: Namespaced
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloud-robotics:cr-syncer:chartaction
+  labels:
+    cr-syncer.cloudrobotics.com/aggregate-to-robot-service: "true"
+rules:
+- apiGroups:
+  - example.com
+  resources:
+  - chargeactions
+  verbs:
+  - get
+  - list
+  - watch
+  - update
 ```
 
 This is a [custom resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) definition (CRD) for a resource called ChargeAction.
 This simple example just describes the name and version of the API, but CRDs can also define schemas for the resources.
+The ClusterRole configures [role-based access control](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) to let the robot access the ChargeActions.
 Don't worry about the `cr-syncer.cloudrobotics.com/spec-source` annotation for now, as it'll be explained later in the tutorial.
 
 Next, create a file called `charge-controller.yaml` with the following contents, replacing `[PROJECT_ID]` with your GCP project ID:

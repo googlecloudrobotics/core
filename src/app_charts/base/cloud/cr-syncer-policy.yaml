@@ -1,0 +1,66 @@
+# This policy lets the cr-syncer operate on the apps & registry CRDs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloud-robotics:cr-syncer:base
+  labels:
+    cr-syncer.cloudrobotics.com/aggregate-to-robot-service: "true"
+rules:
+
+# Robots and RobotTypes. To sync the specs from the cloud to the robot, and the
+# status from the robot to the cloud, the cr-syncer needs to read & update the
+# resources in the cloud cluster.
+- apiGroups:
+  - registry.cloudrobotics.com
+  resources:
+  - robots
+  - robottypes
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+
+# ChartAssignments have the status subresource enabled, so it can be treated
+# differently. It's important that the robot can update the status but not the
+# spec, or it could run code on other robots.
+- apiGroups:
+  - apps.cloudrobotics.com
+  resources:
+  - chartassignments
+  - chartassignments/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps.cloudrobotics.com
+  resources:
+  - chartassignments/status
+  verbs:
+  - update
+---
+# This aggregate role will combine all roles with the given label. This means
+# that policy can easily be added for CRDs beyond those listed above.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloud-robotics:cr-syncer
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      cr-syncer.cloudrobotics.com/aggregate-to-robot-service: "true"
+rules: []  # The control plane automatically fills in the rules
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cloud-robotics:cr-syncer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cloud-robotics:cr-syncer
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: robot-service@{{ .Values.project }}.iam.gserviceaccount.com
