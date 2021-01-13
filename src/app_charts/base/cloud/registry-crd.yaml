@@ -43,6 +43,8 @@ spec:
     plural: robots
     singular: robot
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       properties:
