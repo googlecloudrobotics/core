@@ -80,9 +80,8 @@ resource "google_project_iam_member" "robot-service-logging" {
 resource "google_project_iam_member" "robot-service-kubernetes" {
   project = data.google_project.project.project_id
 
-  # TODO(swolter): This permission is very wide. Use custom IAM roles or RBAC
-  # to restrict it.
-  role = "roles/container.developer"
+  # TODO(rodrigoq): migrate to RBAC and remove roles/container.developer
+  role = var.cr_syncer_rbac == "true" ? "roles/container.clusterViewer" : "roles/container.developer"
 
   member = "serviceAccount:${google_service_account.robot-service.email}"
 }

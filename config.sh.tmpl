@@ -49,3 +49,14 @@ GCP_ZONE=europe-west1-c
 # Enable google cloud robotics layer 2
 APP_MANAGEMENT=true
 
+# Require explicit RBAC policies for the cr-syncer. If false, the
+# robot-service@ service account has broad permissions in the GKE cluster.
+# If true, you will have to create RBAC policies when enabling the cr-syncer
+# for your own CustomResourceDefinitions. As this is more secure, we plan
+# to enable everywhere after migration.
+#
+# Setting this will prevent the cr-syncer from automatically removing old
+# finalizers, which can block the deletion of old resources. You should either
+# update the cloud-robotics stack before setting CR_SYNCER_RBAC=true, or
+# manually remove the finalizers with kubectl edit.
+CR_SYNCER_RBAC=false
