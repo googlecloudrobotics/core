@@ -51,7 +51,7 @@ if [[ -z "$PROJECT" ]] ; then
 fi
 
 if [[ -z "${KUBE_CONTEXT}" ]] ; then
-  KUBE_CONTEXT="$(kubectl config current-context)"
+  KUBE_CONTEXT=kubernetes-admin@kubernetes
 fi
 
 if [[ -n "$ACCESS_TOKEN_FILE" ]]; then
