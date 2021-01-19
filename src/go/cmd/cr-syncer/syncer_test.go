@@ -202,7 +202,6 @@ func TestSyncUpstream_createSpec(t *testing.T) {
 
 	// When an upstream resource is seen for the first time, it should be
 	// created in the downstream cluster including its current status.
-	// The finalizer must be added upstream and downstream.
 	tcrRemote := newTestCR("resource1", "spec1", "status1")
 	f.addRemoteObjects(tcrRemote)
 
@@ -214,14 +213,9 @@ func TestSyncUpstream_createSpec(t *testing.T) {
 		t.Fatal(err)
 	}
 	var (
-		finalizer    = finalizerFor("robot-cluster1")
-		tcrLocalNew  = newTestCR("resource1", "spec1", "status1")
-		tcrRemoteNew = newTestCR("resource1", "spec1", "status1")
+		tcrLocalNew = newTestCR("resource1", "spec1", "status1")
 	)
-	tcrLocalNew.SetFinalizers([]string{finalizer})
-	tcrRemoteNew.SetFinalizers([]string{finalizer})
 
-	f.expectRemoteActions(k8stest.NewUpdateAction(gvr, "default", tcrRemoteNew))
 	f.expectLocalActions(k8stest.NewCreateAction(gvr, "default", tcrLocalNew))
 	f.verifyWriteActions()
 }
@@ -232,7 +226,6 @@ func TestSyncClusterScopedCRUpstream_createSpec(t *testing.T) {
 
 	// When an upstream resource is seen for the first time, it should be
 	// created in the downstream cluster including its current status.
-	// The finalizer must be added upstream and downstream.
 	tcrRemote := newClusterScopedTestCR("resource1", "spec1", "status1")
 	f.addRemoteObjects(tcrRemote)
 
@@ -244,14 +237,9 @@ func TestSyncClusterScopedCRUpstream_createSpec(t *testing.T) {
 		t.Fatal(err)
 	}
 	var (
-		finalizer    = finalizerFor("robot-cluster1")
-		tcrLocalNew  = newClusterScopedTestCR("resource1", "spec1", "status1")
-		tcrRemoteNew = newClusterScopedTestCR("resource1", "spec1", "status1")
+		tcrLocalNew = newClusterScopedTestCR("resource1", "spec1", "status1")
 	)
-	tcrLocalNew.SetFinalizers([]string{finalizer})
-	tcrRemoteNew.SetFinalizers([]string{finalizer})
 
-	f.expectRemoteActions(k8stest.NewUpdateAction(gvr, "", tcrRemoteNew))
 	f.expectLocalActions(k8stest.NewCreateAction(gvr, "", tcrLocalNew))
 	f.verifyWriteActions()
 }
@@ -260,8 +248,7 @@ func TestSyncUpstream_updateSpec(t *testing.T) {
 	crd := testCRD(crdtypes.NamespaceScoped)
 	f := newFixture(t)
 
-	// On upstream update, the spec in the downstream cluster should be adjusted
-	// and the finalizer be set in both clusters.
+	// On upstream update, the spec in the downstream cluster should be adjusted.
 	var (
 		tcrLocal  = newTestCR("resource1", "spec1", "status2")
 		tcrRemote = newTestCR("resource1", "spec2", "status1")
@@ -277,14 +264,9 @@ func TestSyncUpstream_updateSpec(t *testing.T) {
 		t.Fatal(err)
 	}
 	var (
-		finalizer    = finalizerFor("robot-cluster1")
-		tcrLocalNew  = newTestCR("resource1", "spec2", "status2")
-		tcrRemoteNew = newTestCR("resource1", "spec2", "status1")
+		tcrLocalNew = newTestCR("resource1", "spec2", "status2")
 	)
-	tcrLocalNew.SetFinalizers([]string{finalizer})
-	tcrRemoteNew.SetFinalizers([]string{finalizer})
 
-	f.expectRemoteActions(k8stest.NewUpdateAction(gvr, "default", tcrRemoteNew))
 	f.expectLocalActions(k8stest.NewUpdateAction(gvr, "default", tcrLocalNew))
 	f.verifyWriteActions()
 }
@@ -295,13 +277,10 @@ func TestSyncUpstream_propagateDelete(t *testing.T) {
 
 	var (
 		now       = metav1.Now()
-		finalizer = finalizerFor("robot-cluster1")
 		tcrLocal  = newTestCR("resource1", "spec1", "status1")
 		tcrRemote = newTestCR("resource1", "spec1", "status1")
 	)
 	tcrRemote.SetDeletionTimestamp(&now)
-	tcrRemote.SetFinalizers([]string{finalizer})
-	tcrLocal.SetFinalizers([]string{finalizer})
 
 	f.addLocalObjects(tcrLocal)
 	f.addRemoteObjects(tcrRemote)
@@ -314,11 +293,7 @@ func TestSyncUpstream_propagateDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tcrLocalNew := newTestCR("resource1", "spec1", "status1")
-	tcrLocalNew.SetFinalizers([]string{finalizer})
-
 	f.expectLocalActions(
-		k8stest.NewUpdateAction(gvr, "default", tcrLocalNew),
 		k8stest.NewDeleteAction(gvr, "default", "resource1"),
 	)
 	f.verifyWriteActions()
@@ -329,9 +304,8 @@ func TestSyncDownstream_deleteOrphan(t *testing.T) {
 	f := newFixture(t)
 
 	// We have a local resource that has no matching resource in the upstream cluster.
-	// Trying to sync it again should delete the local copy and remove the finalizer.
+	// Trying to sync it again should delete the local copy.
 	tcrLocal := newTestCR("resource1", "spec1", "status1")
-	tcrLocal.SetFinalizers([]string{finalizerFor("robot-cluster1")})
 
 	f.addLocalObjects(tcrLocal)
 
@@ -343,10 +317,7 @@ func TestSyncDownstream_deleteOrphan(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tcrRemoteNew := newTestCR("resource1", "spec1", "status1")
-
 	f.expectLocalActions(
-		k8stest.NewUpdateAction(gvr, "default", tcrRemoteNew),
 		k8stest.NewDeleteAction(gvr, "default", "resource1"),
 	)
 	f.verifyWriteActions()
@@ -422,57 +393,50 @@ func TestSyncDownstream_statusSubtree(t *testing.T) {
 	f.verifyWriteActions()
 }
 
-func TestSyncDownstream_removeFinalizers(t *testing.T) {
+func TestSyncDownstream_downstreamNotFound(t *testing.T) {
 	crd := testCRD(crdtypes.NamespaceScoped)
 	f := newFixture(t)
 
-	// If a deletion timestamp is set on the local resource, the finalizer
-	// should be removed from upstream and downstream resource.
+	// If the downstream resource is not present when synced, the upstream
+	// resource should be added to the upstream queue, so that syncUpstream
+	// can recreate the downstream resource.  This tests the case where the
+	// upstream resource was deleted and immediately recreated.
 	var (
-		now       = metav1.Now()
-		finalizer = finalizerFor("robot-cluster1")
-		tcrLocal  = newTestCR("resource1", "spec1", "status1")
 		tcrRemote = newTestCR("resource1", "spec1", "status1")
 	)
-	tcrLocal.SetDeletionTimestamp(&now)
-	tcrLocal.SetResourceVersion("123")
-	tcrLocal.SetFinalizers([]string{finalizer})
-	tcrRemote.SetFinalizers([]string{finalizer})
 
-	f.addLocalObjects(tcrLocal)
 	f.addRemoteObjects(tcrRemote)
 
-	crs, gvr := f.newCRSyncer(crd, "cluster1")
+	crs, _ := f.newCRSyncer(crd, "cluster1")
 	defer crs.stop()
 
 	crs.startInformers()
+	// startInformers adds the initial state to the upstream queue.  Ignore
+	// it, so that we can check that the same resource is requeued.
+	upstreamChannel := channelFromQueue(t, crs.upstreamQueue, crs.upstreamInf)
+	select {
+	case <-upstreamChannel:
+		// Ignore.
+	case <-time.After(5 * time.Second):
+		t.Errorf("upstream resource was not queued by informer; want %v", tcrRemote)
+	}
+
 	if err := crs.syncDownstream("default/resource1"); err != nil {
 		t.Fatal(err)
 	}
 
-	var (
-		tcrLocalNew   = newTestCR("resource1", "spec1", "status1")
-		tcrRemoteNew1 = newTestCR("resource1", "spec1", "status1")
-		tcrRemoteNew2 = newTestCR("resource1", "spec1", "status1")
-	)
-	tcrLocalNew.SetResourceVersion("123")
-	tcrLocalNew.SetDeletionTimestamp(&now)
-	tcrRemoteNew1.SetFinalizers([]string{finalizer})
-	tcrRemoteNew1.SetAnnotations(map[string]string{
-		annotationResourceVersion: "123",
-	})
-	tcrRemoteNew2.SetAnnotations(map[string]string{
-		annotationResourceVersion: "123",
-	})
+	// syncDownstream should have requeued the upstream resource.
+	select {
+	case got := <-upstreamChannel:
+		if !reflect.DeepEqual(got, tcrRemote) {
+			t.Errorf("upstream queue got %v; want %v", got, tcrRemote)
+		}
+	case <-time.After(5 * time.Second):
+		t.Errorf("upstream resource was not requeued to %p; want %v", crs.upstreamQueue, tcrRemote)
+	}
 
-	f.expectLocalActions(
-		k8stest.NewUpdateAction(gvr, "default", tcrLocalNew),
-	)
-	f.expectRemoteActions(
-		k8stest.NewUpdateAction(gvr, "default", tcrRemoteNew1),
-		k8stest.NewUpdateAction(gvr, "default", tcrRemoteNew2),
-	)
-	f.verifyWriteActions()
+	// We don't need to call syncUpstream here, as this is tested by
+	// TestSyncUpstream_createSpec.
 }
 
 func TestCRSyncer_populateWorkqueue(t *testing.T) {
@@ -572,6 +536,7 @@ func channelFromQueue(t *testing.T, queue workqueue.Interface, inf cache.SharedI
 				t.Errorf("item for key %s does not exist", key)
 			} else {
 				ch <- item.(*unstructured.Unstructured)
+				queue.Done(key)
 			}
 		}
 	}()
