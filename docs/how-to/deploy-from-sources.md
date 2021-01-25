@@ -33,7 +33,7 @@ and 18.04) Linux.
 [resource-manager]: https://console.cloud.google.com/cloud-resource-manager
 [modify-project]: https://cloud.google.com/billing/docs/how-to/modify-project
 [cloud-sdk]: https://cloud.google.com/sdk/docs/
-[install-bazel]: https://github.com/bazelbuild/bazel/blob/0.22.0/site/docs/install-ubuntu.md
+[install-bazel]: https://github.com/bazelbuild/bazel/blob/3.7.0/site/docs/install-ubuntu.md
 
 ## Build and deploy the project
 
@@ -112,7 +112,7 @@ In addition to the cluster, `deploy.sh` also created:
 * the [[PROJECT_ID]-robot Cloud Storage bucket](https://console.cloud.google.com/storage/browser), containing the scripts that connect robots to the cloud, and
 * the [Identity & Access Management policies](https://console.cloud.google.com/iam-admin/iam) that authorize robots and humans to communicate with GCP.
 
-With the project deployed, you're ready to [connect a robot to the cloud](how-to/connecting-robot.md).
+With the project deployed, you're ready to [connect a robot to the cloud](connecting-robot.md).
 
 ## Update the project
 
