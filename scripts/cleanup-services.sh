@@ -58,7 +58,7 @@ function delete_stale_services {
 # - we can only run this is the deployment is deleted or we know the list of
 #   robots
 function delete_stale_robots {
-  # Whitelist of known robot services to keep
+  # Allowlist of known robot services to keep
   # TODO(ensonic): consider getting this from the registry:
   # curl 'https://${CLOUD_ROBOTICS_DOMAIN}/apis/core.registry/v1alpha1/robots' | jq -r '.["robots"][] | .["id"]'
   # or set to an empty list to delete everything when the deployment is down
