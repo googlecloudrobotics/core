@@ -185,6 +185,12 @@ func main() {
 		log.Fatalf("Invalid annotations %q: %s", *annotations, err)
 	}
 
+	// Wait for in-cluster DNS to become available, otherwise
+	// configutil.ReadConfig() may fail.
+	if err := waitForDNS("storage.googleapis.com", numDNSRetries); err != nil {
+		log.Fatalf("Failed to resolve storage.googleapis.com: %s. Please retry in 5 minutes.", err)
+	}
+
 	// Set up the OAuth2 token source.
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: envToken})
 
@@ -197,7 +203,7 @@ func main() {
 		domain = fmt.Sprintf("www.endpoints.%s.cloud.goog", *project)
 	}
 
-	// Make sure the local cluster is ready and can resolve the cloud project
+	// Wait until we can resolve the project domain. This may require DNS propagation.
 	if err := waitForDNS(domain, numDNSRetries); err != nil {
 		log.Fatalf("Failed to resolve cloud cluster: %s. Please retry in 5 minutes.", err)
 	}
