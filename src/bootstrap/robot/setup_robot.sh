@@ -128,8 +128,11 @@ until kc get serviceaccount default &>/dev/null; do
   sleep 1
   i=$((i + 1))
   if ((i >= 60)) ; then
-    echo "ERROR: 'kubectl get serviceaccount default' failed" >&2
-    exit 1
+    # Try again, without suppressing stderr this time.
+    if ! kc get serviceaccount default >/dev/null; then
+      echo "ERROR: 'kubectl get serviceaccount default' failed" >&2
+      exit 1
+    fi
   fi
 done
 
