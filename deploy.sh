@@ -321,15 +321,7 @@ EOF
 
   cleanup_old_cert_manager
 
-  # `helm fetch` neither lets us specify a target file, nor tells us which file it
-  # wrote the chart to. Just fetch it manually.
-  # `helm template` doesn't let us read a tarball from stdin, so we've to save
-  # it to disk first as well.
-  cert_manager_chart="$( mktemp -d)/cert-manager.tgz"
-  cert_manager_version="v0.10.1"
-  curl -o ${cert_manager_chart} https://charts.jetstack.io/charts/cert-manager-${cert_manager_version}.tgz
-
-  kc apply --validate=false -f https://raw.githubusercontent.com/jetstack/cert-manager/${cert_manager_version}/deploy/manifests/00-crds.yaml
+  kc apply --validate=false -f third_party/cert-manager/00-crds.yaml
   kc label --overwrite namespace default certmanager.k8s.io/disable-validation=true
 
   echo "installing cert-manager to ${KUBE_CONTEXT}..."
@@ -338,7 +330,7 @@ EOF
   kc wait apiservice v1beta1.metrics.k8s.io --for condition=Available --timeout=600s
 
   # cert-manager/templates/webhook-rbac.yaml has hard-coded 'kube-system' ns
-  ${HELM} template -n cert-manager --set global.rbac.create=false ${cert_manager_chart} \
+  ${HELM} template -n cert-manager --set global.rbac.create=false third_party/cert-manager/cert-manager-v0.10.1.tgz \
     | ${SYNK} apply cert-manager -n default -f - \
     || die "Synk failed for cert-manager"
 
