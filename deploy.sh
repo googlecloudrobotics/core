@@ -321,7 +321,7 @@ EOF
 
   cleanup_old_cert_manager
 
-  kc apply --validate=false -f third_party/cert-manager/00-crds.yaml
+  kc apply --validate=false -f ${DIR}/third_party/cert-manager/00-crds.yaml
   kc label --overwrite namespace default certmanager.k8s.io/disable-validation=true
 
   echo "installing cert-manager to ${KUBE_CONTEXT}..."
@@ -330,7 +330,7 @@ EOF
   kc wait apiservice v1beta1.metrics.k8s.io --for condition=Available --timeout=600s
 
   # cert-manager/templates/webhook-rbac.yaml has hard-coded 'kube-system' ns
-  ${HELM} template -n cert-manager --set global.rbac.create=false third_party/cert-manager/cert-manager-v0.10.1.tgz \
+  ${HELM} template -n cert-manager --set global.rbac.create=false ${DIR}/third_party/cert-manager/cert-manager-v0.10.1.tgz \
     | ${SYNK} apply cert-manager -n default -f - \
     || die "Synk failed for cert-manager"
 
