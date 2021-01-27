@@ -92,6 +92,7 @@ data:
       @type concat
       key log
       multiline_start_regexp /^\w\d{4} [^\s]*\s+\d+\s+[^ \]]+\]/
+      flush_interval 1
       timeout_label @OUTPUT
       separator ""
     </filter>
