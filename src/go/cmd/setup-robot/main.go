@@ -229,6 +229,12 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create kubernetes client set: ", err)
 	}
+	if _, err := k8sLocalClientSet.AppsV1().Deployments("default").Get("cloud-master", metav1.GetOptions{}); err == nil {
+		// It's important to avoid deploying the cloud-robotics
+		// metadata-server in the same cluster as the token-vendor,
+		// otherwise we'll break auth for all robot clusters.
+		log.Fatal("The local context contains a cloud-master deployment. It is not safe to run robot setup on a GKE cloud cluster.")
+	}
 
 	httpClient := oauth2.NewClient(context.Background(), tokenSource)
 
