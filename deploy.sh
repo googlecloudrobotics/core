@@ -267,6 +267,20 @@ function helm_charts {
     || die "create: failed to get cluster credentials"
   [[ -n "${CURRENT_CONTEXT}" ]] && kubectl config use-context "${CURRENT_CONTEXT}"
 
+
+  # Wait for the GKE cluster to be reachable.
+  i=0
+  until kc get serviceaccount default &>/dev/null; do
+    sleep 1
+    i=$((i + 1))
+    if ((i >= 60)) ; then
+      # Try again, without suppressing stderr this time.
+      if ! kc get serviceaccount default >/dev/null; then
+        die "'kubectl get serviceaccount default' failed"
+      fi
+    fi
+  done
+
   # Generate a certificate authority if none exists yet. It is used by
   # cert-manager to issue new cluster-internal certificates.
   # Avoid creating a new one on each run as rotation may cause intermittent
@@ -324,19 +338,10 @@ EOF
   kc apply --validate=false -f ${DIR}/third_party/cert-manager/00-crds.yaml
   kc label --overwrite namespace default certmanager.k8s.io/disable-validation=true
 
-  echo "installing cert-manager to ${KUBE_CONTEXT}..."
-  # Installation of cert-manager fails if apiservice v1beta1.metrics.k8s.io is not available
-  #   this happens when terraform upgraded the Kubernetes control plane before
-  kc wait apiservice v1beta1.metrics.k8s.io --for condition=Available --timeout=600s
-
   # cert-manager/templates/webhook-rbac.yaml has hard-coded 'kube-system' ns
   ${HELM} template -n cert-manager --set global.rbac.create=false ${DIR}/third_party/cert-manager/cert-manager-v0.10.1.tgz \
     | ${SYNK} apply cert-manager -n default -f - \
     || die "Synk failed for cert-manager"
-
-  # Wait for webhook installation to avoid the error:
-  #   the server is currently unable to handle the request
-  kc wait deployment cert-manager-webhook --for condition=Available --timeout=600s
 
   echo "installing base-cloud to ${KUBE_CONTEXT}..."
   ${HELM} template -n base-cloud ${values} \

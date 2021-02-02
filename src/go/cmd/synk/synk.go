@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	"github.com/pkg/errors"
@@ -31,7 +33,13 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
+const (
+	retryBackoff = 5 * time.Second
+)
+
 var (
+	retries uint64
+
 	cmdRoot = &cobra.Command{
 		Use:   "synk",
 		Short: "A tool to sync manifests with a cluster.",
@@ -59,6 +67,8 @@ var (
 func main() {
 	restOpts.AddFlags(cmdRoot.PersistentFlags())
 	resourceOpts.AddFlags(cmdApply.PersistentFlags())
+
+	cmdApply.PersistentFlags().Uint64Var(&retries, "retries", 60, "max number of retries for transient errors, with a 5 second constant backoff")
 
 	cmdRoot.AddCommand(cmdInit)
 	cmdRoot.AddCommand(cmdApply)
@@ -167,15 +177,27 @@ func apply(name string) error {
 	opts := &synk.ApplyOptions{
 		Namespace:        namespace,
 		EnforceNamespace: enforceNamespace,
-		Log:              log,
+		Log:              logAction,
 	}
-	if _, err := s.Apply(context.Background(), name, opts, resources...); err != nil {
+	if err := backoff.Retry(
+		func() error {
+			_, err := s.Apply(context.Background(), name, opts, resources...)
+			if err != nil {
+				if synk.IsTransientErr(err) {
+					return err
+				}
+				return backoff.Permanent(err)
+			}
+			return nil
+		},
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(retryBackoff), retries),
+	); err != nil {
 		return errors.Wrap(err, "apply files")
 	}
 	return nil
 }
 
-func log(r *unstructured.Unstructured, action apps.ResourceAction, status, msg string) {
+func logAction(r *unstructured.Unstructured, action apps.ResourceAction, status, msg string) {
 	// Remove some visual clutter by only showing the resource for successes.
 	if status == synk.StatusSuccess {
 		fmt.Fprintf(os.Stderr, "[%s] %s %s/%s %s/%s\n",

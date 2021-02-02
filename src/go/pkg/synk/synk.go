@@ -244,6 +244,8 @@ func IsTransientErr(err error) bool {
 	case k8serrors.IsTimeout(err):
 	case k8serrors.IsTooManyRequests(err):
 	case k8serrors.IsServiceUnavailable(err):
+	// May happen shortly after CRD creation.
+	case discovery.IsGroupDiscoveryFailedError(err):
 	// May happen if a chart is deleted and immediately recreated.
 	// https://github.com/kubernetes/kubernetes/blob/d2a081c8e14e21e28fe5bdfa38a817ef9c0bb8e3/staging/src/k8s.io/apiserver/pkg/admission/plugin/namespace/lifecycle/admission.go#L173
 	case strings.Contains(err.Error(), "unable to create new content in namespace"):
