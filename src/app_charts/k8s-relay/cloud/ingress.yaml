@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: kubernetes-relay-client
@@ -10,7 +10,7 @@ metadata:
     # for. This is important for requests like `kubectl logs -f` where the logs
     # may be silent for some time.
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
-    nginx.ingress.kubernetes.io/rewrite-target: /client
+    nginx.ingress.kubernetes.io/rewrite-target: /client/$2
 spec:
   tls:
   - hosts:
@@ -19,19 +19,19 @@ spec:
   - host: {{ .Values.domain }}
     http:
       paths:
-      - path: /apis/core.kubernetes-relay/client
+      - path: /apis/core.kubernetes-relay/client($|/)(.*)
         backend:
           serviceName: kubernetes-relay-server
           servicePort: 80
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: kubernetes-relay-server
   annotations:
     kubernetes.io/ingress.class: "nginx"
     ingress.kubernetes.io/proxy-body-size: "50m"
-    nginx.ingress.kubernetes.io/rewrite-target: /server
+    nginx.ingress.kubernetes.io/rewrite-target: /server/$2
     nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
 spec:
   tls:
@@ -41,7 +41,7 @@ spec:
   - host: {{ .Values.domain }}
     http:
       paths:
-      - path: /apis/core.kubernetes-relay/server
+      - path: /apis/core.kubernetes-relay/server($|/)(.*)
         backend:
           serviceName: kubernetes-relay-server
           servicePort: 80

@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: prometheus
@@ -8,8 +8,8 @@ metadata:
     kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
     nginx.ingress.kubernetes.io/auth-signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
-    nginx.ingress.kubernetes.io/secure-backends: "false"
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/configuration-snippet: |
       error_page 403 = /oauth2/start?rd=$escaped_request_uri;
 spec:
@@ -20,7 +20,7 @@ spec:
   - host: {{ .Values.domain }}
     http:
       paths:
-      - path: /prometheus
+      - path: /prometheus($|/)(.*)
         backend:
           serviceName: kube-prometheus
           servicePort: 9090

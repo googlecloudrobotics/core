@@ -50,7 +50,7 @@ spec:
     app: prometheus-relay-server
   type: ClusterIP
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: prometheus-relay-server
@@ -59,7 +59,7 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "nginx"
     ingress.kubernetes.io/proxy-body-size: "50m"
-    nginx.ingress.kubernetes.io/rewrite-target: /server
+    nginx.ingress.kubernetes.io/rewrite-target: /server/$2
     nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
 spec:
   tls:
@@ -69,7 +69,7 @@ spec:
   - host: {{ .Values.domain }}
     http:
       paths:
-      - path: /apis/core.prometheus-relay/server
+      - path: /apis/core.prometheus-relay/server($|/)(.*)
         backend:
           serviceName: prometheus-relay-server
           servicePort: 80

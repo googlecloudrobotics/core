@@ -118,12 +118,12 @@ spec:
     app: debug
   type: ClusterIP
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   annotations:
     kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/secure-backends: "false"
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
   name: debug
 spec:
   rules:

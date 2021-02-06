@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: map-openapi
@@ -18,14 +18,13 @@ spec:
           serviceName: map-endpoint
           servicePort: 80
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: map-grpc
   annotations:
     kubernetes.io/ingress.class: "nginx"
-    nginx.ingress.kubernetes.io/grpc-backend: "true"
-    nginx.ingress.kubernetes.io/secure-backends: "false"
+    nginx.ingress.kubernetes.io/backend-protocol: GRPC
     nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
 spec:
   rules:

@@ -51,12 +51,12 @@ spec:
     app: oauth2-proxy
   type: ClusterIP
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: oauth2-proxy
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: "/apis"
+    nginx.ingress.kubernetes.io/rewrite-target: /apis/$2
     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"  # seconds
     kubernetes.io/ingress.class: "nginx"
 spec:
@@ -67,12 +67,12 @@ spec:
   - host: {{ .Values.domain }}
     http:
       paths:
-      - path: /web-apis
+      - path: /web-apis($|/)(.*)
         backend:
           serviceName: oauth2-proxy
           servicePort: http
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: oauth2-proxy-interactive

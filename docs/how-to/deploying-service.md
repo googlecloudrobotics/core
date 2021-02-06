@@ -162,7 +162,7 @@ Create a file called `hello-server.yaml` with the following contents:
 
 [embedmd]:# (examples/hello-service/server/hello-server.yaml yaml)
 ```yaml
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: hello-server-ingress
