@@ -735,7 +735,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9891ad3516b9eb0dbd6c620bbddce3e8a6e13b9e848861605d5e0aaa7161875a"
+  digest = "1:a831f8887050e2018371195a20e3efe3fd6c45108656abda28fde79c43736683"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -751,7 +751,7 @@
     "trace",
   ]
   pruneopts = "NUT"
-  revision = "4cb1c02c05b0e749b0365f61ae859a8e0cfceed9"
+  revision = "5f4716e94777e714bc2fb3e3a44599cb40817aac"
 
 [[projects]]
   branch = "master"
@@ -1522,6 +1522,7 @@
     "go.opencensus.io/zpages",
     "golang.org/x/crypto/ssh/terminal",
     "golang.org/x/net/context",
+    "golang.org/x/net/http2",
     "golang.org/x/oauth2",
     "golang.org/x/oauth2/google",
     "golang.org/x/oauth2/jwt",

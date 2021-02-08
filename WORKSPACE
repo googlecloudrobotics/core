@@ -882,7 +882,7 @@ go_repository(
 
 go_repository(
     name = "org_golang_x_net",
-    commit = "4cb1c02c05b0e749b0365f61ae859a8e0cfceed9",
+    commit = "5f4716e94777e714bc2fb3e3a44599cb40817aac",
     importpath = "golang.org/x/net",
 )
 
