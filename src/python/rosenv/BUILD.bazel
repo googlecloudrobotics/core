@@ -1,8 +1,0 @@
-py_library(
-    name = "rosenv",
-    srcs = ["rosenv.py"],
-    # TODO(rodrigoq): remove after upstream bug is fixed
-    # https://github.com/bazelbuild/bazel/issues/4036
-    imports = ["."],
-    visibility = ["//visibility:public"],
-)

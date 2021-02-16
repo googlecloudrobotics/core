@@ -2,10 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "images.go",
-        "main.go",
-    ],
+    srcs = ["main.go"],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/setup-dev",
     visibility = ["//visibility:public"],
     deps = [
@@ -23,19 +20,6 @@ go_library(
         "@org_golang_x_oauth2//:go_default_library",
         "@org_golang_x_oauth2//google:go_default_library",
     ],
-)
-
-genrule(
-    name = "images_go",
-    srcs = ["//src/docker/ros_adapter:ros_adapter.digest"],
-    outs = ["images.go"],
-    cmd = """
-cat <<EOF > $@
-package main
-
-const rosAdapterImage = "/ros-adapter@$$(cat $<)";
-EOF
-""",
 )
 
 go_binary(

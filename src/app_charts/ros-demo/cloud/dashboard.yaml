@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ros-demo-dashboard
-  labels:
-    grafana: kube-prometheus
-data:
-  ros-demo-dashboard.json: |-
-{{ .Files.Get "files/roscon-demo-dashboard.json" | indent 4 }}

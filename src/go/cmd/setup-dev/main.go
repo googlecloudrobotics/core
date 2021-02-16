@@ -46,9 +46,8 @@ import (
 const iotPrefix = "dev-"
 
 var (
-	rosAdapter = flag.Bool("ros-adapter", false, "set up a local cluster and connect the ROS adapter to the cloud")
-	project    = flag.String("project", "", "Project ID for the Google Cloud Platform")
-	robotName  = flag.String("robot-name", "", "Robot name (default: select interactively)")
+	project   = flag.String("project", "", "Project ID for the Google Cloud Platform")
+	robotName = flag.String("robot-name", "", "Robot name (default: select interactively)")
 )
 
 func parseFlags() {
@@ -98,16 +97,8 @@ func main() {
 	if err := setupDevCredentials(client, domain, *robotName); err != nil {
 		log.Fatal(err)
 	}
-	if !*rosAdapter {
-		log.Println("Setup complete.")
-		return
-	}
-	// TODO(rodrigoq): start local k8s cluster with minikube or kubeadm.
-	// TODO(rodrigoq): setup k8s ConfigMaps
-	if err := startROSAdapter(domain, *robotName, vars["CLOUD_ROBOTICS_CONTAINER_REGISTRY"]); err != nil {
-		log.Fatalln("Failed to start ros-adapter:", err)
-	}
 	log.Println("Setup complete.")
+	return
 }
 
 // createKubeRelayEntry writes cluster configuration to ~/.kube/config,
@@ -214,33 +205,4 @@ func stopContainerIfNeeded(container string) error {
 		},
 		backoff.NewConstantBackOff(100*time.Millisecond),
 	)
-}
-
-// startROSAdapter starts a ros-adapter container with the local Docker
-// daemon.
-// TODO(rodrigoq): replace this with a k8s deployment, or use the docker/moby
-// client.
-func startROSAdapter(domain string, robotName string, containerRegistry string) error {
-	stopContainerIfNeeded("ros-adapter")
-	// TODO(rodrigoq): can we avoid network=host by setting
-	// ROS_MASTER_URI/IP appropriately?
-	env := map[string]string{
-		"ROS_MASTER_URI":                 "http://127.0.0.1:11311",
-		"ROS_IP":                         "127.0.0.1",
-		"GOOGLE_CLOUD_PROJECT":           *project,
-		"CLOUD_ROBOTICS_DOMAIN":          domain,
-		"ROBOT_NAME":                     robotName,
-		"GOOGLE_APPLICATION_CREDENTIALS": "/gcloud/application_default_credentials.json",
-	}
-	configDir := kubeutils.ExpandUser("~/.config/gcloud")
-	args := []string{"run", "--rm", "--network=host", "--name", "ros-adapter", "--detach", "-v", configDir + ":/gcloud"}
-	for k, v := range env {
-		args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
-	}
-
-	args = append(args, containerRegistry+rosAdapterImage, "dev")
-	cmd := exec.Command("docker", args...)
-	cmd.Stderr = os.Stderr
-	log.Println("Starting ros-adapter container")
-	return cmd.Run()
 }

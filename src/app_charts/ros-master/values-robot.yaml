@@ -1,9 +1,0 @@
-domain: "example.com"
-project: "my-gcp-project"
-deploy_environment: "GCP"
-registry: "gcr.io/my-gcp-project"
-
-ros_master_host: ""
-
-robot:
-  name: ""

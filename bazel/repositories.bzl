@@ -326,17 +326,6 @@ def cloud_robotics_repositories():
 
     _maybe(
         http_archive,
-        name = "com_github_ros_rospack",
-        build_file = "@cloud_robotics//third_party:rospack.BUILD",
-        sha256 = "1b79edbfe45c874497e6d9ec7be7674eeb6ac61a5d2d20c0a874b891095ccb0e",
-        strip_prefix = "rospack-5d68dd0326efbf1ca41b45b51c11185a2324d747",
-        urls = [
-            "https://github.com/ros/rospack/archive/5d68dd0326efbf1ca41b45b51c11185a2324d747.tar.gz",
-        ],
-    )
-
-    _maybe(
-        http_archive,
         name = "com_github_ros_ros",
         build_file = "@cloud_robotics//third_party:ros.BUILD",
         sha256 = "758cd22d2f56ddf5390706d3adac9a99de326077d4bc84f073fb973740471c86",
@@ -392,18 +381,6 @@ def cloud_robotics_repositories():
         urls = [
             "https://mirror.bazel.build/github.com/ros/urdfdom_headers/archive/65f3a6c4e4e98898b146876a1e53d834b9a96a60.tar.gz",
             "https://github.com/ros/urdfdom_headers/archive/65f3a6c4e4e98898b146876a1e53d834b9a96a60.tar.gz",
-        ],
-    )
-
-    _maybe(
-        http_archive,
-        name = "com_github_baalexander_rospy_message_converter",
-        build_file = "@cloud_robotics//third_party:rospy_message_converter.BUILD",
-        sha256 = "32f2031af21a265dc43daa38b6e34d38ebf470bbe1f61707f59704ae1c8ba88b",
-        strip_prefix = "rospy_message_converter-e846f546530c05184fdea8afe36db148cf348b43",
-        urls = [
-            "https://mirror.bazel.build/github.com/baalexander/rospy_message_converter/archive/e846f546530c05184fdea8afe36db148cf348b43.tar.gz",
-            "https://github.com/baalexander/rospy_message_converter/archive/e846f546530c05184fdea8afe36db148cf348b43.tar.gz",
         ],
     )
 

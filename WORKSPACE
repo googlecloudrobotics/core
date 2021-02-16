@@ -127,69 +127,6 @@ load("//third_party:maven_dependencies.bzl", "maven_dependencies")
 
 maven_dependencies()
 
-# .deb for libpython2.7.so (required by rospack)
-http_file(
-    name = "libpython_2_7",
-    downloaded_file_path = "libpython2.7_2.7.13-2+deb9u2_amd64.deb",
-    sha256 = "032647c0cff6788b0d813f45e848a467f02090f358c7e056767cec041eedc3fa",
-    urls = [
-        "http://ftp.de.debian.org/debian/pool/main/p/python2.7/libpython2.7_2.7.13-2+deb9u2_amd64.deb",
-        "http://snapshot.debian.org/archive/debian/20171129T213627Z/pool/main/p/python2.7/libpython2.7_2.7.13-2+deb9u2_amd64.deb",
-    ],
-)
-
-# rules_python
-# TODO(rodrigoq): revert back to upstream once this issue is resolved:
-# https://github.com/bazelbuild/rules_python/issues/14
-http_archive(
-    name = "io_bazel_rules_python",
-    sha256 = "2cd567d61cae56631db1e7ef39471f7904bbba1df4ba1f88da5bc014ca25e991",
-    strip_prefix = "rules_python-0b13b922d7230c3eceb069140fae6beb5d1a44b9",
-    urls = [
-        "https://github.com/drigz/rules_python/archive/0b13b922d7230c3eceb069140fae6beb5d1a44b9.tar.gz",
-    ],
-)
-
-load("@io_bazel_rules_python//python:pip.bzl", "pip_import", "pip_repositories")
-
-pip_repositories()
-
-pip_import(
-    name = "ros_deps",
-    requirements = "//third_party/ros:requirements.txt",
-)
-
-load("@ros_deps//:requirements.bzl", "pip_install")
-
-pip_install()
-
-pip_import(
-    name = "ros_adapter_deps",
-    requirements = "//src/python/ros_adapter:requirements.txt",
-)
-
-load("@ros_adapter_deps//:requirements.bzl", "pip_install")
-
-pip_install()
-
-pip_import(
-    name = "ros_log_deps",
-    requirements = "//src/python/ros_log:requirements.txt",
-)
-
-load("@ros_log_deps//:requirements.bzl", "pip_install")
-
-pip_install()
-
-pip_import(
-    name = "ros_demo_deps",
-    requirements = "//src/python/ros_demo:requirements.txt",
-)
-
-load("@ros_demo_deps//:requirements.bzl", "pip_install")
-
-pip_install()
-
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains")
 load("@bazel_gazelle//:deps.bzl", "go_repository")
 

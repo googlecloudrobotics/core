@@ -9,9 +9,6 @@ APPS = [
     "map",
     "mission-crd",
     "prometheus",
-    "ros",
-    "ros-demo",
-    "ros-master",
 ]
 
 run_parallel(

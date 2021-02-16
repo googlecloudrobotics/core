@@ -1,8 +1,0 @@
-schemaVersion: "2.0.0"
-
-commandTests:
-
-# Check that ros_adapter can be invoked without failing.
-  - name: "ros_adapter --help"
-    command: "python"
-    args: ["/app/src/docker/ros_adapter/ros_adapter.binary", "--help"]
