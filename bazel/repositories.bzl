@@ -77,19 +77,6 @@ def cloud_robotics_repositories():
         ],
     )
 
-    # Point Cloud Library (PCL)
-    _maybe(
-        http_archive,
-        name = "com_github_pointcloudlibrary_pcl",
-        build_file = "@cloud_robotics//third_party:pcl.BUILD",
-        sha256 = "5a102a2fbe2ba77c775bf92c4a5d2e3d8170be53a68c3a76cfc72434ff7b9783",
-        strip_prefix = "pcl-pcl-1.8.1",
-        urls = [
-            "https://mirror.bazel.build/github.com/PointCloudLibrary/pcl/archive/pcl-1.8.1.tar.gz",
-            "https://github.com/PointCloudLibrary/pcl/archive/pcl-1.8.1.tar.gz",
-        ],
-    )
-
     # Support library for code generation for ROS messages (0.5.9)
     _maybe(
         http_archive,
@@ -150,18 +137,6 @@ def cloud_robotics_repositories():
         urls = [
             "https://mirror.bazel.build/github.com/ros/common_msgs/archive/25613ec79003d8caf0541d7ab36820ed44ebef93.tar.gz",
             "https://github.com/ros/common_msgs/archive/25613ec79003d8caf0541d7ab36820ed44ebef93.tar.gz",
-        ],
-    )
-
-    _maybe(
-        http_archive,
-        name = "com_github_ros_perception_pcl_msgs",
-        build_file = "@cloud_robotics//third_party:pcl_msgs.BUILD",
-        sha256 = "06fd2b4ac972ce01034acf0d1f85f426cc619c5f86fbb22b9f84d5155333185e",
-        strip_prefix = "pcl_msgs-5b640d9ae0f00d3dd6611d9bfce09c01682f568c",
-        urls = [
-            "https://mirror.bazel.build/github.com/ros-perception/pcl_msgs/archive/5b640d9ae0f00d3dd6611d9bfce09c01682f568c.tar.gz",
-            "https://github.com/ros-perception/pcl_msgs/archive/5b640d9ae0f00d3dd6611d9bfce09c01682f568c.tar.gz",
         ],
     )
 
@@ -261,18 +236,6 @@ def cloud_robotics_repositories():
         urls = [
             "https://mirror.bazel.build/github.com/ros/ros_comm/archive/ba1413054cebb28960b25d887c25049eb87a9ad1.tar.gz",
             "https://github.com/ros/ros_comm/archive/ba1413054cebb28960b25d887c25049eb87a9ad1.tar.gz",
-        ],
-    )
-
-    _maybe(
-        http_archive,
-        name = "com_github_ros_perception_pcl_conversions",
-        build_file = "@cloud_robotics//third_party:pcl_conversions.BUILD",
-        sha256 = "750ca2157bf5d8834d235c0f38c75532b86f429b78196bb728505249ef55e4cb",
-        strip_prefix = "pcl_conversions-686502e1ac94fd802d52da7eee55662a4c983056",
-        urls = [
-            "https://mirror.bazel.build/github.com/ros-perception/pcl_conversions/archive/686502e1ac94fd802d52da7eee55662a4c983056.tar.gz",
-            "https://github.com/ros-perception/pcl_conversions/archive/686502e1ac94fd802d52da7eee55662a4c983056.tar.gz",
         ],
     )
 
