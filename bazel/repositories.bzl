@@ -140,18 +140,6 @@ def cloud_robotics_repositories():
         ],
     )
 
-    _maybe(
-        http_archive,
-        name = "com_github_ros_angles",
-        build_file = "@cloud_robotics//third_party:angles.BUILD",
-        sha256 = "a419c7fb5ab49f6f6388cb613daca67e1a5677292d6293abbd9cebe62f05b093",
-        strip_prefix = "angles-6efe55e1568ea4003d6bd59b6a993ca75260d7c2",
-        urls = [
-            "https://mirror.bazel.build/github.com/ros/angles/archive/6efe55e1568ea4003d6bd59b6a993ca75260d7c2.tar.gz",
-            "https://github.com/ros/angles/archive/6efe55e1568ea4003d6bd59b6a993ca75260d7c2.tar.gz",
-        ],
-    )
-
     # TODO(rodrigoq): update to latest version - will need to replace CMake's
     # generate_export_header, eg with
     # https://github.com/RobotLocomotion/drake/blob/63f160f3f4bc8b30088e1191253c65fde7b8eeee/tools/generate_export_header.bzl
@@ -236,18 +224,6 @@ def cloud_robotics_repositories():
         urls = [
             "https://mirror.bazel.build/github.com/ros/ros_comm/archive/ba1413054cebb28960b25d887c25049eb87a9ad1.tar.gz",
             "https://github.com/ros/ros_comm/archive/ba1413054cebb28960b25d887c25049eb87a9ad1.tar.gz",
-        ],
-    )
-
-    _maybe(
-        http_archive,
-        name = "com_github_ros_geometry",
-        build_file = "@cloud_robotics//third_party:geometry.BUILD",
-        sha256 = "4df35c0bece59f81488808a38a6512b81bc24c5c5b12d5ec4f02d01dff0ae360",
-        strip_prefix = "geometry-0d3d80dc24fee9ef5fffbb51107ffb98a747fe6e",
-        urls = [
-            "https://mirror.bazel.build/github.com/ros/geometry/archive/0d3d80dc24fee9ef5fffbb51107ffb98a747fe6e.tar.gz",
-            "https://github.com/ros/geometry/archive/0d3d80dc24fee9ef5fffbb51107ffb98a747fe6e.tar.gz",
         ],
     )
 
@@ -473,21 +449,6 @@ def cloud_robotics_repositories():
         ],
     )
 
-    _maybe(
-        native.new_local_repository,
-        name = "python_linux_x86_64",
-        build_file_content = """
-cc_library(
-    name = "python27-lib",
-    srcs = ["lib/python2.7/config-x86_64-linux-gnu/libpython2.7.so"],
-    hdrs = glob(["include/python2.7/*.h"]),
-    includes = ["include/python2.7"],
-    visibility = ["//visibility:public"]
-)
-      """,
-        path = "/usr",
-    )
-
     # Binary build of the helm package manager for Kubernetes
     _maybe(
         http_archive,
@@ -511,6 +472,7 @@ cc_library(
         ],
     )
 
+    # These are required to run the digester in "bazel/app_chart.bzl"
     # Copied from https://github.com/bazelbuild/rules_docker/blob/b144f31f15d38ad4d7606778984a61d2fb16ffbb/WORKSPACE#L463
     # TODO(mattmoor): Is there a clean way to override?
     http_archive(
