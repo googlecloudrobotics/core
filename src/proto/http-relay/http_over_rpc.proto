@@ -18,7 +18,7 @@ syntax = "proto2";
 
 package cloudrobotics.http_relay.v1alpha1;
 
-option go_package = "src/proto/http-relay";
+option go_package = "src/proto/http-relay;http_relay";
 
 
 message HttpHeader {
