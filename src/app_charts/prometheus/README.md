@@ -1,7 +1,8 @@
 # Prometheus App
 
-The Prometheus app uses the upstream Helm chart `stable/prometheus-operator` as a
-basis for cloud and robot chart alike.
+The Prometheus app uses the upstream Helm chart
+`prometheus-community/prometheus-operator` as a basis for cloud and robot chart
+alike.
 
 The folowing caveats exist that explain some choices made:
 
