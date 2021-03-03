@@ -240,6 +240,7 @@ func IsTransientErr(err error) bool {
 	case k8serrors.IsNotFound(err):
 	case k8serrors.IsGone(err):
 	// Server-side transient errors.
+	case k8serrors.IsInternalError(err):
 	case k8serrors.IsServerTimeout(err):
 	case k8serrors.IsTimeout(err):
 	case k8serrors.IsTooManyRequests(err):
