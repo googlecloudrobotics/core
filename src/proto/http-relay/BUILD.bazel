@@ -14,11 +14,11 @@ proto_library(
 go_proto_library(
     name = "http_over_rpc_proto_go",
     importpath = "src/proto/http-relay",
-    proto = ":relay_proto",
+    proto = ":http_relay_proto",
 )
 
 proto_library(
-    name = "relay_proto",
+    name = "http_relay_proto",
     srcs = ["http_over_rpc.proto"],
 )
 
