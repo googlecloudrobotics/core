@@ -4,7 +4,7 @@ licenses(["notice"])
 
 # TODO(b/118419020): replace copies by upstream versions
 # this chart was downloaded by running:
-# helm fetch prometheus-community/prometheus-operator --version=6.21.1
+# helm fetch prometheus-community/prometheus-operator --version=x.y.z
 # then editing:
 # - prometheus-operator/templates/prometheus/rules-1.14/prometheus.yaml
 #   to be conditional on .Values.defaultRules.rules.prometheus as well
