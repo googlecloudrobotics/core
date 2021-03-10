@@ -17,7 +17,7 @@ helm init --client-only
 Next check available versions and fetch the specific version to store:
 
 ```shell
-helm search prometheus-community/prometheus-operator --version='>6.12.0'
-helm fetch prometheus-community/prometheus-operator --version=6.21.1
+helm search prometheus-community/prometheus-operator --version='>7.0.0' --versions
+helm fetch prometheus-community/prometheus-operator --version=7.5.0
 ```
 
