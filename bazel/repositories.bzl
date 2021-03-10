@@ -454,10 +454,10 @@ def cloud_robotics_repositories():
         http_archive,
         name = "kubernetes_helm",
         build_file = "@cloud_robotics//third_party:helm.BUILD",
-        sha256 = "c1967c1dfcd6c921694b80ededdb9bd1beb27cb076864e58957b1568bc98925a",
+        sha256 = "f3bec3c7c55f6a9eb9e6586b8c503f370af92fe987fcbf741f37707606d70296",
         strip_prefix = "linux-amd64",
         urls = [
-            "https://storage.googleapis.com/kubernetes-helm/helm-v2.13.1-linux-amd64.tar.gz",
+            "https://storage.googleapis.com/kubernetes-helm/helm-v2.17.0-linux-amd64.tar.gz",
         ],
     )
 

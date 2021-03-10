@@ -1,3 +1,4 @@
+apiVersion: v1
 name: ${name}
 version: ${version}
 # Linter expects an icon.
