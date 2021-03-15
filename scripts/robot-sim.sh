@@ -26,11 +26,6 @@ source "${DIR}/include-config.sh"
 set -o pipefail -o errexit
 
 function set_defaults {
-  if [[ -z "${GCP_ZONE}" ]] ; then
-    echo "Zone cannot be empty. Please enter the zone:"
-    read GCP_ZONE
-  fi
-
   local GCP_PROJECT_ID="$1"
   include_config "${GCP_PROJECT_ID}"
   INITIAL_KUBECTL_CONTEXT="$(kubectl config current-context)"
@@ -49,9 +44,10 @@ function create {
   local GCP_PROJECT_ID="$1"
   local ROBOT_NAME="$2"
   local ROBOT_TYPE="${3:-mir-100}"
-  local GKE_SIM_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${ROBOT_NAME}"
 
   set_defaults "${GCP_PROJECT_ID}"
+
+  local GKE_SIM_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${ROBOT_NAME}"
 
   # Create cloud cluster for robot simulation unless already exists
   gcloud >/dev/null 2>&1 container clusters describe "${ROBOT_NAME}" \
