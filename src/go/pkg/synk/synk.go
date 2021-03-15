@@ -52,6 +52,9 @@ import (
 	"k8s.io/client-go/restmapper"
 )
 
+// src/k8s.io/apimachinery/pkg/api/validation/objectmeta.go
+const totalAnnotationSizeLimitB int = 256 * (1 << 10) // 256 kB
+
 // Synk allows to synchronize sets of resources with a fixed cluster.
 type Synk struct {
 	discovery   discovery.CachedDiscoveryInterface
@@ -474,7 +477,7 @@ func (s *Synk) populateNamespaces(
 	return nil
 }
 
-func setAppliedAnnotation(u *unstructured.Unstructured) error {
+func deleteAppliedAnnotation(u *unstructured.Unstructured) {
 	anns := u.GetAnnotations()
 	if anns == nil {
 		anns = map[string]string{}
@@ -482,11 +485,20 @@ func setAppliedAnnotation(u *unstructured.Unstructured) error {
 	// Delete any potential pre-existing annotation.
 	delete(anns, corev1.LastAppliedConfigAnnotation)
 	u.SetAnnotations(anns)
+}
+
+func setAppliedAnnotation(u *unstructured.Unstructured) error {
+	deleteAppliedAnnotation(u)
 
 	b, err := u.MarshalJSON()
 	if err != nil {
 		return err
 	}
+	if len(b) >= totalAnnotationSizeLimitB {
+		return errors.Errorf("skipping annotation %q for %q: size %d > max. allowed size %d",
+			corev1.LastAppliedConfigAnnotation, u.GetName(), len(b), totalAnnotationSizeLimitB)
+	}
+	anns := u.GetAnnotations()
 	anns[corev1.LastAppliedConfigAnnotation] = string(b)
 	u.SetAnnotations(anns)
 	return nil
@@ -544,7 +556,7 @@ func setOwnerRef(r *unstructured.Unstructured, set *apps.ResourceSet) {
 	r.SetOwnerReferences(newRefs)
 }
 
-// canReplace determines whether an "apply patch" error is likely to be
+// canReplace determines whether an "apply patch/update" error is likely to be
 // resolved by deleting and recreating the resource. Some resources have
 // immutable fields (eg Job.spec.template) that can only be changed this way.
 // This is analogous to `kubectl apply --force`.
@@ -612,7 +624,11 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 	if !isCustomResourceDefinition(resource) {
 		setOwnerRef(resource, set)
 	}
-	setAppliedAnnotation(resource)
+	resetAppliedAnnotation := false
+	if err := setAppliedAnnotation(resource); err != nil {
+		log.Printf("Storing Applied Annotation failed: %v", err)
+		resetAppliedAnnotation = true
+	}
 
 	// Create the resource if it doesn't exist yet.
 	_, getSpan := trace.StartSpan(ctx, "Get "+resource.GetName())
@@ -634,7 +650,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		return apps.ResourceActionNone, errors.Wrap(err, "owner conflict")
 	}
 
-	// Try to patch it.
+	// Get what is running, what was installed and what we want to run.
 	currentRaw, err := current.MarshalJSON()
 	if err != nil {
 		return apps.ResourceActionNone, err
@@ -643,68 +659,91 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 	if err != nil {
 		return apps.ResourceActionNone, err
 	}
+	if resetAppliedAnnotation {
+		deleteAppliedAnnotation(current)
+	}
 	originalRaw := getAppliedAnnotation(current)
 
-	var (
-		patchType types.PatchType
-		patch     []byte
-	)
-	obj, err := scheme.Scheme.New(mapping.GroupVersionKind)
-	if err == nil {
-		// TODO: add option to dynamically load patch meta from discovery API
-		// for full kubectl compatibility.
-		patchMeta, err := strategicpatch.NewPatchMetaFromStruct(obj)
-		if err != nil {
-			return apps.ResourceActionNone, errors.Wrap(err, "lookup patch meta")
-		}
-		// TODO: Make overwrite boolean configurable for full kubectl compatibility.
-		patch, err = strategicpatch.CreateThreeWayMergePatch(
-			originalRaw, resourceRaw, currentRaw,
-			patchMeta, true,
+	var patchErr error
+	if len(originalRaw) > 0 {
+		// Try to patch it.
+		var (
+			patchType types.PatchType
+			patch     []byte
 		)
-		if err != nil {
-			return apps.ResourceActionNone, errors.Wrap(err, "create strategic-merge-patch")
-		}
-		patchType = types.StrategicMergePatchType
+		obj, err := scheme.Scheme.New(mapping.GroupVersionKind)
+		if err == nil {
+			// TODO: add option to dynamically load patch meta from discovery API
+			// for full kubectl compatibility.
+			patchMeta, err := strategicpatch.NewPatchMetaFromStruct(obj)
+			if err != nil {
+				return apps.ResourceActionNone, errors.Wrap(err, "lookup patch meta")
+			}
+			// TODO: Make overwrite boolean configurable for full kubectl compatibility.
+			patch, err = strategicpatch.CreateThreeWayMergePatch(
+				originalRaw, resourceRaw, currentRaw,
+				patchMeta, true,
+			)
+			if err != nil {
+				return apps.ResourceActionNone, errors.Wrap(err, "create strategic-merge-patch")
+			}
+			patchType = types.StrategicMergePatchType
 
-	} else if runtime.IsNotRegisteredError(err) {
-		patch, err = jsonmergepatch.CreateThreeWayJSONMergePatch(
-			originalRaw, resourceRaw, currentRaw,
-			mergepatch.RequireKeyUnchanged("apiVersion"),
-			mergepatch.RequireKeyUnchanged("kind"),
-			mergepatch.RequireMetadataKeyUnchanged("name"),
-		)
-		if err != nil {
-			return apps.ResourceActionNone, errors.Wrap(err, "create json-merge-patch")
+		} else if runtime.IsNotRegisteredError(err) {
+			patch, err = jsonmergepatch.CreateThreeWayJSONMergePatch(
+				originalRaw, resourceRaw, currentRaw,
+				mergepatch.RequireKeyUnchanged("apiVersion"),
+				mergepatch.RequireKeyUnchanged("kind"),
+				mergepatch.RequireMetadataKeyUnchanged("name"),
+			)
+			if err != nil {
+				return apps.ResourceActionNone, errors.Wrap(err, "create json-merge-patch")
+			}
+			patchType = types.MergePatchType
+		} else {
+			return apps.ResourceActionNone, errors.Wrap(err, "instantiate object")
 		}
-		patchType = types.MergePatchType
+		// As the ownerReference is bumped, the patch will never be empty
+		// and we cannot skip it.
+
+		// CL https://github.com/kubernetes/kubernetes/pull/71156
+		// added an option to fix a patch against a specific resourceVersion.
+		// However, it isn't used anywhere in kubectl apply itself. Thus we don't do it here either.
+		// Additionally the CL doesn't seem to implement valid behavior as the patch
+		// retries will not update to a new resourceVersion and the failure would persist.
+		_, patchSpan := trace.StartSpan(ctx, "Patch "+resource.GetName())
+		res, err := client.Patch(resource.GetName(), patchType, patch, metav1.PatchOptions{})
+		patchSpan.End()
+		if err == nil {
+			// Successfully patched.
+			*resource = *res
+			return apps.ResourceActionUpdate, nil
+		}
+		patchErr = err
 	} else {
-		return apps.ResourceActionNone, errors.Wrap(err, "instantiate object")
-	}
-	// As the ownerReference is bumped, the patch will never be empty
-	// and we cannot skip it.
+		// We don't have lastApplied state, hence try a direct Update without a
+		// 3-way-merge. This can happen if the resource is too large for the
+		// annotation or has been deleted.
 
-	// CL https://github.com/kubernetes/kubernetes/pull/71156
-	// added an option to fix a patch against a specific resourceVersion.
-	// However, it isn't used anywhere in kubectl apply itself. Thus we don't do it here either.
-	// Additionally the CL doesn't seem to implement valid behavior as the patch
-	// retries will not update to a new resourceVersion and the failure would persist.
+		resource.SetResourceVersion(current.GetResourceVersion())
 
-	_, patchSpan := trace.StartSpan(ctx, "Patch "+resource.GetName())
-	res, err := client.Patch(resource.GetName(), patchType, patch, metav1.PatchOptions{})
-	patchSpan.End()
-	if err == nil {
-		// Successfully patched.
-		*resource = *res
-		return apps.ResourceActionUpdate, nil
+		_, updateSpan := trace.StartSpan(ctx, "Update "+resource.GetName())
+		res, err := client.Update(resource, metav1.UpdateOptions{})
+		updateSpan.End()
+		if err == nil {
+			// Successfully updated.
+			*resource = *res
+			return apps.ResourceActionUpdate, nil
+		}
+		patchErr = err
 	}
 
-	// If patching failed, consider deleting and recreating the resource.
-	if !canReplace(resource, err) {
-		return apps.ResourceActionUpdate, errors.Wrap(err, "apply patch")
+	// If patching/updating failed, consider deleting and recreating the resource.
+	if !canReplace(resource, patchErr) {
+		return apps.ResourceActionUpdate, errors.Wrap(err, "apply patch or update")
 	}
 	_, replace_span := trace.StartSpan(ctx, "Replace "+resource.GetName())
-	res, err = replace(client, resource)
+	res, err := replace(client, resource)
 	replace_span.End()
 	if err != nil {
 		return apps.ResourceActionReplace, errors.Wrap(err, "replace")

@@ -300,7 +300,7 @@ var gvrs = map[string]schema.GroupVersionResource{
 	"approllouts": {Group: "apps.cloudrobotics.com", Version: "v1alpha1", Resource: "approllouts"},
 }
 
-func TestSynk_applyAll(t *testing.T) {
+func TestSynk_applyAllIsUpdatingResources(t *testing.T) {
 	// We have to use properly typed objects for strategic-merge-patch targets
 	// as the patch operation will fail otherwise.
 	var cmBefore, cmUpdate corev1.ConfigMap
@@ -317,11 +317,70 @@ data:
 	// cm1 already exists beforehand, so we expect an update.
 	f.addObjects(&cmBefore)
 
-	// Support for a standard merge-patch was only added to the client-go testing
-	// mock as of kubernetes-1.14.0, which we cannot upgrade to yet.
-	// Thus we cannot valid the standard merge patch type for CRDs yet.
-	rollout := newUnstructured("apps.cloudrobotics.com/v1alpha1", "AppRollout", "foo1", "rollout1")
-	deploy := newUnstructured("apps/v1", "Deployment", "foo2", "dp1")
+	unmarshalYAML(t, &cmUpdate, `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: foo1
+  name: cm1
+data:
+  foo2: baz2
+  foo3: bar3`)
+	cm := toUnstructured(t, &cmUpdate)
+
+	set := &apps.ResourceSet{}
+	set.Name = "test.v1"
+	set.UID = "deadbeef"
+
+	results, err := f.newSynk().applyAll(context.Background(), set, &ApplyOptions{name: "test"},
+		cm.DeepCopy(),
+	)
+	if err != nil {
+		t.Error(err)
+		for _, res := range results {
+			t.Log(res)
+		}
+		return
+	}
+
+	_true := true
+	ownerRef := metav1.OwnerReference{
+		APIVersion:         "apps.cloudrobotics.com/v1alpha1",
+		Kind:               "ResourceSet",
+		Name:               set.Name,
+		UID:                set.UID,
+		BlockOwnerDeletion: &_true,
+	}
+	cm.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+
+	setAppliedAnnotation(cm)
+
+	f.expectActions(
+		k8stest.NewUpdateAction(gvrs["configmaps"], "foo1", cm),
+	)
+	f.verifyWriteActions()
+}
+
+func TestSynk_applyAllIsPatchingResources(t *testing.T) {
+	// We have to use properly typed objects for strategic-merge-patch targets
+	// as the patch operation will fail otherwise.
+	// We also need the "last-applied-configuration" annotation to be present to
+	// trigger
+	var cmBefore, cmUpdate corev1.ConfigMap
+	unmarshalYAML(t, &cmBefore, `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: foo1
+  name: cm1
+  annotations:
+    "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\"}"    
+data:
+  foo1: bar1
+  foo2: bar2`)
+	f := newFixture(t)
+	// cm1 already exists beforehand, so we expect an update.
+	f.addObjects(&cmBefore)
 
 	unmarshalYAML(t, &cmUpdate, `
 apiVersion: v1
@@ -339,6 +398,37 @@ data:
 
 	results, err := f.newSynk().applyAll(context.Background(), set, &ApplyOptions{name: "test"},
 		toUnstructured(t, &cmUpdate).DeepCopy(),
+	)
+	if err != nil {
+		t.Error(err)
+		for _, res := range results {
+			t.Log(res)
+		}
+		return
+	}
+
+	cmPatch := []byte(`{"data":{"foo2":"baz2","foo3":"bar3"},"metadata":{"annotations":{"kubectl.kubernetes.io/last-applied-configuration":"{\"apiVersion\":\"v1\",\"data\":{\"foo2\":\"baz2\",\"foo3\":\"bar3\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":{},\"creationTimestamp\":null,\"name\":\"cm1\",\"namespace\":\"foo1\",\"ownerReferences\":[{\"apiVersion\":\"apps.cloudrobotics.com/v1alpha1\",\"blockOwnerDeletion\":true,\"kind\":\"ResourceSet\",\"name\":\"test.v1\",\"uid\":\"deadbeef\"}]}}\n"},"ownerReferences":[{"apiVersion":"apps.cloudrobotics.com/v1alpha1","blockOwnerDeletion":true,"kind":"ResourceSet","name":"test.v1","uid":"deadbeef"}]}}`)
+
+	f.expectActions(
+		k8stest.NewPatchAction(gvrs["configmaps"], "foo1", "cm1", types.StrategicMergePatchType, cmPatch),
+	)
+	f.verifyWriteActions()
+}
+
+func TestSynk_applyAllIsCreatingResources(t *testing.T) {
+	f := newFixture(t)
+
+	// Support for a standard merge-patch was only added to the client-go testing
+	// mock as of kubernetes-1.14.0, which we cannot upgrade to yet.
+	// Thus we cannot valid the standard merge patch type for CRDs yet.
+	rollout := newUnstructured("apps.cloudrobotics.com/v1alpha1", "AppRollout", "foo1", "rollout1")
+	deploy := newUnstructured("apps/v1", "Deployment", "foo2", "dp1")
+
+	set := &apps.ResourceSet{}
+	set.Name = "test.v1"
+	set.UID = "deadbeef"
+
+	results, err := f.newSynk().applyAll(context.Background(), set, &ApplyOptions{name: "test"},
 		rollout.DeepCopy(),
 		deploy.DeepCopy(),
 	)
@@ -364,10 +454,7 @@ data:
 	setAppliedAnnotation(deploy)
 	setAppliedAnnotation(rollout)
 
-	cmPatch := []byte(`{"data":{"foo2":"baz2","foo3":"bar3"},"metadata":{"annotations":{"kubectl.kubernetes.io/last-applied-configuration":"{\"apiVersion\":\"v1\",\"data\":{\"foo2\":\"baz2\",\"foo3\":\"bar3\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":{},\"creationTimestamp\":null,\"name\":\"cm1\",\"namespace\":\"foo1\",\"ownerReferences\":[{\"apiVersion\":\"apps.cloudrobotics.com/v1alpha1\",\"blockOwnerDeletion\":true,\"kind\":\"ResourceSet\",\"name\":\"test.v1\",\"uid\":\"deadbeef\"}]}}\n"},"ownerReferences":[{"apiVersion":"apps.cloudrobotics.com/v1alpha1","blockOwnerDeletion":true,"kind":"ResourceSet","name":"test.v1","uid":"deadbeef"}]}}`)
-
 	f.expectActions(
-		k8stest.NewPatchAction(gvrs["configmaps"], "foo1", "cm1", types.StrategicMergePatchType, cmPatch),
 		k8stest.NewCreateAction(gvrs["approllouts"], "foo1", rollout),
 		k8stest.NewCreateAction(gvrs["deployments"], "foo2", deploy),
 	)
@@ -480,6 +567,27 @@ spec:
 	}
 	if cr1.GetNamespace() != "ns2" {
 		t.Errorf("unexpected namesapce %q on cr1", cr1.GetNamespace())
+	}
+}
+
+func TestSynk_skipLastAppliedAnnotationForLargeResource(t *testing.T) {
+	yaml := `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: foo1
+  name: cm1
+data:
+  foo1: ` + strings.Repeat("x", totalAnnotationSizeLimitB)
+
+	var cmLarge unstructured.Unstructured
+	unmarshalYAML(t, &cmLarge, yaml)
+	if err := setAppliedAnnotation(&cmLarge); err == nil {
+		t.Errorf("expected error setting large annotation, got nil")
+	}
+
+	if applied := getAppliedAnnotation(&cmLarge); len(applied) > 0 {
+		t.Errorf("expected no last-applied annotation set, but got %v", applied)
 	}
 }
 
