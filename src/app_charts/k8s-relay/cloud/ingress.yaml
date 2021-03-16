@@ -4,13 +4,14 @@ metadata:
   name: kubernetes-relay-client
   annotations:
     kubernetes.io/ingress.class: "nginx"
-    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
+    ingress.kubernetes.io/client-body-buffer-size: "100m"
+    ingress.kubernetes.io/proxy-body-size: "50m"
     # proxy-read-timeout sets how long nginx will allow a request to be idle
     # for. This is important for requests like `kubectl logs -f` where the logs
     # may be silent for some time.
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
-    nginx.ingress.kubernetes.io/rewrite-target: /client/$2
+    ingress.kubernetes.io/proxy-read-timeout: "86400"
+    ingress.kubernetes.io/rewrite-target: /client/$2
 spec:
   tls:
   - hosts:
@@ -30,9 +31,10 @@ metadata:
   name: kubernetes-relay-server
   annotations:
     kubernetes.io/ingress.class: "nginx"
+    ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
+    ingress.kubernetes.io/client-body-buffer-size: "100m"
     ingress.kubernetes.io/proxy-body-size: "50m"
-    nginx.ingress.kubernetes.io/rewrite-target: /server/$2
-    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
+    ingress.kubernetes.io/rewrite-target: /server/$2
 spec:
   tls:
   - hosts:
