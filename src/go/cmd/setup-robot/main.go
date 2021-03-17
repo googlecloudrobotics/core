@@ -311,6 +311,7 @@ func main() {
 	// Use "robot" as a suffix for consistency for Synk deployments.
 	installChartOrDie(domain, registry, "base-robot", "base-robot-0.0.1.tgz",
 		appManagement)
+	log.Println("Setup complete")
 }
 
 func helmValuesStringFromMap(varMap map[string]string) string {

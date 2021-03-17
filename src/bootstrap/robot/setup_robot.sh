@@ -24,6 +24,11 @@ function kc {
   kubectl --context="${KUBE_CONTEXT}" "$@"
 }
 
+function faketty {
+  # Run command inside a TTY.
+  script -qfec "$(printf "%q " "$@")" /dev/null
+}
+
 if [[ ! "$*" =~ "--project" && $# -ge 2 ]] ; then
   echo "WARNING: using only positional arguments for setup_robot.sh is deprecated." >&2
   echo "    Please use the following invocation instead. Setup continues in 60 seconds..." >&2
@@ -136,7 +141,7 @@ until kc get serviceaccount default &>/dev/null; do
   fi
 done
 
-kc run setup-robot --restart=Never -it --rm \
+faketty kubectl --context "${KUBE_CONTEXT}" run setup-robot --restart=Never -it --rm \
   --image=${IMAGE_REFERENCE} \
   --env="ACCESS_TOKEN=${ACCESS_TOKEN}" \
   --env="REGISTRY=${REGISTRY}" \
