@@ -57,6 +57,8 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: robot-master-tls
+  labels:
+    cert-format: v2
 type: kubernetes.io/tls
 data:
   tls.key: {{ .Values.webhook.tls.key }}

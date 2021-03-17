@@ -107,15 +107,18 @@ if [[ "$REGISTRY" != "gcr.io/cloud-robotics-releases" ]] ; then
   docker logout https://${REGISTRY_DOMAIN}
 fi
 
-# Generate TLS certificate if none exists yet. It is used by the robot-master
-# to allow the Kubernetes API server to securly connect to webhooks.
-if kc get secret robot-master-tls; then
+# Generate TLS certificate if none exists, or if it is in the older v1 format.
+# It is used by the robot-master to allow the Kubernetes API server to securly
+# connect to webhooks.
+if kc get secret robot-master-tls --show-labels 2>/dev/null | grep -q "cert-format=v2"; then
   tls_crt=$(kc get secret robot-master-tls -o=go-template --template='{{index .data "tls.crt"}}')
   tls_key=$(kc get secret robot-master-tls -o=go-template --template='{{index .data "tls.key"}}')
 else
   certdir=$(mktemp -d)
   openssl genrsa -out "${certdir}/tls.key" 2048
-  openssl req -x509 -new -nodes -key "${certdir}/tls.key" -subj "/CN=robot-master.default.svc" \
+  openssl req -x509 -new -nodes -key "${certdir}/tls.key" \
+    -subj "/CN=robot-master.default.svc" \
+    -config <(sed "s/^#\?\s*subjectAltName=.*/subjectAltName=DNS:robot-master.default.svc/" /etc/ssl/openssl.cnf) \
     -days 36500 -reqexts v3_req -extensions v3_ca -out "${certdir}/tls.crt"
   tls_crt=$(openssl base64 -A < ${certdir}/tls.crt)
   tls_key=$(openssl base64 -A < ${certdir}/tls.key)
