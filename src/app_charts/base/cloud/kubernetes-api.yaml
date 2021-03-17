@@ -6,6 +6,7 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"  # seconds
+    nginx.ingress.kubernetes.io/client-body-buffer-size: "50m"
     kubernetes.io/ingress.class: "nginx"
     # The web client will reach us through the oauth2-proxy and we need
     # to copy the forwarded access token to an authorization header. Prefer
