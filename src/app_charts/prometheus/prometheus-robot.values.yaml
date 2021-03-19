@@ -39,22 +39,26 @@ prometheus:
       any: true
     retention: "3d"
 
+# Throws an invalid namespace "kube-system" error during deployment, as this is
+# trying to install resources into the kube-system namespace, which synk does
+# not support.
 kubeEtcd:
   enabled: false
 kubeControllerManager:
+  enabled: false
+kubeProxy:
   enabled: false
 kubeScheduler:
   enabled: false
 coreDns:
   enabled: false
+# We provide our own ServiceMonitor for kubelets since the standard one doesn't work out
+# of the box on GKE.
 kubelet:
   enabled: false
 
-# Throws an invalid namespace "kube-system" error during deployment
-kubeProxy:
-  enabled: false
 
-# Default scraping interval is 20s and these metrics result in a large amount of data  
+# Default scraping interval is 20s and these metrics result in a large amount of data
 kubeApiServer:
   serviceMonitor:
     interval: 10m

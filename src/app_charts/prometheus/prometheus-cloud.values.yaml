@@ -99,11 +99,13 @@ coreDns:
 kubelet:
   enabled: false
 
-# Throws an invalid namespace "kube-system" error during deployment
+# Throws an invalid namespace "kube-system" error during deployment, as this is
+# trying to install resources into the kube-system namespace, which synk does
+# not support.
 kubeProxy:
   enabled: false
 
-# Default scraping interval is 20s and these metrics result in a large amount of data  
+# Default scraping interval is 20s and these metrics result in a large amount of data
 kubeApiServer:
   serviceMonitor:
     interval: 1m
