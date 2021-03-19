@@ -22,6 +22,8 @@ defaultRules:
     kubernetesApps: false
     node: false
     prometheus: false
+    # 2 new rules in 9.3.2 fire too quickly
+    prometheusOperator: false
 
 prometheusOperator:
   # Recent Kubernetes version provide a kube-system/kubelet service by default.
