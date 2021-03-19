@@ -390,8 +390,8 @@ func (s *Synk) initialize(
 	// so we can give validation errors in batch in the ResourceSet status.
 	if opts.EnforceNamespace {
 		for _, r := range regulars {
-			if ns := r.GetNamespace(); ns != "" && ns != opts.Namespace {
-				return nil, nil, errors.Errorf("invalid namespace %q on %q", ns, resourceKey(r))
+			if ns := r.GetNamespace(); ns != "" && ns != opts.Namespace && ns != "kube-system" {
+				return nil, nil, errors.Errorf("invalid namespace %q on %q, expected %q or \"kube-system\"", ns, resourceKey(r), opts.Namespace)
 			}
 		}
 	}

@@ -144,6 +144,7 @@ func runApply(cmd *cobra.Command, args []string) {
 }
 
 func apply(name string) error {
+	// If a target namesapce for the chart is given, enforce it.
 	namespace, enforceNamespace, err := restOpts.ToRawKubeConfigLoader().Namespace()
 	if err != nil {
 		return err

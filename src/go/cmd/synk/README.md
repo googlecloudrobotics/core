@@ -6,6 +6,8 @@ It takes set of fully populated Kubernetes resources (files or in-process object
 
 It has a similar intent to [Mortar](https://github.com/kontena/mortar), but synk is usable as a Golang library and has first-class support for CRDs.
 
+To be compatible with some of the existing charts, we allow charts to install resources to "kube-system" as the only allowed namespace outside of the chart namespace.
+
 ## Examples
 
 ```
