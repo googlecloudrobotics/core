@@ -70,6 +70,10 @@ if [[ -z "$ACCESS_TOKEN" ]]; then
   read ACCESS_TOKEN
 fi
 
+if [[ -z "${HOST_HOSTNAME}" ]] ; then
+  HOST_HOSTNAME=$(hostname)
+fi
+
 # Full reference to the setup-robot image.
 IMAGE_REFERENCE=$(curl -fsSL -H "Authorization: Bearer ${ACCESS_TOKEN}" \
 "https://storage.googleapis.com/${PROJECT}-robot/setup_robot_image_reference.txt") || \
@@ -150,6 +154,6 @@ faketty kubectl --context "${KUBE_CONTEXT}" run setup-robot --restart=Never -it 
   --env="REGISTRY=${REGISTRY}" \
   --env="TLS_KEY=${tls_key}" \
   --env="TLS_CRT=${tls_crt}" \
-  --env="HOST_HOSTNAME=$(hostname)" \
+  --env="HOST_HOSTNAME=${HOST_HOSTNAME}" \
   --env="CRC_VERSION=${CRC_VERSION}" \
   -- "$@"
