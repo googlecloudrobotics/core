@@ -4,7 +4,6 @@ pkg_tar(
     name = "bazel-bin",
     srcs = [
         "//src/app_charts/base:base-cloud",
-        "//src/app_charts/base/cloud-extra:all_yamls",
         "//src/app_charts/platform-apps:platform-apps-cloud",
         "//src/go/cmd/setup-robot:setup-robot-image.digest",
         "//src/proto/map:proto_descriptor",
