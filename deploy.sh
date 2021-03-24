@@ -297,11 +297,6 @@ function helm_charts {
     ca_key=$(openssl base64 -A < ${certdir}/ca.key)
   fi
 
-  # The webhook configuration used to be created by a library at runtime. We must
-  # manually delete it as it wasn't part of a Helm chart.
-  kc delete validatingwebhookconfiguration \
-    validating-webhook-configuration 2>/dev/null || true
-
   # Create a permissive policy if none exists yet. This allows code running in the
   # cluster to administer it.
   if ! kc get clusterrolebinding permissive-binding &>/dev/null; then

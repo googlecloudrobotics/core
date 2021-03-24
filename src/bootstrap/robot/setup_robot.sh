@@ -128,11 +128,6 @@ else
   tls_key=$(openssl base64 -A < ${certdir}/tls.key)
 fi
 
-# The webhook configuration used to be created by a library at runtime. We must
-# manually delete it as it wasn't part of a Helm chart.
-kc delete validatingwebhookconfiguration \
-  validating-webhook-configuration 2>/dev/null || true
-
 # Wait for creation of the default service account.
 # https://github.com/kubernetes/kubernetes/issues/66689
 i=0
