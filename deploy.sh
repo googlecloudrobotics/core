@@ -332,8 +332,7 @@ EOF
   kc apply --validate=false -f ${DIR}/third_party/cert-manager/00-crds.yaml
   kc label --overwrite namespace default certmanager.k8s.io/disable-validation=true
 
-  # cert-manager/templates/webhook-rbac.yaml has hard-coded 'kube-system' ns
-  ${HELM} template -n cert-manager --set global.rbac.create=false ${DIR}/third_party/cert-manager/cert-manager-v0.10.1.tgz \
+  ${HELM} template -n cert-manager ${DIR}/third_party/cert-manager/cert-manager-v0.10.1.tgz \
     | ${SYNK} apply cert-manager -n default -f - \
     || die "Synk failed for cert-manager"
 
