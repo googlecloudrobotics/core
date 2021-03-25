@@ -249,8 +249,10 @@ function cleanup_old_cert_manager {
     kc delete -n default issuer cert-manager-webhook-ca cert-manager-webhook-selfsign
     kc delete -n default certificate cert-manager-webhook-ca cert-manager-webhook-webhook-tls
     kc delete apiservice v1beta1.admission.certmanager.k8s.io
-
   fi
+
+  # This is now installed as part of base-cloud
+  kc delete resourcesets.apps.cloudrobotics.com -l name=cert-manager 2>/dev/null || true
 }
 
 function helm_charts {
@@ -326,15 +328,9 @@ EOF
 )
 
   cleanup_helm_data
-
   cleanup_old_cert_manager
 
-  kc apply --validate=false -f ${DIR}/third_party/cert-manager/00-crds.yaml
   kc label --overwrite namespace default certmanager.k8s.io/disable-validation=true
-
-  ${HELM} template -n cert-manager ${DIR}/third_party/cert-manager/cert-manager-v0.10.1.tgz \
-    | ${SYNK} apply cert-manager -n default -f - \
-    || die "Synk failed for cert-manager"
 
   echo "installing base-cloud to ${KUBE_CONTEXT}..."
   ${HELM} template -n base-cloud ${values} \

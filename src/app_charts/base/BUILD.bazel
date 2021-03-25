@@ -1,3 +1,4 @@
+load("//bazel/build_rules:helm_template.bzl", "helm_template")
 load("//bazel:app_chart.bzl", "app_chart")
 
 app_chart(
@@ -33,10 +34,23 @@ app_chart(
     visibility = ["//visibility:public"],
 )
 
+helm_template(
+    name = "cert-manager-chart.cloud",
+    chart = "//third_party/cert-manager:cert-manager-v0.10.1.tgz",
+    # The namespace will later be replaced with the actual one.
+    namespace = "HELM-NAMESPACE",
+    release_name = "cert-manager",
+    values = "cert-manager-cloud.values.yaml",
+)
+
 app_chart(
     name = "base-cloud",
     extra_templates = [
         "@com_github_kubernetes_sigs_application//:app_crd",
+        "//third_party/cert-manager:00-crds.yaml",
+    ],
+    files = [
+        ":cert-manager-chart.cloud",
     ],
     images = {
         "cloud-master": "//src/go/cmd/cloud-master",

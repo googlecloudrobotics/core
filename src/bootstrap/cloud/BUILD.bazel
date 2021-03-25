@@ -50,15 +50,6 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "third_party",
-    srcs = [
-        "//third_party/cert-manager",
-    ],
-    mode = "755",
-    strip_prefix = "/",
-)
-
-pkg_tar(
     name = "crc-binary",
     srcs = [
         "INSTALL_FROM_BINARY",
@@ -71,6 +62,5 @@ pkg_tar(
         ":binary_tools",
         ":files",
         ":scripts",
-        ":third_party",
     ],
 )
