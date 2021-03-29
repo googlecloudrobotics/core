@@ -1,0 +1,12 @@
+# https://github.com/helm/charts/blob/master/LICENSE
+# Apache license
+licenses(["notice"])
+
+# this chart was downloaded by running:
+# helm fetch prometheus-community/kube-prometheus-stack --version=x.y.z
+# curl -o 00-crds.yaml https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/release-0.42/example/prometheus-operator-crd/monitoring.coreos.com_probes.yaml
+
+exports_files(
+    glob(["*.tgz", "*.yaml"]),
+    visibility = ["//visibility:public"],
+)
