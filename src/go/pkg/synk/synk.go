@@ -223,6 +223,13 @@ func (s *Synk) Apply(
 	}
 	opts.name = name
 
+	// applyAll() updates the resources in place. To avoid modifying the
+	// caller's slice, copy the resources first.
+	resources = append([]*unstructured.Unstructured(nil), resources...)
+	for i, r := range resources {
+		resources[i] = r.DeepCopy()
+	}
+
 	rs, resources, err := s.initialize(ctx, opts, resources...)
 	if err != nil {
 		return rs, err
@@ -763,7 +770,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 
 	// If patching/updating failed, consider deleting and recreating the resource.
 	if !canReplace(resource, patchErr) {
-		return apps.ResourceActionUpdate, errors.Wrap(err, "apply patch or update")
+		return apps.ResourceActionUpdate, errors.Wrap(patchErr, "apply patch or update")
 	}
 	_, replace_span := trace.StartSpan(ctx, "Replace "+resource.GetName())
 	res, err := replace(client, resource)

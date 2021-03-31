@@ -133,7 +133,7 @@ func TestSynk_IsTransientErr(t *testing.T) {
 			false,
 		},
 		{
-			k8serrors.NewGone("gone"),
+			k8serrors.NewResourceExpired("gone"),
 			true,
 		},
 		{
@@ -154,6 +154,7 @@ func TestSynk_IsTransientErr(t *testing.T) {
 	}
 }
 
+// TODO(rodrigoq): test Apply() directly rather than the private methods
 func TestSynk_initialize(t *testing.T) {
 	s := newFixture(t).newSynk()
 
@@ -461,7 +462,82 @@ func TestSynk_applyAllIsCreatingResources(t *testing.T) {
 	f.verifyWriteActions()
 }
 
-func TestSank_skipsTestResources(t *testing.T) {
+func TestSynk_applyAllRetriesResourceExpired(t *testing.T) {
+	// deploy is the input to applyAll(), annotatedDeploy is the expected output.
+	// TODO(rodrigoq): change verifyWriteActions() to avoid this boilerplate
+	deploy := newUnstructured("apps/v1", "Deployment", "foo1", "dp1")
+	annotatedDeploy := deploy.DeepCopy()
+	set := &apps.ResourceSet{}
+	set.Name = "test.v1"
+	set.UID = "deadbeef"
+	_true := true
+	ownerRef := metav1.OwnerReference{
+		APIVersion:         "apps.cloudrobotics.com/v1alpha1",
+		Kind:               "ResourceSet",
+		Name:               set.Name,
+		UID:                set.UID,
+		BlockOwnerDeletion: &_true,
+	}
+	annotatedDeploy.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+	setAppliedAnnotation(annotatedDeploy)
+	emptyPatch := []byte(`{}`)
+
+	tests := []struct {
+		desc    string
+		verb    string
+		objects []runtime.Object
+		actions []k8stest.Action
+	}{{
+		desc:    "create deployment returns ResourceExpired",
+		verb:    "create",
+		objects: []runtime.Object{},
+		actions: []k8stest.Action{
+			k8stest.NewCreateAction(gvrs["deployments"], "foo1", annotatedDeploy),
+			k8stest.NewCreateAction(gvrs["deployments"], "foo1", annotatedDeploy),
+		},
+	}, {
+		desc:    "patch deployment returns ResourceExpired",
+		verb:    "patch",
+		objects: []runtime.Object{annotatedDeploy},
+		actions: []k8stest.Action{
+			k8stest.NewPatchAction(gvrs["deployments"], "foo1", "dp1", types.StrategicMergePatchType, emptyPatch),
+			k8stest.NewPatchAction(gvrs["deployments"], "foo1", "dp1", types.StrategicMergePatchType, emptyPatch),
+		},
+	}, {
+		desc:    "update deployment returns ResourceExpired",
+		verb:    "update",
+		objects: []runtime.Object{deploy},
+		actions: []k8stest.Action{
+			k8stest.NewUpdateAction(gvrs["deployments"], "foo1", annotatedDeploy),
+			k8stest.NewUpdateAction(gvrs["deployments"], "foo1", annotatedDeploy),
+		},
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			f := newFixture(t)
+			f.addObjects(tc.objects...)
+			s := f.newSynk()
+			// ResourceExpired should be treated as a transient error.
+			f.fake.PrependReactor(tc.verb, "deployments", func(action k8stest.Action) (bool, runtime.Object, error) {
+				return true, nil, k8serrors.NewResourceExpired("gone")
+			})
+
+			_, err := s.applyAll(context.Background(), set, &ApplyOptions{name: "test"},
+				deploy.DeepCopy(),
+			)
+			if err == nil {
+				t.Error("applyAll() succeeded unexpectedly, want ResourceExpired")
+			}
+
+			// applyAll() should retry once before failing.
+			f.expectActions(tc.actions...)
+			f.verifyWriteActions()
+		})
+	}
+}
+
+func TestSynk_skipsTestResources(t *testing.T) {
 	s := newFixture(t).newSynk()
 
 	testPod := newUnstructured("v1", "Pod", "ns", "pod2")
