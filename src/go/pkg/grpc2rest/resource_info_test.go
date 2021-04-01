@@ -37,9 +37,9 @@ func TestRepositoryUpdate(t *testing.T) {
 
 	g.Expect(hasGet()).To(BeFalse())
 
-	crds.ApiextensionsV1beta1().CustomResourceDefinitions().Create(helloWorldCrd)
+	crds.ApiextensionsV1().CustomResourceDefinitions().Create(helloWorldCrd)
 	g.Eventually(hasGet).Should(BeTrue())
 
-	crds.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(helloWorldCrd.GetName(), nil)
+	crds.ApiextensionsV1().CustomResourceDefinitions().Delete(helloWorldCrd.GetName(), nil)
 	g.Eventually(hasGet).Should(BeFalse())
 }

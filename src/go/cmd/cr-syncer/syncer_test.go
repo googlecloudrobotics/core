@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -64,7 +64,7 @@ func newFixture(t *testing.T) *fixture {
 func (f *fixture) newCRSyncer(crd crdtypes.CustomResourceDefinition, robotName string) (*crSyncer, schema.GroupVersionResource) {
 	gvk := schema.GroupVersionKind{
 		Group:   crd.Spec.Group,
-		Version: crd.Spec.Version,
+		Version: crd.Spec.Versions[0].Name,
 		Kind:    crd.Spec.Names.Kind,
 	}
 	s := runtime.NewScheme()
@@ -79,7 +79,7 @@ func (f *fixture) newCRSyncer(crd crdtypes.CustomResourceDefinition, robotName s
 	}
 	return crs, schema.GroupVersionResource{
 		Group:    crd.Spec.Group,
-		Version:  crd.Spec.Version,
+		Version:  crd.Spec.Versions[0].Name,
 		Resource: crd.Spec.Names.Plural,
 	}
 }
@@ -155,14 +155,18 @@ func testCRD(scope crdtypes.ResourceScope) crdtypes.CustomResourceDefinition {
 			},
 		},
 		Spec: crdtypes.CustomResourceDefinitionSpec{
-			Group:   "crds.example.com",
-			Version: "v1beta1",
+			Group: "crds.example.com",
 			Names: crdtypes.CustomResourceDefinitionNames{
 				Kind:     "Goal",
 				Singular: "goal",
 				Plural:   "goals",
 			},
 			Scope: scope,
+			Versions: []crdtypes.CustomResourceDefinitionVersion{{
+				Name:    "v1",
+				Served:  true,
+				Storage: true,
+			}},
 		},
 	}
 }
@@ -172,7 +176,7 @@ func newTestCR(name string, spec, status interface{}) *unstructured.Unstructured
 	o := &unstructured.Unstructured{}
 
 	o.SetKind("Goal")
-	o.SetAPIVersion("crds.example.com/v1beta1")
+	o.SetAPIVersion("crds.example.com/v1")
 	o.SetNamespace(metav1.NamespaceDefault)
 	o.SetName(name)
 
@@ -187,7 +191,7 @@ func newClusterScopedTestCR(name string, spec, status interface{}) *unstructured
 	o := &unstructured.Unstructured{}
 
 	o.SetKind("Goal")
-	o.SetAPIVersion("crds.example.com/v1beta1")
+	o.SetAPIVersion("crds.example.com/v1")
 	o.SetName(name)
 
 	o.Object["spec"] = spec

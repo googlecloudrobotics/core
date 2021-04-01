@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/descriptor"
 	"github.com/golang/protobuf/proto"
 	. "github.com/onsi/gomega"
-	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/rest"

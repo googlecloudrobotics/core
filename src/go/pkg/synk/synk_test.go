@@ -536,16 +536,19 @@ func TestSynk_populateNamespaces(t *testing.T) {
 	)
 	var exampleCRD unstructured.Unstructured
 	unmarshalYAML(t, &exampleCRD, `
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefition
 metadata:
   name: examples.example.org
 spec:
   group: example.org
-  version: v1
   names:
     kind: Example
-  scope: Namespaced`)
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true`)
 
 	if err := s.populateNamespaces(
 		context.Background(),

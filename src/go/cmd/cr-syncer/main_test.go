@@ -20,7 +20,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	fakecrdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -72,7 +72,7 @@ func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
 		t.Errorf("Got unexpected error: %v", err)
 	}
 
-	cs.ApiextensionsV1beta1().CustomResourceDefinitions().Create(&crdtypes.CustomResourceDefinition{
+	cs.ApiextensionsV1().CustomResourceDefinitions().Create(&crdtypes.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "later",
 		},
@@ -85,7 +85,7 @@ func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
 		t.Errorf("Received no watch event; wanted add for later")
 	}
 
-	cs.ApiextensionsV1beta1().CustomResourceDefinitions().Delete("later", &metav1.DeleteOptions{})
+	cs.ApiextensionsV1().CustomResourceDefinitions().Delete("later", &metav1.DeleteOptions{})
 	select {
 	case crd := <-crds:
 		g.Expect(crd.Type).To(Equal(watch.Deleted))
@@ -107,7 +107,7 @@ func TestStreamCrdsSeesUpdate(t *testing.T) {
 		t.Errorf("Got unexpected error: %v", err)
 	}
 
-	cs.ApiextensionsV1beta1().CustomResourceDefinitions().Create(&crdtypes.CustomResourceDefinition{
+	cs.ApiextensionsV1().CustomResourceDefinitions().Create(&crdtypes.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "later",
 		},
@@ -120,7 +120,7 @@ func TestStreamCrdsSeesUpdate(t *testing.T) {
 		t.Errorf("Received no watch event; wanted add for later")
 	}
 
-	cs.ApiextensionsV1beta1().CustomResourceDefinitions().Update(&crdtypes.CustomResourceDefinition{
+	cs.ApiextensionsV1().CustomResourceDefinitions().Update(&crdtypes.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "later",
 			Annotations: map[string]string{

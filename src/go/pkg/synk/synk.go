@@ -33,7 +33,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	corev1 "k8s.io/api/core/v1"
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -131,23 +131,44 @@ func (o *ApplyOptions) errorf(r *unstructured.Unstructured, action apps.Resource
 // it to become available.
 // It does not need to be called before each use of Synk.
 func (s *Synk) Init() error {
+	vTrue := true
 	crd := &apiextensions.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apiextensions.k8s.io/v1beta1",
+			APIVersion: "apiextensions.k8s.io/v1",
 			Kind:       "CustomResourceDefinition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "resourcesets.apps.cloudrobotics.com",
 		},
 		Spec: apiextensions.CustomResourceDefinitionSpec{
-			Group:   "apps.cloudrobotics.com",
-			Version: "v1alpha1",
+			Group: "apps.cloudrobotics.com",
 			Names: apiextensions.CustomResourceDefinitionNames{
 				Kind:     "ResourceSet",
 				Plural:   "resourcesets",
 				Singular: "resourceset",
 			},
 			Scope: apiextensions.ClusterScoped,
+			Versions: []apiextensions.CustomResourceDefinitionVersion{{
+				Name:    "v1alpha1",
+				Served:  true,
+				Storage: true,
+				// TODO(ensonic): replace with the actual schema
+				Schema: &apiextensions.CustomResourceValidation{
+					OpenAPIV3Schema: &apiextensions.JSONSchemaProps{
+						Type: "object",
+						Properties: map[string]apiextensions.JSONSchemaProps{
+							"spec": {
+								Type:                   "object",
+								XPreserveUnknownFields: &vTrue,
+							},
+							"status": {
+								Type:                   "object",
+								XPreserveUnknownFields: &vTrue,
+							},
+						},
+					},
+				},
+			}},
 		},
 	}
 	var u unstructured.Unstructured
@@ -466,8 +487,10 @@ func (s *Synk) populateNamespaces(
 		if err := convert(crd, &typed); err != nil {
 			return errors.Wrapf(err, "invalid CustomResourceDefinition %q", resourceKey(crd))
 		}
-		k := typed.Spec.Group + "/" + typed.Spec.Version + "/" + typed.Spec.Names.Kind
-		isNamespaced[k] = typed.Spec.Scope != apiextensions.ClusterScoped
+		for _, v := range typed.Spec.Versions {
+			k := typed.Spec.Group + "/" + v.Name + "/" + typed.Spec.Names.Kind
+			isNamespaced[k] = typed.Spec.Scope != apiextensions.ClusterScoped
+		}
 	}
 	for _, r := range resources {
 		if r.GetNamespace() == "" && isNamespaced[r.GetAPIVersion()+"/"+r.GetKind()] {
@@ -766,10 +789,6 @@ func (s *Synk) crdAvailable(ucrd *unstructured.Unstructured) (bool, error) {
 	var versions []string
 	for _, v := range crd.Spec.Versions {
 		versions = append(versions, v.Name)
-	}
-	if len(versions) == 0 {
-		// Use legacy `version` field when versions list omitted.
-		versions = []string{crd.Spec.Version}
 	}
 
 	for _, v := range versions {

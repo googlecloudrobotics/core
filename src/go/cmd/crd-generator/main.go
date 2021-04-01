@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/go-openapi/spec"
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8sjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 )
 
@@ -145,8 +145,8 @@ func main() {
 		Name:    version,
 		Storage: true,
 		Served:  true,
+		Schema:  validation,
 	}}
-	crd.Spec.Validation = validation
 	crd.Status.Conditions = []apiextensions.CustomResourceDefinitionCondition{}
 	crd.Status.StoredVersions = []string{version}
 

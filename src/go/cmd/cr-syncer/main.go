@@ -59,7 +59,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdinformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/watch"
@@ -213,7 +213,7 @@ type CrdChange struct {
 
 func streamCrds(done <-chan struct{}, clientset crdclientset.Interface, crds chan<- CrdChange) error {
 	factory := crdinformer.NewSharedInformerFactory(clientset, 0)
-	informer := factory.Apiextensions().V1beta1().CustomResourceDefinitions().Informer()
+	informer := factory.Apiextensions().V1().CustomResourceDefinitions().Informer()
 
 	go informer.Run(done)
 

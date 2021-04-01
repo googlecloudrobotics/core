@@ -19,7 +19,7 @@ import (
 	"log"
 	"sync"
 
-	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdinformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/client-go/rest"
@@ -78,7 +78,7 @@ func (r *ResourceInfoRepository) deleteResourceInfo(obj *crdtypes.CustomResource
 
 func (r *ResourceInfoRepository) Update(done <-chan struct{}, clientset crdclientset.Interface) error {
 	factory := crdinformer.NewSharedInformerFactory(clientset, 0)
-	informer := factory.Apiextensions().V1beta1().CustomResourceDefinitions().Informer()
+	informer := factory.Apiextensions().V1().CustomResourceDefinitions().Informer()
 
 	go informer.Run(done)
 

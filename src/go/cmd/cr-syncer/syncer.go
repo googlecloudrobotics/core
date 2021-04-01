@@ -21,11 +21,12 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
-	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -125,6 +126,7 @@ type crSyncer struct {
 	downstream    dynamic.ResourceInterface // Source of the status.
 	labelSelector string
 	subtree       string
+	versionIx     int
 
 	// Informers and the queues they feed. Upstream/downstream describes
 	// the source of the change events, _not_ the direction they are heading.
@@ -136,6 +138,15 @@ type crSyncer struct {
 	downstreamQueue workqueue.RateLimitingInterface
 
 	done chan struct{} // Terminates all background processes.
+}
+
+func getStorageVersionIndex(crd crdtypes.CustomResourceDefinition) (int, error) {
+	for ix, v := range crd.Spec.Versions {
+		if v.Storage {
+			return ix, nil
+		}
+	}
+	return 0, fmt.Errorf("Invalid Custom Resource %s: no version with stored=true set", crd.ObjectMeta.Name)
 }
 
 func newCRSyncer(
@@ -156,9 +167,14 @@ func newCRSyncer(
 			filterByRobot = v
 		}
 	}
+	versionIx, err := getStorageVersionIndex(crd)
+	if err != nil {
+		return nil, errors.Wrap(err, "Bad crd passed to newCRSyncer")
+	}
+
 	gvr := schema.GroupVersionResource{
 		Group:    crd.Spec.Group,
-		Version:  crd.Spec.Version,
+		Version:  crd.Spec.Versions[versionIx].Name,
 		Resource: crd.Spec.Names.Plural,
 	}
 	ns := ""
@@ -169,6 +185,7 @@ func newCRSyncer(
 	s := &crSyncer{
 		crd:             crd,
 		subtree:         annotations[annotationStatusSubtree],
+		versionIx:       versionIx,
 		upstream:        remote.Resource(gvr).Namespace(ns),
 		downstream:      local.Resource(gvr).Namespace(ns),
 		upstreamQueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "upstream"),
@@ -326,9 +343,8 @@ func (s *crSyncer) stop() {
 // downstream cluster. It synchronizes the status from the downstream to the
 // upstream cluster, and deletes orphaned downstream resources.
 func (s *crSyncer) syncDownstream(key string) error {
-	var (
-		statusIsSubresource = s.crd.Spec.Subresources != nil && s.crd.Spec.Subresources.Status != nil
-	)
+	v := s.crd.Spec.Versions[s.versionIx]
+	statusIsSubresource := v.Subresources != nil && v.Subresources.Status != nil
 	// Get the downstream status (src) and upstream spec (dst).
 	srcObj, srcExists, err := s.downstreamInf.GetIndexer().GetByKey(key)
 	if err != nil {
@@ -504,7 +520,7 @@ func (s *crSyncer) syncUpstream(key string) error {
 }
 
 func isNotFoundError(err error) bool {
-	status, ok := err.(*errors.StatusError)
+	status, ok := err.(*k8serrors.StatusError)
 	return ok && status.ErrStatus.Code == http.StatusNotFound
 }
 
