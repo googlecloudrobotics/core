@@ -1,18 +1,63 @@
 # Token vendor
 
-The token vendor supports a collection of OAuth-related workflows.
+The token vendor supports a collection of OAuth-related workflows. For that the
+TokenVendorModule.java registers 4 handlers.
+
+The PublicKey{Publish,Read}Handlers abstract the access to a device registry (a
+public key store). Currently the codebase supports GCP's CloudIot-Registry and
+an in-memory store that is only used for testing.
+
+## Robot registration
+
+New robots get registered by a human administrator (authorized by an access
+token on the request). The method add the provided public key to the configured
+key store. Write access to the public key registry needs to be restricted to
+refuse eg. robots to register other robots.
+
+* URL: /apis/core.token-vendor/v1/public-key.publish
+* Method: POST 
+* URL Params:
+  * device-id: unique device name (by default robot-<robot-id>)
+* Body: application/x-pem-file
+* Response: only http status code
+* Impl: PublicKeyPublishHandler.java
+
+## Public key retrieval
+
+To verify messages send by a robot one can fetch the public key from the 
+keystore using this method.
+
+* URL: /apis/core.token-vendor/v1/public-key.read
+* Method: GET
+* URL Params:
+  * device-id: unique device name (by default robot-<robot-id>)
+* Response: application/x-pem-file
+* Impl: PublicKeyReadHandler.java
 
 ## OAuth2 access token requests by robots
 
-Robots sign JWTs with their local private keys, and have public keys stored in
-Cloud IoT. The token vendor will hand out OAuth access tokens for robot-service@
-service account.
+Robots sign JWTs with their local private keys. These get verified against the
+public keys from the keystore. If the key is present and enabled, the token
+vendor will hand out an OAuth access token for robot-service@ service account.
+
+* URL: /apis/core.token-vendor/v1/token.oauth2
+* Method: POST
+* Body: JWT query (TokenSource)
+* Response: application/json
+* Impl: TokenVendorHandler.java
 
 ## AuthN/Z verification
 
 Browsers or robots can query endpoints like the ws-proxy with authorization
 headers or a `?token=` query parameter. They are already authenticated, and the
 token vendor just checks that IAM authorizes the request.
+
+* URL: /apis/core.token-vendor/v1/token.verify
+* Method: GET
+* URL Params:
+  * robots: boolean to indicate if robot-service account tookens are allowed
+* Response: only http status code
+* Impl: VerificationHandler.java
 
 ## Interactive AuthN & AuthZ
 
