@@ -200,10 +200,19 @@ func (s *Synk) Init() error {
 	return nil
 }
 
-// Delete removed the resources that are part of the ResourceSet specified by
-// 'name'.
+// Delete removes the resources that are part of the ResourceSet specified by
+// 'name'. It uses so-called "foreground cascading deletion", which means that:
+//
+// - it returns after marking the ResourceSet for deletion, but before the
+//   resources have been deleted
+// - the ResourceSet will not be deleted until all resources have been deleted
+//
+// This ensures that if a new ResourceSet is created before all resources have
+// been deleted, it will have a higher version number.
 func (s *Synk) Delete(ctx context.Context, name string) error {
-	return s.client.Resource(resourceSetGVR).DeleteCollection(nil, metav1.ListOptions{
+	policy := metav1.DeletePropagationForeground
+	deleteOpts := &metav1.DeleteOptions{PropagationPolicy: &policy}
+	return s.client.Resource(resourceSetGVR).DeleteCollection(deleteOpts, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("name=%s", name),
 	})
 }
@@ -560,7 +569,8 @@ func validateOwnerRefs(r *unstructured.Unstructured, set *apps.ResourceSet) erro
 			return errors.Errorf("owned by conflicting ResourceSet object %q", or.Name)
 		}
 		if v > version {
-			return errors.Errorf("conflicting Resources version %d", version)
+			// TODO(rodrigoq): should this be transient to cope with concurrent synk runs?
+			return errors.Errorf("owned by newer ResourceSet %q > v%d", or.Name, version)
 		}
 	}
 	return nil
