@@ -185,8 +185,6 @@ EOF
 function terraform_apply {
   terraform_init
 
-  # Workaround for https://github.com/terraform-providers/terraform-provider-google/issues/2118
-  terraform_exec import google_app_engine_application.app ${GCP_PROJECT_ID} 2>/dev/null || true
   # We've stopped managing Google Cloud projects in Terraform, make sure they
   # aren't deleted.
   terraform_exec state rm google_project.project 2>/dev/null || true

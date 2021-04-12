@@ -865,27 +865,6 @@
   revision = "7c8bab9c4f5dd00b2afd0648fa0d753a46a603e8"
 
 [[projects]]
-  digest = "1:8a3a8e562c362acf2762a091627554f12d49c242dfe905cf7231c66cb5c66b6e"
-  name = "google.golang.org/appengine"
-  packages = [
-    ".",
-    "internal",
-    "internal/app_identity",
-    "internal/base",
-    "internal/datastore",
-    "internal/log",
-    "internal/modules",
-    "internal/remote_api",
-    "internal/socket",
-    "internal/urlfetch",
-    "socket",
-    "urlfetch",
-  ]
-  pruneopts = "NUT"
-  revision = "b1f26356af11148e710935ed1ac8a7f5702c7612"
-  version = "v1.1.0"
-
-[[projects]]
   branch = "master"
   digest = "1:c859c9ccc7f6ef1350284a99813a7f08c123d4e735d352eed888df16ac0bc5ec"
   name = "google.golang.org/genproto"

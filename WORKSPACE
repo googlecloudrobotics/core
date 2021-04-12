@@ -794,12 +794,6 @@ go_repository(
 )
 
 go_repository(
-    name = "org_golang_google_appengine",
-    commit = "b1f26356af11148e710935ed1ac8a7f5702c7612",
-    importpath = "google.golang.org/appengine",
-)
-
-go_repository(
     name = "org_golang_google_genproto",
     commit = "ff3583edef7de132f219f0efc00e097cabcc0ec0",
     importpath = "google.golang.org/genproto",
