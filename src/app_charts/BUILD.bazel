@@ -6,7 +6,6 @@ load("//bazel/build_rules/app_chart:run_sequentially.bzl", "run_sequentially")
 # manually.
 APPS = [
     "k8s-relay",
-    "map",
     "mission-crd",
     "prometheus",
 ]

@@ -64,8 +64,7 @@ function prepare_source_install {
       //src/go/cmd/setup-robot:setup-robot-image.digest \
       //src/go/cmd/cr-adapter:cr-adapter.push \
       //src/go/cmd/setup-robot:setup-robot.push \
-      //src/go/cmd/synk \
-      //src/proto/map:proto_descriptor \
+      //src/go/cmd/synk
 
   # TODO(rodrigoq): the containerregistry API would be enabled by Terraform, but
   # that doesn't run until later, as it needs the digest of the setup-robot

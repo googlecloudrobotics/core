@@ -2,7 +2,6 @@ filegroup(
     name = "terraform",
     srcs = [
         "www.yaml",
-        "//src/proto/map:map.yaml",
     ] + glob(
         include = ["*.tf"],
         exclude = ["backend.tf"],
