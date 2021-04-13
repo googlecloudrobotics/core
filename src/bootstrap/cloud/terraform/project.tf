@@ -32,12 +32,6 @@ resource "google_project_service" "cloudresourcemanager" {
   disable_on_destroy = false
 }
 
-resource "google_project_service" "datastore" {
-  project            = data.google_project.project.project_id
-  service            = "datastore.googleapis.com"
-  disable_on_destroy = false
-}
-
 resource "google_project_service" "compute" {
   project            = data.google_project.project.project_id
   service            = "compute.googleapis.com"
