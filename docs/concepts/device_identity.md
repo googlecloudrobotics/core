@@ -13,7 +13,7 @@ The following components are part of the whole setup:
 * Robot cluster (on-prem or edge):
   * `Metadata Server`: provides default credentials + project metadata
   * `Setup`: special app used to register the workcell
-  * `&lt;App&gt;`: any app accessing the cloud
+  * `<App>`: any app accessing the cloud
 
 The following chapters explain the flows in more detail. Further information
 about the Token Vendor can be found in its
@@ -38,7 +38,7 @@ on-prem robot clusters.
 
 ![setup](device_identity_auth.png)
 
-* `&lt;App&gt;` creates an API client without loading any custom key material
+* `<App>` creates an API client without loading any custom key material
 * (1) API client library probes `Metadata Server` to get ADCs (Application
   Default Credentials)
 * (2) `Metadata Server` talks to `Token Vendor` get an Access Token for the
@@ -48,6 +48,6 @@ on-prem robot clusters.
 * (4) `Token Vendor` gets an Access Token for the `robot service-account` from
   `IAM`
 * `Token Vendor` returns Access Token through `Metadata Server` to the
-  `&lt;App&gt;` and that can use it to call Cloud APIs under the scope of the
+  `<App>` and that can use it to call Cloud APIs under the scope of the
   `robot service-account`
 
