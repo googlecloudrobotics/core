@@ -33,7 +33,7 @@ include_config "${GCP_PROJECT_ID}"
 
 gcloud --project=$GCP_PROJECT_ID compute instances create ${ROBOT_NAME} \
   --zone=$GCP_ZONE \
-  --image-family ubuntu-1604-lts \
+  --image-family ubuntu-minimal-2004-lts \
   --image-project ubuntu-os-cloud \
   --boot-disk-size=200GB \
   --machine-type=e2-standard-2

@@ -18,12 +18,9 @@
 # (mainly docker and kubeadm) and to get the bare k8s cluster running. It can also be executed
 # directly if one is only interested in getting the bare k8s cluster to run without doing the full
 # robot setup.
-
-# Kubernetes 1.16 requires Docker 18.09 or earlier.
-# TODO(rodrigoq): try updating
-DOCKER_VERSION="18.06.1"
-DOCKER_PACKAGE_VERSION="${DOCKER_VERSION}~ce~3-0~ubuntu"
-K8S_VERSION="1.16.3"
+DOCKER_VERSION="5:20.10.6"
+DOCKER_PACKAGE_VERSION="${DOCKER_VERSION}~3-0~ubuntu-focal"
+K8S_VERSION="1.21.0"
 
 # The IP address of the host system on Docker's docker0 bridge network, along with the netmask for
 # the subnet. These are depended on in multiple places, including the allowed subnet in
@@ -35,8 +32,8 @@ function check_distribution_is_supported {
     echo "ERROR: This script requires Ubuntu, but it detected $(lsb_release -is)." >&2
     return 1
   fi
-  if [[ ! "$(lsb_release -rs)" =~ ^1[68].04$ ]] ; then
-    echo "ERROR: This script only supports Ubuntu 16.04 and 18.04, but it" >&2
+  if [[ ! "$(lsb_release -rs)" =~ ^20.04$ ]] ; then
+    echo "ERROR: This script only supports Ubuntu 20.04, but it" >&2
     echo "detected $(lsb_release -rs)." >&2
     return 1
   fi
@@ -293,7 +290,7 @@ nodeRegistration:
 ---
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
-kubernetesVersion: v1.16.3
+kubernetesVersion: v1.21.0
 apiServer:
   extraArgs:
     # Bind to the docker interface to avoid problems when external interfaces

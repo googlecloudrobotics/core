@@ -2,7 +2,7 @@
 
 Estimated time: 10 min
 
-This page describes how to connect a Kubernetes cluster on a robot to the cloud (tested on Ubuntu 14, 16 and 18).
+This page describes how to connect a Kubernetes cluster on a robot running Ubuntu 20.04 to the cloud.
 
 Once you've done this, you can:
 

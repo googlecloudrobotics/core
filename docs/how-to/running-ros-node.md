@@ -3,7 +3,7 @@
 Estimated time: 10 min
 
 The following instructions describe how to setup a Kubernetes cluster on a robot
-running Linux (tested on Ubuntu 14, 16 and 18) and run a ROS node on it.
+running Ubuntu 20.04 and run a ROS node on it.
 
 The installation script installs and configures:
 
