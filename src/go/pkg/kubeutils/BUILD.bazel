@@ -6,6 +6,7 @@ go_library(
     importpath = "github.com/googlecloudrobotics/core/src/go/pkg/kubeutils",
     visibility = ["//visibility:public"],
     deps = [
+        "@com_github_cenkalti_backoff//:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/api/errors:go_default_library",

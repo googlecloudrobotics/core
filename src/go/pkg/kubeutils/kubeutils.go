@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
@@ -131,21 +132,29 @@ func BuildCloudKubernetesConfig(ts oauth2.TokenSource, remoteServer string) *res
 // UpdateSecret (over-) writes a k8s secret.
 func UpdateSecret(k8s *kubernetes.Clientset, name string, namespace string, secretType corev1.SecretType, data map[string][]byte) error {
 	s := k8s.CoreV1().Secrets(namespace)
+	b := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 5)
+	return backoff.Retry(func() error {
+		secret, err := s.Get(name, metav1.GetOptions{})
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				_, err = s.Create(&corev1.Secret{
+					Type: secretType,
+					Data: data,
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
+					},
+				})
+				return backoff.Permanent(errors.Wrap(err, "create secret"))
+			}
+			return backoff.Permanent(errors.Wrap(err, "get secret"))
+		}
+		secret.Data = data
+		_, err = s.Update(secret)
+		if k8serrors.IsConflict(err) {
+			// Retry conflicts.
+			return err
+		}
+		return backoff.Permanent(errors.Wrap(err, "update secret"))
+	}, b)
 
-	secret, err := s.Get(name, metav1.GetOptions{})
-	if err != nil && k8serrors.IsNotFound(err) {
-		_, err = s.Create(&corev1.Secret{
-			Type: secretType,
-			Data: data,
-			ObjectMeta: metav1.ObjectMeta{
-				Name: name,
-			},
-		})
-		return errors.Wrap(err, "create secret")
-	} else if err != nil {
-		return errors.Wrap(err, "get secret")
-	}
-	secret.Data = data
-	_, err = s.Update(secret)
-	return errors.Wrap(err, "update secret")
 }
