@@ -64,6 +64,18 @@ downstream cluster. The upstream resource is identified using the namespace and
 name, but not the UID, so deletion and recreation upstream may result in an
 update in the downstream cluster.
 
+> **Note**: if you create a resource directly in the downstream cluster, the
+> behavior will depend on how the CRD is annotated.  If `filter-by-robot-name`
+> is false, the cr-syncer will delete all downstream resources that don't
+> correspond to upstream resources. This means that by listing CRs in the
+> upstream cluster, you can reason about which CRs will exist in the downstream
+> cluster.
+>
+> If `cr-syncer.cloudrobotics.com/filter-by-robot-name` is true, then the
+> cr-syncer will ignore any downstream resources that are not labelled with a
+> matching robot name. This means that a robot can run ChartAssignments that are
+> synced from the cloud as well as those created directly in the robot cluster.
+
 In some cases, downstream deletion may be blocked. For example, if we have
 deleted an upstream ChartAssignment, but the robot-master has failed to remove
 its finalizer from the downstream ChartAssignment. This edge case leads to
