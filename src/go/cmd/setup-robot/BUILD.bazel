@@ -15,6 +15,7 @@ go_library(
         "//src/go/pkg/robotauth:go_default_library",
         "//src/go/pkg/setup:go_default_library",
         "@com_github_cenkalti_backoff//:go_default_library",
+        "@com_github_pkg_errors//:go_default_library",
         "@com_github_spf13_pflag//:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_api//rbac/v1:go_default_library",
@@ -39,11 +40,12 @@ go_test(
     visibility = ["//visibility:private"],
     deps = [
         "//src/go/pkg/apis/registry/v1alpha1:go_default_library",
+        "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",
-        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
         "@io_k8s_client_go//dynamic/fake:go_default_library",
+        "@io_k8s_client_go//testing:go_default_library",
     ],
 )
 

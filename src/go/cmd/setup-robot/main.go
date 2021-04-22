@@ -17,7 +17,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -35,6 +34,7 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
+	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
@@ -61,6 +61,12 @@ var (
 	fluentd             = flag.Bool("fluentd", true, "Set up fluentd to upload logs to Stackdriver.")
 	dockerDataRoot      = flag.String("docker-data-root", "/var/lib/docker", "This should match data-root in /etc/docker/daemon.json.")
 	robotAuthentication = flag.Bool("robot-authentication", true, "Set up robot authentication.")
+
+	robotGVR = schema.GroupVersionResource{
+		Group:    "registry.cloudrobotics.com",
+		Version:  "v1alpha1",
+		Resource: "robots",
+	}
 )
 
 const (
@@ -166,6 +172,30 @@ func waitForService(client *http.Client, url string, retries uint64) error {
 	return nil
 }
 
+// checkRobotName tests whether a Robot resource exists in the local cluster
+// with a different name. It is not safe to rerun setup-robot with a different
+// name as the robot-master doesn't allow the clusterName field to change.
+func checkRobotName(client dynamic.Interface) error {
+	robots, err := client.Resource(robotGVR).Namespace("default").List(metav1.ListOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return errors.Wrap(err, "list local robots")
+	}
+	for _, r := range robots.Items {
+		if r.GetName() != *robotName {
+			return fmt.Errorf(`this cluster was already set up with a different name. It is not safe to rename an existing cluster.
+    - either, use the old name:
+        setup_robot.sh %q [...]
+    - or, reset the cluster before renaming it:
+        sudo kubeadm reset
+	setup_robot.sh %q [...]`, r.GetName(), *robotName)
+		}
+	}
+	return nil
+}
+
 func main() {
 	parseFlags()
 	envToken := os.Getenv("ACCESS_TOKEN")
@@ -208,18 +238,6 @@ func main() {
 		log.Fatalf("Failed to resolve cloud cluster: %s. Please retry in 5 minutes.", err)
 	}
 
-	if *robotType != "" || *labels != "" || *annotations != "" {
-		// Set up client for cloud k8s cluster (needed only to obtain list of robots).
-		k8sCloudCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, domain)
-		k8sDynamicClient, err := dynamic.NewForConfig(k8sCloudCfg)
-		if err != nil {
-			log.Fatalf("Failed to create k8s client: %v", err)
-		}
-		if err := createOrUpdateRobot(k8sDynamicClient, parsedLabels, parsedAnnotations); err != nil {
-			log.Fatalf("Failed to update robot CR %v: %v", *robotName, err)
-		}
-	}
-
 	// Connect to the surrounding k8s cluster.
 	localConfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -234,6 +252,25 @@ func main() {
 		// metadata-server in the same cluster as the token-vendor,
 		// otherwise we'll break auth for all robot clusters.
 		log.Fatal("The local context contains a cloud-master deployment. It is not safe to run robot setup on a GKE cloud cluster.")
+	}
+	k8sLocalDynamic, err := dynamic.NewForConfig(localConfig)
+	if err != nil {
+		log.Fatal("Failed to create dynamic client set: ", err)
+	}
+	if err := checkRobotName(k8sLocalDynamic); err != nil {
+		log.Fatal("Error: ", err)
+	}
+
+	if *robotType != "" || *labels != "" || *annotations != "" {
+		// Set up client for cloud k8s cluster (needed only to obtain list of robots).
+		k8sCloudCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, domain)
+		k8sDynamicClient, err := dynamic.NewForConfig(k8sCloudCfg)
+		if err != nil {
+			log.Fatalf("Failed to create k8s client: %v", err)
+		}
+		if err := createOrUpdateRobot(k8sDynamicClient, parsedLabels, parsedAnnotations); err != nil {
+			log.Fatalf("Failed to update robot CR %v: %v", *robotName, err)
+		}
 	}
 
 	httpClient := oauth2.NewClient(context.Background(), tokenSource)
@@ -379,10 +416,6 @@ func mergeMaps(base, additions map[string]string) map[string]string {
 }
 
 func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]string, annotations map[string]string) error {
-	robotGVR := schema.GroupVersionResource{
-		Group:    "registry.cloudrobotics.com",
-		Version:  "v1alpha1",
-		Resource: "robots"}
 	labels["cloudrobotics.com/robot-name"] = *robotName
 	host := os.Getenv("HOST_HOSTNAME")
 	if host != "" && labels["cloudrobotics.com/master-host"] == "" {

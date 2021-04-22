@@ -23,11 +23,12 @@ import (
 	"testing"
 
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/fake"
+	k8stest "k8s.io/client-go/testing"
 )
 
 func TestWaitForService_OkIfServiceResponds(t *testing.T) {
@@ -93,6 +94,89 @@ func TestParseKeyValues_HandlesSpaces(t *testing.T) {
 	}
 	if v != "bar baz" {
 		t.Errorf("labels['foo'] should be 'bar baz', but is %q", v)
+	}
+}
+
+func TestCheckRobotName_SucceedsWhenCRDNotFound(t *testing.T) {
+	sc := runtime.NewScheme()
+	*robotName = "robot_name"
+
+	c := fake.NewSimpleDynamicClient(sc)
+	// In a fresh cluster, the Robot CRD doesn't exist, so GET robots
+	// returns a 404.
+	c.PrependReactor("list", "robots", func(k8stest.Action) (bool, runtime.Object, error) {
+		return true, nil, &k8serrors.StatusError{metav1.Status{
+			Status:  metav1.StatusFailure,
+			Code:    http.StatusNotFound,
+			Reason:  metav1.StatusReasonNotFound,
+			Message: "the server could not find the requested resource",
+		}}
+	})
+	err := checkRobotName(c)
+	if err != nil {
+		t.Errorf("checkRobotName() failed unexpectedly: %v", err)
+	}
+}
+
+func TestCheckRobotName(t *testing.T) {
+	sc := runtime.NewScheme()
+	registry.AddToScheme(sc)
+	*robotName = "robot_name"
+
+	tests := []struct {
+		desc      string
+		robots    []runtime.Object
+		wantError bool
+	}{
+		{
+			desc:      "empty cluster",
+			robots:    []runtime.Object{},
+			wantError: false,
+		},
+		{
+			desc: "robot with same name",
+			robots: []runtime.Object{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "registry.cloudrobotics.com/v1alpha1",
+						"kind":       "Robot",
+						"metadata": map[string]interface{}{
+							"name":      *robotName,
+							"namespace": "default",
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			desc: "robot with other name",
+			robots: []runtime.Object{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "registry.cloudrobotics.com/v1alpha1",
+						"kind":       "Robot",
+						"metadata": map[string]interface{}{
+							"name":      "other_name",
+							"namespace": "default",
+						},
+					},
+				},
+			},
+			wantError: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			c := fake.NewSimpleDynamicClient(sc, tc.robots...)
+			err := checkRobotName(c)
+			if tc.wantError && err == nil {
+				t.Errorf("checkRobotName() succeeded unexpectedly")
+			}
+			if !tc.wantError && err != nil {
+				t.Errorf("checkRobotName() failed unexpectedly: %v", err)
+			}
+		})
 	}
 }
 
@@ -213,10 +297,6 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 				t.Fatalf("createOrUpdateRobot() failed unexpectedly:  %v", err)
 			}
 
-			robotGVR := schema.GroupVersionResource{
-				Group:    "registry.cloudrobotics.com",
-				Version:  "v1alpha1",
-				Resource: "robots"}
 			robotClient := c.Resource(robotGVR).Namespace("default")
 			robot, err := robotClient.Get(*robotName, metav1.GetOptions{})
 			if err != nil {
