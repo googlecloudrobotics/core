@@ -75,6 +75,8 @@ const (
 	synkPath          = filesDir + "/synk"
 	numDNSRetries     = 6
 	numServiceRetries = 6
+	// commaSentinel is used when parsing labels or annotations.
+	commaSentinel = "_COMMA_SENTINEL_"
 )
 
 func parseFlags() {
@@ -470,7 +472,11 @@ func parseKeyValues(s string) (map[string]string, error) {
 		return lset, nil
 	}
 
+	// To handle escaped commas, we replace them with a sentinel, then
+	// restore them after splitting individual values.
+	s = strings.ReplaceAll(s, "\\,", commaSentinel)
 	for _, l := range strings.Split(s, ",") {
+		l = strings.ReplaceAll(l, commaSentinel, ",")
 		parts := strings.SplitN(l, "=", 2)
 		if len(parts) != 2 {
 			return nil, errors.New("not a key/value pair")

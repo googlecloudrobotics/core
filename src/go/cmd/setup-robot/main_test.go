@@ -83,6 +83,27 @@ func TestParseKeyValues_HandlesMultipleEntries(t *testing.T) {
 	}
 }
 
+func TestParseKeyValues_HandlesEscapedCommas(t *testing.T) {
+	l, err := parseKeyValues("foo=bar\\,baz,zoo=zar")
+	if err != nil {
+		t.Errorf("Failed to parse single entry, but returned %v", err)
+	}
+	v, ok := l["foo"]
+	if !ok {
+		t.Errorf("No 'foo' entry created")
+	}
+	if v != "bar,baz" {
+		t.Errorf("labels['foo'] should be 'bar,baz', but is %q", v)
+	}
+	v, ok = l["zoo"]
+	if !ok {
+		t.Errorf("No 'zoo' entry created")
+	}
+	if v != "zar" {
+		t.Errorf("labels['zoo'] should be 'zar', but is %q", v)
+	}
+}
+
 func TestParseKeyValues_HandlesSpaces(t *testing.T) {
 	l, err := parseKeyValues("foo=bar baz")
 	if err != nil {
