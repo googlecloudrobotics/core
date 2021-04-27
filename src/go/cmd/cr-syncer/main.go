@@ -278,6 +278,7 @@ func main() {
 	view.SetReportingPeriod(time.Second)
 	zpages.Handle(nil, "/debug")
 	http.Handle("/metrics", exporter)
+	http.Handle("/health", newHealthHandler(remote))
 
 	go func() {
 		if err := http.ListenAndServe(*listenAddr, nil); err != nil {

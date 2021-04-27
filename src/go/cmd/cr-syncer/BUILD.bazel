@@ -5,6 +5,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "health.go",
         "main.go",
         "syncer.go",
     ],
@@ -44,6 +45,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
+        "health_test.go",
         "main_test.go",
         "syncer_test.go",
     ],
@@ -53,6 +55,7 @@ go_test(
         "@com_github_onsi_gomega//:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/apis/apiextensions/v1:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/client/clientset/clientset/fake:go_default_library",
+        "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",
