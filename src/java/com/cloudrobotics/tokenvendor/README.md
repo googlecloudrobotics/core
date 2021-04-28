@@ -69,7 +69,7 @@ annotation:
 
 ```
 nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
-nginx.ingress.kubernetes.io/auth-signin: "https://${CLOUD_ROBOTICS_DOMAIN}/oauth2/start?rd=$escaped_request_uri"
+nginx.ingress.kubernetes.io/auth-signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
 ```
 
 nginx is set up to use the oauth2-proxy as an authentication proxy, and the
