@@ -466,9 +466,9 @@ def cloud_robotics_repositories():
         http_archive,
         name = "hashicorp_terraform",
         build_file = "@cloud_robotics//third_party:terraform.BUILD",
-        sha256 = "872245d9c6302b24dc0d98a1e010aef1e4ef60865a2d1f60102c8ad03e9d5a1d",
+        sha256 = "e5eeba803bc7d8d0cae7ef04ba7c3541c0abd8f9e934a5e3297bf738b31c5c6d",
         urls = [
-            "https://releases.hashicorp.com/terraform/0.12.29/terraform_0.12.29_linux_amd64.zip",
+            "https://releases.hashicorp.com/terraform/0.12.31/terraform_0.12.31_linux_amd64.zip",
         ],
     )
 
