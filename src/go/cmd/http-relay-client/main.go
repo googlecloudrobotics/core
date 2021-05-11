@@ -72,6 +72,10 @@ var (
 		"File with authentication token for backend requests")
 	rootCAFile = flag.String("root_ca_file", "",
 		"File with root CA cert for SSL")
+	maxChunkSize = flag.Int("max_chunk_size", 10*1024,
+		"Max size of data in bytes to accumulate before sending to the peer")
+	blockSize = flag.Int("block_size", 1024,
+		"Size of i/o buffer in bytes")
 )
 
 func getRequest(remote *http.Client) (*pb.HttpRequest, error) {
@@ -190,7 +194,7 @@ func postResponse(remote *http.Client, br *pb.HttpResponse) error {
 func streamBytes(in io.ReadCloser, out chan<- []byte) {
 	eof := false
 	for !eof {
-		buffer := make([]byte, 1024)
+		buffer := make([]byte, *blockSize)
 		n, err := in.Read(buffer)
 		if err != nil && err != io.EOF {
 			log.Printf("Failed to read from http body stream: %v", err)
@@ -206,7 +210,7 @@ func streamBytes(in io.ReadCloser, out chan<- []byte) {
 
 // buildResponses collates the bytes from the in stream into HttpResponse objects.
 // This function needs to consider three cases:
-//  - Data is coming fast. We chunk the data into 10 KB blocks and keep sending it.
+//  - Data is coming fast. We chunk the data into 'maxChunkSize' blocks and keep sending it.
 //  - Data is trickling slow. We accumulate data for the timeout duration and then send it.
 //    Timeout is determined by the maximum latency the user should see.
 //  - No data needs to be transferred. We keep sending empty responses every few seconds
@@ -225,7 +229,7 @@ ResponseLoop:
 				resp.Eof = proto.Bool(true)
 				out <- resp
 				break ResponseLoop
-			} else if len(resp.Body) > 10*1024 {
+			} else if len(resp.Body) > *maxChunkSize {
 				log.Printf("Posting intermediate response of %d bytes for %s", len(resp.Body), *resp.Id)
 				out <- resp
 				resp = &pb.HttpResponse{Id: resp.Id}
