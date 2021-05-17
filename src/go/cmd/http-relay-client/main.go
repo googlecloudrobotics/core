@@ -72,9 +72,9 @@ var (
 		"File with authentication token for backend requests")
 	rootCAFile = flag.String("root_ca_file", "",
 		"File with root CA cert for SSL")
-	maxChunkSize = flag.Int("max_chunk_size", 10*1024,
+	maxChunkSize = flag.Int("max_chunk_size", 50*1024,
 		"Max size of data in bytes to accumulate before sending to the peer")
-	blockSize = flag.Int("block_size", 1024,
+	blockSize = flag.Int("block_size", 10*1024,
 		"Size of i/o buffer in bytes")
 )
 
@@ -291,6 +291,7 @@ func streamToBackend(remote *http.Client, req *pb.HttpRequest, backendWriter io.
 		resp, err := remote.Post(streamURL, "text/plain", http.NoBody)
 		if err != nil {
 			// TODO(rodrigoq): detect transient failure and retry w/ backoff?
+			// e.g. "server status Request Timeout: No request received within timeout"
 			log.Printf("Failed to get request stream for %s: %v", *req.Id, err)
 			return
 		}
