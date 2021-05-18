@@ -116,3 +116,16 @@ spec:
   selector:
     matchLabels:
       app: nginx-ingress-controller-metrics
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-dashboards-json
+  labels:
+     grafana: "1"
+data:
+  nginx.json: |-
+{{ .Files.Get "files/nginx.json" | indent 4 }}
+  request-handling-performance.json: |-
+{{ .Files.Get "files/request-handling-performance.json" | indent 4 }}
+

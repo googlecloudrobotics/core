@@ -51,6 +51,7 @@ app_chart(
     ],
     files = [
         ":cert-manager-chart.cloud",
+        "@ingress-nginx//:ingress-nginx-dashboards",
     ],
     images = {
         "cloud-master": "//src/go/cmd/cloud-master",

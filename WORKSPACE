@@ -1023,3 +1023,15 @@ go_repository(
     commit = "3f7a61f89bb6813f89d981d1870ed68da0b3c3f1",
     importpath = "google.golang.org/protobuf",
 )
+
+# grafana dashboards for nginx ingress controller
+
+http_archive(
+    name = "ingress-nginx",
+    build_file = "//third_party:ingress-nginx.BUILD",
+    sha256 = "719a7a54fe8156a38075eb99f82819b661ff117a2b043b41c1f560aaf71d4a09",
+    strip_prefix = "ingress-nginx-1b1f7d30a39f71cd9fe9f7191258e983dcb159c6",
+    urls = [
+        "https://github.com/kubernetes/ingress-nginx/archive/1b1f7d30a39f71cd9fe9f7191258e983dcb159c6.tar.gz",
+    ],
+)
