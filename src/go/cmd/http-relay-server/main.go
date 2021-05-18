@@ -93,14 +93,13 @@ import (
 
 const (
 	clientPrefix = "/client/"
-
-	// Buffer size in bytes used when reading from the request stream.
-	bufferSize = 1024
 )
 
 var (
 	port      = flag.Int("port", 80, "Port number to listen on")
 	projectId = flag.String("project_id", "", "Cloud project for IAM checks")
+	blockSize = flag.Int("block_size", 10*1024,
+		"Size of i/o buffer in bytes")
 )
 
 func createId() string {
@@ -194,7 +193,7 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 
 	go func() {
 		// This goroutine handles the request stream from client to backend.
-		bytes := make([]byte, bufferSize)
+		bytes := make([]byte, *blockSize)
 		for {
 			n, err := bufrw.Read(bytes)
 			if err != nil {
