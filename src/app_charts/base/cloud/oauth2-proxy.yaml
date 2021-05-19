@@ -19,7 +19,7 @@ spec:
         - --email-domain=*
         - --upstream=http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/
         - --upstream=https://{{ .Values.domain }}/
-        - --http-address=0.0.0.0:80
+        - --http-address=0.0.0.0:8080
         - --pass-access-token
         - --pass-host-header
         - "--scope=https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email"
@@ -31,10 +31,10 @@ spec:
           value: {{ .Values.oauth2_proxy.client_secret }}
         - name: OAUTH2_PROXY_COOKIE_SECRET
           value: {{ .Values.oauth2_proxy.cookie_secret }}
-        image: docker.io/a5huynh/oauth2_proxy:2.2.1
+        image: quay.io/oauth2-proxy/oauth2-proxy:v7.1.3
         ports:
         - name: http
-          containerPort: 80
+          containerPort: 8080
           protocol: TCP
 ---
 apiVersion: v1
@@ -44,7 +44,7 @@ metadata:
 spec:
   ports:
   - port: 80
-    targetPort: 80
+    targetPort: 8080
     protocol: TCP
     name: http
   selector:
