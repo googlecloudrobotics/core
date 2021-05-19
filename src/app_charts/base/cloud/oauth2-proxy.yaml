@@ -15,15 +15,17 @@ spec:
       containers:
       - name: oauth2-proxy
         args:
-        - --provider=google
+        - --provider=oidc
+        - --oidc-issuer-url=https://accounts.google.com
         - --email-domain=*
         - --upstream=http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/
         - --upstream=https://{{ .Values.domain }}/
         - --http-address=0.0.0.0:8080
         - --pass-access-token
         - --pass-host-header
-        - "--scope=https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email"
-        - --cookie-expire=1h
+        - "--scope=profile email https://www.googleapis.com/auth/cloud-platform"
+        - --cookie-expire=168h
+        - --cookie-refresh=1h
         env:
         - name: OAUTH2_PROXY_CLIENT_ID
           value: {{ .Values.oauth2_proxy.client_id }}
