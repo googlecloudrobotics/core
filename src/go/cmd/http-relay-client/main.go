@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -78,6 +79,10 @@ var (
 		"Size of i/o buffer in bytes")
 )
 
+var (
+	ErrTimeout = errors.New(http.StatusText(http.StatusRequestTimeout))
+)
+
 func getRequest(remote *http.Client) (*pb.HttpRequest, error) {
 	log.Printf("Connecting to relay server to get next request for %s", *serverName)
 	query := url.Values{}
@@ -99,6 +104,9 @@ func getRequest(remote *http.Client) (*pb.HttpRequest, error) {
 		return nil, err
 	}
 
+	if resp.StatusCode == http.StatusRequestTimeout {
+		return nil, ErrTimeout
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("server status %s: %s", http.StatusText(resp.StatusCode), string(body))
 	}
@@ -376,7 +384,11 @@ func localProxy(remote *http.Client, local *http.Client) error {
 	log.Printf("Connecting to remote to get next request")
 	req, err := getRequest(remote)
 	if err != nil {
-		return fmt.Errorf("failed to get request from relay: %v", err)
+		if errors.Is(err, ErrTimeout) {
+			return err
+		} else {
+			return fmt.Errorf("failed to get request from relay: %v", err)
+		}
 	}
 	go handleRequest(remote, local, req)
 	return nil
@@ -409,7 +421,7 @@ func main() {
 	local := &http.Client{Transport: transport}
 	for {
 		err := localProxy(remote, local)
-		if err != nil {
+		if err != nil && !errors.Is(err, ErrTimeout) {
 			log.Print(err)
 			time.Sleep(1 * time.Second)
 		}

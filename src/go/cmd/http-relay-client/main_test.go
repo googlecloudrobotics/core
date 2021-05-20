@@ -150,6 +150,34 @@ func TestBackendError(t *testing.T) {
 	assertMocksDoneWithin(t, 10*time.Second)
 }
 
+func TestServerTimeout(t *testing.T) {
+	// Hot patch: gock refuses to match bodies with application/octet-data
+	// by default.
+	gock.BodyTypes = append(gock.BodyTypes, "application/octet-data")
+	defer gock.Off()
+
+	req, _ := proto.Marshal(&pb.HttpRequest{
+		Id:     proto.String("15"),
+		Method: proto.String("GET"),
+		Url:    proto.String("http://invalid/foo/bar?a=b"),
+		Header: []*pb.HttpHeader{{
+			Name:  proto.String("X-GFE"),
+			Value: proto.String("google.com")}},
+		Body: []byte("thebody"),
+	})
+	gock.New("https://localhost:8081").
+		Get("/server/request").
+		MatchParam("server", "foo").
+		Reply(408).
+		BodyString(string(req))
+
+	err := localProxy(&http.Client{}, &http.Client{})
+	if err != ErrTimeout {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	assertMocksDoneWithin(t, 10*time.Second)
+}
+
 func TestBuildResponsesTimesOut(t *testing.T) {
 	g := NewGomegaWithT(t)
 	bodyChannel := make(chan []byte)
