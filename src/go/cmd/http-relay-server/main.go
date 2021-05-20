@@ -19,10 +19,11 @@
 // backend and works together with a relay client that's colocated with the
 // backend.
 //
-//  Private   Firewall   Internet Firewall     Private net
+//          lan   |    internet      |               lan
 //                |                  |
 //        client ---> relay server <--- relay client ---> backend
 //                |                  |
+//             firewall           firewall
 //
 // The relay server is multiplexing: It allows multiple relay clients to
 // connect under unique names, each handling requests for a subpath of /client.
@@ -32,7 +33,8 @@
 //   * Relay server assigns an ID and stores request (with path $request) in
 //     memory. It keeps the client's request pending.
 //   * Relay client requests /server/request?server=$foo
-//   * Relay server responds with stored request.
+//   * Relay server responds with stored request (or timeout if no request comes
+//     in within the next 30 sec).
 //   * Relay client makes the stored request to backend.
 //   * Backend replies.
 //   * Relay client posts backend's reply to /server/response.

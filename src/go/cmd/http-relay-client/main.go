@@ -381,7 +381,6 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 }
 
 func localProxy(remote *http.Client, local *http.Client) error {
-	log.Printf("Connecting to remote to get next request")
 	req, err := getRequest(remote)
 	if err != nil {
 		if errors.Is(err, ErrTimeout) {
