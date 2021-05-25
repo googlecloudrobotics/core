@@ -59,6 +59,9 @@ token vendor just checks that IAM authorizes the request.
 * Response: only http status code
 * Impl: VerificationHandler.java
 
+Results are backed by a cache with a 5 minute lifetime to ease the load on the
+IAM backend.
+
 ## Interactive AuthN & AuthZ
 
 We use the token vendor together with oauth2-proxy as an authentication and
