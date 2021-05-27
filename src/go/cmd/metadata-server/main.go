@@ -51,6 +51,17 @@ var (
 
 const deprecatedPort = 8080
 
+type ConstHandler struct {
+	Body []byte
+}
+
+func (ch ConstHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Metadata-Flavor", "Google")
+	w.Header().Set("Content-Type", "application/text")
+	w.WriteHeader(http.StatusOK)
+	w.Write(ch.Body)
+}
+
 type TokenHandler struct {
 	AllowedSources *net.IPNet
 	TokenSource    oauth2.TokenSource
@@ -335,12 +346,7 @@ func main() {
 	http.Handle("/computeMetadata/v1/instance/service-accounts/default/token", tokenHandler)
 	serviceAccountHandler := ServiceAccountHandler{}
 	http.Handle("/computeMetadata/v1/instance/service-accounts/default/", serviceAccountHandler)
-	http.HandleFunc("/computeMetadata/v1/instance/service-accounts/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Metadata-Flavor", "Google")
-		w.Header().Set("Content-Type", "application/text")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("default/\n"))
-	})
+	http.Handle("/computeMetadata/v1/instance/service-accounts/", ConstHandler{[]byte("default/\n")})
 	metadataHandler := MetadataHandler{
 		ClusterName:   robotAuth.RobotName,
 		ProjectId:     robotAuth.ProjectId,
@@ -365,6 +371,10 @@ func main() {
 			http.NotFound(w, r)
 		}
 	})
+	// Return dummy IP addresses for internal/external IPs. cloudprober
+	// crashes if these are not present.
+	http.Handle("/computeMetadata/v1/instance/network-interfaces/0/ip", ConstHandler{[]byte("127.0.0.1/\n")})
+	http.Handle("/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip", ConstHandler{[]byte("127.0.0.1/\n")})
 
 	// Make sure that the bind is successful before adding the iptables rule as a means of
 	// avoiding a race condition where an old metadata-server instance that has not yet fully

@@ -40,6 +40,20 @@ func bodyOrDie(r *http.Response) string {
 	return string(body)
 }
 
+func TestConstHandler(t *testing.T) {
+	req := httptest.NewRequest("GET", "/url", strings.NewReader("body"))
+	respRecorder := httptest.NewRecorder()
+	ch := ConstHandler{[]byte("response")}
+	ch.ServeHTTP(respRecorder, req)
+
+	if want, got := 200, respRecorder.Result().StatusCode; want != got {
+		t.Errorf("Wrong response code; want %d; got %d", want, got)
+	}
+	if want, got := "response", bodyOrDie(respRecorder.Result()); want != got {
+		t.Errorf("Wrong response body; want %s; got %s", want, got)
+	}
+}
+
 func TestTokenHandlerServesToken(t *testing.T) {
 	req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/token", strings.NewReader("body"))
 	req.RemoteAddr = "192.168.0.101:8001"
