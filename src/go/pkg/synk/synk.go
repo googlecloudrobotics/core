@@ -356,6 +356,9 @@ func (s *Synk) applyAll(
 			if i > 0 && !results.failed(r) {
 				continue
 			}
+			// Attach the ResourceSet as owner. CRDs are exempt since
+			// the risk of unintended deletion of all its instances is too high.
+			setOwnerRef(r, rs)
 			action, err := s.applyOne(ctx, r, rs)
 			if err != nil {
 				curFailures++
@@ -658,11 +661,6 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		client = s.client.Resource(mapping.Resource)
 	} else {
 		client = s.client.Resource(mapping.Resource).Namespace(resource.GetNamespace())
-	}
-	// Attach the ResourceSet as owner. CRDs are exempt since
-	// the risk of unintended deletion of all its instances is too high.
-	if !isCustomResourceDefinition(resource) {
-		setOwnerRef(resource, set)
 	}
 	resetAppliedAnnotation := false
 	if err := setAppliedAnnotation(resource); err != nil {
