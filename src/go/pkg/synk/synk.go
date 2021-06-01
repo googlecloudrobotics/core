@@ -306,10 +306,7 @@ func (s *Synk) applyAll(
 ) (applyResults, error) {
 	results := applyResults{}
 
-	regulars := filter(resources, func(r *unstructured.Unstructured) bool {
-		return !isCustomResourceDefinition(r)
-	})
-	crds := filter(resources, isCustomResourceDefinition)
+	crds, regulars := separateCRDsFromResources(resources)
 
 	// Insert CRDs and wait for them to become available.
 	for _, crd := range crds {
@@ -418,10 +415,7 @@ func (s *Synk) initialize(
 	})
 	sortResources(resources)
 
-	regulars := filter(resources, func(r *unstructured.Unstructured) bool {
-		return !isCustomResourceDefinition(r)
-	})
-	crds := filter(resources, isCustomResourceDefinition)
+	crds, regulars := separateCRDsFromResources(resources)
 
 	if err := s.populateNamespaces(ctx, opts.Namespace, crds, regulars...); err != nil {
 		return nil, nil, errors.Wrap(err, "set default namespaces")
@@ -998,6 +992,26 @@ func isCustomResourceDefinition(r *unstructured.Unstructured) bool {
 	return strings.HasPrefix(r.GetAPIVersion(), "apiextensions.k8s.io/") && r.GetKind() == "CustomResourceDefinition"
 }
 
+func separateCRDsFromResources(resources []*unstructured.Unstructured) (crds []*unstructured.Unstructured, regulars []*unstructured.Unstructured) {
+	for _, r := range resources {
+		if isCustomResourceDefinition(r) {
+			crds = append(crds, r)
+		} else {
+			regulars = append(regulars, r)
+		}
+	}
+	return crds, regulars
+}
+
+func filter(in []*unstructured.Unstructured, f func(*unstructured.Unstructured) bool) (out []*unstructured.Unstructured) {
+	for _, r := range in {
+		if f(r) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 func resourceSetName(s string, v int32) string {
 	return fmt.Sprintf("%s.v%d", s, v)
 }
@@ -1032,15 +1046,6 @@ func resourceKey(r *unstructured.Unstructured) string {
 
 func gvkKey(group, version, kind string) string {
 	return fmt.Sprintf("%s/%s/%s", group, version, kind)
-}
-
-func filter(in []*unstructured.Unstructured, f func(*unstructured.Unstructured) bool) (out []*unstructured.Unstructured) {
-	for _, r := range in {
-		if f(r) {
-			out = append(out, r)
-		}
-	}
-	return out
 }
 
 // convert a resource from one type representation to another one.
