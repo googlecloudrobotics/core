@@ -46,6 +46,9 @@ prometheus:
       any: true
     externalUrl: "https://${CLOUD_ROBOTICS_DOMAIN}/prometheus/"
     retention: "120d"
+    # Keep in sync with the disksize below! Lets also keep some headroom.
+    retentionSize: "190GB"
+    walCompression: true
     resources:
       requests:
         cpu: "${LIMITS_CPU}"
