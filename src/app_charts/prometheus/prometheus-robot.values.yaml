@@ -18,11 +18,6 @@ alertmanager:
 defaultRules:
   create: false
 
-prometheusOperator:
-  # Recent Kubernetes version provide a kube-system/kubelet service by default.
-  kubeletService:
-    enabled: false
-
 prometheus:
   prometheusSpec:
     # Pick up all service monitors across all namespaces.
@@ -51,10 +46,6 @@ kubeProxy:
 kubeScheduler:
   enabled: false
 coreDns:
-  enabled: false
-# We provide our own ServiceMonitor for kubelets since the standard one doesn't work out
-# of the box on GKE.
-kubelet:
   enabled: false
 
 

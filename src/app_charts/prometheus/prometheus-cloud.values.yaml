@@ -25,11 +25,6 @@ defaultRules:
     # 2 new rules in 9.3.2 fire too quickly
     prometheusOperator: false
 
-prometheusOperator:
-  # Recent Kubernetes version provide a kube-system/kubelet service by default.
-  kubeletService:
-    enabled: false
-
 prometheus:
   prometheusSpec:
     # Pick up all service monitors across all namespaces.
@@ -98,10 +93,6 @@ kubeControllerManager:
 kubeScheduler:
   enabled: false
 coreDns:
-  enabled: false
-# We provide our own ServiceMonitor for kubelets since the standard one doesn't work out
-# of the box on GKE.
-kubelet:
   enabled: false
 
 # Throws an invalid namespace "kube-system" error during deployment, as this is

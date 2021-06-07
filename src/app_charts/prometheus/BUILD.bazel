@@ -39,7 +39,6 @@ app_chart(
 app_chart(
     name = "prometheus-robot",
     extra_templates = [
-        "cloud/kubelet-service-monitor.yaml",
         "//third_party/kube-prometheus-stack:00-crds.yaml",
     ],
     files = [
