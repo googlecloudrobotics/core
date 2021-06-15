@@ -46,23 +46,25 @@ func init() {
 	prometheus.MustRegister(brokerResponses)
 }
 
-type pendingRequest struct {
+type pendingResponse struct {
 	requestStream  chan []byte
 	responseStream chan *pb.HttpResponse
 	lastActivity   time.Time
 }
 
 // broker implements a thread-safe map for the request and response queues.
+// requests are mapped by server-name
+// responses are mapped by stream id (randomly generated hex string)
 type broker struct {
 	m    sync.Mutex
 	req  map[string]chan *pb.HttpRequest
-	resp map[string]*pendingRequest
+	resp map[string]*pendingResponse
 }
 
 func newBroker() *broker {
 	var r broker
 	r.req = make(map[string]chan *pb.HttpRequest)
-	r.resp = make(map[string]*pendingRequest)
+	r.resp = make(map[string]*pendingResponse)
 	return &r
 }
 
@@ -78,7 +80,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	if r.resp[id] != nil {
 		return nil, fmt.Errorf("Multiple clients trying to handle request ID %s", id)
 	}
-	r.resp[id] = &pendingRequest{
+	r.resp[id] = &pendingResponse{
 		requestStream:  make(chan []byte),
 		responseStream: make(chan *pb.HttpResponse),
 		lastActivity:   time.Now(),
