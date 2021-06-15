@@ -33,6 +33,7 @@ import (
 	"net/http"
 	"net/url"
 	pb "src/proto/http-relay"
+	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -77,6 +78,8 @@ var (
 		"Max size of data in bytes to accumulate before sending to the peer")
 	blockSize = flag.Int("block_size", 10*1024,
 		"Size of i/o buffer in bytes")
+	numPendingRequests = flag.Int("num_pending_requests", 1,
+		"Number of pending http requests to the relay")
 )
 
 var (
@@ -393,6 +396,16 @@ func localProxy(remote *http.Client, local *http.Client) error {
 	return nil
 }
 
+func localProxyWorker(remote *http.Client, local *http.Client) {
+	for {
+		err := localProxy(remote, local)
+		if err != nil && !errors.Is(err, ErrTimeout) {
+			log.Print(err)
+			time.Sleep(1 * time.Second)
+		}
+	}
+}
+
 func main() {
 	flag.Parse()
 
@@ -415,14 +428,15 @@ func main() {
 		}
 		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 	}
+
 	// TODO(https://github.com/golang/go/issues/31391): reimplement timeouts if possible
 	// (see also https://github.com/golang/go/issues/30876)
 	local := &http.Client{Transport: transport}
-	for {
-		err := localProxy(remote, local)
-		if err != nil && !errors.Is(err, ErrTimeout) {
-			log.Print(err)
-			time.Sleep(1 * time.Second)
-		}
+	wg := new(sync.WaitGroup)
+	wg.Add(*numPendingRequests)
+	for i := 0; i < *numPendingRequests; i++ {
+		go localProxyWorker(remote, local)
 	}
+	// Waiting for all goroutines to finish (they never do)
+	wg.Wait()
 }
