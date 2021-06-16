@@ -53,8 +53,11 @@ type pendingResponse struct {
 }
 
 // broker implements a thread-safe map for the request and response queues.
-// requests are mapped by server-name
-// responses are mapped by stream id (randomly generated hex string)
+// Requests (req) are mapped by server-name. There is only channel per relay-
+// client (identified by the server query parameter)
+// Responses (resp) are mapped by stream id (randomly generated hex string).
+// There can be multiple concurrent transfers per relay-client, each identified
+// by a unique id query parameter.
 type broker struct {
 	m    sync.Mutex
 	req  map[string]chan *pb.HttpRequest
@@ -75,10 +78,11 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 
 	r.m.Lock()
 	if r.req[server] == nil {
+		// This happens when the relay-client connects for the first time.
 		r.req[server] = make(chan *pb.HttpRequest)
 	}
 	if r.resp[id] != nil {
-		return nil, fmt.Errorf("Multiple clients trying to handle request ID %s", id)
+		return nil, fmt.Errorf("Multiple clients trying to handle request ID %s on server %s", id, server)
 	}
 	r.resp[id] = &pendingResponse{
 		requestStream:  make(chan []byte),
@@ -104,6 +108,8 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 func (r *broker) GetRequest(server string) (*pb.HttpRequest, error) {
 	r.m.Lock()
 	if r.req[server] == nil {
+		// This happens when the relay-server started and a client connects before
+		// the relay-client connected.
 		r.req[server] = make(chan *pb.HttpRequest)
 	}
 	reqChan := r.req[server]
