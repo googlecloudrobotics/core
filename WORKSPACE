@@ -334,6 +334,12 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_golang_gddo",
+    commit = "9d8ff1c67be5c2da6321c656913e1fe355991138",
+    importpath = "github.com/golang/gddo",
+)
+
+go_repository(
     name = "com_github_golang_glog",
     commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",
     importpath = "github.com/golang/glog",
@@ -355,6 +361,12 @@ go_repository(
     name = "com_github_google_btree",
     commit = "e89373fe6b4a7413d7acd6da1725b83ef713e6e4",
     importpath = "github.com/google/btree",
+)
+
+go_repository(
+    name = "com_github_felixge_httpsnoop",
+    commit = "eadd4fad6aac69ae62379194fe0219f3dbc80fd3",
+    importpath = "github.com/felixge/httpsnoop",
 )
 
 go_repository(
@@ -506,6 +518,12 @@ go_repository(
     name = "com_github_mitchellh_reflectwalk",
     commit = "3e2c75dfad4fbf904b58782a80fd595c760ad185",
     importpath = "github.com/mitchellh/reflectwalk",
+)
+
+go_repository(
+    name = "com_github_mitchellh_go_server_timing",
+    commit = "feb680ab92c20d57c527399b842e1941bde888c3",
+    importpath = "github.com/mitchellh/go-server-timing",
 )
 
 go_repository(

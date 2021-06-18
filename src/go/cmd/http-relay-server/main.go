@@ -90,6 +90,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/mitchellh/go-server-timing"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -102,6 +103,8 @@ var (
 	projectId = flag.String("project_id", "", "Cloud project for IAM checks")
 	blockSize = flag.Int("block_size", 10*1024,
 		"Size of i/o buffer in bytes")
+	serverTimings = flag.Bool("server_timings", false,
+		"Return backend timings via http headers")
 )
 
 func createId() string {
@@ -228,7 +231,11 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 	}
 }
 
+// client sent a request.
 func (s *server) client(w http.ResponseWriter, r *http.Request) {
+	timing := servertiming.FromContext(r.Context())
+
+	m1 := timing.NewMetric("prepare").WithDesc("Prepare relaying").Start()
 	// After stripping, the path is "${SERVER_NAME}/${REQUEST}"
 	pathParts := strings.SplitN(strings.TrimPrefix(r.URL.Path, clientPrefix), "/", 2)
 	backendName := pathParts[0]
@@ -255,7 +262,9 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 		Header: marshalHeader(&r.Header),
 		Body:   body,
 	}
+	m1.Stop()
 
+	m2 := timing.NewMetric("relay").WithDesc("Relay to backend").Start()
 	backendRespChan, err := s.b.RelayRequest(backendName, backendReq)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -266,6 +275,7 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 	if header != nil {
 		unmarshalHeader(w, header)
 	}
+	m2.Stop()
 	if status == http.StatusSwitchingProtocols {
 		// Note: call s.bidirectionalStream before w.WriteHeader so that
 		// bidirectionalStream can set the status on error.
@@ -284,6 +294,7 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Delivered response for request %s", id)
 }
 
+// relay-client sent a request.
 func (s *server) serverRequest(w http.ResponseWriter, r *http.Request) {
 	server := r.URL.Query().Get("server")
 	if server == "" {
@@ -292,6 +303,7 @@ func (s *server) serverRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("Relay client connected for server %s", server)
 
+	// get pending request from client and sent as a reply to the relay-client
 	request, err := s.b.GetRequest(server)
 	if err != nil {
 		log.Printf("Relay client got no request: %v", err)
@@ -370,5 +382,9 @@ func main() {
 	http.HandleFunc("/server/requeststream", server.serverRequestStream)
 	http.HandleFunc("/server/response", server.serverResponse)
 	http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), nil))
+
+	h := servertiming.Middleware(http.DefaultServeMux,
+		&servertiming.MiddlewareOpts{DisableHeaders: !(*serverTimings)},
+	)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), h))
 }
