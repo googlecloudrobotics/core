@@ -62,6 +62,7 @@ function create {
     --no-enable-basic-auth \
     --metadata disable-legacy-endpoints=true \
     --scopes gke-default,https://www.googleapis.com/auth/cloud-platform \
+    --workload-pool=${GCP_PROJECT_ID}.svc.id.goog \
     --zone=${GCP_ZONE} \
     --project=${GCP_PROJECT_ID}
 
@@ -70,7 +71,19 @@ function create {
 
   # This ensures the 'cloudrobotics.com/master-host' label will point to the VM
   local CLUSTER_IP
-  CLUSTER_IP=$(gcloud compute instances list --project=${GCP_PROJECT_ID} --filter "name~gke-${ROBOT_NAME}-default-pool.*" --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+  CLUSTER_IP=$(gcloud compute instances list --project="${GCP_PROJECT_ID}" --filter "name~gke-${ROBOT_NAME}-default-pool.*" --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+
+  # Fix cr-syncer for workload identity
+  local GCP_PROJECT_NUM
+  GCP_PROJECT_NUM=$(gcloud projects describe "${GCP_PROJECT_ID}" --format "value(projectNumber)")
+  gcloud iam service-accounts add-iam-policy-binding \
+    --role roles/iam.workloadIdentityUser \
+    --member "serviceAccount:${GCP_PROJECT_ID}.svc.id.goog[default/default]" \
+    ${GCP_PROJECT_NUM}-compute@developer.gserviceaccount.com \
+    --project "${GCP_PROJECT_ID}"
+  kubectl --context=${GKE_SIM_CONTEXT} annotate sa default --overwrite \
+    iam.gke.io/gcp-service-account=${GCP_PROJECT_NUM}-compute@developer.gserviceaccount.com
+
 
   # shellcheck disable=2097 disable=2098
   KUBE_CONTEXT=${GKE_SIM_CONTEXT} \

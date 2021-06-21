@@ -1,9 +1,14 @@
 resource "google_container_cluster" "cloud-robotics" {
+  project               = data.google_project.project.project_id
   name                  = "cloud-robotics"
   location              = var.zone
   min_master_version    = "1.20"
   enable_shielded_nodes = true
   depends_on            = [google_project_service.container]
+
+  # Make the cluster vpc-native (going to be default in the future).
+  networking_mode = "VPC_NATIVE"
+  ip_allocation_policy {}
 
   # We can't create a cluster with no node pool defined, but we want to only use
   # separately managed node pools. So we create the smallest possible default
@@ -17,9 +22,17 @@ resource "google_container_cluster" "cloud-robotics" {
     update = "1h"
     delete = "1h"
   }
+
+  workload_identity_config {
+    workload_pool = "${data.google_project.project.project_id}.svc.id.goog"
+  }
 }
 
 resource "google_container_node_pool" "cloud-robotics" {
+  # provider required for adding workload metadata.
+  provider = google-beta
+
+  project  = data.google_project.project.project_id
   name     = "cloud-robotics"
   location = var.zone
   cluster  = google_container_cluster.cloud-robotics.name
@@ -33,7 +46,10 @@ resource "google_container_node_pool" "cloud-robotics" {
 
   node_config {
     machine_type = "e2-standard-4"
-
+    # configure GKE metadata server on the node for Workload Identity.
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
     oauth_scopes = [
       "https://www.googleapis.com/auth/bigquery",
       "https://www.googleapis.com/auth/cloud-platform",
