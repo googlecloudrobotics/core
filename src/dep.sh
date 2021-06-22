@@ -30,8 +30,8 @@ export GOPATH=${DIR}/.gopath
 SHADOW_REPO="${DIR}/.gopath/src/github.com/googlecloudrobotics/core/src"
 DEP="${GOPATH}/bin/dep"
 
-if ! type ${DEP} >/dev/null; then
-  curl -fsSLo "${DEP}" https://github.com/golang/dep/releases/download/v0.5.4/dep-linux-amd64
+if ! type ${DEP} >/dev/null 2>&1; then
+  curl --create-dirs -fsSLo "${DEP}" https://github.com/golang/dep/releases/download/v0.5.4/dep-linux-amd64
   chmod +x "${DEP}"
 fi
 
