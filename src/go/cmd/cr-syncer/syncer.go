@@ -20,6 +20,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
@@ -183,22 +184,28 @@ func newCRSyncer(
 		ns = "default"
 	}
 	s := &crSyncer{
-		crd:             crd,
-		subtree:         annotations[annotationStatusSubtree],
-		versionIx:       versionIx,
-		upstream:        remote.Resource(gvr).Namespace(ns),
-		downstream:      local.Resource(gvr).Namespace(ns),
-		upstreamQueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "upstream"),
-		downstreamQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "downstream"),
-		done:            make(chan struct{}),
+		crd:        crd,
+		subtree:    annotations[annotationStatusSubtree],
+		versionIx:  versionIx,
+		upstream:   remote.Resource(gvr).Namespace(ns),
+		downstream: local.Resource(gvr).Namespace(ns),
+		done:       make(chan struct{}),
 	}
 	switch src := annotations[annotationSpecSource]; src {
 	case "robot":
 		s.clusterName = "cloud"
 		// Swap upstream and downstream if the robot is the spec source.
 		s.upstream, s.downstream = s.downstream, s.upstream
+		// Use DefaultControllerRateLimiter for queue with destination robot and ItemFastSlowRateLimiter for queue with destination cloud to improve resilience regarding network errors
+		// Upstream destination is robot cluster, downstream destination is cloud cluster
+		s.upstreamQueue = workqueue.NewNamedRateLimitingQueue(workqueue.NewItemFastSlowRateLimiter(time.Millisecond*500, time.Second*5, 5), "upstream")
+		s.downstreamQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "downstream")
 	case "cloud":
 		s.clusterName = fmt.Sprintf("robot-%s", robotName)
+		// Use DefaultControllerRateLimiter for queue with destination robot and ItemFastSlowRateLimiter for queue with destination cloud to improve resilience regarding network errors
+		// Upstream destination is robot cluster, downstream destination is cloud cluster
+		s.upstreamQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "upstream")
+		s.downstreamQueue = workqueue.NewNamedRateLimitingQueue(workqueue.NewItemFastSlowRateLimiter(time.Millisecond*500, time.Second*5, 5), "downstream")
 	default:
 		return nil, fmt.Errorf("unknown spec source %q", src)
 	}
