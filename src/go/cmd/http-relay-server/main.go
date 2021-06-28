@@ -90,7 +90,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/mitchellh/go-server-timing"
+	servertiming "github.com/mitchellh/go-server-timing"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -240,7 +240,7 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 	pathParts := strings.SplitN(strings.TrimPrefix(r.URL.Path, clientPrefix), "/", 2)
 	backendName := pathParts[0]
 
-	log.Printf("Wrapping request for %s: %+v", r.URL.Path, w)
+	log.Printf("Wrapping request for %s", r.URL.Path)
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -258,6 +258,7 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 	backendReq := &pb.HttpRequest{
 		Id:     proto.String(id),
 		Method: proto.String(r.Method),
+		Host:   proto.String(r.Host),
 		Url:    proto.String(backendUrl.String()),
 		Header: marshalHeader(&r.Header),
 		Body:   body,

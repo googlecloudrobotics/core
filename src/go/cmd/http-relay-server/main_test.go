@@ -58,6 +58,7 @@ func TestClientHandler(t *testing.T) {
 	wantRequest := &pb.HttpRequest{
 		Id:     relayRequest.Id,
 		Method: proto.String("GET"),
+		Host:   proto.String("example.com"),
 		Url:    proto.String("http://invalid/bar?a=b#c"),
 		Header: []*pb.HttpHeader{{
 			Name:  proto.String("X-Deadline"),

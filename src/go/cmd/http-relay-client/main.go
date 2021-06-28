@@ -61,6 +61,11 @@ var (
 			"client to backend server")
 	backendAddress = flag.String("backend_address", "localhost:8080",
 		"Hostname of the backend server as seen by the relay client")
+	backendPath = flag.String("backend_path", "",
+		"Path prefix for backend requests (default: none)")
+	preserveHost = flag.Bool("preserve_host", true,
+		"Preserve Host header of the original request for "+
+			"compatibility with cross-origin request checks.")
 	relayScheme = flag.String("relay_scheme", "https",
 		"Connection scheme (http, https) for connection from relay "+
 			"client to relay server")
@@ -140,10 +145,14 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 	}
 	targetUrl.Scheme = *backendScheme
 	targetUrl.Host = *backendAddress
+	targetUrl.Path = *backendPath + targetUrl.Path
 	log.Printf("Sending request to backend for %s: %s", id, targetUrl)
 	req, err := http.NewRequest(*breq.Method, targetUrl.String(), bytes.NewReader(breq.Body))
 	if err != nil {
 		return nil, nil, err
+	}
+	if *preserveHost && breq.Host != nil {
+		req.Host = *breq.Host
 	}
 	for _, h := range breq.Header {
 		req.Header.Set(*h.Name, *h.Value)
@@ -431,7 +440,14 @@ func main() {
 
 	// TODO(https://github.com/golang/go/issues/31391): reimplement timeouts if possible
 	// (see also https://github.com/golang/go/issues/30876)
-	local := &http.Client{Transport: transport}
+	local := &http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			// Don't follow redirects: instead, pass them through
+			// the relay untouched.
+			return http.ErrUseLastResponse
+		},
+		Transport: transport,
+	}
 	wg := new(sync.WaitGroup)
 	wg.Add(*numPendingRequests)
 	for i := 0; i < *numPendingRequests; i++ {

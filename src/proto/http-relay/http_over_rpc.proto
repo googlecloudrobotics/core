@@ -29,6 +29,7 @@ message HttpHeader {
 message HttpRequest {
   optional string id = 1;
   optional string method = 2;
+  optional string host = 6;
   optional string url = 3;
   repeated HttpHeader header = 4;
   optional bytes body = 5;
