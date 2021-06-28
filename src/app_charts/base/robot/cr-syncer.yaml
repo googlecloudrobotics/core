@@ -34,7 +34,7 @@ spec:
           failureThreshold: 3
           initialDelaySeconds: 10
           periodSeconds: 10
-          timeoutSeconds: 10
+          timeoutSeconds: 60
       securityContext:
         runAsUser: 65532
         runAsGroup: 65532
