@@ -73,7 +73,6 @@
 //          .     |        .         |       .               .
 //
 // The client side implementation is in ../http-relay-client.
-
 package main
 
 import (

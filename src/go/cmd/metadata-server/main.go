@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package main runs a local http server providing details about the connected
+// cloud project.
+//
+// This metadata server replicates a subset of the GKE metadata server
+// functionality to provide applcation default creadentials for local services.
 package main
 
 import (
