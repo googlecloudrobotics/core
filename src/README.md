@@ -22,3 +22,13 @@ from the top-level source directory:
 ```
 ./src/dep.sh ensure
 ```
+
+### Docs
+
+In order to force a new snapshot, run
+```bash
+VERSION=$(curl -s https://proxy.golang.org/github.com/googlecloudrobotics/core/@latest | jq -r ".Version")
+echo "https://pkg.go.dev/github.com/googlecloudrobotics/core/src/go@${VERSION}"
+```
+and open the printed link. Then that version is part of the history.
+
