@@ -313,7 +313,7 @@ func (s *server) serverRequest(w http.ResponseWriter, r *http.Request) {
 
 	body, err := proto.Marshal(request)
 	if err != nil {
-		log.Printf("Failed to unmarshal request: %v", err)
+		log.Printf("Failed to marshal request: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
