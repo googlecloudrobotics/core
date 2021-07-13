@@ -38,8 +38,6 @@ import (
 	flag "github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
-	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -303,48 +301,11 @@ func main() {
 		}
 	}
 
-	// Create service account and role binding for Tiller.
-	// (this isn't strictly necessary until we're using auth properly, but it's
-	//  one less thing to fix when RBAC is used properly)
-	if _, err := k8sLocalClientSet.CoreV1().ServiceAccounts("kube-system").Create(&corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "tiller",
-			Namespace: "kube-system",
-		},
-	}); err != nil && !apierrors.IsAlreadyExists(err) {
-		log.Println("Failed to create tiller service account: ", err)
-	}
-	if _, err := k8sLocalClientSet.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "tiller",
-			Namespace: "kube-system",
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     "cluster-admin",
-		},
-		Subjects: []rbacv1.Subject{{
-			Kind:      "ServiceAccount",
-			Name:      "tiller",
-			Namespace: "kube-system",
-		}},
-	}); err != nil && !apierrors.IsAlreadyExists(err) {
-		log.Println("Failed to create tiller role binding: ", err)
-	}
-
 	log.Println("Initializing Synk")
 	output, err := exec.Command(synkPath, "init").CombinedOutput()
 	if err != nil {
 		log.Fatalf("Synk init failed: %v. Synk output:\n%s\n", err, output)
 	}
-
-	// Best-effort delete Tiller and all its configmaps.
-	k8sLocalClientSet.CoreV1().ConfigMaps("kube-system").DeleteCollection(nil, metav1.ListOptions{
-		LabelSelector: "OWNER=TILLER",
-	})
-	k8sLocalClientSet.AppsV1().Deployments("kube-system").Delete("tiller-deploy", nil)
-	k8sLocalClientSet.CoreV1().Services("kube-system").Delete("tiller-deploy", nil)
 
 	appManagement := configutil.GetBoolean(vars, "APP_MANAGEMENT", true)
 	// Use "robot" as a suffix for consistency for Synk deployments.

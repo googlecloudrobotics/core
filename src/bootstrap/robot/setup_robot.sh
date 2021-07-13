@@ -143,6 +143,13 @@ until kc get serviceaccount default &>/dev/null; do
   fi
 done
 
+# Remove legacy helm resources
+kc -n kube-system delete deploy tiller-deploy 2> /dev/null || true
+kc -n kube-system delete service tiller-deploy 2> /dev/null || true
+kc -n kube-system delete cluster-role-binding tiller 2> /dev/null || true
+kc -n kube-system delete sa tiller 2> /dev/null || true
+kc -n kube-system delete cm -l OWNER=TILLER 2> /dev/null
+
 faketty kubectl --context "${KUBE_CONTEXT}" run setup-robot --restart=Never -it --rm \
   --image=${IMAGE_REFERENCE} \
   --env="ACCESS_TOKEN=${ACCESS_TOKEN}" \
