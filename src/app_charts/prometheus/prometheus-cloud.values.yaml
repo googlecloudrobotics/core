@@ -16,17 +16,6 @@ kubeTargetVersionOverride: "v1.14.10"
 alertmanager:
   enabled: false
 
-defaultRules:
-  rules: # https://github.com/helm/charts/issues/20726
-    k8s: false
-    kubernetesApps: false
-    # CPUThrottlingHigh tends to fire wrongly
-    kubernetesResources: false
-    node: false
-    prometheus: false
-    # 2 new rules in 9.3.2 fire too quickly
-    prometheusOperator: false
-
 prometheus:
   prometheusSpec:
     # Pick up all service monitors across all namespaces.

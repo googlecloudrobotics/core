@@ -8,7 +8,7 @@ robots: []
 # ~12Gi mem.
 # TODO(rodrigoq): can we reduce this by updating prometheus?
 limits:
-  cpu: "200m"
+  cpu: "2000m"
   memory: "2Gi"
 
 # The default persistent disk size. You need to adjust this defeping your fleet
