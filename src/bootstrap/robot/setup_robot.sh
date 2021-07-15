@@ -146,7 +146,7 @@ done
 # Remove legacy helm resources
 kc -n kube-system delete deploy tiller-deploy 2> /dev/null || true
 kc -n kube-system delete service tiller-deploy 2> /dev/null || true
-kc -n kube-system delete cluster-role-binding tiller 2> /dev/null || true
+kc -n kube-system delete clusterrolebinding tiller 2> /dev/null || true
 kc -n kube-system delete sa tiller 2> /dev/null || true
 kc -n kube-system delete cm -l OWNER=TILLER 2> /dev/null
 
