@@ -309,8 +309,8 @@ func main() {
 
 	appManagement := configutil.GetBoolean(vars, "APP_MANAGEMENT", true)
 	// Use "robot" as a suffix for consistency for Synk deployments.
-	installChartOrDie(domain, registry, "base-robot", "base-robot-0.0.1.tgz",
-		appManagement)
+	installChartOrDie(domain, registry, "base-robot", "default",
+		"base-robot-0.0.1.tgz", appManagement)
 	log.Println("Setup complete")
 }
 
@@ -323,7 +323,7 @@ func helmValuesStringFromMap(varMap map[string]string) string {
 }
 
 // installChartOrDie installs a chart using Synk.
-func installChartOrDie(domain, registry, name, chartPath string, appManagement bool) {
+func installChartOrDie(domain, registry, name, namespace, chartPath string, appManagement bool) {
 	vars := helmValuesStringFromMap(map[string]string{
 		"domain":               domain,
 		"registry":             registry,
@@ -344,6 +344,7 @@ func installChartOrDie(domain, registry, name, chartPath string, appManagement b
 		"template",
 		"--set-string", vars,
 		"--name", name,
+		"--namespace", namespace,
 		filepath.Join(filesDir, chartPath),
 	).CombinedOutput()
 	if err != nil {
@@ -353,7 +354,7 @@ func installChartOrDie(domain, registry, name, chartPath string, appManagement b
 		synkPath,
 		"apply",
 		name,
-		"-n", "default",
+		"-n", namespace,
 		"-f", "-",
 	)
 	// Helm writes the templated manifests and errors alike to stderr.
