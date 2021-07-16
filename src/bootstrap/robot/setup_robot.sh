@@ -111,23 +111,6 @@ if [[ "$REGISTRY" != "gcr.io/cloud-robotics-releases" ]] ; then
   docker logout https://${REGISTRY_DOMAIN}
 fi
 
-# Generate TLS certificate if none exists, or if it is in the older v1 format.
-# It is used by the robot-master to allow the Kubernetes API server to securly
-# connect to webhooks.
-if kc get secret robot-master-tls --show-labels 2>/dev/null | grep -q "cert-format=v2"; then
-  tls_crt=$(kc get secret robot-master-tls -o=go-template --template='{{index .data "tls.crt"}}')
-  tls_key=$(kc get secret robot-master-tls -o=go-template --template='{{index .data "tls.key"}}')
-else
-  certdir=$(mktemp -d)
-  openssl genrsa -out "${certdir}/tls.key" 2048
-  openssl req -x509 -new -nodes -key "${certdir}/tls.key" \
-    -subj "/CN=robot-master.default.svc" \
-    -config <(sed "s/^#\?\s*subjectAltName=.*/subjectAltName=DNS:robot-master.default.svc/" /etc/ssl/openssl.cnf) \
-    -days 36500 -reqexts v3_req -extensions v3_ca -out "${certdir}/tls.crt"
-  tls_crt=$(openssl base64 -A < ${certdir}/tls.crt)
-  tls_key=$(openssl base64 -A < ${certdir}/tls.key)
-fi
-
 # Wait for creation of the default service account.
 # https://github.com/kubernetes/kubernetes/issues/66689
 i=0
@@ -154,8 +137,6 @@ faketty kubectl --context "${KUBE_CONTEXT}" run setup-robot --restart=Never -it 
   --image=${IMAGE_REFERENCE} \
   --env="ACCESS_TOKEN=${ACCESS_TOKEN}" \
   --env="REGISTRY=${REGISTRY}" \
-  --env="TLS_KEY=${tls_key}" \
-  --env="TLS_CRT=${tls_crt}" \
   --env="HOST_HOSTNAME=${HOST_HOSTNAME}" \
   --env="CRC_VERSION=${CRC_VERSION}" \
   -- "$@"
