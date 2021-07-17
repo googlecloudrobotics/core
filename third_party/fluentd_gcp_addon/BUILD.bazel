@@ -16,7 +16,7 @@
 #   cd kubernetes
 #   (source "cluster/gce/gci/configure-helper.sh" && setup-fluentd cluster/addons)
 #   for f in cluster/addons/fluentd-gcp/fluentd-gcp-{configmap,ds}.yaml; do \
-#     sed "s/namespace: kube-system/namespace: default/" $f >${THIS_DIR}/third_party/fluentd_gcp_addon/$(basename $f); \
+#     grep -v "namespace: kube-system" $f >${THIS_DIR}/third_party/fluentd_gcp_addon/$(basename $f); \
 #   done
 #
 # and apply changes as noted in each file.
