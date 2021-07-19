@@ -30,7 +30,6 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/jwt"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -53,9 +52,13 @@ func filename() string {
 	return kubeutils.ExpandUser(credentialsFile)
 }
 
-// LoadFromFile loads
-func LoadFromFile() (*RobotAuth, error) {
-	raw, err := ioutil.ReadFile(filename())
+// LoadFromFile loads key from json file. If keyfile is "", it tries to load
+// from the default location.
+func LoadFromFile(keyfile string) (*RobotAuth, error) {
+	if keyfile == "" {
+		keyfile = filename()
+	}
+	raw, err := ioutil.ReadFile(keyfile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %v: %v", credentialsFile, err)
 	}
@@ -87,21 +90,6 @@ func (r *RobotAuth) StoreInFile() error {
 	}
 
 	return nil
-}
-
-func LoadFromK8sSecret(clientset *kubernetes.Clientset) (*RobotAuth, error) {
-	secrets := clientset.CoreV1().Secrets(corev1.NamespaceDefault)
-	robotAuthSecret, err := secrets.Get(credentialsSecretName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	var robotAuth RobotAuth
-	if err = json.Unmarshal(robotAuthSecret.Data["json"], &robotAuth); err != nil {
-		return nil, err
-	}
-
-	return &robotAuth, err
 }
 
 func (r *RobotAuth) StoreInK8sSecret(clientset *kubernetes.Clientset) error {

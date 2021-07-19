@@ -25,7 +25,6 @@ import (
 	"flag"
 	"fmt"
 	"hash/fnv"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -315,15 +314,9 @@ func main() {
 		log.Fatalf("invalid source CIDR %s: %v", *sourceCidr, err)
 	}
 
-	robotIdBytes, err := ioutil.ReadFile(*robotIdFile)
+	robotAuth, err := robotauth.LoadFromFile(*robotIdFile)
 	if err != nil {
 		log.Fatalf("failed to read robot id file %s: %v", *robotIdFile, err)
-	}
-
-	var robotAuth robotauth.RobotAuth
-	err = json.Unmarshal(robotIdBytes, &robotAuth)
-	if err != nil {
-		log.Fatalf("failed to parse robot id file %s: %v", *robotIdFile, err)
 	}
 
 	idHash := fnv.New64a()

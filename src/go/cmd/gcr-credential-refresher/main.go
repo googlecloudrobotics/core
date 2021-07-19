@@ -15,14 +15,18 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+)
+
+var (
+	robotIdFile = flag.String("robot_id_file", "", "robot-id.json file")
 )
 
 const updateInterval = 10 * time.Minute
@@ -38,16 +42,9 @@ func updateCredentials() error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Read the robot auth data from the corresponding k8s secret.
-	robotAuth, err := robotauth.LoadFromK8sSecret(localClient)
-	if k8serrors.IsNotFound(err) {
-		log.Printf("Warning: Robot auth secret not found. Not refreshing GCR " +
-			"credentials... (this is only OK if the robot cluster is running " +
-			"in the cloud).")
-		return nil
-	}
+	robotAuth, err := robotauth.LoadFromFile(*robotIdFile)
 	if err != nil {
-		return err
+		log.Fatalf("failed to read robot id file %s: %v", *robotIdFile, err)
 	}
 	// Perform a token exchange with the TokenVendor in the cloud cluster and update the
 	// credentials used to pull images from GCR.
@@ -57,6 +54,8 @@ func updateCredentials() error {
 // Updates the token used to pull images from GCR in the surrounding cluster. The update runs
 // on startup, and then every 10 minutes.
 func main() {
+	flag.Parse()
+
 	for {
 		if err := updateCredentials(); err != nil {
 			log.Fatal(err)

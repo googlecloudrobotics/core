@@ -8,7 +8,6 @@ go_library(
     deps = [
         "//src/go/pkg/kubeutils:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
-        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",
         "@org_golang_x_oauth2//:go_default_library",
         "@org_golang_x_oauth2//jwt:go_default_library",
