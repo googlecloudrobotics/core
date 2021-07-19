@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	b64 "encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"log"
@@ -205,6 +206,23 @@ func checkRobotName(client dynamic.Interface) error {
 	return nil
 }
 
+// storeInK8sSecret write new robot-id to kubernetes secret.
+func storeInK8sSecret(clientset *kubernetes.Clientset, namespace string, r *robotauth.RobotAuth) error {
+	authJson, err := json.Marshal(r)
+	if err != nil {
+		return err
+	}
+
+	return kubeutils.UpdateSecret(
+		clientset,
+		"robot-auth",
+		namespace,
+		corev1.SecretTypeOpaque,
+		map[string][]byte{
+			"json": authJson,
+		})
+}
+
 func main() {
 	parseFlags()
 	envToken := os.Getenv("ACCESS_TOKEN")
@@ -302,7 +320,7 @@ func main() {
 		if err := setup.CreateAndPublishCredentialsToCloud(httpClient, auth); err != nil {
 			log.Fatal(err)
 		}
-		if err := auth.StoreInK8sSecret(k8sLocalClientSet); err != nil {
+		if err := storeInK8sSecret(k8sLocalClientSet, baseNamespace, auth); err != nil {
 			log.Fatal(fmt.Errorf("Failed to write auth secret: %v", err))
 		}
 		if err := gcr.UpdateGcrCredentials(k8sLocalClientSet, auth); err != nil {

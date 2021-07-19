@@ -29,14 +29,11 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/jwt"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
 	// TODO(ensonic): setup-dev creates a key and stores it, only for the ssh-app to read it
-	credentialsFile       = "~/.config/cloud-robotics/robot-id.json"
-	credentialsSecretName = "robot-auth"
+	credentialsFile = "~/.config/cloud-robotics/robot-id.json"
 )
 
 // Object containing ID, as stored in robot-id.json.
@@ -72,7 +69,7 @@ func LoadFromFile(keyfile string) (*RobotAuth, error) {
 	return &robotAuth, nil
 }
 
-// Write a newly-chosen ID to disk.
+// StoreInFile writes a newly-chosen ID to disk.
 func (r *RobotAuth) StoreInFile() error {
 	raw, err := json.Marshal(r)
 	if err != nil {
@@ -90,22 +87,6 @@ func (r *RobotAuth) StoreInFile() error {
 	}
 
 	return nil
-}
-
-func (r *RobotAuth) StoreInK8sSecret(clientset *kubernetes.Clientset) error {
-	authJson, err := json.Marshal(r)
-	if err != nil {
-		return err
-	}
-
-	return kubeutils.UpdateSecret(
-		clientset,
-		credentialsSecretName,
-		corev1.NamespaceDefault,
-		corev1.SecretTypeOpaque,
-		map[string][]byte{
-			"json": authJson,
-		})
 }
 
 func (r *RobotAuth) getTokenEndpoint() string {
