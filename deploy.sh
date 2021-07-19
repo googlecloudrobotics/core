@@ -279,13 +279,16 @@ function helm_charts {
     fi
   done
 
+  local BASE_NAMESPACE
+  BASE_NAMESPACE="default"
+
   # Generate a certificate authority if none exists yet. It is used by
   # cert-manager to issue new cluster-internal certificates.
   # Avoid creating a new one on each run as rotation may cause intermittent
   # disruptions, which we don't want to trigger on each deploy.
-  if kc get secret cluster-authority; then
-    ca_crt=$(kc get secret cluster-authority -o=go-template --template='{{index .data "tls.crt"}}')
-    ca_key=$(kc get secret cluster-authority -o=go-template --template='{{index .data "tls.key"}}')
+  if kc get secret -n "${BASE_NAMESPACE}" cluster-authority; then
+    ca_crt=$(kc get secret -n "${BASE_NAMESPACE}" cluster-authority -o=go-template --template='{{index .data "tls.crt"}}')
+    ca_key=$(kc get secret -n "${BASE_NAMESPACE}" cluster-authority -o=go-template --template='{{index .data "tls.key"}}')
   else
     certdir=$(mktemp -d)
     openssl genrsa -out "${certdir}/ca.key" 2048
@@ -327,18 +330,25 @@ EOF
   cleanup_helm_data
   cleanup_old_cert_manager
 
-  kc label --overwrite namespace default certmanager.k8s.io/disable-validation=true
+  cat <<EOF | kc apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${BASE_NAMESPACE}
+  labels:
+    certmanager.k8s.io/disable-validation: "true"
+EOF
 
   echo "installing base-cloud to ${KUBE_CONTEXT}..."
-  ${HELM} template -n base-cloud ${values} \
+  ${HELM} template -n base-cloud --namespace=${BASE_NAMESPACE} ${values} \
       ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz \
-    | ${SYNK} apply base-cloud -n default -f - \
+    | ${SYNK} apply base-cloud -n ${BASE_NAMESPACE} -f - \
     || die "Synk failed for base-cloud"
 
   echo "installing platform-apps-cloud to ${KUBE_CONTEXT}..."
   ${HELM} template -n platform-apps-cloud ${values} \
       ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz \
-    | ${SYNK} apply platform-apps-cloud -n default -f - \
+    | ${SYNK} apply platform-apps-cloud -f - \
     || die "Synk failed for platform-apps-cloud"
 }
 
