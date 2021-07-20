@@ -61,6 +61,9 @@ prometheus-node-exporter:
     # This is disabled by default, since it might leak memory
     # (https://github.com/prometheus/node_exporter/blob/master/CHANGELOG.md#0160-rc1--2018-04-04)
     - --collector.wifi
+    # Ignore more fuse filesystems
+    # https://github.com/prometheus/node_exporter/blob/master/collector/filesystem_linux.go#L33
+    - --collector.filesystem.ignored-fs-types=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|fuse\.\w*|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$
 
 grafana:
   enabled: false
