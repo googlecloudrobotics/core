@@ -16,6 +16,10 @@ kubeTargetVersionOverride: "v1.14.10"
 alertmanager:
   enabled: false
 
+defaultRules:
+  rules:
+    kubeApiserver: false
+
 prometheus:
   prometheusSpec:
     # Pick up all service monitors across all namespaces.
