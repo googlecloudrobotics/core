@@ -201,6 +201,7 @@ func (r *Reconciler) ensureNamespace(ctx context.Context, as *apps.ChartAssignme
 
 	createNamespace := k8serrors.IsNotFound(err)
 	ns.Name = as.Spec.NamespaceName
+	ns.Labels = map[string]string{"app": as.Name}
 
 	// Add ourselves to the owners if we aren't already.
 	_true := true
