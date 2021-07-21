@@ -11,7 +11,9 @@ spec:
     path: /client/{{ .name }}/federate
     params:
       'match[]':
-      - '{job=~".+"}'
+      # Identified via Prometheus query: topk(10, count by (__name__)({__name__=~".+"}))
+      # As of 2021-07-21 this config reduces the number of time series scraped by approx 1/4
+      - '{__name__=~".+", __name__!~"apiserver_request_duration_seconds_bucket|etcd_request_duration_seconds_bucket|apiserver_response_sizes_bucket"}'
     honorLabels: true
   targetLabels:
   - robot
