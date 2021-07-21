@@ -64,6 +64,16 @@ prometheus:
       - source_labels: [__meta_kubernetes_service_label_app]
         regex: kube-alertmanager
         action: keep
+    # Set absurdly high thresholds as a workaround for not being able to disable these and not having enough time to WAL replay
+    # https://github.com/prometheus-operator/prometheus-operator/issues/3587
+    containers:
+    - name: prometheus
+      livenessProbe:
+        initialDelaySeconds: 300
+        failureThreshold: 1000
+      readinessProbe:
+        initialDelaySeconds: 300
+        failureThreshold: 1000
 
 # etcd, scheduler, and controller-manager are managed by GKE and hidden.
 kubeEtcd:
