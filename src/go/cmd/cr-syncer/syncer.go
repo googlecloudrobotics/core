@@ -52,6 +52,8 @@ const (
 	// is disabled, otherwise the status and annotation cannot be updated
 	// in a single request.
 	annotationResourceVersion = "cr-syncer.cloudrobotics.com/remote-resource-version"
+
+	clusterNameCloud = "cloud"
 )
 
 var (
@@ -137,6 +139,9 @@ type crSyncer struct {
 	downstreamInf   cache.SharedIndexInformer
 	upstreamQueue   workqueue.RateLimitingInterface
 	downstreamQueue workqueue.RateLimitingInterface
+	infDone         chan struct{}
+
+	conflictErrors int
 
 	done chan struct{} // Terminates all background processes.
 }
@@ -193,7 +198,7 @@ func newCRSyncer(
 	}
 	switch src := annotations[annotationSpecSource]; src {
 	case "robot":
-		s.clusterName = "cloud"
+		s.clusterName = clusterNameCloud
 		// Swap upstream and downstream if the robot is the spec source.
 		s.upstream, s.downstream = s.downstream, s.upstream
 		// Use DefaultControllerRateLimiter for queue with destination robot and ItemFastSlowRateLimiter for queue with destination cloud to improve resilience regarding network errors
@@ -218,43 +223,63 @@ func newCRSyncer(
 		}
 	}
 
-	newInformer := func(client dynamic.ResourceInterface) cache.SharedIndexInformer {
-		return cache.NewSharedIndexInformer(
-			&cache.ListWatch{
-				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-					options.LabelSelector = s.labelSelector
-					return client.List(options)
-				},
-				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-					options.LabelSelector = s.labelSelector
-					return client.Watch(options)
-				},
-			},
-			&unstructured.Unstructured{},
-			resyncPeriod,
-			nil,
-		)
-	}
-	s.upstreamInf = newInformer(s.upstream)
-	s.downstreamInf = newInformer(s.downstream)
+	s.upstreamInf = s.newInformer(s.upstream)
+	s.downstreamInf = s.newInformer(s.downstream)
 
 	return s, nil
 }
 
-func (s *crSyncer) startInformers() error {
-	go s.upstreamInf.Run(s.done)
-	go s.downstreamInf.Run(s.done)
+func (s *crSyncer) newInformer(client dynamic.ResourceInterface) cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				options.LabelSelector = s.labelSelector
+				return client.List(options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				options.LabelSelector = s.labelSelector
+				return client.Watch(options)
+			},
+		},
+		&unstructured.Unstructured{},
+		resyncPeriod,
+		nil,
+	)
+}
 
-	if ok := cache.WaitForCacheSync(s.done, s.upstreamInf.HasSynced); !ok {
+func (s *crSyncer) startInformers() error {
+	if s.infDone != nil {
+		return fmt.Errorf("informer for %s already started", s.crd.GetName())
+	}
+	s.infDone = make(chan struct{})
+
+	go s.upstreamInf.Run(s.infDone)
+	go s.downstreamInf.Run(s.infDone)
+
+	if ok := cache.WaitForCacheSync(s.infDone, s.upstreamInf.HasSynced); !ok {
 		return fmt.Errorf("stopped while syncing upstream informer for %s", s.crd.GetName())
 	}
-	if ok := cache.WaitForCacheSync(s.done, s.downstreamInf.HasSynced); !ok {
+	if ok := cache.WaitForCacheSync(s.infDone, s.downstreamInf.HasSynced); !ok {
 		return fmt.Errorf("stopped while syncing downstream informer for %s", s.crd.GetName())
 	}
 	s.setupInformerHandlers(s.upstreamInf, s.upstreamQueue, "upstream")
 	s.setupInformerHandlers(s.downstreamInf, s.downstreamQueue, "downstream")
 
 	return nil
+}
+
+func (s *crSyncer) stopInformers() {
+	if s.infDone != nil {
+		close(s.infDone)
+		s.infDone = nil
+	}
+}
+
+func (s *crSyncer) restartInformers() error {
+	s.stopInformers()
+	s.upstreamInf = s.newInformer(s.upstream)
+	s.downstreamInf = s.newInformer(s.downstream)
+	return s.startInformers()
 }
 
 func (s *crSyncer) setupInformerHandlers(
@@ -294,6 +319,24 @@ func (s *crSyncer) processNextWorkItem(
 		return false
 	}
 	defer q.Done(key)
+
+	// Restart informers on too many conflict errors
+	// client-go does not reliably recognize when watch calls are closed by remote API server
+	// cr-syncer is able to detect that when updating CRs on remote API server when there are multiple subsequent conflict errors (HTTP 409)
+	// like "...please apply your changes to the latest version and try again"
+	// This could occur at watchers of single CRDs while others keep working. Thus, it is less resource intensive just restarting informers of the affected CRDs rather than whoel cr-syncer
+	// Errors are counted in syncUpstream and syncDownstream functions
+	if s.conflictErrors >= 5 {
+		log.Printf("Restarting informers of %s because of too many conflict errors", s.crd.GetName())
+		err := s.restartInformers()
+		if err != nil {
+			log.Printf("Restarting informers for %s failed", s.crd.GetName())
+			q.AddRateLimited(key)
+			return true
+		} else {
+			s.conflictErrors = 0
+		}
+	}
 
 	ctx, err := tag.New(ctx, tag.Insert(tagEventSource, qName))
 	if err != nil {
@@ -339,6 +382,10 @@ func (s *crSyncer) run() {
 		}
 	}()
 	<-s.done
+	// Close informers
+	if s.infDone != nil {
+		close(s.infDone)
+	}
 }
 
 func (s *crSyncer) stop() {
@@ -423,15 +470,27 @@ func (s *crSyncer) syncDownstream(key string) error {
 		}
 		updated, err := s.upstream.UpdateStatus(dst, metav1.UpdateOptions{})
 		if err != nil {
+			// Count subsequent conflict errors
+			if k8serrors.IsConflict(err) && s.clusterName != clusterNameCloud {
+				s.conflictErrors += 1
+			}
 			return newAPIErrorf(dst, "update status failed: %s", err)
 		}
 		dst = updated
 	} else {
 		updated, err := s.upstream.Update(dst, metav1.UpdateOptions{})
 		if err != nil {
+			// Count subsequent conflict errors
+			if k8serrors.IsConflict(err) && s.clusterName != clusterNameCloud {
+				s.conflictErrors += 1
+			}
 			return newAPIErrorf(dst, "update failed: %s", err)
 		}
 		dst = updated
+	}
+	// Reset error count
+	if s.clusterName != clusterNameCloud {
+		s.conflictErrors = 0
 	}
 	log.Printf("Copied %s %s status@v%s to upstream@v%s",
 		src.GetKind(), src.GetName(), src.GetResourceVersion(), dst.GetResourceVersion())
@@ -521,7 +580,15 @@ func (s *crSyncer) syncUpstream(key string) error {
 	deleteAnnotation(dst, annotationResourceVersion)
 
 	if _, err = createOrUpdate(dst); err != nil {
+		// Count subsequent conflict errors
+		if k8serrors.IsConflict(err) && s.clusterName == clusterNameCloud {
+			s.conflictErrors += 1
+		}
 		return newAPIErrorf(dst, "failed to create or update downstream: %s", err)
+	}
+	// Reset error count
+	if s.clusterName == clusterNameCloud {
+		s.conflictErrors = 0
 	}
 	return nil
 }
