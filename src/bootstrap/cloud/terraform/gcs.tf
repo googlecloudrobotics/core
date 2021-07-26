@@ -34,12 +34,3 @@ resource "google_storage_bucket_object" "install_k8s_on_robot" {
   bucket        = google_storage_bucket.robot.name
   cache_control = "private, max-age=0, no-transform"
 }
-
-resource "google_storage_bucket" "tools" {
-  name                        = "${var.id}-tools"
-  location                    = var.region
-  storage_class               = "REGIONAL"
-  uniform_bucket_level_access = "true"
-  force_destroy               = "true"
-  depends_on                  = [google_project_service.compute]
-}
