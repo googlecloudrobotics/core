@@ -350,13 +350,8 @@ func main() {
 // create tls certs for the webhook if they don't exist or need an update
 func ensureWebhookCerts(cs *kubernetes.Clientset, namespace string) (string, string, error) {
 	sa, err := cs.CoreV1().Secrets(namespace).Get("robot-master-tls ", metav1.GetOptions{})
-	if err != nil && !apierrors.IsNotFound(err) {
-		return "", "", errors.Wrap(err, "Failed to get secret")
-	}
-
-	if sa.Labels["cert-format"] == "v2" {
+	if err == nil && sa.Labels["cert-format"] == "v2" {
 		// If we already have it and it has the right label, return the certs
-		// TODO: do we need to base64end and turn into a string?
 		return b64.URLEncoding.EncodeToString(sa.Data["tls.crt"]), b64.URLEncoding.EncodeToString(sa.Data["tls.key"]), nil
 	}
 
