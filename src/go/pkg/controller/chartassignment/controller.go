@@ -370,30 +370,41 @@ func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) er
 		setCondition(as, apps.ChartAssignmentConditionSettled, c, status.err.Error())
 	}
 
-	// Determine readiness based on pods in the app namespace being ready.
-	// This is an incomplete heuristic but it should catch the vast majority of errors.
-	var pods core.PodList
-	if err := r.kube.List(ctx, &pods, kclient.InNamespace(as.Spec.NamespaceName)); err != nil {
-		return errors.Wrap(err, "list pods")
-	}
-	ready, total := 0, len(pods.Items)
-
-	for _, p := range pods.Items {
-		switch p.Status.Phase {
-		case core.PodRunning, core.PodSucceeded:
-			ready++
+	var ns core.Namespace
+	if err := r.kube.Get(ctx, kclient.ObjectKey{Name: as.Spec.NamespaceName}, &ns); err != nil {
+		if k8serrors.IsNotFound(err) {
+			setCondition(as, apps.ChartAssignmentConditionReady, condition(false),
+				"waiting for namespace creation")
+		} else {
+			return errors.Wrap(err, "get namespace")
 		}
-	}
-	// Readiness is only given if the release is settled to begin with.
-	if status.phase != apps.ChartAssignmentPhaseSettled {
-		setCondition(as, apps.ChartAssignmentConditionReady, core.ConditionFalse,
-			"Release not settled yet")
 	} else {
-		if ready == total {
-			as.Status.Phase = apps.ChartAssignmentPhaseReady
+		// Determine readiness based on pods in the app namespace being ready.
+		// This is an incomplete heuristic but it should catch the vast majority of errors.
+		var pods core.PodList
+		// Note, this return 0 is the namespace has not been created!
+		if err := r.kube.List(ctx, &pods, kclient.InNamespace(as.Spec.NamespaceName)); err != nil {
+			return errors.Wrap(err, "list pods")
 		}
-		setCondition(as, apps.ChartAssignmentConditionReady, condition(ready == total),
-			fmt.Sprintf("%d/%d pods are running or succeeded", ready, total))
+		ready, total := 0, len(pods.Items)
+
+		for _, p := range pods.Items {
+			switch p.Status.Phase {
+			case core.PodRunning, core.PodSucceeded:
+				ready++
+			}
+		}
+		// Readiness is only given if the release is settled to begin with.
+		if status.phase != apps.ChartAssignmentPhaseSettled {
+			setCondition(as, apps.ChartAssignmentConditionReady, core.ConditionFalse,
+				"Release not settled yet")
+		} else {
+			if ready == total {
+				as.Status.Phase = apps.ChartAssignmentPhaseReady
+			}
+			setCondition(as, apps.ChartAssignmentConditionReady, condition(ready == total),
+				fmt.Sprintf("%d/%d pods are running or succeeded", ready, total))
+		}
 	}
 	return r.kube.Status().Update(ctx, as)
 }
