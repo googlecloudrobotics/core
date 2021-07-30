@@ -53,7 +53,7 @@ const (
 	// in a single request.
 	annotationResourceVersion = "cr-syncer.cloudrobotics.com/remote-resource-version"
 
-	clusterNameCloud = "cloud"
+	cloudClusterName = "cloud"
 )
 
 var (
@@ -198,7 +198,7 @@ func newCRSyncer(
 	}
 	switch src := annotations[annotationSpecSource]; src {
 	case "robot":
-		s.clusterName = clusterNameCloud
+		s.clusterName = cloudClusterName
 		// Swap upstream and downstream if the robot is the spec source.
 		s.upstream, s.downstream = s.downstream, s.upstream
 		// Use DefaultControllerRateLimiter for queue with destination robot and ItemFastSlowRateLimiter for queue with destination cloud to improve resilience regarding network errors
@@ -326,7 +326,7 @@ func (s *crSyncer) processNextWorkItem(
 	// like "...please apply your changes to the latest version and try again"
 	// This could occur at watchers of single CRDs while others keep working. Thus, it is less resource intensive just restarting informers of the affected CRDs rather than whoel cr-syncer
 	// Errors are counted in syncUpstream and syncDownstream functions
-	if s.conflictErrors >= 5 {
+	if s.conflictErrors >= *conflictErrorLimit {
 		log.Printf("Restarting informers of %s because of too many conflict errors", s.crd.GetName())
 		err := s.restartInformers()
 		if err != nil {
@@ -471,7 +471,7 @@ func (s *crSyncer) syncDownstream(key string) error {
 		updated, err := s.upstream.UpdateStatus(dst, metav1.UpdateOptions{})
 		if err != nil {
 			// Count subsequent conflict errors
-			if k8serrors.IsConflict(err) && s.clusterName != clusterNameCloud {
+			if k8serrors.IsConflict(err) && s.clusterName != cloudClusterName {
 				s.conflictErrors += 1
 			}
 			return newAPIErrorf(dst, "update status failed: %s", err)
@@ -481,7 +481,7 @@ func (s *crSyncer) syncDownstream(key string) error {
 		updated, err := s.upstream.Update(dst, metav1.UpdateOptions{})
 		if err != nil {
 			// Count subsequent conflict errors
-			if k8serrors.IsConflict(err) && s.clusterName != clusterNameCloud {
+			if k8serrors.IsConflict(err) && s.clusterName != cloudClusterName {
 				s.conflictErrors += 1
 			}
 			return newAPIErrorf(dst, "update failed: %s", err)
@@ -489,7 +489,7 @@ func (s *crSyncer) syncDownstream(key string) error {
 		dst = updated
 	}
 	// Reset error count
-	if s.clusterName != clusterNameCloud {
+	if s.clusterName != cloudClusterName {
 		s.conflictErrors = 0
 	}
 	log.Printf("Copied %s %s status@v%s to upstream@v%s",
@@ -581,13 +581,13 @@ func (s *crSyncer) syncUpstream(key string) error {
 
 	if _, err = createOrUpdate(dst); err != nil {
 		// Count subsequent conflict errors
-		if k8serrors.IsConflict(err) && s.clusterName == clusterNameCloud {
+		if k8serrors.IsConflict(err) && s.clusterName == cloudClusterName {
 			s.conflictErrors += 1
 		}
 		return newAPIErrorf(dst, "failed to create or update downstream: %s", err)
 	}
 	// Reset error count
-	if s.clusterName == clusterNameCloud {
+	if s.clusterName == cloudClusterName {
 		s.conflictErrors = 0
 	}
 	return nil
