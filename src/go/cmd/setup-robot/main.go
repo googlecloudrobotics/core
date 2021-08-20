@@ -382,7 +382,7 @@ func ensureWebhookCerts(cs *kubernetes.Clientset, namespace string) (string, str
 			Organization: []string{"robot-master." + namespace + ".svc"},
 		},
 		NotBefore: time.Now(),
-		NotAfter:  time.Now().AddDate(1, 0, 0), // 1 year
+		NotAfter:  time.Now().AddDate(100, 0, 0), // 100 years
 
 		KeyUsage:              keyUsage,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
