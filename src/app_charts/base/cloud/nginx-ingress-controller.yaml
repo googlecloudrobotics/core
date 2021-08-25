@@ -33,7 +33,7 @@ spec:
                   - /wait-shutdown
           args:
             - /nginx-ingress-controller
-            - --v=3
+            - --v=1
             - --default-backend-service=kube-system/default-http-backend
             - --publish-service=$(POD_NAMESPACE)/nginx-ingress-lb
             - --election-id=ingress-controller-leader
