@@ -133,6 +133,8 @@ kc -n kube-system delete clusterrolebinding tiller 2> /dev/null || true
 kc -n kube-system delete sa tiller 2> /dev/null || true
 kc -n kube-system delete cm -l OWNER=TILLER 2> /dev/null
 
+# Remove previous instance, in case installation was canceled
+kc delete pod setup-robot 2> /dev/null || true
 faketty kubectl --context "${KUBE_CONTEXT}" run setup-robot --restart=Never -it --rm \
   --image=${IMAGE_REFERENCE} \
   --env="ACCESS_TOKEN=${ACCESS_TOKEN}" \
