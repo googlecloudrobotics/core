@@ -40,11 +40,12 @@ Normally, to access a private Cloud Storage bucket from a robot, you'd need to m
     ```console
     docker pull python:alpine
     kubectl run python --restart=Never --rm -ti --image=python:alpine -- /bin/sh
-    # pip install google-cloud-storage
-    # python
+    # apk add gcc musl-dev libffi-dev
+    # pip3 install google-cloud-storage
+    # python3
     >>> from google.cloud import storage
     >>> client = storage.Client()
-    >>> bucket = client.get_bucket("[BUCKET_NAME]")
+    >>> bucket = client.bucket("[BUCKET_NAME]")
     >>> bucket.blob("hello_world.txt").upload_from_string("Hello, I am a robot!\n")
     ```
 
