@@ -348,10 +348,11 @@ func main() {
 }
 
 // create tls certs for the webhook if they don't exist or need an update
-func ensureWebhookCerts(cs *kubernetes.Clientset, namespace string) (string, string, error) {
+func ensureWebhookCerts(cs kubernetes.Interface, namespace string) (string, string, error) {
 	sa, err := cs.CoreV1().Secrets(namespace).Get("robot-master-tls", metav1.GetOptions{})
 	if err == nil && sa.Labels["cert-format"] == "v2" {
-		// If we already have it and it has the right label, return the certs
+		// If we already have it and it has the right label, return the certs.
+		// This is crucial, since mounted secrets are only updated once a minute.
 		log.Print("Returning existing certificate.")
 		return b64.URLEncoding.EncodeToString(sa.Data["tls.crt"]), b64.URLEncoding.EncodeToString(sa.Data["tls.key"]), nil
 	}
