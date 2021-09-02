@@ -531,9 +531,9 @@ py_library(
     _maybe(
         http_archive,
         name = "io_bazel_rules_docker",
-        sha256 = "feb53c560be2f97b7d02b23a1738a3154ba89fe630f09a7a838dcad38731b0b8",
-        strip_prefix = "rules_docker-faaa10a72fa9abde070e2a20d6046e9f9b849e9a",
-        urls = ["https://github.com/bazelbuild/rules_docker/archive/faaa10a72fa9abde070e2a20d6046e9f9b849e9a.tar.gz"],
+        sha256 = "1f4e59843b61981a96835dc4ac377ad4da9f8c334ebe5e0bb3f58f80c09735f4",
+        strip_prefix = "rules_docker-0.19.0",
+        urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.19.0/rules_docker-v0.19.0.tar.gz"],
     )
 
     # Go rules and proto support
