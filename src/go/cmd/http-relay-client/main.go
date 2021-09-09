@@ -85,6 +85,8 @@ var (
 		"Size of i/o buffer in bytes")
 	numPendingRequests = flag.Int("num_pending_requests", 1,
 		"Number of pending http requests to the relay")
+	maxIdleConnsPerHost = flag.Int("max_idle_conns_per_host", http.DefaultMaxIdleConnsPerHost,
+		"The maximum number of idle (keep-alive) connections to keep per-host")
 )
 
 var (
@@ -425,7 +427,7 @@ func main() {
 		log.Fatalf("unable to set up credentials: %v", err)
 	}
 	remote.Timeout = remoteRequestTimeout
-	transport := &http.Transport{}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if *rootCAFile != "" {
 		rootCAs := x509.NewCertPool()
 		certs, err := ioutil.ReadFile(*rootCAFile)
@@ -437,6 +439,7 @@ func main() {
 		}
 		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 	}
+	transport.MaxIdleConnsPerHost = *maxIdleConnsPerHost
 
 	// TODO(https://github.com/golang/go/issues/31391): reimplement timeouts if possible
 	// (see also https://github.com/golang/go/issues/30876)
