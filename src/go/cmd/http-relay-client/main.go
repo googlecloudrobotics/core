@@ -419,6 +419,7 @@ func localProxyWorker(remote *http.Client, local *http.Client) {
 
 func main() {
 	flag.Parse()
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
 	ctx := context.Background()
 	scope := "https://www.googleapis.com/auth/cloud-platform.read-only"

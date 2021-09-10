@@ -370,6 +370,7 @@ func (s *server) serverResponse(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
 	server := newServer()
 

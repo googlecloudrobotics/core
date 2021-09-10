@@ -50,6 +50,9 @@ type pendingResponse struct {
 	requestStream  chan []byte
 	responseStream chan *pb.HttpResponse
 	lastActivity   time.Time
+	// For diagnostics only.
+	startTime time.Time
+	server    string
 }
 
 // broker implements a thread-safe map for the request and response queues.
@@ -84,10 +87,13 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	if r.resp[id] != nil {
 		return nil, fmt.Errorf("Multiple clients trying to handle request ID %s on server %s", id, server)
 	}
+	ts := time.Now()
 	r.resp[id] = &pendingResponse{
 		requestStream:  make(chan []byte),
 		responseStream: make(chan *pb.HttpResponse),
-		lastActivity:   time.Now(),
+		lastActivity:   ts,
+		startTime:      ts,
+		server:         server,
 	}
 	reqChan := r.req[server]
 	respChan := r.resp[id].responseStream
@@ -180,7 +186,7 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	}
 	r.m.Unlock()
 	brokerRequests.WithLabelValues("server_response").Inc()
-	log.Printf("Delivering response %s to client", id)
+	log.Printf("Delivering response %s for server %s to client, elapsed %s", id, pr.server, time.Since(pr.startTime))
 	pr.responseStream <- resp
 	if resp.GetEof() {
 		close(pr.responseStream)
