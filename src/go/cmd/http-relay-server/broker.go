@@ -39,11 +39,19 @@ var (
 		},
 		[]string{"method", "result"},
 	)
+	brokerResponseDurations = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "broker_responses_durations",
+			Help: "Time from request to final response in ms",
+		},
+		[]string{"method"},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(brokerRequests)
 	prometheus.MustRegister(brokerResponses)
+	prometheus.MustRegister(brokerResponseDurations)
 }
 
 type pendingResponse struct {
@@ -186,7 +194,9 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	}
 	r.m.Unlock()
 	brokerRequests.WithLabelValues("server_response").Inc()
-	log.Printf("Delivering response %s for server %s to client, elapsed %s", id, pr.server, time.Since(pr.startTime))
+	duration := time.Since(pr.startTime).Seconds()
+	brokerResponseDurations.WithLabelValues("server_response").Observe(duration)
+	log.Printf("Delivering response %s for server %s to client, elapsed %.3fs", id, pr.server, duration)
 	pr.responseStream <- resp
 	if resp.GetEof() {
 		close(pr.responseStream)

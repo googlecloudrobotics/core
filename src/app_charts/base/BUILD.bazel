@@ -50,6 +50,7 @@ app_chart(
         "//third_party/cert-manager:00-crds.yaml",
     ],
     files = [
+        "relay-dashboard.json",
         ":cert-manager-chart.cloud",
         "@ingress-nginx//:ingress-nginx-dashboards",
     ],
