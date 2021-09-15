@@ -540,20 +540,20 @@ py_library(
     _maybe(
         http_archive,
         name = "io_bazel_rules_go",
-        sha256 = "d1ffd055969c8f8d431e2d439813e42326961d0942bdf734d2c95dc30c369566",
+        sha256 = "e0015762cdeb5a2a9c48f96fb079c6a98e001d44ec23ad4fa2ca27208c5be4fb",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.24.5/rules_go-v0.24.5.tar.gz",
-            "https://github.com/bazelbuild/rules_go/releases/download/v0.24.5/rules_go-v0.24.5.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.24.14/rules_go-v0.24.14.tar.gz",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.24.14/rules_go-v0.24.14.tar.gz",
         ],
     )
 
     _maybe(
         http_archive,
         name = "bazel_gazelle",
-        sha256 = "d987004a72697334a095bbaa18d615804a28280201a50ed6c234c40ccc41e493",
-        strip_prefix = "bazel-gazelle-0.19.1",
+        sha256 = "2423201f91471ea87925b81962258e27a22cd8ebb4fe355bf033dcf2ad668541",
+        strip_prefix = "bazel-gazelle-0.21.1",
         urls = [
-            "https://github.com/bazelbuild/bazel-gazelle/archive/v0.19.1.tar.gz",
+            "https://github.com/bazelbuild/bazel-gazelle/archive/v0.21.1.tar.gz",
         ],
     )
 
