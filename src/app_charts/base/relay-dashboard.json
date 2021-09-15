@@ -222,7 +222,7 @@
       },
       "dataFormat": "tsbuckets",
       "datasource": null,
-      "description": "Request duration buckets over time.",
+      "description": "Request duration buckets (in seconds) over time.",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -256,7 +256,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Request duration histogram",
+      "title": "Request duration (in seconds) histogram",
       "tooltip": {
         "show": true,
         "showHistogram": false
