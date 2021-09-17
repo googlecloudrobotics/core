@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package cloudrobotics.mission.v1alpha1;
 
-option go_package = "src/proto";
+option go_package = "src/proto/mission;mission";
 
 option java_multiple_files = true;
 option java_package = "com.cloudrobotics.mission.v1alpha1";
