@@ -472,60 +472,6 @@ def cloud_robotics_repositories():
         ],
     )
 
-    # These are required to run the digester in "bazel/app_chart.bzl"
-    # Copied from https://github.com/bazelbuild/rules_docker/blob/b144f31f15d38ad4d7606778984a61d2fb16ffbb/WORKSPACE#L463
-    # TODO(mattmoor): Is there a clean way to override?
-    http_archive(
-        name = "httplib2",
-        build_file_content = """
-py_library(
-    name = "httplib2",
-    srcs = glob(["**/*.py"]),
-    data = ["cacerts.txt"],
-    visibility = ["//visibility:public"]
-)""",
-        sha256 = "2dcbd4f20e826d6405593df8c3d6b6e4e369d57586db3ec9bbba0f0e0cdc0916",
-        strip_prefix = "httplib2-0.12.1/python2/httplib2/",
-        type = "tar.gz",
-        urls = ["https://codeload.github.com/httplib2/httplib2/tar.gz/v0.12.1"],
-    )
-
-    # Used for authentication in containerregistry
-    # TODO(mattmoor): Is there a clean way to override?
-    http_archive(
-        name = "oauth2client",
-        build_file_content = """
-py_library(
-    name = "oauth2client",
-    srcs = glob(["**/*.py"]),
-    visibility = ["//visibility:public"],
-    deps = [
-        "@httplib2//:httplib2",
-        "@six//:six",
-    ]
-)""",
-        sha256 = "7230f52f7f1d4566a3f9c3aeb5ffe2ed80302843ce5605853bee1f08098ede46",
-        strip_prefix = "oauth2client-4.0.0/oauth2client/",
-        type = "tar.gz",
-        urls = ["https://codeload.github.com/google/oauth2client/tar.gz/v4.0.0"],
-    )
-
-    # Used for parallel execution in containerregistry
-    # TODO(mattmoor): Is there a clean way to override?
-    http_archive(
-        name = "concurrent",
-        build_file_content = """
-py_library(
-    name = "concurrent",
-    srcs = glob(["**/*.py"]),
-    visibility = ["//visibility:public"]
-)""",
-        sha256 = "a7086ddf3c36203da7816f7e903ce43d042831f41a9705bc6b4206c574fcb765",
-        strip_prefix = "pythonfutures-3.0.5/concurrent/",
-        type = "tar.gz",
-        urls = ["https://codeload.github.com/agronholm/pythonfutures/tar.gz/3.0.5"],
-    )
-
     # Rules for building and handling Docker images with Bazel and define base image
     # for Java docker containers.
     _maybe(

@@ -6,15 +6,6 @@ load("//bazel:repositories.bzl", "cloud_robotics_repositories")
 # gazelle:repo bazel_gazelle
 cloud_robotics_repositories()
 
-# Only required for the python based digester we get from @containerregistry
-# This needs to be installed before protobuf_deps or it will use an old version.
-# https://github.com/bazelbuild/rules_python/issues/437#issuecomment-809646191
-http_archive(
-    name = "rules_python",
-    sha256 = "934c9ceb552e84577b0faf1e5a2f0450314985b4d8712b2b70717dc679fdc01b",
-    url = "https://github.com/bazelbuild/rules_python/releases/download/0.3.0/rules_python-0.3.0.tar.gz",
-)
-
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()

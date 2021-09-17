@@ -10,21 +10,13 @@ load("@cloud_robotics//bazel/build_rules/app_chart:run_sequentially.bzl", "run_s
 # https://github.com/bazelbuild/rules_docker/blob/master/container/image.bzl
 # This function executes digester to find the Docker image's digest.
 def _assemble_image_digest(ctx, image, output_digest):
-    blobsums = image.get("blobsum", [])
-    digest_args = ["--digest=%s" % f.path for f in blobsums]
-    blobs = image.get("zipped_layer", [])
-    layer_args = ["--layer=%s" % f.path for f in blobs]
-    config_arg = "--config=%s" % image["config"].path
-    output_digest_arg = "--output-digest=%s" % output_digest.path
-
-    arguments = [config_arg, output_digest_arg] + layer_args + digest_args
-    if image.get("legacy"):
-        arguments.append("--tarball=%s" % image["legacy"].path)
-
+    output_digest_arg = "--dst=%s" % output_digest.path
+    tarball_arg = "--tarball=%s" % image.path
+    arguments = [tarball_arg, output_digest_arg]
     ctx.actions.run(
         outputs = [output_digest],
-        tools = [image["config"]] + blobsums + blobs +
-                ([image["legacy"]] if image.get("legacy") else []),
+        inputs = [image],
+        tools = ([image["legacy"]] if image.get("legacy") else []),
         executable = ctx.executable._digester,
         arguments = arguments,
         mnemonic = "ImageDigest",
@@ -126,7 +118,7 @@ _app_chart_backend = rule(
             allow_single_file = True,
         ),
         "_digester": attr.label(
-            default = "@containerregistry//:digester",
+            default = "@io_bazel_rules_docker//container/go/cmd/digester:digester",
             cfg = "host",
             executable = True,
         ),
