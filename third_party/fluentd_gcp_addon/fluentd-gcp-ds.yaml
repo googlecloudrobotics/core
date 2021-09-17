@@ -12,6 +12,7 @@
 #   - hostNetwork: true (otherwise it won't find the metadata server)
 # - modified the path to local libs (/usr/lib) because it's different on MIR
 # - set the fluentd-gcp-config volume mode to 420
+# - added a taint toleration so it runs on all nodes
 #
 # License: Apache 2.0
 # https://github.com/kubernetes/kubernetes/blob/master/LICENSE
@@ -64,3 +65,7 @@ spec:
         configMap:
           name: fluentd-gcp-config-v1.2.5
           defaultMode: 420
+      tolerations:
+      - operator: "Exists"
+        effect: "NoSchedule"
+
