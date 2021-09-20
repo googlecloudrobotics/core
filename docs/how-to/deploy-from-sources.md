@@ -33,7 +33,7 @@ and 18.04) Linux.
 [resource-manager]: https://console.cloud.google.com/cloud-resource-manager
 [modify-project]: https://cloud.google.com/billing/docs/how-to/modify-project
 [cloud-sdk]: https://cloud.google.com/sdk/docs/
-[install-bazel]: https://github.com/bazelbuild/bazel/blob/3.7.0/site/docs/install-ubuntu.md
+[install-bazel]: https://github.com/bazelbuild/bazel/blob/4.0.0/site/docs/install-ubuntu.md
 
 ## Build and deploy the project
 

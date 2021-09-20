@@ -38,7 +38,7 @@ var (
 
 func init() {
 	dir, _ := os.Getwd()
-	filename := "src/proto/hello-world/service_crd.yaml"
+	filename := "../../../proto/hello-world/service_crd.yaml"
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("can't open %s in %s: %v", filename, dir, err)

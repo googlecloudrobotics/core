@@ -47,7 +47,10 @@ function finalize {
   cp ${SHADOW_REPO}/Gopkg.{lock,toml} ${DIR}
   cd ${CURRENT_DIR}
 
-  bazel run //:gazelle -- update-repos -from_file "${DIR}/Gopkg.lock"
+  # bazel run //:gazelle -- update-repos -from_file "${DIR}/Gopkg.lock"
+  # Workaround for: https://github.com/bazelbuild/bazel-gazelle/issues/1076
+  go get github.com/bazelbuild/bazel-gazelle/cmd/gazelle_dependencies
+  gazelle update-repos -from_file "${DIR}/Gopkg.lock"
   echo "Dependencies in bazel WORKSPACE updated."
   if ! buildozer \
       'set remote "https://github.com/gomodules/jsonpatch.git"' \

@@ -2,7 +2,7 @@
 
 
 [[projects]]
-  digest = "1:a6ff649b3e966ee4bca9cec9bac6a6d6df8f00b53561b344b730ab52aba81a2d"
+  digest = "1:537d4109c981d499fd42443f8b21071fb8c017849a0d39d372857c7702a6ef41"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
@@ -10,14 +10,9 @@
     "internal",
     "internal/optional",
     "internal/trace",
-    "internal/tracecontext",
     "internal/version",
     "monitoring/apiv3",
-    "pubsub",
-    "pubsub/apiv1",
-    "pubsub/internal/distribution",
     "storage",
-    "trace",
     "trace/apiv2",
   ]
   pruneopts = "NUT"
@@ -155,6 +150,14 @@
   version = "v5.1.0"
 
 [[projects]]
+  digest = "1:1ebed07a9412d27e49605be492b7c6a225d9177219a75485a338d9ca4f79a533"
+  name = "github.com/felixge/httpsnoop"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "42c30f944879059639bcf7b2ca4aba06f4a83198"
+  version = "v1.0.2"
+
+[[projects]]
   digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
@@ -261,6 +264,14 @@
   pruneopts = "NUT"
   revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
   version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:01745416ed734d0dbd8f2a25344536e399ee60319654873da12b107e9e3cb309"
+  name = "github.com/golang/gddo"
+  packages = ["httputil/header"]
+  pruneopts = "NUT"
+  revision = "20d68f94ee1f7547de2b1c68627253df20c8d45e"
 
 [[projects]]
   branch = "master"
@@ -500,6 +511,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:8bbfd88313aa005db6eb06a9abdf352483918e1cd46f161008593fe14de37b04"
+  name = "github.com/mitchellh/go-server-timing"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "0eeb78c285aedc6d1a54cc8d52057769e5c9397f"
+  version = "v1.0.1"
+
+[[projects]]
   digest = "1:bb676c5bf47f2159355d464cec0aba0af54140789768e5b1a74dbb68452c5aee"
   name = "github.com/mitchellh/reflectwalk"
   packages = ["."]
@@ -540,13 +559,11 @@
   revision = "42c35bdb11c20ff50bb14ef05750e8dcdfc75ea5"
 
 [[projects]]
-  digest = "1:ac6e658516a8b73fdf62b375a93445d4b768548774940dcedd112d5d30e37015"
+  digest = "1:450495ee4de4bf794a5c92db6530c9248227031a69beca1382454ca41b0f92ca"
   name = "github.com/onsi/gomega"
   packages = [
     ".",
     "format",
-    "gstruct",
-    "gstruct/errors",
     "internal/assertion",
     "internal/asyncassertion",
     "internal/oraclematcher",
@@ -843,11 +860,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0f386f7aa2e964b53c3e3e00f1aaf8764f9afe528cc0c4fbb4a5c35e570a2dbe"
+  digest = "1:c57c6d4c4a58938803a708bcef942b75b2f9ab5cc3b12cdf95c9924d2b48142f"
   name = "google.golang.org/api"
   packages = [
     "cloudresourcemanager/v1",
-    "cloudtrace/v1",
     "gensupport",
     "googleapi",
     "googleapi/internal/uritemplates",
@@ -865,8 +881,29 @@
   revision = "7c8bab9c4f5dd00b2afd0648fa0d753a46a603e8"
 
 [[projects]]
+  digest = "1:91090ab98c8ced767dbf37d2d6e656c80e59ce09b6fb7856ae3315ac46d9428c"
+  name = "google.golang.org/appengine"
+  packages = [
+    ".",
+    "internal",
+    "internal/app_identity",
+    "internal/base",
+    "internal/datastore",
+    "internal/log",
+    "internal/modules",
+    "internal/remote_api",
+    "internal/socket",
+    "internal/urlfetch",
+    "socket",
+    "urlfetch",
+  ]
+  pruneopts = "NUT"
+  revision = "5d1c1d03f8703c2e81478d9a30e9afa2d3e4bd8a"
+  version = "v1.6.7"
+
+[[projects]]
   branch = "master"
-  digest = "1:c859c9ccc7f6ef1350284a99813a7f08c123d4e735d352eed888df16ac0bc5ec"
+  digest = "1:28534b9de30f761f5636b52f68d4c0f36fe031d55c48907270c7164c0dc240f7"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -877,7 +914,6 @@
     "googleapis/devtools/cloudtrace/v2",
     "googleapis/iam/v1",
     "googleapis/monitoring/v3",
-    "googleapis/pubsub/v1",
     "googleapis/rpc/code",
     "googleapis/rpc/status",
     "protobuf/field_mask",
@@ -1467,9 +1503,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "cloud.google.com/go/pubsub",
     "cloud.google.com/go/storage",
-    "cloud.google.com/go/trace",
     "github.com/cenkalti/backoff",
     "github.com/fsnotify/fsnotify",
     "github.com/getlantern/httptest",
@@ -1480,12 +1514,11 @@
     "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/protoc-gen-go/descriptor",
-    "github.com/golang/protobuf/ptypes/empty",
     "github.com/jhump/protoreflect/desc",
     "github.com/jhump/protoreflect/dynamic",
+    "github.com/mitchellh/go-server-timing",
     "github.com/motemen/go-loghttp",
     "github.com/onsi/gomega",
-    "github.com/onsi/gomega/gstruct",
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
@@ -1507,20 +1540,17 @@
     "golang.org/x/oauth2/jwt",
     "golang.org/x/sync/errgroup",
     "google.golang.org/api/cloudresourcemanager/v1",
-    "google.golang.org/api/iterator",
     "google.golang.org/api/option",
-    "google.golang.org/genproto/googleapis/pubsub/v1",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/status",
     "google.golang.org/protobuf/runtime/protoiface",
     "gopkg.in/h2non/gock.v1",
-    "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
     "k8s.io/api/rbac/v1",
-    "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
+    "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake",
     "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions",

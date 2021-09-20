@@ -28,11 +28,11 @@ def cloud_robotics_repositories():
     _maybe(
         http_archive,
         name = "com_google_protobuf",
-        sha256 = "1c744a6a1f2c901e68c5521bc275e22bdc66256eeb605c2781923365b7087e5f",
-        strip_prefix = "protobuf-3.13.0",
+        sha256 = "bb1ddd8172b745cbdc75f06841bd9e7c9de0b3956397723d883423abfab8e176",
+        strip_prefix = "protobuf-3.18.0",
         urls = [
-            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.13.0.zip",
-            "https://github.com/protocolbuffers/protobuf/archive/v3.13.0.zip",
+            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.18.0.zip",
+            "https://github.com/protocolbuffers/protobuf/archive/v3.18.0.zip",
         ],
     )
 
@@ -472,8 +472,7 @@ def cloud_robotics_repositories():
         ],
     )
 
-    # Rules for building and handling Docker images with Bazel and define base image
-    # for Java docker containers.
+    # Rules for building and handling Docker images with Bazel and define base images
     _maybe(
         http_archive,
         name = "io_bazel_rules_docker",
@@ -486,20 +485,20 @@ def cloud_robotics_repositories():
     _maybe(
         http_archive,
         name = "io_bazel_rules_go",
-        sha256 = "e0015762cdeb5a2a9c48f96fb079c6a98e001d44ec23ad4fa2ca27208c5be4fb",
+        sha256 = "8e968b5fcea1d2d64071872b12737bbb5514524ee5f0a4f54f5920266c261acb",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.24.14/rules_go-v0.24.14.tar.gz",
-            "https://github.com/bazelbuild/rules_go/releases/download/v0.24.14/rules_go-v0.24.14.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.28.0/rules_go-v0.28.0.zip",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.28.0/rules_go-v0.28.0.zip",
         ],
     )
 
     _maybe(
         http_archive,
         name = "bazel_gazelle",
-        sha256 = "2423201f91471ea87925b81962258e27a22cd8ebb4fe355bf033dcf2ad668541",
-        strip_prefix = "bazel-gazelle-0.21.1",
+        sha256 = "62ca106be173579c0a167deb23358fdfe71ffa1e4cfdddf5582af26520f1c66f",
         urls = [
-            "https://github.com/bazelbuild/bazel-gazelle/archive/v0.21.1.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.23.0/bazel-gazelle-v0.23.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.23.0/bazel-gazelle-v0.23.0.tar.gz",
         ],
     )
 
