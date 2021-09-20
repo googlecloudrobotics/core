@@ -12,6 +12,8 @@ spec:
     plural: chargeactions
     singular: chargeaction
   scope: Namespaced
+  subresources:
+    status: {}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

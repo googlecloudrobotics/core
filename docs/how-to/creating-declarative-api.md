@@ -56,7 +56,7 @@ sed -i "s/\[PROJECT_ID\]/$PROJECT_ID/g" charge-controller.yaml
 
 ## Installing metacontroller
 
-This tutorial is based on [metacontroller](https://metacontroller.app/), an add-on for Kubernetes that makes it easy to write and deploy [custom controllers](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#custom-controllers).
+This tutorial is based on [metacontroller](https://metacontroller.github.io/metacontroller/intro.html), an add-on for Kubernetes that makes it easy to write and deploy [custom controllers](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#custom-controllers).
 Custom controllers implement the logic behind a declarative API.
 
 First, make sure that `kubectl` points to the correct GCP project:
@@ -66,7 +66,7 @@ kubectl config get-contexts
 ```
 
 If the correct cluster is not marked with an asterisk in the output, you can switch to it with `kubectl config use-context [...]`.)
-Then, follow the install instructions at https://metacontroller.app/guide/install/.
+Then, follow the install instructions at https://metacontroller.github.io/metacontroller/guide/install.html.
 
 > **Limitations of metacontroller**:
 > Writing custom controllers with metacontroller is easy, and you can use
@@ -230,6 +230,8 @@ spec:
     plural: chargeactions
     singular: chargeaction
   scope: Namespaced
+  subresources:
+    status: {}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -315,7 +317,7 @@ We define three Kubernetes resources:
 
 Metadata, labels, and selectors are used to tie the three resources together.
 
-A detailed explanation of the Kubernetes resources is out of scope for this guide, check out the [Kubernetes docs](https://kubernetes.io/docs/home/) or [metacontroller User Guide](https://metacontroller.app/guide/) to get started.
+A detailed explanation of the Kubernetes resources is out of scope for this guide, check out the [Kubernetes docs](https://kubernetes.io/docs/home/) or [metacontroller User Guide](https://metacontroller.github.io/metacontroller/guide.html) to get started.
 There are a few points worth mentioning, though:
 
 * In the Deployment, don't forget to replace `[PROJECT_ID]` with your GCP project ID.
@@ -415,8 +417,9 @@ Then SSH into the robot, install metacontroller, and bring up the charge-control
 ```shell
 # Note: run this on the robot
 kubectl create namespace metacontroller
-kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/metacontroller/master/manifests/metacontroller-rbac.yaml
-kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/metacontroller/master/manifests/metacontroller.yaml
+kubectl apply -f https://raw.githubusercontent.com/metacontroller/metacontroller/master/manifests/production/metacontroller-rbac.yaml
+kubectl apply -f https://raw.githubusercontent.com/metacontroller/metacontroller/master/manifests/production/metacontroller-crds-v1.yaml
+kubectl apply -f https://raw.githubusercontent.com/metacontroller/metacontroller/master/manifests/production/metacontroller.yaml
 
 export PROJECT_ID=[YOUR_GCP_PROJECT_ID]
 kubectl apply -f https://raw.githubusercontent.com/googlecloudrobotics/core/master/docs/how-to/examples/charge-service/charge-crd.yaml
