@@ -6,7 +6,7 @@ java_library(
         "//external:jar/org/threeten/threetenbp"
     ],
     visibility = [
-        "//visibility:public"
+        "//third_party/java:__subpackages__"
     ]
 )
 

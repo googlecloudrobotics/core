@@ -23,7 +23,7 @@ java_library(
         "@cloud_robotics//third_party/java/com/google/guava:guava"
     ],
     visibility = [
-        "//third_party/java:__subpackages__"
+        "//visibility:public"
     ]
 )
 

@@ -4,7 +4,7 @@
 # cd ..
 # git clone https://github.com/johnynek/bazel-deps
 # cd bazel-deps
-# git checkout e6e4412cd364ad7ffe4b619b0acb5b68f7432bc0
+# git checkout 2bab13aa36ca838bf0beb289b55a97fdff1c548d
 # bazel run :parse -- generate --repo-root $PWD/../cloud-robotics --sha-file third_party/maven_dependencies.bzl --deps third_party/maven_dependencies.yaml
 #
 # If you see an error like `ERROR bazel_deps.CoursierResolver - not found: ...`, run:
@@ -78,7 +78,7 @@ dependencies:
   com.google.cloud:
     google-cloud:
       lang: java
-      modules: [core, core-http, datastore, storage]
+      modules: [core, core-http, storage]
       version: "1.29.0"
     google-cloud-nio:
       lang: java
@@ -128,10 +128,6 @@ dependencies:
     truth-java8-extension:
       lang: java
       version: "0.39"
-  com.hubspot.jackson:
-    jackson-datatype-protobuf:
-      lang: java
-      version: "0.9.9-jackson2.9-proto3"
   com.nimbusds:
     nimbus-jose-jwt:
       lang: java
@@ -153,15 +149,10 @@ dependencies:
     mockwebserver:
       lang: java
       version: "0.1.0"
-  io.grpc:
-    grpc:
-      lang: java
-      modules: [core, netty, services]
-      version: "1.26.0"
   io.opencensus:
     opencensus:
       lang: java
-      modules: [api, contrib-grpc-metrics]
+      modules: [api]
       version: "0.21.0"
   io.prometheus:
     simpleclient:
@@ -194,10 +185,6 @@ dependencies:
     hamcrest-all:
       lang: java
       version: "1.3"
-  org.java-websocket:
-    Java-WebSocket:
-      lang: java
-      version: "1.3.9"
   org.mockito:
     mockito-core:
       lang: java
@@ -206,10 +193,6 @@ dependencies:
     slf4j-simple:
       lang: java
       version: "1.7.25"
-  org.threeten:
-    threetenbp:
-      lang: java
-      version: "1.3.3"
   pl.pragmatists:
     JUnitParams:
       lang: java

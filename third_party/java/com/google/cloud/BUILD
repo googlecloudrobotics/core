@@ -47,23 +47,6 @@ java_library(
 
 
 java_library(
-    name = "google_cloud_datastore",
-    exports = [
-        "//external:jar/com/google/cloud/google_cloud_datastore",
-        "//third_party/java/com/google/api/grpc:proto_google_cloud_datastore_v1",
-        "//third_party/java/com/google/cloud/datastore:datastore_v1_proto_client",
-        "//third_party/java/io/grpc:grpc_core",
-        ":google_cloud_core",
-        ":google_cloud_core_http"
-    ],
-    visibility = [
-        "//visibility:public"
-    ]
-)
-
-
-
-java_library(
     name = "google_cloud_nio",
     exports = [
         "//external:jar/com/google/cloud/google_cloud_nio",

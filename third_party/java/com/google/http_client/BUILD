@@ -54,17 +54,3 @@ java_library(
 )
 
 
-
-java_library(
-    name = "google_http_client_protobuf",
-    exports = [
-        "//external:jar/com/google/http_client/google_http_client_protobuf",
-        "//third_party/java/com/google/protobuf:protobuf_java",
-        ":google_http_client"
-    ],
-    visibility = [
-        "//third_party/java:__subpackages__"
-    ]
-)
-
-

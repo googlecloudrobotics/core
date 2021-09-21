@@ -10,57 +10,6 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
 
-# gRPC Java binding
-# If you update this, check if there are new versions of io.grpc:grpc-netty and
-# io.grpc:grpc-services on Maven, and update the versions in
-# maven_dependencies.yaml.
-# Note: we pin a commit shortly after 1.26, because our CI expects `bazel fetch
-# //...` to work.
-http_archive(
-    name = "io_grpc_grpc_java",
-    patch_args = ["-p1"],
-    patches = ["//third_party:io_grpc_grpc_java-d3c77f2d870baf8c8340890eb5aed590a5f3940c.patch"],
-    sha256 = "982e892c339364c83fbf95f17a7d9898594c35a23d9dea894a2d014834eb5da4",
-    strip_prefix = "grpc-java-274bf62e04f66fe9e0ffa4cac052a145e7c7b690",
-    urls = [
-        "https://github.com/grpc/grpc-java/archive/274bf62e04f66fe9e0ffa4cac052a145e7c7b690.tar.gz",
-    ],
-)
-
-load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
-
-# Maven is pulling in gRPC services and those dependencies mentioned below.
-grpc_java_repositories(
-    omit_com_google_api_grpc_google_common_protos = True,
-    omit_com_google_auth_google_auth_library_credentials = True,
-    omit_com_google_auth_google_auth_library_oauth2_http = True,
-    omit_com_google_code_findbugs_jsr305 = True,
-    omit_com_google_code_gson = True,
-    omit_com_google_errorprone_error_prone_annotations = True,
-    omit_com_google_guava = True,
-    omit_com_google_j2objc_j2objc_annotations = True,
-    omit_com_google_protobuf = True,
-    omit_com_google_truth_truth = True,
-    omit_com_squareup_okhttp = True,
-    omit_com_squareup_okio = True,
-    omit_io_netty_buffer = True,
-    omit_io_netty_codec = True,
-    omit_io_netty_codec_http = True,
-    omit_io_netty_codec_http2 = True,
-    omit_io_netty_codec_socks = True,
-    omit_io_netty_common = True,
-    omit_io_netty_handler = True,
-    omit_io_netty_handler_proxy = True,
-    omit_io_netty_resolver = True,
-    omit_io_netty_tcnative_boringssl_static = True,
-    omit_io_netty_transport = True,
-    omit_io_opencensus_api = True,
-    omit_io_opencensus_grpc_metrics = True,
-    omit_javax_annotation = True,
-    omit_junit_junit = True,
-    omit_org_codehaus_mojo_animal_sniffer_annotations = True,
-)
-
 # Add Maven dependencies
 load("//third_party:maven_dependencies.bzl", "maven_dependencies")
 

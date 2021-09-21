@@ -17,7 +17,6 @@ java_library(
     exports = [
         "//external:jar/com/google/protobuf/protobuf_java_util",
         "//third_party/java/com/google/code/gson:gson",
-        "//third_party/java/com/google/errorprone:error_prone_annotations",
         "//third_party/java/com/google/guava:guava",
         ":protobuf_java"
     ],
