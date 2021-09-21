@@ -79,7 +79,6 @@ kubectl apply -f https://raw.githubusercontent.com/metacontroller/metacontroller
 Let's check that all resources came up:
 
 ```console
-# Note: run this on the robot
 > kubectl get pods --namespace metacontroller
 NAME               READY   STATUS    RESTARTS   AGE
 metacontroller-0   1/1     Running   0          1m
