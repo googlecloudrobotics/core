@@ -297,7 +297,7 @@ curl -i -H "Authorization: Bearer $token" https://www.endpoints.$PROJECT_ID.clou
 If this command fails because "Application Default Credentials are not available", you need to first run:
 
 ```shell
-gcloud auth application-default login
+gcloud auth application-default login --project=$PROJECT_ID
 ```
 
 And follow the instructions in your browser.
@@ -321,7 +321,7 @@ cd client
 Get some dependencies:
 
 ```shell
-pip install --upgrade google-auth requests
+pip3 install --upgrade google-auth requests
 ```
 
 (Depending on your local installation, you might have to use `pip3`.)
@@ -354,7 +354,7 @@ This script:
 Try it out:
 
 ```shell
-python client.py
+python3 client.py
 ```
 
 You will get a warning about using end user credentials. You can safely ignore this warning; we will eventually be using a robot's credentials.)
