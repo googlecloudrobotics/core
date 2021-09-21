@@ -59,14 +59,33 @@ sed -i "s/\[PROJECT_ID\]/$PROJECT_ID/g" charge-controller.yaml
 This tutorial is based on [metacontroller](https://metacontroller.github.io/metacontroller/intro.html), an add-on for Kubernetes that makes it easy to write and deploy [custom controllers](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#custom-controllers).
 Custom controllers implement the logic behind a declarative API.
 
-First, make sure that `kubectl` points to the correct GCP project:
+First, make sure that `kubectl` points to the correct GKE cluster:
 
 ```shell
 kubectl config get-contexts
 ```
 
-If the correct cluster is not marked with an asterisk in the output, you can switch to it with `kubectl config use-context [...]`.)
-Then, follow the install instructions at https://metacontroller.github.io/metacontroller/guide/install.html.
+If the correct cluster is not marked with an asterisk in the output, you can switch to it with `kubectl config use-context [...]`.
+
+Now install metacontroller to the cloud-cluster:
+
+```shell
+kubectl create namespace metacontroller
+kubectl apply -f https://raw.githubusercontent.com/metacontroller/metacontroller/master/manifests/production/metacontroller-rbac.yaml
+kubectl apply -f https://raw.githubusercontent.com/metacontroller/metacontroller/master/manifests/production/metacontroller-crds-v1.yaml
+kubectl apply -f https://raw.githubusercontent.com/metacontroller/metacontroller/master/manifests/production/metacontroller.yaml
+```
+
+Let's check that all resources came up:
+
+```console
+# Note: run this on the robot
+> kubectl get pods --namespace metacontroller
+NAME               READY   STATUS    RESTARTS   AGE
+metacontroller-0   1/1     Running   0          1m
+```
+
+You can learn more details in the metacontroller's [install instructions](https://metacontroller.github.io/metacontroller/guide/install.html).
 
 > **Limitations of metacontroller**:
 > Writing custom controllers with metacontroller is easy, and you can use
