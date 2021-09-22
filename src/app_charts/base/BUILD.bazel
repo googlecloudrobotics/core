@@ -5,10 +5,10 @@ app_chart(
     name = "base-test",
     extra_templates = [
         ":cloud/apps-crd.yaml",
-        ":robot/robot-master.yaml",
+        ":robot/app-management.yaml",
     ],
     images = {
-        "robot-master": "//src/go/cmd/robot-master",
+        "chart-assignment-controller": "//src/go/cmd/chart-assignment-controller",
     },
     values = ":values-robot.yaml",
     visibility = ["//visibility:public"],
@@ -28,7 +28,7 @@ app_chart(
         "cr-syncer": "//src/go/cmd/cr-syncer",
         "gcr-credential-refresher": "//src/go/cmd/gcr-credential-refresher",
         "metadata-server": "//src/go/cmd/metadata-server",
-        "robot-master": "//src/go/cmd/robot-master",
+        "chart-assignment-controller": "//src/go/cmd/chart-assignment-controller",
     },
     values = "values-robot.yaml",
     visibility = ["//visibility:public"],
@@ -55,7 +55,8 @@ app_chart(
         "@ingress-nginx//:ingress-nginx-dashboards",
     ],
     images = {
-        "cloud-master": "//src/go/cmd/cloud-master",
+        "app-rollout-controller": "//src/go/cmd/app-rollout-controller",
+        "chart-assignment-controller": "//src/go/cmd/chart-assignment-controller",
         "token-vendor": "//src/java/com/cloudrobotics/tokenvendor:token_vendor",
     },
     values = "values-cloud.yaml",

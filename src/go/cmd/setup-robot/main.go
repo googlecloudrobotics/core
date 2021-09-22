@@ -184,7 +184,7 @@ func waitForService(client *http.Client, url string, retries uint64) error {
 
 // checkRobotName tests whether a Robot resource exists in the local cluster
 // with a different name. It is not safe to rerun setup-robot with a different
-// name as the robot-master doesn't allow the clusterName field to change.
+// name as the chart-assignment-controller doesn't allow the clusterName field to change.
 func checkRobotName(client dynamic.Interface) error {
 	robots, err := client.Resource(robotGVR).Namespace("default").List(metav1.ListOptions{})
 	if err != nil {
@@ -274,11 +274,11 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create kubernetes client set: ", err)
 	}
-	if _, err := k8sLocalClientSet.AppsV1().Deployments("default").Get("cloud-master", metav1.GetOptions{}); err == nil {
+	if _, err := k8sLocalClientSet.AppsV1().Deployments("default").Get("app-rollout-controller", metav1.GetOptions{}); err == nil {
 		// It's important to avoid deploying the cloud-robotics
 		// metadata-server in the same cluster as the token-vendor,
 		// otherwise we'll break auth for all robot clusters.
-		log.Fatal("The local context contains a cloud-master deployment. It is not safe to run robot setup on a GKE cloud cluster.")
+		log.Fatal("The local context contains a app-rollout-controller deployment. It is not safe to run robot setup on a GKE cloud cluster.")
 	}
 	k8sLocalDynamic, err := dynamic.NewForConfig(localConfig)
 	if err != nil {
@@ -349,7 +349,7 @@ func main() {
 
 // create tls certs for the webhook if they don't exist or need an update
 func ensureWebhookCerts(cs kubernetes.Interface, namespace string) (string, string, error) {
-	sa, err := cs.CoreV1().Secrets(namespace).Get("robot-master-tls", metav1.GetOptions{})
+	sa, err := cs.CoreV1().Secrets(namespace).Get("chart-assignment-controller-tls", metav1.GetOptions{})
 	if err == nil && sa.Labels["cert-format"] == "v2" {
 		// If we already have it and it has the right label, return the certs.
 		// This is crucial, since mounted secrets are only updated once a minute.
@@ -380,7 +380,7 @@ func ensureWebhookCerts(cs kubernetes.Interface, namespace string) (string, stri
 	template := x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
-			Organization: []string{"robot-master." + namespace + ".svc"},
+			Organization: []string{"chart-assignment-controller." + namespace + ".svc"},
 		},
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().AddDate(100, 0, 0), // 100 years
@@ -388,7 +388,7 @@ func ensureWebhookCerts(cs kubernetes.Interface, namespace string) (string, stri
 		KeyUsage:              keyUsage,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-		DNSNames:              []string{"robot-master." + namespace + ".svc"},
+		DNSNames:              []string{"chart-assignment-controller." + namespace + ".svc"},
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)

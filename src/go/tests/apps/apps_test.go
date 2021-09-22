@@ -133,11 +133,11 @@ func TestAll(t *testing.T) {
 	)
 	if err := backoff.Retry(
 		func() error {
-			return kubetest.DeploymentReady(env.Ctx(), env.Client(robotClusterName), "default", "robot-master")
+			return kubetest.DeploymentReady(env.Ctx(), env.Client(robotClusterName), "default", "chart-assignment-controller")
 		},
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(3*time.Second), 40),
 	); err != nil {
-		t.Errorf("wait for robot-master: %s", err)
+		t.Errorf("wait for chart-assignment-controller: %s", err)
 		t.Fatalf("maybe REGISTRY or ACCESS_TOKEN is not set?")
 	}
 

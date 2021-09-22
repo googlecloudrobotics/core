@@ -3,7 +3,7 @@ project: "my-gcp-project"
 deploy_environment: "GCP"
 registry: "gcr.io/my-gcp-project"
 
-# Setting app_management to "false" will remove layer 2 (robot/cloud-master, etc).
+# Setting app_management to "false" will remove layer 2 (app-rollout/chart-assignment-controller, etc).
 app_management: "true"
 
 # Setting cr_syncer to "false" will remove the cr-syncer.

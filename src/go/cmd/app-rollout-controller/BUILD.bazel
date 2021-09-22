@@ -5,37 +5,28 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/robot-master",
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/app-rollout-controller",
     visibility = ["//visibility:private"],
     deps = [
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
-        "//src/go/pkg/controller/chartassignment:go_default_library",
+        "//src/go/pkg/apis/registry/v1alpha1:go_default_library",
+        "//src/go/pkg/controller/approllout:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",
         "@io_k8s_client_go//kubernetes/scheme:go_default_library",
         "@io_k8s_client_go//rest:go_default_library",
+        "@io_k8s_helm//pkg/chartutil:go_default_library",
+        "@io_k8s_helm//pkg/strvals:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/manager:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/runtime/log:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/runtime/signals:go_default_library",
-        "@io_opencensus_go//exporter/stackdriver:go_default_library",
-        "@io_opencensus_go//trace:go_default_library",
-    ],
-)
-
-load("@io_bazel_rules_docker//container:container.bzl", "container_image")
-
-container_image(
-    name = "helm_image",
-    base = "@cc_image_base//image",
-    files = [
-        "@kubernetes_helm//:helm",
     ],
 )
 
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 
 go_image(
-    name = "robot-master",
-    base = ":helm_image",
+    name = "app-rollout-controller",
+    base = "@cc_image_base//image",
     embed = [":go_default_library"],
 )
