@@ -41,8 +41,10 @@ function expect_app_not_installed() {
   test_passed "application \"${application}\" is not included in template created by \"${command}\""
 }
 
-expect_app_installed "${HELM} ${CLOUD_BASE} --set-string app_management=true" "cloud-master"
-expect_app_not_installed "${HELM} ${CLOUD_BASE} --set-string app_management=false" "cloud-master"
+expect_app_installed "${HELM} ${CLOUD_BASE} --set-string app_management=true" "app-rollout-controller"
+expect_app_installed "${HELM} ${CLOUD_BASE} --set-string app_management=true" "chart-assignment-controller"
+expect_app_not_installed "${HELM} ${CLOUD_BASE} --set-string app_management=false" "app-rollout-controller"
+expect_app_not_installed "${HELM} ${CLOUD_BASE} --set-string app_management=false" "chart-assignment-controller"
 
-expect_app_installed "${HELM} ${ROBOT_BASE} --set-string app_management=true" "robot-master"
-expect_app_not_installed "${HELM} ${ROBOT_BASE} --set-string app_management=false" "robot-master"
+expect_app_installed "${HELM} ${ROBOT_BASE} --set-string app_management=true" "chart-assignment-controller"
+expect_app_not_installed "${HELM} ${ROBOT_BASE} --set-string app_management=false" "chart-assignment-controller"

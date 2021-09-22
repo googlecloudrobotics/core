@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Runs the cloud master which creates and deletes Kubernetes deployments
+// Runs the app rollout controller which creates and deletes Kubernetes deployments
 // to bring them into agreement with configuration.
 package main
 
@@ -20,12 +20,10 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"strings"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/controller/approllout"
-	"github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -38,9 +36,6 @@ import (
 )
 
 var (
-	cluster = flag.String("cluster", "cloud",
-		"Name of the master's cluster")
-
 	params = flag.String("params", "",
 		"Helm configuration parameters formatted as name=value,topname.subname=value")
 
@@ -93,9 +88,6 @@ func setupAppV2(cfg *rest.Config, params map[string]interface{}) error {
 	if err != nil {
 		return errors.Wrap(err, "create controller manager")
 	}
-	if err := chartassignment.Add(mgr, *cluster); err != nil {
-		return errors.Wrap(err, "add ChartAssignment controller")
-	}
 	if err := approllout.Add(mgr, chartutil.Values(params)); err != nil {
 		return errors.Wrap(err, "add AppRollout controller")
 	}
@@ -104,7 +96,6 @@ func setupAppV2(cfg *rest.Config, params map[string]interface{}) error {
 	srv.CertDir = *certDir
 
 	srv.Register("/approllout/validate", approllout.NewValidationWebhook(mgr))
-	srv.Register("/chartassignment/validate", chartassignment.NewValidationWebhook(mgr))
 
 	go func() {
 		if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
@@ -112,17 +103,4 @@ func setupAppV2(cfg *rest.Config, params map[string]interface{}) error {
 		}
 	}()
 	return nil
-}
-
-func parseLabels(s string) (map[string]string, error) {
-	lset := map[string]string{}
-
-	for _, l := range strings.Split(s, ",") {
-		parts := strings.SplitN(l, "=", 2)
-		if len(parts) != 2 {
-			return nil, errors.New("invalid labels")
-		}
-		lset[parts[0]] = parts[1]
-	}
-	return lset, nil
 }

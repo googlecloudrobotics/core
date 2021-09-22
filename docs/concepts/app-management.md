@@ -87,7 +87,7 @@ spec:
     version: v1.2.2   # Chart version override for canarying
 ```
 
-AppRollouts are deployed into the cloud cluster, where a controller (cloud-master) handles them.
+AppRollouts are deployed into the cloud cluster, where a controller (app-rollout-controller) handles them.
 The controller applies the specified selectors and creates or updates the internal
 ChartAssignments. A ChartAssignment represents a single instance of a chart that should be
 installed into a single cluster. These internal objects describe the task of installing parts of

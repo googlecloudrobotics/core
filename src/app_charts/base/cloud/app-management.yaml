@@ -1,0 +1,210 @@
+{{ if eq .Values.app_management "true" }}
+# app-rollout-controller
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-rollout-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-rollout-controller
+  template:
+    metadata:
+      labels:
+        app: app-rollout-controller
+    spec:
+      containers:
+      - name: app-rollout-controller
+        image: {{ .Values.registry }}{{ .Values.images.app_rollout_controller }}
+        args:
+        - "--params=\
+          domain={{ .Values.domain }},\
+          project={{ .Values.project }},\
+          ingress_ip={{ .Values.ingress_ip }},\
+          registry={{ .Values.registry }},\
+          deploy_environment={{ .Values.deploy_environment }},\
+          certificate_authority.crt={{ .Values.certificate_authority.crt }}"
+        - "--webhook-port=9876"
+        - "--cert-dir=/tls"
+        env:
+        - name: GOOGLE_CLOUD_PROJECT
+          value: {{ .Values.project }}
+        ports:
+        - name: webhook
+          containerPort: 9876
+        volumeMounts:
+        - mountPath: /home
+          name: home
+        - mountPath: /tls
+          name: tls
+      initContainers:
+      # Run `helm init` to create client-side directories in $HOME/.helm which
+      # some client library functionality expects to exist.
+      - name: helm
+        image: {{ .Values.registry }}{{ .Values.images.app_rollout_controller }}
+        command: ['/helm', 'init', '--client-only', '--stable-repo-url', 'https://k8s-at-home.com/charts']
+        volumeMounts:
+        - mountPath: /home
+          name: home
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+      volumes:
+      - name: home
+        emptyDir: {}
+      - name: tls
+        secret:
+          secretName: app-rollout-controller-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-rollout-controller
+spec:
+  type: ClusterIP
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: webhook
+  selector:
+    app: app-rollout-controller
+---
+# The app rollout controller runs admission webhooks, which need to be served via TLS.
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: app-rollout-controller
+spec:
+  secretName: app-rollout-controller-tls
+  commonName: app-rollout-controller.{{ .Release.Namespace }}.svc
+  issuerRef:
+    kind: ClusterIssuer
+    name: cluster-authority
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: app-rollout-controller
+webhooks:
+- name: approllouts.apps.cloudrobotics.com
+  failurePolicy: Fail
+  clientConfig:
+    service:
+      namespace: {{ .Release.Namespace }}
+      name: app-rollout-controller
+      path: /approllout/validate
+    caBundle: {{ .Values.certificate_authority.crt }}
+  rules:
+  - apiGroups:
+    - apps.cloudrobotics.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - approllouts
+---
+# chart-assignment-controller
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chart-assignment-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chart-assignment-controller
+  template:
+    metadata:
+      labels:
+        app: chart-assignment-controller
+    spec:
+      containers:
+      - name: chart-assignment-controller
+        image: {{ .Values.registry }}{{ .Values.images.chart_assignment_controller }}
+        args:
+        - "--cloud-cluster=true"
+        - "--webhook-enabled=true"
+        - "--webhook-port=9876"
+        - "--cert-dir=/tls"
+        env:
+        - name: GOOGLE_CLOUD_PROJECT
+          value: {{ .Values.project }}
+        ports:
+        - name: webhook
+          containerPort: 9876
+        volumeMounts:
+        - mountPath: /home/nonroot
+          name: home
+        - mountPath: /tls
+          name: tls
+      initContainers:
+      # Run `helm init` to create client-side directories in $HOME/.helm which
+      # some client library functionality expects to exist.
+      - name: helm
+        image: {{ .Values.registry }}{{ .Values.images.chart_assignment_controller }}
+        command: ['/helm', 'init', '--client-only', '--stable-repo-url', 'https://k8s-at-home.com/charts']
+        volumeMounts:
+        - mountPath: /home/nonroot
+          name: home
+      volumes:
+      - name: home
+        emptyDir: {}
+      - name: tls
+        secret:
+          secretName: chart-assignment-controller-tls
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+---
+# The chart assignment controller runs admission webhooks, which need to be served via TLS.
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: chart-assignment-controller
+spec:
+  secretName: chart-assignment-controller-tls
+  commonName: chart-assignment-controller.{{ .Release.Namespace }}.svc
+  issuerRef:
+    kind: ClusterIssuer
+    name: cluster-authority
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chart-assignment-controller
+spec:
+  type: ClusterIP
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: webhook
+  selector:
+    app: chart-assignment-controller
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: chart-assignment-controller
+webhooks:
+- name: chartassignments.apps.cloudrobotics.com
+  failurePolicy: Fail
+  clientConfig:
+    service:
+      namespace: {{ .Release.Namespace }}
+      name: chart-assignment-controller
+      path: /chartassignment/validate
+    caBundle: {{ .Values.certificate_authority.crt }}
+  rules:
+  - apiGroups:
+    - apps.cloudrobotics.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - chartassignments
+{{ end }}

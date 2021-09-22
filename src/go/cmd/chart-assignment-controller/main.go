@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package main defines the entry point for the robot master service.
+// Package main defines the entry point for the chart assignment controller service.
 //
 // Ensures selected apps are running on the robot.
 package main
@@ -22,7 +22,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment"
@@ -38,6 +37,9 @@ import (
 )
 
 var (
+	cloudCluster = flag.Bool("cloud-cluster", true,
+		"Is the controller deployed in cloud cluster")
+
 	webhookEnabled = flag.Bool("webhook-enabled", true,
 		"Whether the webhook should be served")
 
@@ -48,7 +50,7 @@ var (
 		"Directory for TLS certificates")
 
 	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "",
-		"If not empty, traces will be uploaded to this Google Cloud Project")
+		"If not empty, traces will be uploaded to this Google Cloud Project. Not relevant for cloud cluster")
 
 	maxQPS = flag.Int("apiserver-max-qps", 50,
 		"Maximum number of calls to the API server per second.")
@@ -56,7 +58,7 @@ var (
 
 func main() {
 	flag.Parse()
-	if *stackdriverProjectID != "" {
+	if *stackdriverProjectID != "" && *cloudCluster == false {
 		sd, err := stackdriver.NewExporter(stackdriver.Options{
 			ProjectID: *stackdriverProjectID,
 		})
@@ -68,9 +70,16 @@ func main() {
 		defer sd.Flush()
 	}
 
-	robotName := os.Getenv("ROBOT_NAME")
-	if robotName == "" {
-		log.Fatalf("expect ROBOT_NAME environment var to be set to an non-empty string")
+	var clusterName string
+	if *cloudCluster == true {
+		clusterName = "cloud"
+		log.Print("Starting chart-assigment-controller in cloud setup")
+	} else {
+		clusterName = os.Getenv("ROBOT_NAME")
+		log.Printf("Starting chart-assigment-controller in robot setup with cluster name %s", clusterName)
+		if clusterName == "" {
+			log.Fatalf("expect ROBOT_NAME environment var to be set to an non-empty string")
+		}
 	}
 
 	config, err := rest.InClusterConfig()
@@ -81,7 +90,7 @@ func main() {
 	// The default value of twice the max QPS seems to work well.
 	config.Burst = *maxQPS * 2
 
-	if err := setupAppV2(config, robotName); err != nil {
+	if err := setupAppV2(config, clusterName); err != nil {
 		log.Fatalln(err)
 	}
 
@@ -111,12 +120,20 @@ func setupAppV2(cfg *rest.Config, cluster string) error {
 	if err := chartassignment.Add(mgr, cluster); err != nil {
 		return errors.Wrap(err, "add ChartAssignment controller")
 	}
-	if *webhookEnabled {
-		srv := mgr.GetWebhookServer()
-		srv.CertDir = *certDir
 
-		webhook := chartassignment.NewValidationWebhookForEdgeCluster(mgr, cluster)
-		srv.Register("/chartassignment/validate", webhook)
+	if *webhookEnabled {
+		if *cloudCluster {
+			srv := mgr.GetWebhookServer()
+			srv.CertDir = *certDir
+
+			srv.Register("/chartassignment/validate", chartassignment.NewValidationWebhook(mgr))
+		} else {
+			srv := mgr.GetWebhookServer()
+			srv.CertDir = *certDir
+
+			webhook := chartassignment.NewValidationWebhookForEdgeCluster(mgr, cluster)
+			srv.Register("/chartassignment/validate", webhook)
+		}
 	}
 
 	go func() {
@@ -125,17 +142,4 @@ func setupAppV2(cfg *rest.Config, cluster string) error {
 		}
 	}()
 	return nil
-}
-
-func parseLabels(s string) (map[string]string, error) {
-	lset := map[string]string{}
-
-	for _, l := range strings.Split(s, ",") {
-		parts := strings.SplitN(l, "=", 2)
-		if len(parts) != 2 {
-			return nil, errors.New("invalid labels")
-		}
-		lset[parts[0]] = parts[1]
-	}
-	return lset, nil
 }

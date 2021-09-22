@@ -77,7 +77,7 @@ update in the downstream cluster.
 > synced from the cloud as well as those created directly in the robot cluster.
 
 In some cases, downstream deletion may be blocked. For example, if we have
-deleted an upstream ChartAssignment, but the robot-master has failed to remove
+deleted an upstream ChartAssignment, but the chart-assignment-controller has failed to remove
 its finalizer from the downstream ChartAssignment. This edge case leads to
 surprising behavior:
 

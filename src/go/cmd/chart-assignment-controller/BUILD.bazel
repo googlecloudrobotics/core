@@ -5,7 +5,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/robot-master",
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/chart-assignment-controller",
     visibility = ["//visibility:private"],
     deps = [
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
@@ -35,7 +35,7 @@ container_image(
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 
 go_image(
-    name = "robot-master",
+    name = "chart-assignment-controller",
     base = ":helm_image",
     embed = [":go_default_library"],
 )

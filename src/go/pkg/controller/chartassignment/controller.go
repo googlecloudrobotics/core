@@ -141,9 +141,6 @@ func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 	var as apps.ChartAssignment
 	err := r.kube.Get(ctx, req.NamespacedName, &as)
 
-	if as.Spec.ClusterName != r.cluster {
-		return reconcile.Result{}, nil
-	}
 	if k8serrors.IsNotFound(err) {
 		// Assignment was already deleted. We did all required cleanup
 		// when removing the finalizer. Thus, there's nothing to do.
@@ -151,6 +148,10 @@ func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, fmt.Errorf("getting ChartAssignment %q failed: %s", req, err)
+	}
+	// Reconcile ChartAssignments for own clusterName only
+	if as.Spec.ClusterName != r.cluster {
+		return reconcile.Result{}, nil
 	}
 	return r.reconcile(ctx, &as)
 }

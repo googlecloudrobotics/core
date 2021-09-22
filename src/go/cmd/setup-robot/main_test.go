@@ -345,7 +345,7 @@ func TestEnsureWebhookCerts_DoesNotReplaceCerts(t *testing.T) {
 	c := corefake.NewSimpleClientset(
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "robot-master-tls",
+				Name:      "chart-assignment-controller-tls",
 				Namespace: "default",
 				Labels:    map[string]string{"cert-format": "v2"},
 			},

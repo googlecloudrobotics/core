@@ -2,21 +2,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: robot-master
+  name: chart-assignment-controller
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: robot-master
+      app: chart-assignment-controller
   template:
     metadata:
       labels:
-        app: robot-master
+        app: chart-assignment-controller
     spec:
       containers:
-      - name: robot-master
-        image: {{ .Values.registry }}{{ .Values.images.robot_master }}
+      - name: chart-assignment-controller
+        image: {{ .Values.registry }}{{ .Values.images.chart_assignment_controller }}
         args:
+        - "--cloud-cluster=false"
         - "--webhook-enabled={{ .Values.webhook.enabled }}"
         - "--webhook-port=9876"
         - "--cert-dir=/tls"
@@ -38,7 +39,7 @@ spec:
       # Run `helm init` to create client-side directories in $HOME/.helm which
       # some client library functionality expects to exist.
       - name: helm
-        image: {{ .Values.registry }}{{ .Values.images.robot_master }}
+        image: {{ .Values.registry }}{{ .Values.images.chart_assignment_controller }}
         command: ['/helm', 'init', '--client-only', '--stable-repo-url', 'https://k8s-at-home.com/charts']
         volumeMounts:
         - mountPath: /home/nonroot
@@ -48,7 +49,7 @@ spec:
         emptyDir: {}
       - name: tls
         secret:
-          secretName: robot-master-tls
+          secretName: chart-assignment-controller-tls
       securityContext:
         runAsUser: 65532
         runAsGroup: 65532
@@ -56,7 +57,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: robot-master-tls
+  name: chart-assignment-controller-tls
   labels:
     cert-format: v2
 type: kubernetes.io/tls
@@ -67,7 +68,7 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
-  name: robot-master
+  name: chart-assignment-controller
 spec:
   type: ClusterIP
   ports:
@@ -75,20 +76,20 @@ spec:
     protocol: TCP
     targetPort: webhook
   selector:
-    app: robot-master
+    app: chart-assignment-controller
 ---
 {{ if eq .Values.webhook.enabled "true" }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: robot-master
+  name: chart-assignment-controller
 webhooks:
 - name: chartassignments.apps.cloudrobotics.com
   failurePolicy: Fail
   clientConfig:
     service:
       namespace: {{ .Release.Namespace }}
-      name: robot-master
+      name: chart-assignment-controller
       path: /chartassignment/validate
     caBundle: {{ .Values.webhook.tls.crt }}
   rules:
