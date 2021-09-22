@@ -132,6 +132,8 @@ kc -n kube-system delete service tiller-deploy 2> /dev/null || true
 kc -n kube-system delete clusterrolebinding tiller 2> /dev/null || true
 kc -n kube-system delete sa tiller 2> /dev/null || true
 kc -n kube-system delete cm -l OWNER=TILLER 2> /dev/null
+# Cleanup old resources
+kc -n default delete secret robot-master-tls 2> /dev/null || true
 
 # Remove previous instance, in case installation was canceled
 kc delete pod setup-robot 2> /dev/null || true
