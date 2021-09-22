@@ -161,7 +161,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(broker_responses[10m])",
+          "expr": "rate(broker_responses{result=\"ok\"}[10m])",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -171,7 +171,102 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Broker Responses",
+      "title": "# of successful Broker Responses",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "hiddenSeries": false,
+      "id": 8,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.2.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "rate(broker_responses{result!~\"(ok|timeout)\"}[10m])",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "# of bad Broker Responses",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -233,7 +328,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 17
       },
       "heatmap": {},
       "hideZeroBuckets": false,
@@ -295,5 +390,5 @@
   "timezone": "",
   "title": "Http Relay",
   "uid": "p_rQjdS7k",
-  "version": 1
+  "version": 3
 }
