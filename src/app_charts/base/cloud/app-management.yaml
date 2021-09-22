@@ -34,25 +34,12 @@ spec:
         - name: webhook
           containerPort: 9876
         volumeMounts:
-        - mountPath: /home
-          name: home
         - mountPath: /tls
           name: tls
-      initContainers:
-      # Run `helm init` to create client-side directories in $HOME/.helm which
-      # some client library functionality expects to exist.
-      - name: helm
-        image: {{ .Values.registry }}{{ .Values.images.app_rollout_controller }}
-        command: ['/helm', 'init', '--client-only', '--stable-repo-url', 'https://k8s-at-home.com/charts']
-        volumeMounts:
-        - mountPath: /home
-          name: home
       securityContext:
         runAsUser: 65532
         runAsGroup: 65532
       volumes:
-      - name: home
-        emptyDir: {}
       - name: tls
         secret:
           secretName: app-rollout-controller-tls

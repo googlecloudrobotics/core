@@ -23,20 +23,10 @@ go_library(
     ],
 )
 
-load("@io_bazel_rules_docker//container:container.bzl", "container_image")
-
-container_image(
-    name = "helm_image",
-    base = "@cc_image_base//image",
-    files = [
-        "@kubernetes_helm//:helm",
-    ],
-)
-
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 
 go_image(
     name = "app-rollout-controller",
-    base = ":helm_image",
+    base = "@cc_image_base//image",
     embed = [":go_default_library"],
 )
