@@ -40,7 +40,7 @@ spec:
         - --robot_id_file
         - /credentials/robot-id.json
         - --source_cidr
-        - "192.168.9.0/24"
+        - "{{ .Values.pod_cidr }}"
         env:
         - name: BIND_IP
           value: "127.0.0.1"

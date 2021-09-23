@@ -58,15 +58,19 @@ import (
 )
 
 var (
-	robotName           = new(string)
-	project             = flag.String("project", "", "Project ID for the Google Cloud Platform")
-	robotType           = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
-	registryID          = flag.String("registry-id", "", "The ID used when writing the public key to the cloud registry. Default: robot-<robot-name>.")
-	labels              = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
-	annotations         = flag.String("annotations", "", "Robot annotations. Optional if the robot is already registered.")
-	crSyncer            = flag.Bool("cr-syncer", true, "Set up the cr-syncer.")
-	fluentd             = flag.Bool("fluentd", true, "Set up fluentd to upload logs to Stackdriver.")
-	dockerDataRoot      = flag.String("docker-data-root", "/var/lib/docker", "This should match data-root in /etc/docker/daemon.json.")
+	robotName      = new(string)
+	project        = flag.String("project", "", "Project ID for the Google Cloud Platform")
+	robotType      = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
+	registryID     = flag.String("registry-id", "", "The ID used when writing the public key to the cloud registry. Default: robot-<robot-name>.")
+	labels         = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
+	annotations    = flag.String("annotations", "", "Robot annotations. Optional if the robot is already registered.")
+	crSyncer       = flag.Bool("cr-syncer", true, "Set up the cr-syncer.")
+	fluentd        = flag.Bool("fluentd", true, "Set up fluentd to upload logs to Stackdriver.")
+	dockerDataRoot = flag.String("docker-data-root", "/var/lib/docker", "This should match data-root in /etc/docker/daemon.json.")
+	podCIDR        = flag.String("pod-cidr", "192.168.9.0/24",
+		"The range of Pod IP addresses in the cluster. This should match the CNI "+
+			"configuration (eg Cilium's clusterPoolIPv4PodCIDR). If this is incorrect, "+
+			"pods will get 403 Forbidden when trying to reach the metadata server.")
 	robotAuthentication = flag.Bool("robot-authentication", true, "Set up robot authentication.")
 
 	robotGVR = schema.GroupVersionResource{
@@ -440,6 +444,7 @@ func installChartOrDie(cs *kubernetes.Clientset, domain, registry, name, namespa
 		"cr_syncer":            strconv.FormatBool(*crSyncer),
 		"fluentd":              strconv.FormatBool(*fluentd),
 		"docker_data_root":     *dockerDataRoot,
+		"pod_cidr":             *podCIDR,
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
 		"robot.name":           *robotName,
 		"webhook.tls.crt":      whCert,
