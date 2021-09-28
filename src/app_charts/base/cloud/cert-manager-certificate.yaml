@@ -1,4 +1,4 @@
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: cloud-robotics
@@ -7,6 +7,8 @@ spec:
   issuerRef:
     name: letsencrypt-prod
   commonName: {{ .Values.domain }}
+  dnsNames:
+    - {{ .Values.domain }}
   acme:
     config:
     - http01:

@@ -213,7 +213,7 @@ function cleanup_old_cert_manager {
 
   echo "checking for old cert manager .."
   kc &>/dev/null get deployments cert-manager || return 0
-  installed_ver=$(kc get deployments cert-manager -o jsonpath="{.metadata.labels['chart']}" | rev | cut -d'-' -f1 | rev | tr -d "vV")
+  installed_ver=$(kc get deployments cert-manager -o=go-template --template='{{index .metadata.labels "helm.sh/chart"}}' | rev | cut -d'-' -f1 | rev | tr -d "vV")
   echo "have cert manager $installed_ver"
 
   if [[ "$installed_ver" == 0.5.* ]]; then
@@ -246,6 +246,31 @@ function cleanup_old_cert_manager {
     kc delete -n default issuer cert-manager-webhook-ca cert-manager-webhook-selfsign
     kc delete -n default certificate cert-manager-webhook-ca cert-manager-webhook-webhook-tls
     kc delete apiservice v1beta1.admission.certmanager.k8s.io
+  fi
+
+  if [[ "$installed_ver" == 0.10.* ]]; then
+    echo "need to cleanup old version"
+
+    # cleanup deployments
+    kc delete deployments --namespace default \
+      cert-manager \
+      cert-manager-cainjector \
+      cert-manager-webhook
+
+    # delete existing cert-manager resources
+    kc delete Issuers,ClusterIssuers,Certificates,CertificateRequests,Orders,Challenges --all-namespaces --all
+
+    # cleanup crds
+    kc delete crd \
+      certificaterequests.certmanager.k8s.io \
+      certificates.certmanager.k8s.io \
+      challenges.certmanager.k8s.io \
+      clusterissuers.certmanager.k8s.io \
+      issuers.certmanager.k8s.io \
+      orders.certmanager.k8s.io 
+
+    # cleanup apiservices
+    kc delete apiservices v1beta1.webhook.certmanager.k8s.io
   fi
 
   # This is now installed as part of base-cloud
