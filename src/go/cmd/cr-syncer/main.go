@@ -49,8 +49,8 @@ import (
 	"strings"
 	"time"
 
+	"contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/motemen/go-loghttp"
-	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"

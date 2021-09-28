@@ -19,11 +19,22 @@ gazelle
 # bazel run //:gazelle
 ```
 
-To re-generate Go modules dependencies and add them to the WORKSPACE run this
-from the top-level source directory:
+To re-generate Go modules dependencies run this from the top-level source
+directory:
 
 ```
-./src/dep.sh ensure
+./src/gomod.sh
+```
+
+This will always download the latest stable tag of a go module. To use a
+specific version run eg::
+
+```
+cd src
+# use an older version, that the latest stable
+go get github.com/mitchellh/go-server-timing@v1.0.1
+# use a specific, yet untagged version
+go get github.com/mitchellh/go-server-timing@feb680ab92c20d57c527399b842e1941bde888c3
 ```
 
 ### Docs

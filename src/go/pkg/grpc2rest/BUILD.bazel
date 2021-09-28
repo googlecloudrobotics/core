@@ -30,8 +30,10 @@ go_test(
         "method_test.go",
         "resource_info_test.go",
     ],
-    data = ["//src/proto/hello-world:service_crd.yaml"],
     embed = [":go_default_library"],
+    # TODO(swolter): causes panic in
+    # github.com/jhump/protoreflect/dynamic.(*Message).FindFieldDescriptorByName
+    tags = ["manual"],
     deps = [
         "@com_github_golang_protobuf//descriptor:go_default_library_gen",
         "@com_github_golang_protobuf//proto:go_default_library",

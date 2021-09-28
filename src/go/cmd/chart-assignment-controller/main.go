@@ -23,10 +23,10 @@ import (
 	"net/http"
 	"os"
 
+	"contrib.go.opencensus.io/exporter/stackdriver"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment"
 	"github.com/pkg/errors"
-	"go.opencensus.io/exporter/stackdriver"
 	"go.opencensus.io/trace"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
