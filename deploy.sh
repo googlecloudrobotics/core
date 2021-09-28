@@ -260,6 +260,9 @@ function cleanup_old_cert_manager {
     # delete existing cert-manager resources
     kc delete Issuers,ClusterIssuers,Certificates,CertificateRequests,Orders,Challenges --all-namespaces --all
 
+    # Delete old webhook ca and tls secrets
+    kc delete secrets --namespace default cert-manager-webhook-ca cert-manager-webhook-tls
+
     # cleanup crds
     kc delete crd \
       certificaterequests.certmanager.k8s.io \
