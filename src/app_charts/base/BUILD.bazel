@@ -47,7 +47,6 @@ app_chart(
     name = "base-cloud",
     extra_templates = [
         "@com_github_kubernetes_sigs_application//:app_crd",
-        "//third_party/cert-manager:00-crds.yaml",
     ],
     files = [
         "relay-dashboard.json",
