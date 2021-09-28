@@ -17,6 +17,7 @@ spec:
       storage: true
       schema:
         openAPIV3Schema:
+          type: object
           properties:
             spec:
               type: object
@@ -83,6 +84,7 @@ spec:
         type: date
       schema:
         openAPIV3Schema:
+          type: object
           properties:
             spec:
               type: object
@@ -113,12 +115,14 @@ spec:
                           matchExpressions:
                             type: array
                             items:
+                              type: object
                               properties:
                                 key:
                                   type: string
                                 operator:
                                   type: string
                                 values:
+                                  type: array
                                   items:
                                     type: string
             status:
@@ -136,10 +140,10 @@ spec:
                     type: object
                     properties:
                       lastUpdateTime:
-                        type: date
+                        type: string
                         format: date-time
                       lastTransitionTime:
-                        type: date
+                        type: string
                         format: date-time
                       status:
                         type: string
@@ -179,6 +183,7 @@ spec:
         status: {}
       schema:
         openAPIV3Schema:
+          type: object
           properties:
             spec:
               type: object
@@ -211,10 +216,10 @@ spec:
                     type: object
                     properties:
                       lastUpdateTime:
-                        type: date
+                        type: string
                         format: date-time
                       lastTransitionTime:
-                        type: date
+                        type: string
                         format: date-time
                       status:
                         type: string
