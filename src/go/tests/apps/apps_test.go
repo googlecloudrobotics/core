@@ -163,9 +163,9 @@ spec:
   clusterName: {{ .cluster }}
   namespaceName: {{ .namespace }}
   chart:
-    repository: https://k8s-at-home.com/charts/
+    repository: https://oauth2-proxy.github.io/manifests
     name: oauth2-proxy
-    version: 4.0.1
+    version: 4.2.1
     values:
       fullnameOverride: test
 `

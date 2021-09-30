@@ -234,7 +234,7 @@ Create a file called `charge-crd.yaml` with the following contents:
 
 [embedmd]:# (examples/charge-service/charge-crd.yaml yaml)
 ```yaml
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: chargeactions.example.com
@@ -242,14 +242,17 @@ metadata:
     cr-syncer.cloudrobotics.com/spec-source: cloud
 spec:
   group: example.com
-  version: v1
   names:
     kind: ChargeAction
     plural: chargeactions
     singular: chargeaction
   scope: Namespaced
-  subresources:
-    status: {}
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
