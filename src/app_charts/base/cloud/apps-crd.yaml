@@ -36,7 +36,7 @@ spec:
                           type: string
                         inline:
                           type: string
-                    robots:
+                    robot:
                       type: object
                       properties:
                         name:
