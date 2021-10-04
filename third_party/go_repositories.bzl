@@ -2227,6 +2227,9 @@ def go_repositories():
     # https://github.com/bazelbuild/rules_go/issues/2910
     go_repository(
         name = "org_golang_x_tools",
+        build_directives = [
+            "gazelle:exclude **/testdata",
+        ],
         importpath = "golang.org/x/tools",
         sum = "h1:kRBLX7v7Af8W7Gdbbc908OJcdgtK8bOz9Uaj8/F1ACA=",
         version = "v0.1.2",
