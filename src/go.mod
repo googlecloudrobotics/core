@@ -31,7 +31,7 @@ require (
 	github.com/go-openapi/spec v0.19.3
 	github.com/go-openapi/swag v0.19.5
 	github.com/gobwas/glob v0.2.3
-	github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang/gddo v0.0.0-20210115222349-20d68f94ee1f
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
@@ -63,7 +63,7 @@ require (
 	github.com/motemen/go-loghttp v0.0.0-20170804080138-974ac5ceac27
 	github.com/motemen/go-nuts v0.0.0-20180315145558-42c35bdb11c2
 	github.com/onsi/gomega v1.10.1
-	github.com/pelletier/go-toml v1.6.0
+	github.com/pelletier/go-toml v1.9.3
 	github.com/petar/GoLLRB v0.0.0-20130427215148-53be0d36a84c
 	github.com/peterbourgon/diskv v2.0.1+incompatible
 	github.com/pkg/errors v0.9.1
@@ -71,12 +71,12 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.26.0
 	github.com/prometheus/procfs v0.7.3
-	github.com/spf13/cobra v1.0.0
+	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	go.opencensus.io v0.23.0
-	go.uber.org/atomic v1.4.0
-	go.uber.org/multierr v1.1.0
-	go.uber.org/zap v1.10.0
+	go.uber.org/atomic v1.7.0
+	go.uber.org/multierr v1.6.0
+	go.uber.org/zap v1.17.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
@@ -91,7 +91,7 @@ require (
 	gopkg.in/h2non/gock.v1 v1.1.2
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	k8s.io/api v0.17.13
 	k8s.io/apiextensions-apiserver v0.17.13
 	k8s.io/apimachinery v0.17.14-rc.0
