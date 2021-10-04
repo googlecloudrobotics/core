@@ -34,6 +34,7 @@ function kc {
 }
 
 for r in $(kc get robots -o name); do
+  echo "---"
   yaml=$(kc get $r -o yaml)
   if echo ${yaml} | grep -q "${LAST_APPLIED}"; then
     echo "${yaml}" | \
@@ -42,6 +43,5 @@ for r in $(kc get robots -o name); do
      echo "${yaml}" | \
        yq -ry 'del(.metadata.creationTimestamp,.metadata.generation,.metadata.managedFields,.metadata.resourceVersion,.metadata.selfLink,.metadata.uid,.status)' -
    fi
-  echo "---"
 done
 
