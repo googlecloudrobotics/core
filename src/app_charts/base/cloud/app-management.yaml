@@ -58,13 +58,16 @@ spec:
     app: app-rollout-controller
 ---
 # The app rollout controller runs admission webhooks, which need to be served via TLS.
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: app-rollout-controller
 spec:
   secretName: app-rollout-controller-tls
   commonName: app-rollout-controller.{{ .Release.Namespace }}.svc
+  dnsNames:
+    - app-rollout-controller.{{ .Release.Namespace }}.svc
+    - app-rollout-controller.{{ .Release.Namespace }}.svc.cluster.local
   issuerRef:
     kind: ClusterIssuer
     name: cluster-authority
@@ -147,13 +150,16 @@ spec:
         runAsGroup: 65532
 ---
 # The chart assignment controller runs admission webhooks, which need to be served via TLS.
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: chart-assignment-controller
 spec:
   secretName: chart-assignment-controller-tls
   commonName: chart-assignment-controller.{{ .Release.Namespace }}.svc
+  dnsNames:
+    - chart-assignment-controller.{{ .Release.Namespace }}.svc
+    - chart-assignment-controller.{{ .Release.Namespace }}.svc.cluster.local
   issuerRef:
     kind: ClusterIssuer
     name: cluster-authority

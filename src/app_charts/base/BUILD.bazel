@@ -36,7 +36,7 @@ app_chart(
 
 helm_template(
     name = "cert-manager-chart.cloud",
-    chart = "//third_party/cert-manager:cert-manager-v0.10.1.tgz",
+    chart = "//third_party/cert-manager:cert-manager-v1.5.3.tgz",
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
     release_name = "cert-manager",
@@ -47,7 +47,6 @@ app_chart(
     name = "base-cloud",
     extra_templates = [
         "@com_github_kubernetes_sigs_application//:app_crd",
-        "//third_party/cert-manager:00-crds.yaml",
     ],
     files = [
         "relay-dashboard.json",
