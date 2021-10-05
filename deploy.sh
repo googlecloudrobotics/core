@@ -257,6 +257,9 @@ function cleanup_old_cert_manager {
       cert-manager-cainjector \
       cert-manager-webhook
 
+    echo "Wait until cert-manager pods are deleted"
+    kc wait pods -l app.kubernetes.io/instance=cert-manager -n default --for=delete --timeout=35s
+
     # delete existing cert-manager resources
     kc delete Issuers,ClusterIssuers,Certificates,CertificateRequests,Orders,Challenges --all-namespaces --all
 
