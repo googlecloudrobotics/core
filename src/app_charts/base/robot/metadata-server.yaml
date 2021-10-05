@@ -49,4 +49,8 @@ spec:
           name: robot-id
         - mountPath: /etc/ssl
           name: ssl
+      # This daemon-set need to run on all nodes for auth to work.
+      tolerations:
+      - operator: "Exists"
+        effect: "NoSchedule"
 {{ end }}
