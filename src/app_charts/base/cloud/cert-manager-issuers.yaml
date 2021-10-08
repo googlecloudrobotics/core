@@ -9,7 +9,10 @@ spec:
     privateKeySecretRef:
       name: letsencrypt-prod
     # We can't use dns01 since we don't control the dns-zone that endpoints uses.
-    http01: {}
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
 ---
 # A self-signing issuer for cluster-internal services.
 apiVersion: cert-manager.io/v1
