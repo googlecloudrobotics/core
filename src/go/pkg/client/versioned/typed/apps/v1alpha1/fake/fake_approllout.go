@@ -1,4 +1,4 @@
-// Copyright 2020 The Cloud Robotics Authors
+// Copyright 2021 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package fake
 
 import (
+	"context"
+
 	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -36,7 +38,7 @@ var approlloutsResource = schema.GroupVersionResource{Group: "apps.cloudrobotics
 var approlloutsKind = schema.GroupVersionKind{Group: "apps.cloudrobotics.com", Version: "v1alpha1", Kind: "AppRollout"}
 
 // Get takes name of the appRollout, and returns the corresponding appRollout object, and an error if there is any.
-func (c *FakeAppRollouts) Get(name string, options v1.GetOptions) (result *v1alpha1.AppRollout, err error) {
+func (c *FakeAppRollouts) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.AppRollout, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootGetAction(approlloutsResource, name), &v1alpha1.AppRollout{})
 	if obj == nil {
@@ -46,7 +48,7 @@ func (c *FakeAppRollouts) Get(name string, options v1.GetOptions) (result *v1alp
 }
 
 // List takes label and field selectors, and returns the list of AppRollouts that match those selectors.
-func (c *FakeAppRollouts) List(opts v1.ListOptions) (result *v1alpha1.AppRolloutList, err error) {
+func (c *FakeAppRollouts) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.AppRolloutList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootListAction(approlloutsResource, approlloutsKind, opts), &v1alpha1.AppRolloutList{})
 	if obj == nil {
@@ -67,13 +69,13 @@ func (c *FakeAppRollouts) List(opts v1.ListOptions) (result *v1alpha1.AppRollout
 }
 
 // Watch returns a watch.Interface that watches the requested appRollouts.
-func (c *FakeAppRollouts) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeAppRollouts) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewRootWatchAction(approlloutsResource, opts))
 }
 
 // Create takes the representation of a appRollout and creates it.  Returns the server's representation of the appRollout, and an error, if there is any.
-func (c *FakeAppRollouts) Create(appRollout *v1alpha1.AppRollout) (result *v1alpha1.AppRollout, err error) {
+func (c *FakeAppRollouts) Create(ctx context.Context, appRollout *v1alpha1.AppRollout, opts v1.CreateOptions) (result *v1alpha1.AppRollout, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootCreateAction(approlloutsResource, appRollout), &v1alpha1.AppRollout{})
 	if obj == nil {
@@ -83,7 +85,7 @@ func (c *FakeAppRollouts) Create(appRollout *v1alpha1.AppRollout) (result *v1alp
 }
 
 // Update takes the representation of a appRollout and updates it. Returns the server's representation of the appRollout, and an error, if there is any.
-func (c *FakeAppRollouts) Update(appRollout *v1alpha1.AppRollout) (result *v1alpha1.AppRollout, err error) {
+func (c *FakeAppRollouts) Update(ctx context.Context, appRollout *v1alpha1.AppRollout, opts v1.UpdateOptions) (result *v1alpha1.AppRollout, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateAction(approlloutsResource, appRollout), &v1alpha1.AppRollout{})
 	if obj == nil {
@@ -94,7 +96,7 @@ func (c *FakeAppRollouts) Update(appRollout *v1alpha1.AppRollout) (result *v1alp
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeAppRollouts) UpdateStatus(appRollout *v1alpha1.AppRollout) (*v1alpha1.AppRollout, error) {
+func (c *FakeAppRollouts) UpdateStatus(ctx context.Context, appRollout *v1alpha1.AppRollout, opts v1.UpdateOptions) (*v1alpha1.AppRollout, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateSubresourceAction(approlloutsResource, "status", appRollout), &v1alpha1.AppRollout{})
 	if obj == nil {
@@ -104,22 +106,22 @@ func (c *FakeAppRollouts) UpdateStatus(appRollout *v1alpha1.AppRollout) (*v1alph
 }
 
 // Delete takes name of the appRollout and deletes it. Returns an error if one occurs.
-func (c *FakeAppRollouts) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeAppRollouts) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewRootDeleteAction(approlloutsResource, name), &v1alpha1.AppRollout{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeAppRollouts) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(approlloutsResource, listOptions)
+func (c *FakeAppRollouts) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewRootDeleteCollectionAction(approlloutsResource, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.AppRolloutList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched appRollout.
-func (c *FakeAppRollouts) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.AppRollout, err error) {
+func (c *FakeAppRollouts) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.AppRollout, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(approlloutsResource, name, pt, data, subresources...), &v1alpha1.AppRollout{})
 	if obj == nil {

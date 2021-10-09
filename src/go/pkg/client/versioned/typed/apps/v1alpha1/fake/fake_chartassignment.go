@@ -1,4 +1,4 @@
-// Copyright 2020 The Cloud Robotics Authors
+// Copyright 2021 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package fake
 
 import (
+	"context"
+
 	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -36,7 +38,7 @@ var chartassignmentsResource = schema.GroupVersionResource{Group: "apps.cloudrob
 var chartassignmentsKind = schema.GroupVersionKind{Group: "apps.cloudrobotics.com", Version: "v1alpha1", Kind: "ChartAssignment"}
 
 // Get takes name of the chartAssignment, and returns the corresponding chartAssignment object, and an error if there is any.
-func (c *FakeChartAssignments) Get(name string, options v1.GetOptions) (result *v1alpha1.ChartAssignment, err error) {
+func (c *FakeChartAssignments) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ChartAssignment, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootGetAction(chartassignmentsResource, name), &v1alpha1.ChartAssignment{})
 	if obj == nil {
@@ -46,7 +48,7 @@ func (c *FakeChartAssignments) Get(name string, options v1.GetOptions) (result *
 }
 
 // List takes label and field selectors, and returns the list of ChartAssignments that match those selectors.
-func (c *FakeChartAssignments) List(opts v1.ListOptions) (result *v1alpha1.ChartAssignmentList, err error) {
+func (c *FakeChartAssignments) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ChartAssignmentList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootListAction(chartassignmentsResource, chartassignmentsKind, opts), &v1alpha1.ChartAssignmentList{})
 	if obj == nil {
@@ -67,13 +69,13 @@ func (c *FakeChartAssignments) List(opts v1.ListOptions) (result *v1alpha1.Chart
 }
 
 // Watch returns a watch.Interface that watches the requested chartAssignments.
-func (c *FakeChartAssignments) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeChartAssignments) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewRootWatchAction(chartassignmentsResource, opts))
 }
 
 // Create takes the representation of a chartAssignment and creates it.  Returns the server's representation of the chartAssignment, and an error, if there is any.
-func (c *FakeChartAssignments) Create(chartAssignment *v1alpha1.ChartAssignment) (result *v1alpha1.ChartAssignment, err error) {
+func (c *FakeChartAssignments) Create(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.CreateOptions) (result *v1alpha1.ChartAssignment, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootCreateAction(chartassignmentsResource, chartAssignment), &v1alpha1.ChartAssignment{})
 	if obj == nil {
@@ -83,7 +85,7 @@ func (c *FakeChartAssignments) Create(chartAssignment *v1alpha1.ChartAssignment)
 }
 
 // Update takes the representation of a chartAssignment and updates it. Returns the server's representation of the chartAssignment, and an error, if there is any.
-func (c *FakeChartAssignments) Update(chartAssignment *v1alpha1.ChartAssignment) (result *v1alpha1.ChartAssignment, err error) {
+func (c *FakeChartAssignments) Update(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.UpdateOptions) (result *v1alpha1.ChartAssignment, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateAction(chartassignmentsResource, chartAssignment), &v1alpha1.ChartAssignment{})
 	if obj == nil {
@@ -94,7 +96,7 @@ func (c *FakeChartAssignments) Update(chartAssignment *v1alpha1.ChartAssignment)
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeChartAssignments) UpdateStatus(chartAssignment *v1alpha1.ChartAssignment) (*v1alpha1.ChartAssignment, error) {
+func (c *FakeChartAssignments) UpdateStatus(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.UpdateOptions) (*v1alpha1.ChartAssignment, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateSubresourceAction(chartassignmentsResource, "status", chartAssignment), &v1alpha1.ChartAssignment{})
 	if obj == nil {
@@ -104,22 +106,22 @@ func (c *FakeChartAssignments) UpdateStatus(chartAssignment *v1alpha1.ChartAssig
 }
 
 // Delete takes name of the chartAssignment and deletes it. Returns an error if one occurs.
-func (c *FakeChartAssignments) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeChartAssignments) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewRootDeleteAction(chartassignmentsResource, name), &v1alpha1.ChartAssignment{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeChartAssignments) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(chartassignmentsResource, listOptions)
+func (c *FakeChartAssignments) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewRootDeleteCollectionAction(chartassignmentsResource, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.ChartAssignmentList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched chartAssignment.
-func (c *FakeChartAssignments) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.ChartAssignment, err error) {
+func (c *FakeChartAssignments) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ChartAssignment, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(chartassignmentsResource, name, pt, data, subresources...), &v1alpha1.ChartAssignment{})
 	if obj == nil {

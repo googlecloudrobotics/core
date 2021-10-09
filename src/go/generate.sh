@@ -22,7 +22,7 @@
 set -e
 
 # K8S release for api, apimachinery and code-generator
-K8S_RELEASE="release-1.15"
+K8S_RELEASE="release-1.22"
 
 CURRENT_DIR=$(pwd)
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -56,7 +56,7 @@ function finalize {
   cd ${CURRENT_DIR}
 
   # Re-generate BUILD files for generated packages.
-  bazel run //:gazelle
+  ${DIR}/../gomod.sh
 }
 
 trap finalize EXIT

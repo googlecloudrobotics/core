@@ -1,4 +1,4 @@
-// Copyright 2020 The Cloud Robotics Authors
+// Copyright 2021 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package v1alpha1
 
 import (
+	"context"
 	time "time"
 
 	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
@@ -58,13 +59,13 @@ func NewFilteredAppInformer(client versioned.Interface, resyncPeriod time.Durati
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AppsV1alpha1().Apps().List(options)
+				return client.AppsV1alpha1().Apps().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AppsV1alpha1().Apps().Watch(options)
+				return client.AppsV1alpha1().Apps().Watch(context.TODO(), options)
 			},
 		},
 		&appsv1alpha1.App{},

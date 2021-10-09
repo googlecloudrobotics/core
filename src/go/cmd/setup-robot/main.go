@@ -189,8 +189,8 @@ func waitForService(client *http.Client, url string, retries uint64) error {
 // checkRobotName tests whether a Robot resource exists in the local cluster
 // with a different name. It is not safe to rerun setup-robot with a different
 // name as the chart-assignment-controller doesn't allow the clusterName field to change.
-func checkRobotName(client dynamic.Interface) error {
-	robots, err := client.Resource(robotGVR).Namespace("default").List(metav1.ListOptions{})
+func checkRobotName(ctx context.Context, client dynamic.Interface) error {
+	robots, err := client.Resource(robotGVR).Namespace("default").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -211,13 +211,14 @@ func checkRobotName(client dynamic.Interface) error {
 }
 
 // storeInK8sSecret write new robot-id to kubernetes secret.
-func storeInK8sSecret(clientset *kubernetes.Clientset, namespace string, r *robotauth.RobotAuth) error {
+func storeInK8sSecret(ctx context.Context, clientset *kubernetes.Clientset, namespace string, r *robotauth.RobotAuth) error {
 	authJson, err := json.Marshal(r)
 	if err != nil {
 		return err
 	}
 
 	return kubeutils.UpdateSecret(
+		ctx,
 		clientset,
 		"robot-auth",
 		namespace,
@@ -229,6 +230,7 @@ func storeInK8sSecret(clientset *kubernetes.Clientset, namespace string, r *robo
 
 func main() {
 	parseFlags()
+	ctx := context.Background()
 	envToken := os.Getenv("ACCESS_TOKEN")
 	if envToken == "" {
 		log.Fatal("ACCESS_TOKEN environment variable is required.")
@@ -278,7 +280,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create kubernetes client set: ", err)
 	}
-	if _, err := k8sLocalClientSet.AppsV1().Deployments("default").Get("app-rollout-controller", metav1.GetOptions{}); err == nil {
+	if _, err := k8sLocalClientSet.AppsV1().Deployments("default").Get(ctx, "app-rollout-controller", metav1.GetOptions{}); err == nil {
 		// It's important to avoid deploying the cloud-robotics
 		// metadata-server in the same cluster as the token-vendor,
 		// otherwise we'll break auth for all robot clusters.
@@ -288,7 +290,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create dynamic client set: ", err)
 	}
-	if err := checkRobotName(k8sLocalDynamic); err != nil {
+	if err := checkRobotName(ctx, k8sLocalDynamic); err != nil {
 		log.Fatal("Error: ", err)
 	}
 
@@ -299,7 +301,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to create k8s client: %v", err)
 		}
-		if err := createOrUpdateRobot(k8sDynamicClient, parsedLabels, parsedAnnotations); err != nil {
+		if err := createOrUpdateRobot(ctx, k8sDynamicClient, parsedLabels, parsedAnnotations); err != nil {
 			log.Fatalf("Failed to update robot CR %v: %v", *robotName, err)
 		}
 	}
@@ -324,16 +326,16 @@ func main() {
 		if err := setup.CreateAndPublishCredentialsToCloud(httpClient, auth); err != nil {
 			log.Fatal(err)
 		}
-		if err := storeInK8sSecret(k8sLocalClientSet, baseNamespace, auth); err != nil {
+		if err := storeInK8sSecret(ctx, k8sLocalClientSet, baseNamespace, auth); err != nil {
 			log.Fatal(fmt.Errorf("Failed to write auth secret: %v", err))
 		}
-		if err := gcr.UpdateGcrCredentials(k8sLocalClientSet, auth); err != nil {
+		if err := gcr.UpdateGcrCredentials(ctx, k8sLocalClientSet, auth); err != nil {
 			log.Fatal(err)
 		}
 	}
 
 	// ensure tls certs
-	whCert, whKey, err := ensureWebhookCerts(k8sLocalClientSet, baseNamespace)
+	whCert, whKey, err := ensureWebhookCerts(ctx, k8sLocalClientSet, baseNamespace)
 	if err != nil {
 		log.Fatalf("Failed to create tls certs for webhook: %v.", err)
 	}
@@ -346,14 +348,14 @@ func main() {
 
 	appManagement := configutil.GetBoolean(vars, "APP_MANAGEMENT", true)
 	// Use "robot" as a suffix for consistency for Synk deployments.
-	installChartOrDie(k8sLocalClientSet, domain, registry, "base-robot", baseNamespace,
+	installChartOrDie(ctx, k8sLocalClientSet, domain, registry, "base-robot", baseNamespace,
 		"base-robot-0.0.1.tgz", whCert, whKey, appManagement)
 	log.Println("Setup complete")
 }
 
 // create tls certs for the webhook if they don't exist or need an update
-func ensureWebhookCerts(cs kubernetes.Interface, namespace string) (string, string, error) {
-	sa, err := cs.CoreV1().Secrets(namespace).Get("chart-assignment-controller-tls", metav1.GetOptions{})
+func ensureWebhookCerts(ctx context.Context, cs kubernetes.Interface, namespace string) (string, string, error) {
+	sa, err := cs.CoreV1().Secrets(namespace).Get(ctx, "chart-assignment-controller-tls", metav1.GetOptions{})
 	if err == nil && sa.Labels["cert-format"] == "v2" {
 		// If we already have it and it has the right label, return the certs.
 		// This is crucial, since mounted secrets are only updated once a minute.
@@ -426,13 +428,15 @@ func helmValuesStringFromMap(varMap map[string]string) string {
 }
 
 // installChartOrDie installs a chart using Synk.
-func installChartOrDie(cs *kubernetes.Clientset, domain, registry, name, namespace, chartPath, whCert, whKey string, appManagement bool) {
+func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, registry, name, namespace, chartPath, whCert, whKey string, appManagement bool) {
 	// ensure namespace for chart exists
-	if _, err := cs.CoreV1().Namespaces().Create(&corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
+	if _, err := cs.CoreV1().Namespaces().Create(ctx,
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
 		},
-	}); err != nil && !apierrors.IsAlreadyExists(err) {
+		metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
 		log.Fatalf("Failed to create %s namespace: %v.", namespace, err)
 	}
 
@@ -492,7 +496,7 @@ func mergeMaps(base, additions map[string]string) map[string]string {
 	return result
 }
 
-func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]string, annotations map[string]string) error {
+func createOrUpdateRobot(ctx context.Context, k8sDynamicClient dynamic.Interface, labels map[string]string, annotations map[string]string) error {
 	labels["cloudrobotics.com/robot-name"] = *robotName
 	host := os.Getenv("HOST_HOSTNAME")
 	if host != "" && labels["cloudrobotics.com/master-host"] == "" {
@@ -504,7 +508,7 @@ func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]s
 	}
 
 	robotClient := k8sDynamicClient.Resource(robotGVR).Namespace("default")
-	robot, err := robotClient.Get(*robotName, metav1.GetOptions{})
+	robot, err := robotClient.Get(ctx, *robotName, metav1.GetOptions{})
 	if err != nil {
 		if s, ok := err.(*apierrors.StatusError); ok && s.ErrStatus.Reason == metav1.StatusReasonNotFound {
 			robot := &unstructured.Unstructured{}
@@ -519,7 +523,7 @@ func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]s
 				"project": *project,
 			}
 			robot.Object["status"] = make(map[string]interface{})
-			_, err := robotClient.Create(robot, metav1.CreateOptions{})
+			_, err := robotClient.Create(ctx, robot, metav1.CreateOptions{})
 			return err
 		} else {
 			return fmt.Errorf("Failed to get robot %v: %v", *robotName, err)
@@ -535,7 +539,7 @@ func createOrUpdateRobot(k8sDynamicClient dynamic.Interface, labels map[string]s
 	}
 	spec["type"] = *robotType
 	spec["project"] = *project
-	_, err = robotClient.Update(robot, metav1.UpdateOptions{})
+	_, err = robotClient.Update(ctx, robot, metav1.UpdateOptions{})
 	return err
 }
 

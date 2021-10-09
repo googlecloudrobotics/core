@@ -61,6 +61,7 @@ func parseFlags() {
 
 func main() {
 	parseFlags()
+	ctx := context.Background()
 	f := &util.DefaultFactory{}
 
 	vars, err := configutil.ReadConfig(*project)
@@ -84,7 +85,7 @@ func main() {
 	robotGVR := schema.GroupVersionResource{Group: "registry.cloudrobotics.com", Version: "v1alpha1", Resource: "robots"}
 	robotClient := k8s.Resource(robotGVR).Namespace("default")
 
-	*robotName, err = setup.GetRobotName(f, robotClient, *robotName)
+	*robotName, err = setup.GetRobotName(ctx, f, robotClient, *robotName)
 	if err != nil {
 		log.Fatalln("ERROR:", err)
 	}

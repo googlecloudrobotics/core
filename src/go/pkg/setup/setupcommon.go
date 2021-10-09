@@ -16,6 +16,7 @@ package setup
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -40,11 +41,11 @@ import (
 // GetRobotName returns a valid robot name or an error. If the robotName parameter
 // is non-empty, it checks if it is valid. If it is an empty string, the user is
 // prompted to select a robot.
-func GetRobotName(f util.Factory, client dynamic.ResourceInterface, robotName string) (string, error) {
+func GetRobotName(ctx context.Context, f util.Factory, client dynamic.ResourceInterface, robotName string) (string, error) {
 	if robotName == "" {
 		exitIfNotRunningInTerminal("ERROR: --robot-name not specified")
 
-		robots, err := client.List(metav1.ListOptions{})
+		robots, err := client.List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return "", err
 		}
@@ -55,7 +56,7 @@ func GetRobotName(f util.Factory, client dynamic.ResourceInterface, robotName st
 		}
 		return robotName, nil
 	}
-	_, err := client.Get(robotName, metav1.GetOptions{})
+	_, err := client.Get(ctx, robotName, metav1.GetOptions{})
 	if err != nil {
 		if s, ok := err.(*apierrors.StatusError); ok && s.ErrStatus.Reason == metav1.StatusReasonNotFound {
 			return "", fmt.Errorf("Robot %v not found.", robotName)

@@ -1,4 +1,4 @@
-// Copyright 2020 The Cloud Robotics Authors
+// Copyright 2021 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package v1alpha1
 
 import (
+	"context"
 	time "time"
 
 	registryv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
@@ -59,13 +60,13 @@ func NewFilteredRobotInformer(client versioned.Interface, namespace string, resy
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.RegistryV1alpha1().Robots(namespace).List(options)
+				return client.RegistryV1alpha1().Robots(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.RegistryV1alpha1().Robots(namespace).Watch(options)
+				return client.RegistryV1alpha1().Robots(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&registryv1alpha1.Robot{},

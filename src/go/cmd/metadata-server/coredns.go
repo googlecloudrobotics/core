@@ -15,11 +15,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"strings"
+
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"strings"
 )
 
 const (
@@ -35,8 +37,8 @@ const (
 `
 )
 
-func getCorefile(k8s kubernetes.Interface) (*v1.ConfigMap, error) {
-	cm, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Get(configMapName, metav1.GetOptions{})
+func getCorefile(ctx context.Context, k8s kubernetes.Interface) (*v1.ConfigMap, error) {
+	cm, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Get(ctx, configMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ConfigMap %s: %v", configMapName, err)
 	}
@@ -49,15 +51,15 @@ func getCorefile(k8s kubernetes.Interface) (*v1.ConfigMap, error) {
 	return cm, nil
 }
 
-func writeCorefile(k8s kubernetes.Interface, cm *v1.ConfigMap) error {
-	_, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Update(cm)
+func writeCorefile(ctx context.Context, k8s kubernetes.Interface, cm *v1.ConfigMap) error {
+	_, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Update(ctx, cm, metav1.UpdateOptions{})
 	return err
 }
 
 // PatchCorefile reads the CoreDNS config map and patches the Corefile to resolve
 // metadata.google.internal to 169.254.169.254.
-func PatchCorefile(k8s kubernetes.Interface) error {
-	cm, err := getCorefile(k8s)
+func PatchCorefile(ctx context.Context, k8s kubernetes.Interface) error {
+	cm, err := getCorefile(ctx, k8s)
 	if err != nil {
 		return err
 	}
@@ -65,12 +67,12 @@ func PatchCorefile(k8s kubernetes.Interface) error {
 		return nil
 	}
 	cm.Data[corefileName] = strings.Replace(cm.Data[corefileName], zoneStart, zoneStartPatched, 1)
-	return writeCorefile(k8s, cm)
+	return writeCorefile(ctx, k8s, cm)
 }
 
 // RevertCorefile undoes the effect of PatchCorefile.
-func RevertCorefile(k8s kubernetes.Interface) error {
-	cm, err := getCorefile(k8s)
+func RevertCorefile(ctx context.Context, k8s kubernetes.Interface) error {
+	cm, err := getCorefile(ctx, k8s)
 	if err != nil {
 		return err
 	}
@@ -78,5 +80,5 @@ func RevertCorefile(k8s kubernetes.Interface) error {
 		return nil
 	}
 	cm.Data[corefileName] = strings.Replace(cm.Data[corefileName], zoneStartPatched, zoneStart, 1)
-	return writeCorefile(k8s, cm)
+	return writeCorefile(ctx, k8s, cm)
 }

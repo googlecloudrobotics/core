@@ -266,11 +266,8 @@ func (f *Fixture) Ctx() context.Context {
 }
 
 // ObjectKey extracts a namespace/name key from the given object.
-func (f *Fixture) ObjectKey(o k8sruntime.Object) client.ObjectKey {
-	k, err := client.ObjectKeyFromObject(o)
-	if err != nil {
-		f.t.Fatalf("get key from object: %s", err)
-	}
+func (f *Fixture) ObjectKey(o client.Object) client.ObjectKey {
+	k := client.ObjectKeyFromObject(o)
 	return k
 }
 

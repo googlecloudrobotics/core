@@ -1,4 +1,4 @@
-// Copyright 2020 The Cloud Robotics Authors
+// Copyright 2021 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import (
 
 var scheme = runtime.NewScheme()
 var codecs = serializer.NewCodecFactory(scheme)
-var parameterCodec = runtime.NewParameterCodec(scheme)
+
 var localSchemeBuilder = runtime.SchemeBuilder{
 	appsv1alpha1.AddToScheme,
 	registryv1alpha1.AddToScheme,

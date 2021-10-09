@@ -15,9 +15,11 @@
 package main
 
 import (
+	"context"
+	"testing"
+
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -39,20 +41,23 @@ const (
 )
 
 func createCorefile(t *testing.T, k8s kubernetes.Interface) {
-	if _, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Create(&v1.ConfigMap{
-		Data: map[string]string{
-			corefileName: defaultCorefile,
+	if _, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Create(
+		context.Background(),
+		&v1.ConfigMap{
+			Data: map[string]string{
+				corefileName: defaultCorefile,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: configMapName,
+			},
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: configMapName,
-		},
-	}); err != nil {
+		metav1.CreateOptions{}); err != nil {
 		t.Errorf("error creating ConfigMap %s: %v", configMapName, err)
 	}
 }
 
 func readCorefile(t *testing.T, k8s kubernetes.Interface) string {
-	cm, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Get(configMapName, metav1.GetOptions{})
+	cm, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Get(context.Background(), configMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("error reading ConfigMap coredns: %v", err)
 		return ""
@@ -66,10 +71,11 @@ func readCorefile(t *testing.T, k8s kubernetes.Interface) string {
 }
 
 func TestPatchCorefile(t *testing.T) {
+	ctx := context.Background()
 	k8s := fake.NewSimpleClientset()
 	createCorefile(t, k8s)
 
-	if err := PatchCorefile(k8s); err != nil {
+	if err := PatchCorefile(ctx, k8s); err != nil {
 		t.Errorf("error in PatchCorefile: %v", err)
 	}
 	if got := readCorefile(t, k8s); got != modifiedCorefile {
@@ -77,7 +83,7 @@ func TestPatchCorefile(t *testing.T) {
 	}
 
 	// Check that a second patch has no effect.
-	if err := PatchCorefile(k8s); err != nil {
+	if err := PatchCorefile(ctx, k8s); err != nil {
 		t.Errorf("error in second PatchCorefile: %v", err)
 	}
 	if got := readCorefile(t, k8s); got != modifiedCorefile {
@@ -85,7 +91,7 @@ func TestPatchCorefile(t *testing.T) {
 	}
 
 	// Check that reverting undoes the change.
-	if err := RevertCorefile(k8s); err != nil {
+	if err := RevertCorefile(ctx, k8s); err != nil {
 		t.Errorf("error in RevertCorefile: %v", err)
 	}
 	if got := readCorefile(t, k8s); got != defaultCorefile {
@@ -93,7 +99,7 @@ func TestPatchCorefile(t *testing.T) {
 	}
 
 	// Check that a second revert has no effect.
-	if err := RevertCorefile(k8s); err != nil {
+	if err := RevertCorefile(ctx, k8s); err != nil {
 		t.Errorf("error in second RevertCorefile: %v", err)
 	}
 	if got := readCorefile(t, k8s); got != defaultCorefile {

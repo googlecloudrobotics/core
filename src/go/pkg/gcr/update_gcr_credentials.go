@@ -63,11 +63,11 @@ func DockerCfgJSON(token string) []byte {
 	return b
 }
 
-func patchServiceAccount(k8s *kubernetes.Clientset, name string, namespace string, patchData []byte) error {
+func patchServiceAccount(ctx context.Context, k8s *kubernetes.Clientset, name string, namespace string, patchData []byte) error {
 	sa := k8s.CoreV1().ServiceAccounts(namespace)
 	return backoff.Retry(
 		func() error {
-			_, err := sa.Patch(name, types.StrategicMergePatchType, patchData)
+			_, err := sa.Patch(ctx, name, types.StrategicMergePatchType, patchData, metav1.PatchOptions{})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return backoff.Permanent(fmt.Errorf("failed to apply %q: %v", patchData, err))
 			}
@@ -79,15 +79,14 @@ func patchServiceAccount(k8s *kubernetes.Clientset, name string, namespace strin
 
 // UpdateGcrCredentials authenticates to the cloud cluster using the auth config given and updates
 // the credentials used to pull images from GCR.
-func UpdateGcrCredentials(k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) error {
-	ctx := context.Background()
+func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) error {
 	tokenSource := auth.CreateRobotTokenSource(ctx)
 	token, err := tokenSource.Token()
 	if err != nil {
 		return fmt.Errorf("failed to get token: %v", err)
 	}
 
-	nsList, err := k8s.CoreV1().Namespaces().List(metav1.ListOptions{})
+	nsList, err := k8s.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list namespaces: %v", err)
 	}
@@ -105,7 +104,7 @@ func UpdateGcrCredentials(k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) 
 		// controller will create the initial secret and patch the service account.
 		// This avoids us putting pull secrets into eg foreign namespaces.
 		s := k8s.CoreV1().Secrets(namespace)
-		if _, err := s.Get(SecretName, metav1.GetOptions{}); k8serrors.IsNotFound(err) {
+		if _, err := s.Get(ctx, SecretName, metav1.GetOptions{}); k8serrors.IsNotFound(err) {
 			if namespace != "default" {
 				continue
 			}
@@ -114,7 +113,7 @@ func UpdateGcrCredentials(k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) 
 		// it is the default namespace where it is okay to create the secret.
 
 		// Create or update a secret containing a docker config with the access-token.
-		err = kubeutils.UpdateSecret(k8s, SecretName, namespace, corev1.SecretTypeDockercfg,
+		err = kubeutils.UpdateSecret(ctx, k8s, SecretName, namespace, corev1.SecretTypeDockercfg,
 			cfgData)
 		if err != nil {
 			log.Printf("failed to update kubernetes secret for namespace %s: %v", namespace, err)
@@ -123,7 +122,7 @@ func UpdateGcrCredentials(k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) 
 		}
 
 		// Tell k8s to use this key by pointing the default SA at it.
-		err = patchServiceAccount(k8s, "default", namespace, patchData)
+		err = patchServiceAccount(ctx, k8s, "default", namespace, patchData)
 		if err != nil {
 			log.Printf("failed to update kubernetes service account for namespace %s: %v", namespace, err)
 			haveError = true

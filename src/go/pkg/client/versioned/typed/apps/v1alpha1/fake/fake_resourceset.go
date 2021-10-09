@@ -1,4 +1,4 @@
-// Copyright 2020 The Cloud Robotics Authors
+// Copyright 2021 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package fake
 
 import (
+	"context"
+
 	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -36,7 +38,7 @@ var resourcesetsResource = schema.GroupVersionResource{Group: "apps.cloudrobotic
 var resourcesetsKind = schema.GroupVersionKind{Group: "apps.cloudrobotics.com", Version: "v1alpha1", Kind: "ResourceSet"}
 
 // Get takes name of the resourceSet, and returns the corresponding resourceSet object, and an error if there is any.
-func (c *FakeResourceSets) Get(name string, options v1.GetOptions) (result *v1alpha1.ResourceSet, err error) {
+func (c *FakeResourceSets) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ResourceSet, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootGetAction(resourcesetsResource, name), &v1alpha1.ResourceSet{})
 	if obj == nil {
@@ -46,7 +48,7 @@ func (c *FakeResourceSets) Get(name string, options v1.GetOptions) (result *v1al
 }
 
 // List takes label and field selectors, and returns the list of ResourceSets that match those selectors.
-func (c *FakeResourceSets) List(opts v1.ListOptions) (result *v1alpha1.ResourceSetList, err error) {
+func (c *FakeResourceSets) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ResourceSetList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootListAction(resourcesetsResource, resourcesetsKind, opts), &v1alpha1.ResourceSetList{})
 	if obj == nil {
@@ -67,13 +69,13 @@ func (c *FakeResourceSets) List(opts v1.ListOptions) (result *v1alpha1.ResourceS
 }
 
 // Watch returns a watch.Interface that watches the requested resourceSets.
-func (c *FakeResourceSets) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeResourceSets) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewRootWatchAction(resourcesetsResource, opts))
 }
 
 // Create takes the representation of a resourceSet and creates it.  Returns the server's representation of the resourceSet, and an error, if there is any.
-func (c *FakeResourceSets) Create(resourceSet *v1alpha1.ResourceSet) (result *v1alpha1.ResourceSet, err error) {
+func (c *FakeResourceSets) Create(ctx context.Context, resourceSet *v1alpha1.ResourceSet, opts v1.CreateOptions) (result *v1alpha1.ResourceSet, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootCreateAction(resourcesetsResource, resourceSet), &v1alpha1.ResourceSet{})
 	if obj == nil {
@@ -83,7 +85,7 @@ func (c *FakeResourceSets) Create(resourceSet *v1alpha1.ResourceSet) (result *v1
 }
 
 // Update takes the representation of a resourceSet and updates it. Returns the server's representation of the resourceSet, and an error, if there is any.
-func (c *FakeResourceSets) Update(resourceSet *v1alpha1.ResourceSet) (result *v1alpha1.ResourceSet, err error) {
+func (c *FakeResourceSets) Update(ctx context.Context, resourceSet *v1alpha1.ResourceSet, opts v1.UpdateOptions) (result *v1alpha1.ResourceSet, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateAction(resourcesetsResource, resourceSet), &v1alpha1.ResourceSet{})
 	if obj == nil {
@@ -94,7 +96,7 @@ func (c *FakeResourceSets) Update(resourceSet *v1alpha1.ResourceSet) (result *v1
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeResourceSets) UpdateStatus(resourceSet *v1alpha1.ResourceSet) (*v1alpha1.ResourceSet, error) {
+func (c *FakeResourceSets) UpdateStatus(ctx context.Context, resourceSet *v1alpha1.ResourceSet, opts v1.UpdateOptions) (*v1alpha1.ResourceSet, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateSubresourceAction(resourcesetsResource, "status", resourceSet), &v1alpha1.ResourceSet{})
 	if obj == nil {
@@ -104,22 +106,22 @@ func (c *FakeResourceSets) UpdateStatus(resourceSet *v1alpha1.ResourceSet) (*v1a
 }
 
 // Delete takes name of the resourceSet and deletes it. Returns an error if one occurs.
-func (c *FakeResourceSets) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeResourceSets) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewRootDeleteAction(resourcesetsResource, name), &v1alpha1.ResourceSet{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeResourceSets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(resourcesetsResource, listOptions)
+func (c *FakeResourceSets) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewRootDeleteCollectionAction(resourcesetsResource, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.ResourceSetList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched resourceSet.
-func (c *FakeResourceSets) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.ResourceSet, err error) {
+func (c *FakeResourceSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ResourceSet, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(resourcesetsResource, name, pt, data, subresources...), &v1alpha1.ResourceSet{})
 	if obj == nil {

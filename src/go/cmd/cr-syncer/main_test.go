@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -61,6 +62,7 @@ func TestStreamCrdsSeesPreexistingObject(t *testing.T) {
 }
 
 func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
+	ctx := context.Background()
 	g := NewGomegaWithT(t)
 	cs := fakecrdclientset.NewSimpleClientset()
 
@@ -72,11 +74,13 @@ func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
 		t.Errorf("Got unexpected error: %v", err)
 	}
 
-	cs.ApiextensionsV1().CustomResourceDefinitions().Create(&crdtypes.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "later",
+	cs.ApiextensionsV1().CustomResourceDefinitions().Create(ctx,
+		&crdtypes.CustomResourceDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "later",
+			},
 		},
-	})
+		metav1.CreateOptions{})
 	select {
 	case crd := <-crds:
 		g.Expect(crd.Type).To(Equal(watch.Added))
@@ -85,7 +89,7 @@ func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
 		t.Errorf("Received no watch event; wanted add for later")
 	}
 
-	cs.ApiextensionsV1().CustomResourceDefinitions().Delete("later", &metav1.DeleteOptions{})
+	cs.ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, "later", metav1.DeleteOptions{})
 	select {
 	case crd := <-crds:
 		g.Expect(crd.Type).To(Equal(watch.Deleted))
@@ -96,6 +100,7 @@ func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
 }
 
 func TestStreamCrdsSeesUpdate(t *testing.T) {
+	ctx := context.Background()
 	g := NewGomegaWithT(t)
 	cs := fakecrdclientset.NewSimpleClientset()
 
@@ -107,11 +112,13 @@ func TestStreamCrdsSeesUpdate(t *testing.T) {
 		t.Errorf("Got unexpected error: %v", err)
 	}
 
-	cs.ApiextensionsV1().CustomResourceDefinitions().Create(&crdtypes.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "later",
+	cs.ApiextensionsV1().CustomResourceDefinitions().Create(ctx,
+		&crdtypes.CustomResourceDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "later",
+			},
 		},
-	})
+		metav1.CreateOptions{})
 	select {
 	case crd := <-crds:
 		g.Expect(crd.Type).To(Equal(watch.Added))
@@ -120,14 +127,16 @@ func TestStreamCrdsSeesUpdate(t *testing.T) {
 		t.Errorf("Received no watch event; wanted add for later")
 	}
 
-	cs.ApiextensionsV1().CustomResourceDefinitions().Update(&crdtypes.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "later",
-			Annotations: map[string]string{
-				"foo": "bar",
+	cs.ApiextensionsV1().CustomResourceDefinitions().Update(ctx,
+		&crdtypes.CustomResourceDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "later",
+				Annotations: map[string]string{
+					"foo": "bar",
+				},
 			},
 		},
-	})
+		metav1.UpdateOptions{})
 	select {
 	case crd := <-crds:
 		g.Expect(crd.Type).To(Equal(watch.Modified))
