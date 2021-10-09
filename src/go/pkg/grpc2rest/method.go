@@ -19,6 +19,7 @@
 package grpc2rest
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -45,12 +46,12 @@ type Request interface {
 	// DoRaw returns a body with a single JSON message of the message's
 	// GetOutputMessage() type on success. On error, body may contain JSON
 	// with an instance of k8s.io/apimachinery/pkg/apis/meta/v1.Status.
-	DoRaw() ([]byte, error)
+	DoRaw(context.Context) ([]byte, error)
 	// Stream returns a stream with JSON messages. Each message is a
 	// k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent instance. The object
 	// in the WatchEvent may either be a regular object (in which case the
 	// GetOutputMessage() can parse the entire JSON), or an meta/v1.Status.
-	Stream() (io.ReadCloser, error)
+	Stream(context.Context) (io.ReadCloser, error)
 }
 
 // Method abstracts the semantics of a Kubernetes gRPC method.

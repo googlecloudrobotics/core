@@ -15,14 +15,17 @@
 package grpc2rest
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/gomega"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 )
 
 func TestRepositoryUpdate(t *testing.T) {
+	ctx := context.Background()
 	g := NewGomegaWithT(t)
 	c := rest.Config{Host: "www.server.com"}
 	r := NewResourceInfoRepository(&c)
@@ -37,9 +40,9 @@ func TestRepositoryUpdate(t *testing.T) {
 
 	g.Expect(hasGet()).To(BeFalse())
 
-	crds.ApiextensionsV1().CustomResourceDefinitions().Create(helloWorldCrd)
+	crds.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, helloWorldCrd, metav1.CreateOptions{})
 	g.Eventually(hasGet).Should(BeTrue())
 
-	crds.ApiextensionsV1().CustomResourceDefinitions().Delete(helloWorldCrd.GetName(), nil)
+	crds.ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, helloWorldCrd.GetName(), metav1.DeleteOptions{})
 	g.Eventually(hasGet).Should(BeFalse())
 }

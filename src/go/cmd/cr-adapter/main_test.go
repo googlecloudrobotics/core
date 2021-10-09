@@ -15,12 +15,14 @@
 package main
 
 import (
+	"context"
 	"io/ioutil"
 	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
+
 	helloworld "github.com/googlecloudrobotics/core/src/proto/hello-world"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc/codes"
@@ -33,6 +35,7 @@ import (
 )
 
 func doGetCall(t *testing.T, restResponse string, restError error) (*helloworld.HelloWorld, error) {
+	ctx := context.Background()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	stream := NewMockServerStream(ctrl)
@@ -60,7 +63,7 @@ func doGetCall(t *testing.T, restResponse string, restError error) (*helloworld.
 		AnyTimes().
 		Return(response)
 	restRequest.EXPECT().
-		DoRaw().
+		DoRaw(ctx).
 		Return([]byte(restResponse), restError)
 	expectedResponses := 1
 	if restError != nil {
@@ -71,7 +74,7 @@ func doGetCall(t *testing.T, restResponse string, restError error) (*helloworld.
 		Times(expectedResponses).
 		Return(nil)
 
-	err := handleStream(stream, method)
+	err := handleStream(ctx, stream, method)
 	return response, err
 }
 
@@ -103,6 +106,7 @@ func TestUnaryCallKubernetesErrorTrumpsHttpError(t *testing.T) {
 }
 
 func doWatchCall(t *testing.T, restResponse string, restError error) ([]*helloworld.HelloWorldEvent, error) {
+	ctx := context.Background()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	stream := NewMockServerStream(ctrl)
@@ -129,7 +133,7 @@ func doWatchCall(t *testing.T, restResponse string, restError error) ([]*hellowo
 		GetOutputMessage().
 		Return(response)
 	restRequest.EXPECT().
-		Stream().
+		Stream(ctx).
 		Return(ioutil.NopCloser(strings.NewReader(restResponse)), restError)
 	responses := []*helloworld.HelloWorldEvent{}
 	stream.EXPECT().
@@ -140,7 +144,7 @@ func doWatchCall(t *testing.T, restResponse string, restError error) ([]*hellowo
 			return nil
 		})
 
-	err := handleStream(stream, method)
+	err := handleStream(ctx, stream, method)
 	return responses, err
 }
 

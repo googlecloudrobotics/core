@@ -1,4 +1,4 @@
-// Copyright 2020 The Cloud Robotics Authors
+// Copyright 2021 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package v1alpha1
 
 import (
+	"context"
 	"time"
 
 	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
@@ -35,15 +36,15 @@ type RobotsGetter interface {
 
 // RobotInterface has methods to work with Robot resources.
 type RobotInterface interface {
-	Create(*v1alpha1.Robot) (*v1alpha1.Robot, error)
-	Update(*v1alpha1.Robot) (*v1alpha1.Robot, error)
-	UpdateStatus(*v1alpha1.Robot) (*v1alpha1.Robot, error)
-	Delete(name string, options *v1.DeleteOptions) error
-	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*v1alpha1.Robot, error)
-	List(opts v1.ListOptions) (*v1alpha1.RobotList, error)
-	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.Robot, err error)
+	Create(ctx context.Context, robot *v1alpha1.Robot, opts v1.CreateOptions) (*v1alpha1.Robot, error)
+	Update(ctx context.Context, robot *v1alpha1.Robot, opts v1.UpdateOptions) (*v1alpha1.Robot, error)
+	UpdateStatus(ctx context.Context, robot *v1alpha1.Robot, opts v1.UpdateOptions) (*v1alpha1.Robot, error)
+	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
+	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Robot, error)
+	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.RobotList, error)
+	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Robot, err error)
 	RobotExpansion
 }
 
@@ -62,20 +63,20 @@ func newRobots(c *RegistryV1alpha1Client, namespace string) *robots {
 }
 
 // Get takes name of the robot, and returns the corresponding robot object, and an error if there is any.
-func (c *robots) Get(name string, options v1.GetOptions) (result *v1alpha1.Robot, err error) {
+func (c *robots) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Robot, err error) {
 	result = &v1alpha1.Robot{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("robots").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of Robots that match those selectors.
-func (c *robots) List(opts v1.ListOptions) (result *v1alpha1.RobotList, err error) {
+func (c *robots) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.RobotList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -86,13 +87,13 @@ func (c *robots) List(opts v1.ListOptions) (result *v1alpha1.RobotList, err erro
 		Resource("robots").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested robots.
-func (c *robots) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *robots) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -103,87 +104,90 @@ func (c *robots) Watch(opts v1.ListOptions) (watch.Interface, error) {
 		Resource("robots").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a robot and creates it.  Returns the server's representation of the robot, and an error, if there is any.
-func (c *robots) Create(robot *v1alpha1.Robot) (result *v1alpha1.Robot, err error) {
+func (c *robots) Create(ctx context.Context, robot *v1alpha1.Robot, opts v1.CreateOptions) (result *v1alpha1.Robot, err error) {
 	result = &v1alpha1.Robot{}
 	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("robots").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(robot).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Update takes the representation of a robot and updates it. Returns the server's representation of the robot, and an error, if there is any.
-func (c *robots) Update(robot *v1alpha1.Robot) (result *v1alpha1.Robot, err error) {
+func (c *robots) Update(ctx context.Context, robot *v1alpha1.Robot, opts v1.UpdateOptions) (result *v1alpha1.Robot, err error) {
 	result = &v1alpha1.Robot{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("robots").
 		Name(robot.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(robot).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
-func (c *robots) UpdateStatus(robot *v1alpha1.Robot) (result *v1alpha1.Robot, err error) {
+func (c *robots) UpdateStatus(ctx context.Context, robot *v1alpha1.Robot, opts v1.UpdateOptions) (result *v1alpha1.Robot, err error) {
 	result = &v1alpha1.Robot{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("robots").
 		Name(robot.Name).
 		SubResource("status").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(robot).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Delete takes name of the robot and deletes it. Returns an error if one occurs.
-func (c *robots) Delete(name string, options *v1.DeleteOptions) error {
+func (c *robots) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("robots").
 		Name(name).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *robots) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *robots) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	var timeout time.Duration
-	if listOptions.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
+	if listOpts.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("robots").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // Patch applies the patch and returns the patched robot.
-func (c *robots) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.Robot, err error) {
+func (c *robots) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Robot, err error) {
 	result = &v1alpha1.Robot{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("robots").
-		SubResource(subresources...).
 		Name(name).
+		SubResource(subresources...).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

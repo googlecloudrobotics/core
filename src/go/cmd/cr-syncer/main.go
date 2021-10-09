@@ -279,7 +279,7 @@ func main() {
 	view.SetReportingPeriod(time.Second)
 	zpages.Handle(nil, "/debug")
 	http.Handle("/metrics", exporter)
-	http.Handle("/health", newHealthHandler(remote))
+	http.Handle("/health", newHealthHandler(ctx, remote))
 
 	go func() {
 		if err := http.ListenAndServe(*listenAddr, nil); err != nil {
@@ -308,7 +308,7 @@ func main() {
 			// modification and recreate it. If that ever turns out to
 			// be a problem, we should use a shared informer cache
 			// instead.
-			s, err := newCRSyncer(*crd.CRD, local, remote, *robotName)
+			s, err := newCRSyncer(ctx, *crd.CRD, local, remote, *robotName)
 			if err != nil {
 				log.Printf("skipping custom resource %s: %s", name, err)
 				continue

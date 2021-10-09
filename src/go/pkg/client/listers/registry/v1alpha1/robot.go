@@ -1,4 +1,4 @@
-// Copyright 2020 The Cloud Robotics Authors
+// Copyright 2021 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,8 +24,10 @@ import (
 )
 
 // RobotLister helps list Robots.
+// All objects returned here must be treated as read-only.
 type RobotLister interface {
 	// List lists all Robots in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.Robot, err error)
 	// Robots returns an object that can list and get Robots.
 	Robots(namespace string) RobotNamespaceLister
@@ -56,10 +58,13 @@ func (s *robotLister) Robots(namespace string) RobotNamespaceLister {
 }
 
 // RobotNamespaceLister helps list and get Robots.
+// All objects returned here must be treated as read-only.
 type RobotNamespaceLister interface {
 	// List lists all Robots in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.Robot, err error)
 	// Get retrieves the Robot from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.Robot, error)
 	RobotNamespaceListerExpansion
 }

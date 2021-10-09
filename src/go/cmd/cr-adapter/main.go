@@ -16,6 +16,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -44,6 +45,7 @@ var (
 )
 
 func streamHandler(srv interface{}, stream grpc.ServerStream) error {
+	ctx := context.Background()
 	fullMethodName, _ := grpc.MethodFromServerStream(stream)
 
 	method, err := resourceInfoRepository.GetMethod(fullMethodName)
@@ -51,10 +53,10 @@ func streamHandler(srv interface{}, stream grpc.ServerStream) error {
 		return status.Errorf(codes.InvalidArgument, "no message %s: %v", fullMethodName, err)
 	}
 
-	return handleStream(stream, method)
+	return handleStream(ctx, stream, method)
 }
 
-func handleStream(stream grpc.ServerStream, method grpc2rest.Method) error {
+func handleStream(ctx context.Context, stream grpc.ServerStream, method grpc2rest.Method) error {
 	inMessage := method.GetInputMessage()
 
 	// Receive proto message.
@@ -72,15 +74,15 @@ func handleStream(stream grpc.ServerStream, method grpc2rest.Method) error {
 
 	// Perform Kubernetes request.
 	if method.IsWatchCall() {
-		err = watchResponse(stream, method, req)
+		err = watchResponse(ctx, stream, method, req)
 	} else {
-		err = unaryResponse(stream, method, req)
+		err = unaryResponse(ctx, stream, method, req)
 	}
 	return err
 }
 
-func unaryResponse(stream grpc.ServerStream, method grpc2rest.Method, req grpc2rest.Request) error {
-	res, err := req.DoRaw()
+func unaryResponse(ctx context.Context, stream grpc.ServerStream, method grpc2rest.Method, req grpc2rest.Request) error {
+	res, err := req.DoRaw(ctx)
 	if err != nil {
 		// Try reading the status from the response body
 		statusMsg := metav1.Status{}
@@ -111,9 +113,9 @@ type WatchEvent struct {
 	Object json.RawMessage
 }
 
-func watchResponse(stream grpc.ServerStream, method grpc2rest.Method, req grpc2rest.Request) error {
+func watchResponse(ctx context.Context, stream grpc.ServerStream, method grpc2rest.Method, req grpc2rest.Request) error {
 	outMessage := method.GetOutputMessage()
-	str, err := req.Stream()
+	str, err := req.Stream(ctx)
 	if err != nil {
 		// According to client-go code, Stream() returns no response
 		// body on error.

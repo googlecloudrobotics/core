@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -19,11 +20,12 @@ var (
 
 // handler handles HTTP health requests.
 type handler struct {
+	ctx    context.Context
 	client dynamic.Interface
 }
 
-func newHealthHandler(client dynamic.Interface) http.Handler {
-	return &handler{client}
+func newHealthHandler(ctx context.Context, client dynamic.Interface) http.Handler {
+	return &handler{ctx, client}
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +36,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//
 	// If this becomes a problem, we could do the requests in the
 	// background and just check the status of the latest request here.
-	if _, err := h.client.Resource(gvr).List(metav1.ListOptions{}); k8serrors.IsUnauthorized(err) {
+	if _, err := h.client.Resource(gvr).List(h.ctx, metav1.ListOptions{}); k8serrors.IsUnauthorized(err) {
 		log.Printf("failed health check: %v", err)
 		http.Error(w, "unhealthy", http.StatusInternalServerError)
 		return

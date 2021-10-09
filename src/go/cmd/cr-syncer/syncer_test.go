@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -70,10 +71,28 @@ func (f *fixture) newCRSyncer(crd crdtypes.CustomResourceDefinition, robotName s
 	s := runtime.NewScheme()
 	s.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
 
-	f.local = k8sfake.NewSimpleDynamicClient(s, f.localObjects...)
-	f.remote = k8sfake.NewSimpleDynamicClient(s, f.remoteObjects...)
+	f.local = k8sfake.NewSimpleDynamicClientWithCustomListKinds(s,
+		map[schema.GroupVersionResource]string{
+			{
+				Group:    crd.Spec.Group,
+				Version:  crd.Spec.Versions[0].Name,
+				Resource: crd.Spec.Names.Plural,
+			}: fmt.Sprintf("%sList", gvk.Kind),
+		},
+		f.localObjects...,
+	)
+	f.remote = k8sfake.NewSimpleDynamicClientWithCustomListKinds(s,
+		map[schema.GroupVersionResource]string{
+			{
+				Group:    crd.Spec.Group,
+				Version:  crd.Spec.Versions[0].Name,
+				Resource: crd.Spec.Names.Plural,
+			}: fmt.Sprintf("%sList", gvk.Kind),
+		},
+		f.remoteObjects...,
+	)
 
-	crs, err := newCRSyncer(crd, f.local, f.remote, robotName)
+	crs, err := newCRSyncer(context.Background(), crd, f.local, f.remote, robotName)
 	if err != nil {
 		f.Fatal(err)
 	}

@@ -211,8 +211,8 @@ func (s *Synk) Init() error {
 // been deleted, it will have a higher version number.
 func (s *Synk) Delete(ctx context.Context, name string) error {
 	policy := metav1.DeletePropagationForeground
-	deleteOpts := &metav1.DeleteOptions{PropagationPolicy: &policy}
-	return s.client.Resource(resourceSetGVR).DeleteCollection(deleteOpts, metav1.ListOptions{
+	deleteOpts := metav1.DeleteOptions{PropagationPolicy: &policy}
+	return s.client.Resource(resourceSetGVR).DeleteCollection(ctx, deleteOpts, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("name=%s", name),
 	})
 }
@@ -245,11 +245,11 @@ func (s *Synk) Apply(
 	}
 	results, applyErr := s.applyAll(ctx, rs, opts, resources...)
 
-	if err := s.updateResourceSetStatus(rs, results); err != nil {
+	if err := s.updateResourceSetStatus(ctx, rs, results); err != nil {
 		return rs, err
 	}
 	if applyErr == nil {
-		if err := s.deleteResourceSets(opts.name, opts.version); err != nil {
+		if err := s.deleteResourceSets(ctx, opts.name, opts.version); err != nil {
 			return rs, err
 		}
 	}
@@ -432,7 +432,7 @@ func (s *Synk) initialize(
 
 	// Initialize and create next ResourceSet.
 	var err error
-	opts.version, err = s.next(opts.name)
+	opts.version, err = s.next(ctx, opts.name)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "get next ResourceSet version")
 	}
@@ -466,7 +466,7 @@ func (s *Synk) initialize(
 		Phase:     apps.ResourceSetPhasePending,
 		StartedAt: metav1.Now(),
 	}
-	if err := s.createResourceSet(&rs); err != nil {
+	if err := s.createResourceSet(ctx, &rs); err != nil {
 		return nil, nil, errors.Wrapf(err, "create resources object %q", rs.Name)
 	}
 
@@ -617,15 +617,15 @@ func canReplace(resource *unstructured.Unstructured, patchErr error) bool {
 	return false
 }
 
-func replace(client dynamic.ResourceInterface, resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func replace(ctx context.Context, client dynamic.ResourceInterface, resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	// Foreground deletion means that the new job can't be created until the old
 	// pods are gone, so updates to a currently-running job are safer.
 	policy := metav1.DeletePropagationForeground
-	deleteOpts := &metav1.DeleteOptions{PropagationPolicy: &policy}
-	if err := client.Delete(resource.GetName(), deleteOpts); err != nil {
+	deleteOpts := metav1.DeleteOptions{PropagationPolicy: &policy}
+	if err := client.Delete(ctx, resource.GetName(), deleteOpts); err != nil {
 		return nil, errors.Wrap(err, "delete")
 	}
-	res, err := client.Create(resource, metav1.CreateOptions{})
+	res, err := client.Create(ctx, resource, metav1.CreateOptions{})
 	if err != nil {
 		// This is likely to occur if deletion is not immediate, in which case
 		// this returns a transient AlreadyExists error, and the outer loop will
@@ -667,11 +667,11 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 
 	// Create the resource if it doesn't exist yet.
 	_, getSpan := trace.StartSpan(ctx, "Get "+resource.GetName())
-	current, err := client.Get(resource.GetName(), metav1.GetOptions{})
+	current, err := client.Get(ctx, resource.GetName(), metav1.GetOptions{})
 	getSpan.End()
 	if k8serrors.IsNotFound(err) {
 		_, createSpan := trace.StartSpan(ctx, "Create "+resource.GetName())
-		res, err := client.Create(resource, metav1.CreateOptions{})
+		res, err := client.Create(ctx, resource, metav1.CreateOptions{})
 		createSpan.End()
 		if err != nil {
 			return apps.ResourceActionCreate, errors.Wrap(err, "create resource")
@@ -747,7 +747,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		// Additionally the CL doesn't seem to implement valid behavior as the patch
 		// retries will not update to a new resourceVersion and the failure would persist.
 		_, patchSpan := trace.StartSpan(ctx, "Patch "+resource.GetName())
-		res, err := client.Patch(resource.GetName(), patchType, patch, metav1.PatchOptions{})
+		res, err := client.Patch(ctx, resource.GetName(), patchType, patch, metav1.PatchOptions{})
 		patchSpan.End()
 		if err == nil {
 			// Successfully patched.
@@ -763,7 +763,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		resource.SetResourceVersion(current.GetResourceVersion())
 
 		_, updateSpan := trace.StartSpan(ctx, "Update "+resource.GetName())
-		res, err := client.Update(resource, metav1.UpdateOptions{})
+		res, err := client.Update(ctx, resource, metav1.UpdateOptions{})
 		updateSpan.End()
 		if err == nil {
 			// Successfully updated.
@@ -778,7 +778,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		return apps.ResourceActionUpdate, errors.Wrap(patchErr, "apply patch or update")
 	}
 	_, replace_span := trace.StartSpan(ctx, "Replace "+resource.GetName())
-	res, err := replace(client, resource)
+	res, err := replace(ctx, client, resource)
 	replace_span.End()
 	if err != nil {
 		return apps.ResourceActionReplace, errors.Wrap(err, "replace")
@@ -831,7 +831,7 @@ var resourceSetGVR = schema.GroupVersionResource{
 	Resource: "resourcesets",
 }
 
-func (s *Synk) createResourceSet(rs *apps.ResourceSet) error {
+func (s *Synk) createResourceSet(ctx context.Context, rs *apps.ResourceSet) error {
 	rs.Kind = "ResourceSet"
 	rs.APIVersion = "apps.cloudrobotics.com/v1alpha1"
 
@@ -839,7 +839,7 @@ func (s *Synk) createResourceSet(rs *apps.ResourceSet) error {
 	if err := convert(rs, &u); err != nil {
 		return err
 	}
-	res, err := s.client.Resource(resourceSetGVR).Create(&u, metav1.CreateOptions{})
+	res, err := s.client.Resource(resourceSetGVR).Create(ctx, &u, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -883,7 +883,7 @@ func (r applyResults) list() (l []*applyResult) {
 	return l
 }
 
-func (s *Synk) updateResourceSetStatus(rs *apps.ResourceSet, results applyResults) error {
+func (s *Synk) updateResourceSetStatus(ctx context.Context, rs *apps.ResourceSet, results applyResults) error {
 	type group map[schema.GroupVersionKind][]apps.ResourceStatus
 	applied, failed := group{}, group{}
 
@@ -934,7 +934,7 @@ func (s *Synk) updateResourceSetStatus(rs *apps.ResourceSet, results applyResult
 	if err := convert(rs, &u); err != nil {
 		return err
 	}
-	res, err := s.client.Resource(resourceSetGVR).Update(&u, metav1.UpdateOptions{})
+	res, err := s.client.Resource(resourceSetGVR).Update(ctx, &u, metav1.UpdateOptions{})
 	if err != nil {
 		return errors.Wrap(err, "update ResourceSet status")
 	}
@@ -942,10 +942,10 @@ func (s *Synk) updateResourceSetStatus(rs *apps.ResourceSet, results applyResult
 }
 
 // deleteResourceSets deletes all ResourceSets of the given name that have a lower version.
-func (s *Synk) deleteResourceSets(name string, version int32) error {
+func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int32) error {
 	c := s.client.Resource(resourceSetGVR)
 
-	list, err := c.List(metav1.ListOptions{})
+	list, err := c.List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return errors.Wrap(err, "list existing resources")
 	}
@@ -958,7 +958,7 @@ func (s *Synk) deleteResourceSets(name string, version int32) error {
 		// we only return after all dependents have been deleted as well?
 		// kubectl doesn't allow to opt into foreground deletion in general but
 		// here it would likely bring us closer to the apply --prune semantics.
-		if err := c.Delete(r.GetName(), nil); err != nil {
+		if err := c.Delete(ctx, r.GetName(), metav1.DeleteOptions{}); err != nil {
 			return errors.Wrapf(err, "delete ResourceSet %q", r.GetName())
 		}
 	}
@@ -966,8 +966,8 @@ func (s *Synk) deleteResourceSets(name string, version int32) error {
 }
 
 // next returns the next version for the resources name.
-func (s *Synk) next(name string) (version int32, err error) {
-	list, err := s.client.Resource(resourceSetGVR).List(metav1.ListOptions{})
+func (s *Synk) next(ctx context.Context, name string) (version int32, err error) {
+	list, err := s.client.Resource(resourceSetGVR).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return 0, errors.Wrap(err, "list existing ResourceSets")
 	}

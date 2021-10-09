@@ -1,4 +1,4 @@
-// Copyright 2020 The Cloud Robotics Authors
+// Copyright 2021 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,10 +24,13 @@ import (
 )
 
 // AppLister helps list Apps.
+// All objects returned here must be treated as read-only.
 type AppLister interface {
 	// List lists all Apps in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.App, err error)
 	// Get retrieves the App from the index for a given name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.App, error)
 	AppListerExpansion
 }

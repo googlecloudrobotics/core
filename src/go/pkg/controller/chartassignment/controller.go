@@ -55,7 +55,7 @@ const (
 // Add adds a controller and validation webhook for the ChartAssignment resource type
 // to the manager and server.
 // Handled ChartAssignments are filtered by the provided cluster.
-func Add(mgr manager.Manager, cluster string) error {
+func Add(ctx context.Context, mgr manager.Manager, cluster string) error {
 	r := &Reconciler{
 		kube:     mgr.GetClient(),
 		recorder: mgr.GetEventRecorderFor("chartassignment-controller"),
@@ -73,8 +73,8 @@ func Add(mgr manager.Manager, cluster string) error {
 	if err != nil {
 		return err
 	}
-	err = mgr.GetCache().IndexField(&apps.ChartAssignment{}, fieldIndexNamespace,
-		func(o runtime.Object) []string {
+	err = mgr.GetCache().IndexField(ctx, &apps.ChartAssignment{}, fieldIndexNamespace,
+		func(o kclient.Object) []string {
 			return []string{o.(*apps.ChartAssignment).Spec.NamespaceName}
 		},
 	)
@@ -92,13 +92,13 @@ func Add(mgr manager.Manager, cluster string) error {
 		&source.Kind{Type: &core.Pod{}},
 		&handler.Funcs{
 			CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
-				r.enqueueForPod(e.Meta, q)
+				r.enqueueForPod(ctx, e.Object, q)
 			},
 			UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-				r.enqueueForPod(e.MetaNew, q)
+				r.enqueueForPod(ctx, e.ObjectNew, q)
 			},
 			DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				r.enqueueForPod(e.Meta, q)
+				r.enqueueForPod(ctx, e.Object, q)
 			},
 		},
 	)
@@ -108,9 +108,9 @@ func Add(mgr manager.Manager, cluster string) error {
 	return nil
 }
 
-func (r *Reconciler) enqueueForPod(m meta.Object, q workqueue.RateLimitingInterface) {
+func (r *Reconciler) enqueueForPod(ctx context.Context, m meta.Object, q workqueue.RateLimitingInterface) {
 	var cas apps.ChartAssignmentList
-	err := r.kube.List(context.TODO(), &cas, kclient.MatchingField(fieldIndexNamespace, m.GetNamespace()))
+	err := r.kube.List(ctx, &cas, kclient.MatchingFields(map[string]string{fieldIndexNamespace: m.GetNamespace()}))
 	if err != nil {
 		log.Printf("List ChartAssignments for namespace %s failed: %s", m.GetNamespace(), err)
 		return
@@ -135,9 +135,7 @@ type Reconciler struct {
 // assignment. It rolls back releases to the previous revision if an upgrade
 // failed. It continuously requeues the ChartAssignment for reconciliation to
 // monitor the status of the ResourceSet.
-func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) {
-	ctx := context.TODO()
-
+func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	var as apps.ChartAssignment
 	err := r.kube.Get(ctx, req.NamespacedName, &as)
 

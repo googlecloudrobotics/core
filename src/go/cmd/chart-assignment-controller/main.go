@@ -18,6 +18,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"net/http"
@@ -31,9 +32,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -59,6 +61,7 @@ var (
 
 func main() {
 	flag.Parse()
+	ctx := context.Background()
 	if *stackdriverProjectID != "" && *cloudCluster == false {
 		sd, err := stackdriver.NewExporter(stackdriver.Options{
 			ProjectID: *stackdriverProjectID,
@@ -91,7 +94,7 @@ func main() {
 	// The default value of twice the max QPS seems to work well.
 	config.Burst = *maxQPS * 2
 
-	if err := setupAppV2(config, clusterName); err != nil {
+	if err := setupAppV2(ctx, config, clusterName); err != nil {
 		log.Fatalln(err)
 	}
 
@@ -103,8 +106,8 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func setupAppV2(cfg *rest.Config, cluster string) error {
-	ctrllog.SetLogger(ctrllog.ZapLogger(true))
+func setupAppV2(ctx context.Context, cfg *rest.Config, cluster string) error {
+	ctrllog.SetLogger(zap.New())
 
 	sc := runtime.NewScheme()
 	scheme.AddToScheme(sc)
@@ -118,7 +121,7 @@ func setupAppV2(cfg *rest.Config, cluster string) error {
 	if err != nil {
 		return errors.Wrap(err, "create controller manager")
 	}
-	if err := chartassignment.Add(mgr, cluster); err != nil {
+	if err := chartassignment.Add(ctx, mgr, cluster); err != nil {
 		return errors.Wrap(err, "add ChartAssignment controller")
 	}
 

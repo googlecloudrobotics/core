@@ -273,7 +273,7 @@ func runIPTablesCommand(args []string) error {
 	return cmd.Run()
 }
 
-func patchCorefileInCluster() error {
+func patchCorefileInCluster(ctx context.Context) error {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return err
@@ -282,10 +282,10 @@ func patchCorefileInCluster() error {
 	if err != nil {
 		return err
 	}
-	return PatchCorefile(k8s)
+	return PatchCorefile(ctx, k8s)
 }
 
-func revertCorefileInCluster() {
+func revertCorefileInCluster(ctx context.Context) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		log.Printf("Warning: failed to create InClusterConfig: %v", err)
@@ -296,7 +296,7 @@ func revertCorefileInCluster() {
 		log.Printf("Warning: failed to create ClientSet: %v", err)
 		return
 	}
-	if err := RevertCorefile(k8s); err != nil {
+	if err := RevertCorefile(ctx, k8s); err != nil {
 		log.Printf("Warning: failed to revert Corefile: %v", err)
 	}
 }
@@ -401,21 +401,21 @@ func main() {
 		log.Fatalf("failed to add iptables rule: %v", err)
 	}
 
-	if err := patchCorefileInCluster(); err != nil {
+	if err := patchCorefileInCluster(ctx); err != nil {
 		removeIPTablesRule()
 		log.Fatal(err)
 	}
 
 	go func() {
 		err = http.Serve(ln, nil)
-		revertCorefileInCluster()
+		revertCorefileInCluster(ctx)
 		removeIPTablesRule()
 		log.Fatal(err)
 	}()
 
 	go func() {
 		<-detectChangesToFile(*robotIdFile)
-		revertCorefileInCluster()
+		revertCorefileInCluster(ctx)
 		removeIPTablesRule()
 		log.Fatalf("%s changed but reloading is not implemented. Crashing...", *robotIdFile)
 	}()
@@ -424,6 +424,6 @@ func main() {
 	signal.Notify(stop, syscall.SIGTERM)
 
 	<-stop
-	revertCorefileInCluster()
+	revertCorefileInCluster(ctx)
 	removeIPTablesRule()
 }

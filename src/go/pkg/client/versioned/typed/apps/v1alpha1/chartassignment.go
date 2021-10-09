@@ -1,4 +1,4 @@
-// Copyright 2020 The Cloud Robotics Authors
+// Copyright 2021 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package v1alpha1
 
 import (
+	"context"
 	"time"
 
 	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
@@ -35,15 +36,15 @@ type ChartAssignmentsGetter interface {
 
 // ChartAssignmentInterface has methods to work with ChartAssignment resources.
 type ChartAssignmentInterface interface {
-	Create(*v1alpha1.ChartAssignment) (*v1alpha1.ChartAssignment, error)
-	Update(*v1alpha1.ChartAssignment) (*v1alpha1.ChartAssignment, error)
-	UpdateStatus(*v1alpha1.ChartAssignment) (*v1alpha1.ChartAssignment, error)
-	Delete(name string, options *v1.DeleteOptions) error
-	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*v1alpha1.ChartAssignment, error)
-	List(opts v1.ListOptions) (*v1alpha1.ChartAssignmentList, error)
-	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.ChartAssignment, err error)
+	Create(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.CreateOptions) (*v1alpha1.ChartAssignment, error)
+	Update(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.UpdateOptions) (*v1alpha1.ChartAssignment, error)
+	UpdateStatus(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.UpdateOptions) (*v1alpha1.ChartAssignment, error)
+	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
+	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ChartAssignment, error)
+	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ChartAssignmentList, error)
+	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ChartAssignment, err error)
 	ChartAssignmentExpansion
 }
 
@@ -60,19 +61,19 @@ func newChartAssignments(c *AppsV1alpha1Client) *chartAssignments {
 }
 
 // Get takes name of the chartAssignment, and returns the corresponding chartAssignment object, and an error if there is any.
-func (c *chartAssignments) Get(name string, options v1.GetOptions) (result *v1alpha1.ChartAssignment, err error) {
+func (c *chartAssignments) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ChartAssignment, err error) {
 	result = &v1alpha1.ChartAssignment{}
 	err = c.client.Get().
 		Resource("chartassignments").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of ChartAssignments that match those selectors.
-func (c *chartAssignments) List(opts v1.ListOptions) (result *v1alpha1.ChartAssignmentList, err error) {
+func (c *chartAssignments) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ChartAssignmentList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -82,13 +83,13 @@ func (c *chartAssignments) List(opts v1.ListOptions) (result *v1alpha1.ChartAssi
 		Resource("chartassignments").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested chartAssignments.
-func (c *chartAssignments) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *chartAssignments) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -98,81 +99,84 @@ func (c *chartAssignments) Watch(opts v1.ListOptions) (watch.Interface, error) {
 		Resource("chartassignments").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a chartAssignment and creates it.  Returns the server's representation of the chartAssignment, and an error, if there is any.
-func (c *chartAssignments) Create(chartAssignment *v1alpha1.ChartAssignment) (result *v1alpha1.ChartAssignment, err error) {
+func (c *chartAssignments) Create(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.CreateOptions) (result *v1alpha1.ChartAssignment, err error) {
 	result = &v1alpha1.ChartAssignment{}
 	err = c.client.Post().
 		Resource("chartassignments").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(chartAssignment).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Update takes the representation of a chartAssignment and updates it. Returns the server's representation of the chartAssignment, and an error, if there is any.
-func (c *chartAssignments) Update(chartAssignment *v1alpha1.ChartAssignment) (result *v1alpha1.ChartAssignment, err error) {
+func (c *chartAssignments) Update(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.UpdateOptions) (result *v1alpha1.ChartAssignment, err error) {
 	result = &v1alpha1.ChartAssignment{}
 	err = c.client.Put().
 		Resource("chartassignments").
 		Name(chartAssignment.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(chartAssignment).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
-func (c *chartAssignments) UpdateStatus(chartAssignment *v1alpha1.ChartAssignment) (result *v1alpha1.ChartAssignment, err error) {
+func (c *chartAssignments) UpdateStatus(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.UpdateOptions) (result *v1alpha1.ChartAssignment, err error) {
 	result = &v1alpha1.ChartAssignment{}
 	err = c.client.Put().
 		Resource("chartassignments").
 		Name(chartAssignment.Name).
 		SubResource("status").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(chartAssignment).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Delete takes name of the chartAssignment and deletes it. Returns an error if one occurs.
-func (c *chartAssignments) Delete(name string, options *v1.DeleteOptions) error {
+func (c *chartAssignments) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
 		Resource("chartassignments").
 		Name(name).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *chartAssignments) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *chartAssignments) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	var timeout time.Duration
-	if listOptions.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
+	if listOpts.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
 		Resource("chartassignments").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // Patch applies the patch and returns the patched chartAssignment.
-func (c *chartAssignments) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.ChartAssignment, err error) {
+func (c *chartAssignments) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ChartAssignment, err error) {
 	result = &v1alpha1.ChartAssignment{}
 	err = c.client.Patch(pt).
 		Resource("chartassignments").
-		SubResource(subresources...).
 		Name(name).
+		SubResource(subresources...).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

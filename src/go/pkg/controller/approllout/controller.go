@@ -57,7 +57,7 @@ const (
 
 // Add adds a controller for the AppRollout resource type
 // to the manager and server.
-func Add(mgr manager.Manager, baseValues chartutil.Values) error {
+func Add(ctx context.Context, mgr manager.Manager, baseValues chartutil.Values) error {
 	r := &Reconciler{
 		kube:       mgr.GetClient(),
 		baseValues: baseValues,
@@ -69,11 +69,11 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 		return errors.Wrap(err, "create controller")
 	}
 
-	err = mgr.GetCache().IndexField(&apps.ChartAssignment{}, fieldIndexOwners, indexOwnerReferences)
+	err = mgr.GetCache().IndexField(ctx, &apps.ChartAssignment{}, fieldIndexOwners, indexOwnerReferences)
 	if err != nil {
 		return errors.Wrap(err, "add field indexer")
 	}
-	err = mgr.GetCache().IndexField(&apps.AppRollout{}, fieldIndexAppName, indexAppName)
+	err = mgr.GetCache().IndexField(ctx, &apps.AppRollout{}, fieldIndexAppName, indexAppName)
 	if err != nil {
 		return errors.Wrap(err, "add field indexer")
 	}
@@ -95,10 +95,10 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 		// https://github.com/kubernetes-sigs/controller-runtime/pull/274 did not resolve the issue.
 		&handler.Funcs{
 			DeleteFunc: func(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				r.enqueueForOwner(evt.Meta, q)
+				r.enqueueForOwner(evt.Object, q)
 			},
 			UpdateFunc: func(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
-				r.enqueueForOwner(evt.MetaNew, q)
+				r.enqueueForOwner(evt.ObjectNew, q)
 			},
 		},
 	)
@@ -114,23 +114,23 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 		// so the robot ideally reappeared before we reconcile.
 		&handler.Funcs{
 			CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("AppRollout controller received create event for Robot %q", e.Meta.GetName())
-				r.enqueueAll(q)
+				log.Printf("AppRollout controller received create event for Robot %q", e.Object.GetName())
+				r.enqueueAll(ctx, q)
 			},
 			UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 				// Robots don't have the status subresource enabled. Filter updates that didn't
 				// change robot name or labels.
-				change := !reflect.DeepEqual(e.MetaOld.GetLabels(), e.MetaNew.GetLabels())
-				change = change || e.MetaOld.GetName() != e.MetaNew.GetName()
+				change := !reflect.DeepEqual(e.ObjectOld.GetLabels(), e.ObjectNew.GetLabels())
+				change = change || e.ObjectOld.GetName() != e.ObjectNew.GetName()
 				if change {
-					log.Printf("AppRollout controller received update event for Robot %q", e.MetaNew.GetName())
-					r.enqueueAll(q)
+					log.Printf("AppRollout controller received update event for Robot %q", e.ObjectNew.GetName())
+					r.enqueueAll(ctx, q)
 				}
 			},
 			DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("AppRollout controller received delete event for Robot %q", e.Meta.GetName())
+				log.Printf("AppRollout controller received delete event for Robot %q", e.Object.GetName())
 				time.AfterFunc(3*time.Second, func() {
-					r.enqueueAll(q)
+					r.enqueueAll(ctx, q)
 				})
 			},
 		},
@@ -142,16 +142,16 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 		&source.Kind{Type: &apps.App{}},
 		&handler.Funcs{
 			CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("AppRollout controller received create event for App %q", e.Meta.GetName())
-				r.enqueueForApp(e.Meta, q)
+				log.Printf("AppRollout controller received create event for App %q", e.Object.GetName())
+				r.enqueueForApp(ctx, e.Object, q)
 			},
 			UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("AppRollout controller received update event for App %q", e.MetaNew.GetName())
-				r.enqueueForApp(e.MetaNew, q)
+				log.Printf("AppRollout controller received update event for App %q", e.ObjectNew.GetName())
+				r.enqueueForApp(ctx, e.ObjectNew, q)
 			},
 			DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("AppRollout controller received update event for App %q", e.Meta.GetName())
-				r.enqueueForApp(e.Meta, q)
+				log.Printf("AppRollout controller received update event for App %q", e.Object.GetName())
+				r.enqueueForApp(ctx, e.Object, q)
 			},
 		},
 	)
@@ -162,9 +162,9 @@ func Add(mgr manager.Manager, baseValues chartutil.Values) error {
 }
 
 // enqueueForApp enqueues all AppRollouts for the given app.
-func (r *Reconciler) enqueueForApp(m metav1.Object, q workqueue.RateLimitingInterface) {
+func (r *Reconciler) enqueueForApp(ctx context.Context, m metav1.Object, q workqueue.RateLimitingInterface) {
 	var rollouts apps.AppRolloutList
-	err := r.kube.List(context.TODO(), &rollouts, kclient.MatchingField(fieldIndexAppName, m.GetName()))
+	err := r.kube.List(ctx, &rollouts, kclient.MatchingFields(map[string]string{fieldIndexAppName: m.GetName()}))
 	if err != nil {
 		log.Printf("List AppRollouts for appName %s failed: %s", m.GetName(), err)
 		return
@@ -189,9 +189,9 @@ func (r *Reconciler) enqueueForOwner(m metav1.Object, q workqueue.RateLimitingIn
 }
 
 // enqueueAll enqueues all AppRollouts.
-func (r *Reconciler) enqueueAll(q workqueue.RateLimitingInterface) {
+func (r *Reconciler) enqueueAll(ctx context.Context, q workqueue.RateLimitingInterface) {
 	var rollouts apps.AppRolloutList
-	err := r.kube.List(context.TODO(), &rollouts)
+	err := r.kube.List(ctx, &rollouts)
 	if err != nil {
 		log.Printf("List AppRollouts failed: %s", err)
 		return
@@ -210,9 +210,7 @@ type Reconciler struct {
 	baseValues chartutil.Values
 }
 
-func (r *Reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) {
-	ctx := context.TODO()
-
+func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	var ar apps.AppRollout
 	err := r.kube.Get(ctx, req.NamespacedName, &ar)
 
@@ -244,7 +242,7 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	if err != nil {
 		return reconcile.Result{}, r.updateErrorStatus(ctx, ar, err.Error())
 	}
-	err = r.kube.List(ctx, &curCAs, kclient.MatchingField(fieldIndexOwners, string(ar.UID)))
+	err = r.kube.List(ctx, &curCAs, kclient.MatchingFields(map[string]string{fieldIndexOwners: string(ar.UID)}))
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "list ChartAssignments for owner UID %s", ar.UID)
 	}
@@ -624,7 +622,7 @@ func setOwnerReference(om *metav1.ObjectMeta, ref metav1.OwnerReference) {
 }
 
 // indexOwnerReferences indexes resources by the UIDs of their owner references.
-func indexOwnerReferences(o runtime.Object) (vs []string) {
+func indexOwnerReferences(o kclient.Object) (vs []string) {
 	ca := o.(*apps.ChartAssignment)
 	for _, or := range ca.OwnerReferences {
 		vs = append(vs, string(or.UID))
@@ -632,7 +630,7 @@ func indexOwnerReferences(o runtime.Object) (vs []string) {
 	return vs
 }
 
-func indexAppName(o runtime.Object) []string {
+func indexAppName(o kclient.Object) []string {
 	ar := o.(*apps.AppRollout)
 	return []string{ar.Spec.AppName}
 }

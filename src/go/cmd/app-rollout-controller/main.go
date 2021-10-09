@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"net/http"
@@ -30,9 +31,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/strvals"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 var (
@@ -50,6 +52,7 @@ func main() {
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
 	flag.Parse()
 
+	ctx := context.Background()
 	kubernetesConfig, err := rest.InClusterConfig()
 	if err != nil {
 		log.Fatalf("Failed to initialize Kubernetes config: %v", err)
@@ -60,7 +63,7 @@ func main() {
 		log.Fatalln("invalid Helm parameters:", err)
 	}
 
-	if err := setupAppV2(kubernetesConfig, helmParams); err != nil {
+	if err := setupAppV2(ctx, kubernetesConfig, helmParams); err != nil {
 		log.Fatalln(err)
 	}
 
@@ -72,8 +75,8 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func setupAppV2(cfg *rest.Config, params map[string]interface{}) error {
-	ctrllog.SetLogger(ctrllog.ZapLogger(true))
+func setupAppV2(ctx context.Context, cfg *rest.Config, params map[string]interface{}) error {
+	ctrllog.SetLogger(zap.New())
 
 	sc := runtime.NewScheme()
 	scheme.AddToScheme(sc)
@@ -88,7 +91,7 @@ func setupAppV2(cfg *rest.Config, params map[string]interface{}) error {
 	if err != nil {
 		return errors.Wrap(err, "create controller manager")
 	}
-	if err := approllout.Add(mgr, chartutil.Values(params)); err != nil {
+	if err := approllout.Add(ctx, mgr, chartutil.Values(params)); err != nil {
 		return errors.Wrap(err, "add AppRollout controller")
 	}
 

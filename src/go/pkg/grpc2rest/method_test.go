@@ -15,6 +15,7 @@
 package grpc2rest
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -324,6 +325,7 @@ var happyCaseTests = []struct {
 }
 
 func TestBuildKubernetesRequestHappyCase(t *testing.T) {
+	ctx := context.Background()
 	g := NewGomegaWithT(t)
 	for _, tt := range happyCaseTests {
 		methods, transport := createMethodsOrDie(tt.scope)
@@ -334,7 +336,7 @@ func TestBuildKubernetesRequestHappyCase(t *testing.T) {
 		g.Expect(err).To(BeNil())
 		transport.responseCode = http.StatusOK
 
-		k8sreq.DoRaw()
+		k8sreq.DoRaw(ctx)
 
 		g.Expect(transport.requestUrl).To(Equal(tt.url))
 		if tt.body != "" {
@@ -365,6 +367,7 @@ func TestBuildKubernetesRequestCatchesEmptyName(t *testing.T) {
 }
 
 func TestKubernetesRequestHandlesHttpError(t *testing.T) {
+	ctx := context.Background()
 	g := NewGomegaWithT(t)
 	methods, transport := createMethodsOrDie(crdtypes.NamespaceScoped)
 	m := methods[helloWorld("List")]
@@ -372,7 +375,7 @@ func TestKubernetesRequestHandlesHttpError(t *testing.T) {
 	transport.responseCode = http.StatusGone
 	transport.responseBody = `{ "apiVersion": "v1", "kind": "Status", "message": "Foo" }`
 
-	body, err := k8sreq.DoRaw()
+	body, err := k8sreq.DoRaw(ctx)
 	g.Expect(err).ToNot(BeNil())
 	g.Expect(err.(*errors.StatusError).Status().Code).To(Equal(int32(http.StatusGone)))
 	g.Expect(err.(*errors.StatusError).Error()).To(ContainSubstring("did not return more information"))
@@ -380,6 +383,7 @@ func TestKubernetesRequestHandlesHttpError(t *testing.T) {
 }
 
 func TestStreamWorks(t *testing.T) {
+	ctx := context.Background()
 	g := NewGomegaWithT(t)
 	methods, transport := createMethodsOrDie(crdtypes.NamespaceScoped)
 	m := methods[helloWorld("Watch")]
@@ -387,7 +391,7 @@ func TestStreamWorks(t *testing.T) {
 	transport.responseBody = "foo"
 	req, _ := m.BuildKubernetesRequest(m.GetInputMessage())
 
-	str, err := req.Stream()
+	str, err := req.Stream(ctx)
 	b, _ := ioutil.ReadAll(str)
 	str.Close()
 
@@ -396,6 +400,7 @@ func TestStreamWorks(t *testing.T) {
 }
 
 func TestStreamHandlesHttpError(t *testing.T) {
+	ctx := context.Background()
 	g := NewGomegaWithT(t)
 	methods, transport := createMethodsOrDie(crdtypes.NamespaceScoped)
 	m := methods[helloWorld("Watch")]
@@ -403,7 +408,7 @@ func TestStreamHandlesHttpError(t *testing.T) {
 	transport.responseCode = http.StatusGone
 	transport.responseBody = "ignored"
 
-	str, err := req.Stream()
+	str, err := req.Stream(ctx)
 
 	g.Expect(str).To(BeNil())
 	g.Expect(err).ToNot(BeNil())

@@ -156,9 +156,10 @@ func TestSynk_IsTransientErr(t *testing.T) {
 
 // TODO(rodrigoq): test Apply() directly rather than the private methods
 func TestSynk_initialize(t *testing.T) {
+	ctx := context.Background()
 	s := newFixture(t).newSynk()
 
-	_, _, err := s.initialize(context.Background(), &ApplyOptions{name: "test"},
+	_, _, err := s.initialize(ctx, &ApplyOptions{name: "test"},
 		newUnstructured("v1", "Pod", "ns2", "pod1"),
 		newUnstructured("apps/v1", "Deployment", "ns1", "deploy1"),
 		newUnstructured("v1", "Pod", "ns1", "pod1"),
@@ -166,7 +167,7 @@ func TestSynk_initialize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.client.Resource(resourceSetGVR).Get("test.v1", metav1.GetOptions{})
+	got, err := s.client.Resource(resourceSetGVR).Get(ctx, "test.v1", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,13 +211,14 @@ status:
 }
 
 func TestSynk_updateResourceSetStatus(t *testing.T) {
+	ctx := context.Background()
 	f := newFixture(t)
 	s := f.newSynk()
 
 	rs := &apps.ResourceSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "set1"},
 	}
-	if err := s.createResourceSet(rs); err != nil {
+	if err := s.createResourceSet(ctx, rs); err != nil {
 		t.Fatal(err)
 	}
 	results := applyResults{
@@ -238,11 +240,11 @@ func TestSynk_updateResourceSetStatus(t *testing.T) {
 			action:   apps.ResourceActionCreate,
 		},
 	}
-	err := s.updateResourceSetStatus(rs, results)
+	err := s.updateResourceSetStatus(ctx, rs, results)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.client.Resource(resourceSetGVR).Get("set1", metav1.GetOptions{})
+	got, err := s.client.Resource(resourceSetGVR).Get(ctx, "set1", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,6 +335,9 @@ data:
 	set.Name = "test.v1"
 	set.UID = "deadbeef"
 
+	// Note: We can't test applying an Unstructured object here, as the
+	// fake client doesn't support strategic merge patches:
+	// https://github.com/kubernetes/client-go/issues/613
 	results, err := f.newSynk().applyAll(context.Background(), set, &ApplyOptions{name: "test"},
 		cm.DeepCopy(),
 	)
@@ -358,60 +363,6 @@ data:
 
 	f.expectActions(
 		k8stest.NewUpdateAction(gvrs["configmaps"], "foo1", cm),
-	)
-	f.verifyWriteActions()
-}
-
-func TestSynk_applyAllIsPatchingResources(t *testing.T) {
-	// We have to use properly typed objects for strategic-merge-patch targets
-	// as the patch operation will fail otherwise.
-	// We also need the "last-applied-configuration" annotation to be present to
-	// trigger
-	var cmBefore, cmUpdate corev1.ConfigMap
-	unmarshalYAML(t, &cmBefore, `
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  namespace: foo1
-  name: cm1
-  annotations:
-    "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\"}"    
-data:
-  foo1: bar1
-  foo2: bar2`)
-	f := newFixture(t)
-	// cm1 already exists beforehand, so we expect an update.
-	f.addObjects(&cmBefore)
-
-	unmarshalYAML(t, &cmUpdate, `
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  namespace: foo1
-  name: cm1
-data:
-  foo2: baz2
-  foo3: bar3`)
-
-	set := &apps.ResourceSet{}
-	set.Name = "test.v1"
-	set.UID = "deadbeef"
-
-	results, err := f.newSynk().applyAll(context.Background(), set, &ApplyOptions{name: "test"},
-		toUnstructured(t, &cmUpdate).DeepCopy(),
-	)
-	if err != nil {
-		t.Error(err)
-		for _, res := range results {
-			t.Log(res)
-		}
-		return
-	}
-
-	cmPatch := []byte(`{"data":{"foo2":"baz2","foo3":"bar3"},"metadata":{"annotations":{"kubectl.kubernetes.io/last-applied-configuration":"{\"apiVersion\":\"v1\",\"data\":{\"foo2\":\"baz2\",\"foo3\":\"bar3\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":{},\"creationTimestamp\":null,\"name\":\"cm1\",\"namespace\":\"foo1\",\"ownerReferences\":[{\"apiVersion\":\"apps.cloudrobotics.com/v1alpha1\",\"blockOwnerDeletion\":true,\"kind\":\"ResourceSet\",\"name\":\"test.v1\",\"uid\":\"deadbeef\"}]}}\n"},"ownerReferences":[{"apiVersion":"apps.cloudrobotics.com/v1alpha1","blockOwnerDeletion":true,"kind":"ResourceSet","name":"test.v1","uid":"deadbeef"}]}}`)
-
-	f.expectActions(
-		k8stest.NewPatchAction(gvrs["configmaps"], "foo1", "cm1", types.StrategicMergePatchType, cmPatch),
 	)
 	f.verifyWriteActions()
 }
@@ -538,6 +489,7 @@ func TestSynk_applyAllRetriesResourceExpired(t *testing.T) {
 }
 
 func TestSynk_skipsTestResources(t *testing.T) {
+	ctx := context.Background()
 	s := newFixture(t).newSynk()
 
 	testPod := newUnstructured("v1", "Pod", "ns", "pod2")
@@ -550,7 +502,7 @@ func TestSynk_skipsTestResources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.client.Resource(resourceSetGVR).Get("test.v1", metav1.GetOptions{})
+	got, err := s.client.Resource(resourceSetGVR).Get(ctx, "test.v1", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -578,6 +530,7 @@ status:
 }
 
 func TestSynk_deleteResourceSets(t *testing.T) {
+	ctx := context.Background()
 	f := newFixture(t)
 	f.addObjects(
 		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "test.v2"),
@@ -589,7 +542,7 @@ func TestSynk_deleteResourceSets(t *testing.T) {
 	)
 	synk := f.newSynk()
 
-	err := synk.deleteResourceSets("test", 7)
+	err := synk.deleteResourceSets(ctx, "test", 7)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -95,7 +95,7 @@ func init() {
 // removeFinalizer removes the cr-syncer finalizer for this robot. Finalizers
 // for offline robots have to be removed manually (eg with `kubectl edit`).
 // TODO(rodrigoq): remove after migration
-func removeFinalizer(client dynamic.ResourceInterface, obj *unstructured.Unstructured, clusterName string) {
+func removeFinalizer(ctx context.Context, client dynamic.ResourceInterface, obj *unstructured.Unstructured, clusterName string) {
 	update := false
 	thisFinalizer := fmt.Sprintf("%s.synced.cr-syncer.cloudrobotics.com", clusterName)
 	finalizers := []string{}
@@ -110,7 +110,7 @@ func removeFinalizer(client dynamic.ResourceInterface, obj *unstructured.Unstruc
 		return
 	}
 	obj.SetFinalizers(finalizers)
-	if _, err := client.Update(obj, metav1.UpdateOptions{}); err != nil {
+	if _, err := client.Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
 		if isNotFoundError(err) {
 			return
 		}
@@ -123,6 +123,7 @@ func removeFinalizer(client dynamic.ResourceInterface, obj *unstructured.Unstruc
 // Updates to the status subresource in the downstream are propagated back to
 // the upstream cluster.
 type crSyncer struct {
+	ctx           context.Context
 	clusterName   string // Name of downstream cluster.
 	crd           crdtypes.CustomResourceDefinition
 	upstream      dynamic.ResourceInterface // Source of the spec.
@@ -156,6 +157,7 @@ func getStorageVersionIndex(crd crdtypes.CustomResourceDefinition) (int, error) 
 }
 
 func newCRSyncer(
+	ctx context.Context,
 	crd crdtypes.CustomResourceDefinition,
 	local, remote dynamic.Interface,
 	robotName string,
@@ -189,6 +191,7 @@ func newCRSyncer(
 		ns = "default"
 	}
 	s := &crSyncer{
+		ctx:        ctx,
 		crd:        crd,
 		subtree:    annotations[annotationStatusSubtree],
 		versionIx:  versionIx,
@@ -234,11 +237,11 @@ func (s *crSyncer) newInformer(client dynamic.ResourceInterface) cache.SharedInd
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				options.LabelSelector = s.labelSelector
-				return client.List(options)
+				return client.List(s.ctx, options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				options.LabelSelector = s.labelSelector
-				return client.Watch(options)
+				return client.Watch(s.ctx, options)
 			},
 		},
 		&unstructured.Unstructured{},
@@ -413,7 +416,7 @@ func (s *crSyncer) syncDownstream(key string) error {
 		return nil
 	}
 	src := srcObj.(*unstructured.Unstructured).DeepCopy()
-	removeFinalizer(s.downstream, src, s.clusterName)
+	removeFinalizer(s.ctx, s.downstream, src, s.clusterName)
 
 	dstObj, dstExists, err := s.upstreamInf.GetIndexer().GetByKey(key)
 	if err != nil {
@@ -428,7 +431,7 @@ func (s *crSyncer) syncDownstream(key string) error {
 		if src.GetDeletionTimestamp() != nil {
 			return nil // Already being deleted.
 		}
-		if err := s.downstream.Delete(src.GetName(), nil); err != nil {
+		if err := s.downstream.Delete(s.ctx, src.GetName(), metav1.DeleteOptions{}); err != nil {
 			if isNotFoundError(err) {
 				return nil
 			}
@@ -468,7 +471,7 @@ func (s *crSyncer) syncDownstream(key string) error {
 		if dst.Object["status"] == nil {
 			dst.Object["status"] = struct{}{}
 		}
-		updated, err := s.upstream.UpdateStatus(dst, metav1.UpdateOptions{})
+		updated, err := s.upstream.UpdateStatus(s.ctx, dst, metav1.UpdateOptions{})
 		if err != nil {
 			// Count subsequent conflict errors
 			if k8serrors.IsConflict(err) && s.clusterName != cloudClusterName {
@@ -478,7 +481,7 @@ func (s *crSyncer) syncDownstream(key string) error {
 		}
 		dst = updated
 	} else {
-		updated, err := s.upstream.Update(dst, metav1.UpdateOptions{})
+		updated, err := s.upstream.Update(s.ctx, dst, metav1.UpdateOptions{})
 		if err != nil {
 			// Count subsequent conflict errors
 			if k8serrors.IsConflict(err) && s.clusterName != cloudClusterName {
@@ -510,7 +513,7 @@ func (s *crSyncer) syncUpstream(key string) error {
 	}
 	if srcExists {
 		src = srcObj.(*unstructured.Unstructured).DeepCopy()
-		removeFinalizer(s.upstream, src, s.clusterName)
+		removeFinalizer(s.ctx, s.upstream, src, s.clusterName)
 	}
 	dstObj, dstExists, err := s.downstreamInf.GetIndexer().GetByKey(key)
 	if err != nil {
@@ -536,16 +539,16 @@ func (s *crSyncer) syncUpstream(key string) error {
 			// Copy upstream status on initial creation.
 			o.Object["status"] = src.Object["status"]
 
-			return s.downstream.Create(o, metav1.CreateOptions{})
+			return s.downstream.Create(s.ctx, o, metav1.CreateOptions{})
 		}
 	case srcExists && dstExists:
 		// Update dst.
 		createOrUpdate = func(o *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-			return s.downstream.Update(o, metav1.UpdateOptions{})
+			return s.downstream.Update(s.ctx, o, metav1.UpdateOptions{})
 		}
 	case !srcExists && dstExists:
 		// Delete dst.
-		if err := s.downstream.Delete(dst.GetName(), nil); err != nil {
+		if err := s.downstream.Delete(s.ctx, dst.GetName(), metav1.DeleteOptions{}); err != nil {
 			if isNotFoundError(err) {
 				return nil
 			}
@@ -560,7 +563,7 @@ func (s *crSyncer) syncUpstream(key string) error {
 	// Before creating/updating, check if deletion is in progress. This
 	// is checked separately to src/dstExists for readability (hopefully).
 	if src.GetDeletionTimestamp() != nil {
-		if err := s.downstream.Delete(src.GetName(), nil); err != nil {
+		if err := s.downstream.Delete(s.ctx, src.GetName(), metav1.DeleteOptions{}); err != nil {
 			if isNotFoundError(err) {
 				return nil
 			}

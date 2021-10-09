@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"time"
@@ -32,7 +33,7 @@ var (
 const updateInterval = 10 * time.Minute
 
 // Updates the token used to pull images from GCR in the surrounding cluster.
-func updateCredentials() error {
+func updateCredentials(ctx context.Context) error {
 	// Connect to the surrounding k8s cluster.
 	localConfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -48,16 +49,17 @@ func updateCredentials() error {
 	}
 	// Perform a token exchange with the TokenVendor in the cloud cluster and update the
 	// credentials used to pull images from GCR.
-	return gcr.UpdateGcrCredentials(localClient, robotAuth)
+	return gcr.UpdateGcrCredentials(ctx, localClient, robotAuth)
 }
 
 // Updates the token used to pull images from GCR in the surrounding cluster. The update runs
 // on startup, and then every 10 minutes.
 func main() {
 	flag.Parse()
+	ctx := context.Background()
 
 	for {
-		if err := updateCredentials(); err != nil {
+		if err := updateCredentials(ctx); err != nil {
 			log.Fatal(err)
 		}
 		log.Printf("Updated GCR credentials in local cluster")

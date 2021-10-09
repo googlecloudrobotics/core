@@ -47,7 +47,7 @@ const (
 	podMaxToleratedContainerRestarts = 5
 )
 
-func checkHealthOfKubernetesCluster(kubernetesContext string) error {
+func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext string) error {
 	// create the kubernetes clientSet
 	k8sCfg, err := kubeutils.LoadOutOfClusterConfig(kubernetesContext)
 	if err != nil {
@@ -65,7 +65,7 @@ func checkHealthOfKubernetesCluster(kubernetesContext string) error {
 
 	for time.Since(timeStart) < podInitializationTimeout {
 		log.Printf("Querying pods from context %s...", kubernetesContext)
-		pods, err := clientSet.CoreV1().Pods("").List(metav1.ListOptions{})
+		pods, err := clientSet.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return fmt.Errorf("Failed to query pods: %v", err)
 		}
@@ -198,23 +198,25 @@ func TestCloudClusterAppStatus(t *testing.T) {
 }
 
 func TestKubernetesCloudClusterStatus(t *testing.T) {
+	ctx := context.Background()
 	kubernetesCloudContext, err := kubeutils.GetCloudKubernetesContext()
 	if err != nil {
 		t.Error(err)
 	}
 
-	if err := checkHealthOfKubernetesCluster(kubernetesCloudContext); err != nil {
+	if err := checkHealthOfKubernetesCluster(ctx, kubernetesCloudContext); err != nil {
 		t.Errorf("Cloud cluster %s: %v", kubernetesCloudContext, err)
 	}
 }
 
 func TestKubernetesRobotClusterStatus(t *testing.T) {
+	ctx := context.Background()
 	kubernetesRobotContext, err := kubeutils.GetRobotKubernetesContext()
 	if err != nil {
 		t.Error(err)
 	}
 
-	if err := checkHealthOfKubernetesCluster(kubernetesRobotContext); err != nil {
+	if err := checkHealthOfKubernetesCluster(ctx, kubernetesRobotContext); err != nil {
 		t.Errorf("Robot cluster %s: %v", kubernetesRobotContext, err)
 	}
 

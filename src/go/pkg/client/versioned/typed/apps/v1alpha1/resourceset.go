@@ -1,4 +1,4 @@
-// Copyright 2020 The Cloud Robotics Authors
+// Copyright 2021 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package v1alpha1
 
 import (
+	"context"
 	"time"
 
 	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
@@ -35,15 +36,15 @@ type ResourceSetsGetter interface {
 
 // ResourceSetInterface has methods to work with ResourceSet resources.
 type ResourceSetInterface interface {
-	Create(*v1alpha1.ResourceSet) (*v1alpha1.ResourceSet, error)
-	Update(*v1alpha1.ResourceSet) (*v1alpha1.ResourceSet, error)
-	UpdateStatus(*v1alpha1.ResourceSet) (*v1alpha1.ResourceSet, error)
-	Delete(name string, options *v1.DeleteOptions) error
-	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*v1alpha1.ResourceSet, error)
-	List(opts v1.ListOptions) (*v1alpha1.ResourceSetList, error)
-	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.ResourceSet, err error)
+	Create(ctx context.Context, resourceSet *v1alpha1.ResourceSet, opts v1.CreateOptions) (*v1alpha1.ResourceSet, error)
+	Update(ctx context.Context, resourceSet *v1alpha1.ResourceSet, opts v1.UpdateOptions) (*v1alpha1.ResourceSet, error)
+	UpdateStatus(ctx context.Context, resourceSet *v1alpha1.ResourceSet, opts v1.UpdateOptions) (*v1alpha1.ResourceSet, error)
+	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
+	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ResourceSet, error)
+	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ResourceSetList, error)
+	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ResourceSet, err error)
 	ResourceSetExpansion
 }
 
@@ -60,19 +61,19 @@ func newResourceSets(c *AppsV1alpha1Client) *resourceSets {
 }
 
 // Get takes name of the resourceSet, and returns the corresponding resourceSet object, and an error if there is any.
-func (c *resourceSets) Get(name string, options v1.GetOptions) (result *v1alpha1.ResourceSet, err error) {
+func (c *resourceSets) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ResourceSet, err error) {
 	result = &v1alpha1.ResourceSet{}
 	err = c.client.Get().
 		Resource("resourcesets").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of ResourceSets that match those selectors.
-func (c *resourceSets) List(opts v1.ListOptions) (result *v1alpha1.ResourceSetList, err error) {
+func (c *resourceSets) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ResourceSetList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -82,13 +83,13 @@ func (c *resourceSets) List(opts v1.ListOptions) (result *v1alpha1.ResourceSetLi
 		Resource("resourcesets").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested resourceSets.
-func (c *resourceSets) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *resourceSets) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -98,81 +99,84 @@ func (c *resourceSets) Watch(opts v1.ListOptions) (watch.Interface, error) {
 		Resource("resourcesets").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a resourceSet and creates it.  Returns the server's representation of the resourceSet, and an error, if there is any.
-func (c *resourceSets) Create(resourceSet *v1alpha1.ResourceSet) (result *v1alpha1.ResourceSet, err error) {
+func (c *resourceSets) Create(ctx context.Context, resourceSet *v1alpha1.ResourceSet, opts v1.CreateOptions) (result *v1alpha1.ResourceSet, err error) {
 	result = &v1alpha1.ResourceSet{}
 	err = c.client.Post().
 		Resource("resourcesets").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(resourceSet).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Update takes the representation of a resourceSet and updates it. Returns the server's representation of the resourceSet, and an error, if there is any.
-func (c *resourceSets) Update(resourceSet *v1alpha1.ResourceSet) (result *v1alpha1.ResourceSet, err error) {
+func (c *resourceSets) Update(ctx context.Context, resourceSet *v1alpha1.ResourceSet, opts v1.UpdateOptions) (result *v1alpha1.ResourceSet, err error) {
 	result = &v1alpha1.ResourceSet{}
 	err = c.client.Put().
 		Resource("resourcesets").
 		Name(resourceSet.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(resourceSet).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
-func (c *resourceSets) UpdateStatus(resourceSet *v1alpha1.ResourceSet) (result *v1alpha1.ResourceSet, err error) {
+func (c *resourceSets) UpdateStatus(ctx context.Context, resourceSet *v1alpha1.ResourceSet, opts v1.UpdateOptions) (result *v1alpha1.ResourceSet, err error) {
 	result = &v1alpha1.ResourceSet{}
 	err = c.client.Put().
 		Resource("resourcesets").
 		Name(resourceSet.Name).
 		SubResource("status").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(resourceSet).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Delete takes name of the resourceSet and deletes it. Returns an error if one occurs.
-func (c *resourceSets) Delete(name string, options *v1.DeleteOptions) error {
+func (c *resourceSets) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
 		Resource("resourcesets").
 		Name(name).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *resourceSets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *resourceSets) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	var timeout time.Duration
-	if listOptions.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
+	if listOpts.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
 		Resource("resourcesets").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // Patch applies the patch and returns the patched resourceSet.
-func (c *resourceSets) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.ResourceSet, err error) {
+func (c *resourceSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ResourceSet, err error) {
 	result = &v1alpha1.ResourceSet{}
 	err = c.client.Patch(pt).
 		Resource("resourcesets").
-		SubResource(subresources...).
 		Name(name).
+		SubResource(subresources...).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

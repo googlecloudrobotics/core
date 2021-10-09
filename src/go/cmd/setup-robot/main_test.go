@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	b64 "encoding/base64"
 	"net/http"
 	"net/http/httptest"
@@ -28,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynfake "k8s.io/client-go/dynamic/fake"
 	corefake "k8s.io/client-go/kubernetes/fake"
 	k8stest "k8s.io/client-go/testing"
@@ -121,10 +123,15 @@ func TestParseKeyValues_HandlesSpaces(t *testing.T) {
 }
 
 func TestCheckRobotName_SucceedsWhenCRDNotFound(t *testing.T) {
+	ctx := context.Background()
 	sc := runtime.NewScheme()
 	*robotName = "robot_name"
 
-	c := dynfake.NewSimpleDynamicClient(sc)
+	c := dynfake.NewSimpleDynamicClientWithCustomListKinds(sc,
+		map[schema.GroupVersionResource]string{
+			robotGVR: "RobotList",
+		},
+	)
 	// In a fresh cluster, the Robot CRD doesn't exist, so GET robots
 	// returns a 404.
 	c.PrependReactor("list", "robots", func(k8stest.Action) (bool, runtime.Object, error) {
@@ -135,13 +142,14 @@ func TestCheckRobotName_SucceedsWhenCRDNotFound(t *testing.T) {
 			Message: "the server could not find the requested resource",
 		}}
 	})
-	err := checkRobotName(c)
+	err := checkRobotName(ctx, c)
 	if err != nil {
 		t.Errorf("checkRobotName() failed unexpectedly: %v", err)
 	}
 }
 
 func TestCheckRobotName(t *testing.T) {
+	ctx := context.Background()
 	sc := runtime.NewScheme()
 	registry.AddToScheme(sc)
 	*robotName = "robot_name"
@@ -192,7 +200,7 @@ func TestCheckRobotName(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			c := dynfake.NewSimpleDynamicClient(sc, tc.robots...)
-			err := checkRobotName(c)
+			err := checkRobotName(ctx, c)
 			if tc.wantError && err == nil {
 				t.Errorf("checkRobotName() succeeded unexpectedly")
 			}
@@ -204,6 +212,7 @@ func TestCheckRobotName(t *testing.T) {
 }
 
 func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
+	ctx := context.Background()
 	hostname, err := os.Hostname()
 	if err != nil {
 		t.Fatal("Could not determine hostname")
@@ -316,12 +325,12 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			c := dynfake.NewSimpleDynamicClient(sc, tc.robot)
 			annotations := map[string]string{}
-			if err := createOrUpdateRobot(c, tc.labels, annotations); err != nil {
+			if err := createOrUpdateRobot(ctx, c, tc.labels, annotations); err != nil {
 				t.Fatalf("createOrUpdateRobot() failed unexpectedly:  %v", err)
 			}
 
 			robotClient := c.Resource(robotGVR).Namespace("default")
-			robot, err := robotClient.Get(*robotName, metav1.GetOptions{})
+			robot, err := robotClient.Get(ctx, *robotName, metav1.GetOptions{})
 			if err != nil {
 				t.Fatalf("Failed getting robot: %v", err)
 			}
@@ -340,6 +349,7 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 }
 
 func TestEnsureWebhookCerts_DoesNotReplaceCerts(t *testing.T) {
+	ctx := context.Background()
 	wantCert := "1234"
 	wantKey := "abcd"
 	c := corefake.NewSimpleClientset(
@@ -356,7 +366,7 @@ func TestEnsureWebhookCerts_DoesNotReplaceCerts(t *testing.T) {
 		},
 	)
 
-	encCert, encKey, err := ensureWebhookCerts(c, "default")
+	encCert, encKey, err := ensureWebhookCerts(ctx, c, "default")
 	if err != nil {
 		t.Fatalf("failed getting cert and keys: %v", err)
 	}
