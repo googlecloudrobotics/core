@@ -13,10 +13,7 @@ BUILD files for Go.
 To automatically update dependencies in bazel BUILD files run:
 
 ```
-go get github.com/bazelbuild/bazel-gazelle/cmd/gazelle_dependencies
-gazelle
-# https://github.com/bazelbuild/bazel-gazelle/issues/1076
-# bazel run //:gazelle
+bazel run //:gazelle
 ```
 
 To re-generate Go modules dependencies run this from the top-level source

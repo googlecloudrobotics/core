@@ -44,7 +44,7 @@ func loadWorkspace(workspaceFile string) (*build.File, error) {
 
 // saveWorkspace formats and writes the WORKSPACE file.
 func saveWorkspace(workspaceFile string, ws *build.File) error {
-	build.Rewrite(ws, nil)
+	build.Rewrite(ws)
 	data := build.Format(ws)
 	return ioutil.WriteFile(workspaceFile, data, 0644)
 }

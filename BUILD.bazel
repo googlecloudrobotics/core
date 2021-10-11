@@ -16,9 +16,6 @@ load("@bazel_gazelle//:def.bzl", "gazelle")
 # Gazelle is used to generate BUILD.bazel files for WORKSPACE dependencies
 # running this manually via "bazel run //:gazelle" will regenerate BUILD.bazel files that
 # contain go-rules.
-#
-# Workaround for: https://github.com/bazelbuild/bazel-gazelle/issues/1076
-# go get github.com/bazelbuild/bazel-gazelle/cmd/gazelle_dependencies && gazelle
 gazelle(
     name = "gazelle",
 )
