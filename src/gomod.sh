@@ -23,8 +23,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export GO111MODULE=on
 
 cd ${DIR}
-# TODO(ensonic): how to resolve local imports to proto genenrated go code
-go mod tidy || /bin/true
+go mod tidy
 bazel run //:gazelle -- update-repos -from_file=${DIR}/go.mod -to_macro=third_party/go_repositories.bzl%go_repositories -prune
 bazel run //:gazelle
 
