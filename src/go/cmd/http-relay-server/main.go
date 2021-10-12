@@ -238,8 +238,16 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 	// After stripping, the path is "${SERVER_NAME}/${REQUEST}"
 	pathParts := strings.SplitN(strings.TrimPrefix(r.URL.Path, clientPrefix), "/", 2)
 	backendName := pathParts[0]
+	if backendName == "" {
+		http.Error(w, "Request path too short: missing remote server identifier", http.StatusBadRequest)
+		return
+	}
+	strippedPath := ""
+	if len(pathParts) > 1 {
+		strippedPath = pathParts[1]
+	}
+	log.Printf("Wrapping request for %q", r.URL.Path)
 
-	log.Printf("Wrapping request for %s", r.URL.Path)
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -248,7 +256,7 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 	backendUrl := url.URL{
 		Scheme:   "http",
 		Host:     "invalid",
-		Path:     fmt.Sprintf("/%s", pathParts[1]),
+		Path:     fmt.Sprintf("/%s", strippedPath),
 		RawQuery: r.URL.RawQuery,
 		Fragment: r.URL.Fragment,
 	}

@@ -97,6 +97,21 @@ func TestClientHandler(t *testing.T) {
 	}
 }
 
+func TestClientBadRequest(t *testing.T) {
+	// path misses the backend name and path
+	req := httptest.NewRequest("GET", "/client/", strings.NewReader("body"))
+	respRecorder := httptest.NewRecorder()
+	server := newServer()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() { server.client(respRecorder, req); wg.Done() }()
+	wg.Wait()
+
+	if want, got := 400, respRecorder.Result().StatusCode; want != got {
+		t.Errorf("Wrong response code; want %d; got %d", want, got)
+	}
+}
+
 func TestRequestStreamHandler(t *testing.T) {
 	// In a background goroutine, run a client request with post-request data
 	// in the request stream.
