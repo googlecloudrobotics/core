@@ -237,10 +237,12 @@ func (s *crSyncer) newInformer(client dynamic.ResourceInterface) cache.SharedInd
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				options.LabelSelector = s.labelSelector
+				options.TimeoutSeconds = timeout
 				return client.List(s.ctx, options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				options.LabelSelector = s.labelSelector
+				options.TimeoutSeconds = timeout
 				return client.Watch(s.ctx, options)
 			},
 		},
