@@ -56,7 +56,6 @@ import (
 	"go.opencensus.io/tag"
 	"go.opencensus.io/zpages"
 	"golang.org/x/net/context"
-	"golang.org/x/net/http2"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -82,6 +81,7 @@ var (
 	verbose            = flag.Bool("verbose", false, "Enable verbose logging")
 	listenAddr         = flag.String("listen-address", ":80", "HTTP listen address")
 	conflictErrorLimit = flag.Int("conflict-error-limit", 5, "Number of consecutive conflict errors before informer is restarted")
+	timeout            = flag.Int64("timeout", 300, "Timeout for CR watch calls in seconds")
 
 	sizeDistribution    = view.Distribution(0, 1024, 2048, 4096, 16384, 65536, 262144, 1048576, 4194304, 33554432)
 	latencyDistribution = view.Distribution(0, 1, 2, 5, 10, 15, 25, 50, 100, 200, 400, 800, 1500, 3000, 6000)
@@ -154,23 +154,6 @@ func (r *ctxRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	return r.base.RoundTrip(req.WithContext(r.ctx))
 }
 
-// Configure HTTP/2 liveness checking on the connection, so that dropouts are
-// noticed and handled appropriately. Errors are ignored, as this is not
-// essential in normal conditions.
-func configureTransport(base http.RoundTripper) {
-	t1, ok := base.(*http.Transport)
-	if !ok {
-		log.Printf("failed to configure transport: expected http.Transport, got %T", base)
-	}
-	t2, err := http2.ConfigureTransports(t1)
-	if err != nil {
-		log.Printf("failed to enable HTTP/2 on transport: %v", err)
-	}
-	t2.ReadIdleTimeout = 30 * time.Second
-	t2.PingTimeout = 15 * time.Second
-	// The transport has been modified in-place, no need to return it.
-}
-
 // restConfigForRemote assembles the K8s REST config for the remote server.
 func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
 	tokenSource, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
@@ -182,10 +165,6 @@ func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
 		return nil, err
 	}
 	transport := func(base http.RoundTripper) (rt http.RoundTripper) {
-		// Configure the transport to better handle dropped connections.
-		// TODO(rodrigoq): remove when updating to client-go kubernetes-1.19.4
-		configureTransport(base)
-
 		rt = &oauth2.Transport{
 			Source: tokenSource,
 			Base:   base,
@@ -204,6 +183,9 @@ func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
 		Host:          *remoteServer,
 		APIPath:       "/apis",
 		WrapTransport: transport,
+		// The original value of timeout is set in the options of lister and watcher in newInformer function. This timeout is not enforced by the client.
+		// That's the reason for the timeout in REST config. It is set to timeout + 5 seconds to give some time for a graceful closing of the connection.
+		Timeout: time.Second * (time.Duration(*timeout) + 5),
 	}, nil
 }
 
