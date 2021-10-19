@@ -90,7 +90,8 @@ var (
 )
 
 var (
-	ErrTimeout = errors.New(http.StatusText(http.StatusRequestTimeout))
+	ErrTimeout   = errors.New(http.StatusText(http.StatusRequestTimeout))
+	ErrForbidden = errors.New(http.StatusText(http.StatusForbidden))
 )
 
 func getRequest(remote *http.Client) (*pb.HttpRequest, error) {
@@ -399,6 +400,8 @@ func localProxy(remote *http.Client, local *http.Client) error {
 	if err != nil {
 		if errors.Is(err, ErrTimeout) {
 			return err
+		} else if errors.Is(err, ErrForbidden) {
+			log.Fatalf("failed to authenticate to cloud-api, restarting: %v", err)
 		} else {
 			return fmt.Errorf("failed to get request from relay: %v", err)
 		}
