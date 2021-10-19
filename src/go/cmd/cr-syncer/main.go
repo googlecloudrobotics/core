@@ -81,7 +81,7 @@ var (
 	verbose            = flag.Bool("verbose", false, "Enable verbose logging")
 	listenAddr         = flag.String("listen-address", ":80", "HTTP listen address")
 	conflictErrorLimit = flag.Int("conflict-error-limit", 5, "Number of consecutive conflict errors before informer is restarted")
-	timeout            = flag.Int64("timeout", 300, "Timeout for CR watch calls")
+	timeout            = flag.Int64("timeout", 300, "Timeout for CR watch calls in seconds")
 
 	sizeDistribution    = view.Distribution(0, 1024, 2048, 4096, 16384, 65536, 262144, 1048576, 4194304, 33554432)
 	latencyDistribution = view.Distribution(0, 1, 2, 5, 10, 15, 25, 50, 100, 200, 400, 800, 1500, 3000, 6000)
@@ -183,7 +183,9 @@ func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
 		Host:          *remoteServer,
 		APIPath:       "/apis",
 		WrapTransport: transport,
-		Timeout:       time.Second * (time.Duration(*timeout) + 5),
+		// The original value of timeout is set in the options of lister and watcher in newInformer function. This timeout is not enforced by the client.
+		// That's the reason for the timeout in REST config. It is set to timeout + 5 seconds to give some time for a graceful closing of the connection.
+		Timeout: time.Second * (time.Duration(*timeout) + 5),
 	}, nil
 }
 
