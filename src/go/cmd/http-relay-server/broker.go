@@ -192,12 +192,12 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	} else {
 		pr.lastActivity = time.Now()
 	}
+	duration := time.Since(pr.startTime).Seconds()
+	pr.responseStream <- resp
 	r.m.Unlock()
 	brokerRequests.WithLabelValues("server_response").Inc()
-	duration := time.Since(pr.startTime).Seconds()
 	brokerResponseDurations.WithLabelValues("server_response").Observe(duration)
-	log.Printf("Delivering response %s for server %s to client, elapsed %.3fs", id, pr.server, duration)
-	pr.responseStream <- resp
+	log.Printf("Delivered response %s for server %s to client, elapsed %.3fs", id, pr.server, duration)
 	if resp.GetEof() {
 		close(pr.responseStream)
 	}
