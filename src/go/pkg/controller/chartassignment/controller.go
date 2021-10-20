@@ -300,7 +300,7 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 	ns, err := r.ensureNamespace(ctx, as)
 	if err != nil {
 		if _, ok := err.(*namespaceDeletionError); ok {
-			log.Printf("ensure namespace: %s", err)
+			log.Printf("Ensure namespace: %s", err)
 			// Requeue to track deletion progress.
 			return reconcile.Result{Requeue: true, RequeueAfter: requeueFast}, nil
 		}
@@ -323,6 +323,9 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 		}
 	}
 
+	if as.Name == "" {
+		log.Fatalf("Invalid ChartAssignment passed (name is empty): %v", as)
+	}
 	r.releases.ensureUpdated(as)
 
 	if err := r.setStatus(ctx, as); err != nil {

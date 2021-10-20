@@ -210,6 +210,10 @@ func (r *release) delete(as *apps.ChartAssignment) {
 }
 
 func (r *release) update(as *apps.ChartAssignment) {
+	if as.Name == "" {
+		log.Fatalf("Invalid ChartAssignment passed (name is empty): %v", as)
+	}
+
 	r.setPhase(apps.ChartAssignmentPhaseLoadingChart)
 	resources, retry, err := loadAndExpandChart(as)
 	if err != nil {

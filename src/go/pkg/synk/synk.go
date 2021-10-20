@@ -227,6 +227,10 @@ func (s *Synk) Apply(
 	ctx, span := trace.StartSpan(ctx, "Apply "+name)
 	defer span.End()
 
+	if name == "" {
+		log.Fatalf("Empty name passed")
+	}
+
 	if opts == nil {
 		opts = &ApplyOptions{}
 	}
