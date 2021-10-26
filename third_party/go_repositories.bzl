@@ -25,8 +25,8 @@ def go_repositories():
     go_repository(
         name = "com_github_alessio_shellescape",
         importpath = "github.com/alessio/shellescape",
-        sum = "h1:H/GMMKYPkEIC3DF/JWQz8Pdd+Feifov2EIgGfNpeogI=",
-        version = "v0.0.0-20190409004728-b115ca0f9053",
+        sum = "h1:V7yhSDDn8LP4lc4jS8pFkt0zCnzVJlG5JXy9BVKJUX0=",
+        version = "v1.4.1",
     )
 
     go_repository(
@@ -174,8 +174,8 @@ def go_repositories():
     go_repository(
         name = "com_github_burntsushi_toml",
         importpath = "github.com/BurntSushi/toml",
-        sum = "h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=",
-        version = "v0.3.1",
+        sum = "h1:GaI7EiDXDRfa8VshkTj7Fym7ha+y8/XxIgD2okUIjLw=",
+        version = "v0.4.1",
     )
 
     go_repository(
@@ -294,12 +294,6 @@ def go_repositories():
         importpath = "github.com/coreos/etcd",
         sum = "h1:8F3hqu9fGYLBifCmRCJsicFqDx/D68Rt3q1JMazcgBQ=",
         version = "v3.3.13+incompatible",
-    )
-    go_repository(
-        name = "com_github_coreos_go_etcd",
-        importpath = "github.com/coreos/go-etcd",
-        sum = "h1:bXhRBIXoTm9BYHS3gE0TtQuyNZyeEMux2sDi4oo5YOo=",
-        version = "v2.0.0+incompatible",
     )
 
     go_repository(
@@ -446,6 +440,12 @@ def go_repositories():
         importpath = "github.com/evanphx/json-patch",
         sum = "h1:glyUF9yIYtMHzn8xaKw5rMhdWcwsYV8dZHIq5567/xs=",
         version = "v4.11.0+incompatible",
+    )
+    go_repository(
+        name = "com_github_evanphx_json_patch_v5",
+        importpath = "github.com/evanphx/json-patch/v5",
+        sum = "h1:b91NhWfaz02IuVxO9faSllyAtNXHMPkC5J8sJCLunww=",
+        version = "v5.6.0",
     )
 
     go_repository(
@@ -1161,8 +1161,8 @@ def go_repositories():
     go_repository(
         name = "com_github_mattn_go_isatty",
         importpath = "github.com/mattn/go-isatty",
-        sum = "h1:wuysRhFDzyxgEmMf5xjvJ2M9dZoWAXNNr5LSBS7uHXY=",
-        version = "v0.0.12",
+        sum = "h1:yVuAays6BHfxijgZPzw+3Zlu5yQgKGP2/hcQbHb7S9Y=",
+        version = "v0.0.14",
     )
     go_repository(
         name = "com_github_mattn_go_runewidth",
@@ -1384,8 +1384,8 @@ def go_repositories():
     go_repository(
         name = "com_github_pelletier_go_toml",
         importpath = "github.com/pelletier/go-toml",
-        sum = "h1:zeC5b1GviRUyKYd6OJPvBU/mcVDVoL1OhT17FCt5dSQ=",
-        version = "v1.9.3",
+        sum = "h1:tjENF6MfZAg8e4ZmZTeWaWiT2vXtsoO6+iuOjFhECwM=",
+        version = "v1.9.4",
     )
 
     go_repository(
@@ -1521,13 +1521,13 @@ def go_repositories():
         version = "v0.0.0-20160712163229-9b3edd62028f",
     )
 
+    # keep
     go_repository(
         name = "com_github_ryanuber_go_license",
         importpath = "github.com/ryanuber/go-license",
         sum = "h1:tRp20LMuPNq4xTO4SLHTxVySYje3m5hLlu5RZLvaY/c=",
         version = "v0.0.0-20180405065157-c69f41c2c8d6",
     )
-
     go_repository(
         name = "com_github_sean_seed",
         importpath = "github.com/sean-/seed",
@@ -1658,12 +1658,6 @@ def go_repositories():
         importpath = "github.com/ugorji/go",
         sum = "h1:j4s+tAvLfL3bZyefP2SEWmhBzmuIlH/eqNuPdFPgngw=",
         version = "v1.1.4",
-    )
-    go_repository(
-        name = "com_github_ugorji_go_codec",
-        importpath = "github.com/ugorji/go/codec",
-        sum = "h1:3SVOIvH7Ae1KRYyQWRjXWJEA9sS/c/pjvH++55Gr648=",
-        version = "v0.0.0-20181204163529-d75b2dcb6bc8",
     )
 
     go_repository(
@@ -1988,8 +1982,8 @@ def go_repositories():
     go_repository(
         name = "io_k8s_sigs_kind",
         importpath = "sigs.k8s.io/kind",
-        sum = "h1:7y7a8EYtGHM+auHmsvzuK5o84SrxPYGidlvfql7j/k4=",
-        version = "v0.7.0",
+        sum = "h1:Tm+QITIqdRd+efLOsxZHMAfLnr5K4e3/RH8MePspEXs=",
+        version = "v0.10.0",
     )
     go_repository(
         name = "io_k8s_sigs_kustomize_api",
@@ -2005,12 +1999,6 @@ def go_repositories():
     )
 
     go_repository(
-        name = "io_k8s_sigs_structured_merge_diff",
-        importpath = "sigs.k8s.io/structured-merge-diff",
-        sum = "h1:4Z09Hglb792X0kfOBBJUPFEyvVfQWrYT/l8h5EKA6JQ=",
-        version = "v0.0.0-20190525122527-15d366b2352e",
-    )
-    go_repository(
         name = "io_k8s_sigs_structured_merge_diff_v4",
         importpath = "sigs.k8s.io/structured-merge-diff/v4",
         sum = "h1:Hr/htKFmJEbtMgS/UD0N+gtgctAqz81t3nu+sPzynno=",
@@ -2020,8 +2008,8 @@ def go_repositories():
     go_repository(
         name = "io_k8s_sigs_yaml",
         importpath = "sigs.k8s.io/yaml",
-        sum = "h1:kr/MCeFWJWTwyaHoR9c8EjH9OumOmoF9YGiZd7lFm/Q=",
-        version = "v1.2.0",
+        sum = "h1:a2VclLzOGrwOHDiV8EfBGhvjHvP46CtW5j6POvhYGGo=",
+        version = "v1.3.0",
     )
 
     go_repository(

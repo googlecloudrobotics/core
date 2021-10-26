@@ -51,7 +51,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	kinddefaults "sigs.k8s.io/kind/pkg/apis/config/defaults"
-	kindconfig "sigs.k8s.io/kind/pkg/apis/config/v1alpha3"
+	kindconfig "sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
 	kindcluster "sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/yaml"
 )
@@ -364,7 +364,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 
 	if err := cluster.kind.Create(
 		cluster.genName,
-		kindcluster.CreateWithV1Alpha3Config(kindcfg),
+		kindcluster.CreateWithV1Alpha4Config(kindcfg),
 		kindcluster.CreateWithKubeconfigPath(cluster.kubeConfigPath),
 	); err != nil {
 		return errors.Wrapf(err, "create cluster %q", cluster.genName)
