@@ -14,6 +14,7 @@ spec:
       labels:
         app: app-rollout-controller
     spec:
+      serviceAccountName: app-rollout-controller
       containers:
       - name: app-rollout-controller
         image: {{ .Values.registry }}{{ .Values.images.app_rollout_controller }}
@@ -113,6 +114,7 @@ spec:
       labels:
         app: chart-assignment-controller
     spec:
+      serviceAccountName: chart-assignment-controller
       containers:
       - name: chart-assignment-controller
         image: {{ .Values.registry }}{{ .Values.images.chart_assignment_controller }}

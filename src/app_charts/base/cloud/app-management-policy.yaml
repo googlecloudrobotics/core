@@ -1,0 +1,169 @@
+# This policy lets app-rollout and chart-assigment controllers operate on the apps & registry CRDs.
+# For app-rollout-controller
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloud-robotics:app-rollout-controller:base
+  labels:
+    app-rollout-controller.cloudrobotics.com/aggregate-to-app-rollout: "true"
+rules:
+- apiGroups:
+  - registry.cloudrobotics.com
+  resources:
+  - robots
+  - robots/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps.cloudrobotics.com
+  resources:
+  - apps
+  - approllouts
+  - approllouts/status
+  - chartassignments
+  - chartassignments/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps.cloudrobotics.com
+  resources:
+  - chartassignments
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - apps.cloudrobotics.com
+  resources:
+  - approllouts/status
+  verbs:
+  - update
+  - patch
+---
+# Aggregated role for app-rollout-controller
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloud-robotics:app-rollout-controller
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      app-rollout-controller.cloudrobotics.com/aggregate-to-app-rollout: "true"
+rules: []  # The control plane automatically fills in the rules
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-rollout-controller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cloud-robotics:app-rollout-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cloud-robotics:app-rollout-controller
+subjects:
+- namespace: {{ .Release.Namespace }}
+  kind: ServiceAccount
+  name: app-rollout-controller
+---
+# For chart-assignment-controller
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloud-robotics:chart-assignment-controller:base
+  labels:
+    chart-assignment-controller.cloudrobotics.com/aggregate-to-chart-assignment: "true"
+rules:
+- apiGroups:
+  - apps.cloudrobotics.com
+  resources:
+  - chartassignments
+  - chartassignments/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps.cloudrobotics.com
+  resources:
+  - chartassignments/status
+  verbs:
+  - update
+  - patch
+- apiGroups:
+  - apps.cloudrobotics.com
+  resources:
+  - resourcesets
+  - resourcesets/status
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloud-robotics:chart-assignment-controller:k8s-control
+  labels:
+    chart-assignment-controller.cloudrobotics.com/aggregate-to-chart-assignment: "true"
+rules:
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+# Aggregated role for chart-assignment-controller
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloud-robotics:chart-assignment-controller
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      chart-assignment-controller.cloudrobotics.com/aggregate-to-chart-assignment: "true"
+  - matchLabels:
+      rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules: []  # The control plane automatically fills in the rules
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chart-assignment-controller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cloud-robotics:chart-assignment-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cloud-robotics:chart-assignment-controller
+subjects:
+- namespace: {{ .Release.Namespace }}
+  kind: ServiceAccount
+  name: chart-assignment-controller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cloud-robotics:chart-assignment-controller:cluster-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- namespace: {{ .Release.Namespace }}
+  kind: ServiceAccount
+  name: chart-assignment-controller
