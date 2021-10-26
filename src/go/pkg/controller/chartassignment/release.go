@@ -133,7 +133,8 @@ func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 	if r.generation == as.Generation && !status.retry {
 		return true
 	}
-	started := r.start(func() { r.update(as) })
+	asCopy := as.DeepCopy()
+	started := r.start(func() { r.update(asCopy) })
 	if started {
 		r.generation = as.Generation
 	}
@@ -144,7 +145,8 @@ func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 // It returns true if it could initiate deletion successfully.
 func (rs *releases) ensureDeleted(as *apps.ChartAssignment) bool {
 	r := rs.add(as.Name)
-	return r.start(func() { r.delete(as) })
+	asCopy := as.DeepCopy()
+	return r.start(func() { r.delete(asCopy) })
 }
 
 // run all functions sent on the actor channel in sequence.
@@ -237,6 +239,9 @@ func (r *release) update(as *apps.ChartAssignment) {
 				r.GetAPIVersion(), r.GetKind(),
 				r.GetName(), msg)
 		},
+	}
+	if as.Name == "" {
+		log.Fatalf("Invalid ChartAssignment (name became empty): %v", as)
 	}
 	_, err = r.synk.Apply(context.Background(), as.Name, opts, resources...)
 	if err != nil {
