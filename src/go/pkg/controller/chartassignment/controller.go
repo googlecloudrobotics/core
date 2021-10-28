@@ -323,9 +323,6 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 		}
 	}
 
-	if as.Name == "" {
-		log.Fatalf("Invalid ChartAssignment passed (name is empty): %v", as)
-	}
 	r.releases.ensureUpdated(as)
 
 	if err := r.setStatus(ctx, as); err != nil {

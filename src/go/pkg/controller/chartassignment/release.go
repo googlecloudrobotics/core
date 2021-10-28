@@ -212,10 +212,6 @@ func (r *release) delete(as *apps.ChartAssignment) {
 }
 
 func (r *release) update(as *apps.ChartAssignment) {
-	if as.Name == "" {
-		log.Fatalf("Invalid ChartAssignment passed (name is empty): %v", as)
-	}
-
 	r.setPhase(apps.ChartAssignmentPhaseLoadingChart)
 	resources, retry, err := loadAndExpandChart(as)
 	if err != nil {
@@ -239,9 +235,6 @@ func (r *release) update(as *apps.ChartAssignment) {
 				r.GetAPIVersion(), r.GetKind(),
 				r.GetName(), msg)
 		},
-	}
-	if as.Name == "" {
-		log.Fatalf("Invalid ChartAssignment (name became empty): %v", as)
 	}
 	_, err = r.synk.Apply(context.Background(), as.Name, opts, resources...)
 	if err != nil {
