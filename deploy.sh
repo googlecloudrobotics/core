@@ -347,13 +347,9 @@ metadata:
     certmanager.k8s.io/disable-validation: "true"
 EOF
 
-  # Create a permissive policy if none exists yet. This allows code running in the
-  # cluster to administer it.
-  if ! kc get clusterrolebinding permissive-binding &>/dev/null; then
-    kc create clusterrolebinding permissive-binding \
-      --clusterrole=cluster-admin \
-      --user=admin \
-      --group=system:serviceaccounts
+  # Delete permissive binding if it exists because from previous deployments
+  if kc get clusterrolebinding permissive-binding &>/dev/null; then
+    kc delete clusterrolebinding permissive-binding
   fi
 
   ${SYNK} init
