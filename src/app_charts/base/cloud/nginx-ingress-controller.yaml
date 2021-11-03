@@ -22,6 +22,7 @@ spec:
       labels:
         k8s-app: nginx-ingress-controller
     spec:
+      serviceAccountName: ingress-nginx
       dnsPolicy: ClusterFirst
       containers:
         - name: nginx-ingress-controller
