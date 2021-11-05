@@ -147,7 +147,3 @@ require (
 )
 
 replace gopkg.in/fsnotify.v1 v1.4.9 => github.com/fsnotify/fsnotify v1.4.9
-
-replace github.com/googlecloudrobotics/core => ../
-
-replace github.com/googlecloudrobotics/core/src => ./
