@@ -14,7 +14,7 @@ proto_library(
 
 go_proto_library(
     name = "http_over_rpc_proto_go",
-    importpath = "src/proto/http-relay",
+    importpath = "github.com/googlecloudrobotics/core/src/proto/http-relay",
     proto = ":http_relay_proto",
 )
 
@@ -25,6 +25,7 @@ proto_library(
 
 go_library(
     name = "go_default_library",
+    srcs = ["unused.go"],
     embed = [":http_over_rpc_proto_go"],
-    importpath = "src/proto/http-relay",
+    importpath = "github.com/googlecloudrobotics/core/src/proto/http-relay",
 )

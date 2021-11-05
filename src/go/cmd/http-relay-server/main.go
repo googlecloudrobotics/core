@@ -84,9 +84,10 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	pb "src/proto/http-relay"
 	"strings"
 	"time"
+
+	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	"github.com/golang/protobuf/proto"
 	servertiming "github.com/mitchellh/go-server-timing"

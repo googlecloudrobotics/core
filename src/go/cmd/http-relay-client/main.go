@@ -32,9 +32,10 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	pb "src/proto/http-relay"
 	"sync"
 	"time"
+
+	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	"github.com/cenkalti/backoff"
 	"github.com/golang/protobuf/proto"

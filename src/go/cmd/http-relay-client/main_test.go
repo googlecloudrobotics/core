@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	pb "src/proto/http-relay"
+	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	"github.com/golang/protobuf/proto"
 	. "github.com/onsi/gomega"

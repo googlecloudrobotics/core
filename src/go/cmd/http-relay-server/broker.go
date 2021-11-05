@@ -17,9 +17,10 @@ package main
 import (
 	"fmt"
 	"log"
-	pb "src/proto/http-relay"
 	"sync"
 	"time"
+
+	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	"github.com/prometheus/client_golang/prometheus"
 )

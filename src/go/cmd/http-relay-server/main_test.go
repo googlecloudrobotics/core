@@ -23,7 +23,7 @@ import (
 	"sync"
 	"testing"
 
-	pb "src/proto/http-relay"
+	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	hijacktest "github.com/getlantern/httptest"
 	"github.com/golang/protobuf/proto"
