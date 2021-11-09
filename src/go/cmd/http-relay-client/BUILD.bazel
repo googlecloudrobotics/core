@@ -36,4 +36,5 @@ go_image(
     name = "http-relay-client",
     base = "@cc_image_base//image",
     embed = [":go_default_library"],
+    pure = "on",
 )

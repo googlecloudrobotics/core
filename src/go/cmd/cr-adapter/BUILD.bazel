@@ -31,6 +31,7 @@ go_image(
     name = "cr-adapter-image",
     base = "@cc_image_base//image",
     embed = [":go_default_library"],
+    pure = "on",
 )
 
 container_push(
@@ -42,6 +43,7 @@ container_push(
 go_binary(
     name = "cr-adapter-bin",
     embed = [":go_default_library"],
+    pure = "on",
     visibility = ["//visibility:public"],
 )
 

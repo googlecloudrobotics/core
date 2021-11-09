@@ -30,4 +30,5 @@ go_image(
     name = "app-rollout-controller",
     base = "@cc_image_base//image",
     embed = [":go_default_library"],
+    pure = "on",
 )
