@@ -21,7 +21,7 @@ load("@bazel_gazelle//:deps.bzl", "go_repository")
 # Do not call go_rules_dependencies() until after all other go_repository
 # calls, or else the top-level definitions may be silently ignored.
 # https://github.com/bazelbuild/bazel/issues/3908
-go_register_toolchains(version = "1.16.5")
+go_register_toolchains(version = "1.17.1")
 
 http_archive(
     name = "com_github_kubernetes_sigs_application",
