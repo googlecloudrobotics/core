@@ -20,5 +20,4 @@ go_image(
     name = "gcr-credential-refresher",
     base = "@cc_image_base//image",
     embed = [":go_default_library"],
-    pure = "on",
 )

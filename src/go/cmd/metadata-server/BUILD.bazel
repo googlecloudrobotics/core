@@ -47,5 +47,4 @@ go_image(
     name = "metadata-server",
     base = "@iptables_base//image",
     embed = [":go_default_library"],
-    pure = "on",
 )

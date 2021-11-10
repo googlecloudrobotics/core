@@ -66,7 +66,6 @@ go_image(
     name = "setup-robot-image",
     base = ":base_image_with_files",
     embed = [":go_default_library"],
-    pure = "on",
     visibility = ["//visibility:public"],
 )
 
@@ -80,6 +79,5 @@ container_push(
 go_binary(
     name = "unused",
     embed = [":go_default_library"],
-    pure = "on",
     visibility = ["//visibility:private"],
 )

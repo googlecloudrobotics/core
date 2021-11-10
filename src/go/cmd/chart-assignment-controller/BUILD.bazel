@@ -40,5 +40,4 @@ go_image(
     name = "chart-assignment-controller",
     base = ":helm_image",
     embed = [":go_default_library"],
-    pure = "on",
 )

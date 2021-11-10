@@ -25,6 +25,5 @@ go_library(
 go_binary(
     name = "setup-dev",
     embed = [":go_default_library"],
-    pure = "on",
     visibility = ["//visibility:public"],
 )

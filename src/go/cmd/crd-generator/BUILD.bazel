@@ -15,6 +15,5 @@ go_library(
 go_binary(
     name = "crd-generator",
     embed = [":go_default_library"],
-    pure = "on",
     visibility = ["//visibility:public"],
 )
