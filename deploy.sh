@@ -27,7 +27,11 @@ PROJECT_NAME="cloud-robotics"
 if is_source_install; then
   TERRAFORM="${DIR}/bazel-out/../../../external/hashicorp_terraform/terraform"
   HELM_COMMAND="${DIR}/bazel-out/../../../external/kubernetes_helm/helm"
-  SYNK_COMMAND="${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk"
+  # To avoid a dependency on the host's glibc, we build synk with pure="on".
+  # Because this is a non-default build configuration, it results in a separate
+  # subdirectory of bazel-out/, which is not as easy to hardcode as
+  # bazel-bin/... Instead, we use `bazel run` to locate and execute the binary.
+  SYNK_COMMAND="bazel run //src/go/cmd/synk --"
 else
   TERRAFORM="${DIR}/bin/terraform"
   HELM_COMMAND="${DIR}/bin/helm"
