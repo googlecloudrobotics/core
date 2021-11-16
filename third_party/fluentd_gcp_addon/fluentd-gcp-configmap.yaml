@@ -309,7 +309,24 @@ data:
         process_start_timestamp ${record["process_start_timestamp"].to_i}
       </record>
     </filter>
-  output.conf: |-
+metadata:
+  name: fluentd-gcp-config-v1.2.5
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: fluentd-gcp-main-config
+data:
+  google-fluentd.conf: |-
+    @include config.d/*.conf
+    <source>
+      @type prometheus
+      port 24231
+    </source>
+    <source>
+      @type prometheus_monitor
+    </source>
+
     # This match is placed before the all-matching output to provide metric
     # exporter with a process start timestamp for correct exporting of
     # cumulative metrics to Stackdriver.
@@ -490,6 +507,3 @@ data:
         adjust_invalid_timestamps false
       </match>
     </label>
-metadata:
-  name: fluentd-gcp-config-v1.2.5
-

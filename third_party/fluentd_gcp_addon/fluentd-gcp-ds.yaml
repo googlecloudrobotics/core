@@ -51,6 +51,9 @@ spec:
           readOnly: true
         - name: config-volume
           mountPath: /etc/google-fluentd/config.d
+        - name: default-config-volume
+          mountPath: /etc/google-fluentd/google-fluentd.conf
+          subPath: google-fluentd.conf
       volumes:
       - name: varlog
         hostPath:
@@ -64,6 +67,10 @@ spec:
       - name: config-volume
         configMap:
           name: fluentd-gcp-config-v1.2.5
+          defaultMode: 420
+      - name: default-config-volume
+        configMap:
+          name: fluentd-gcp-main-config
           defaultMode: 420
       tolerations:
       - operator: "Exists"
