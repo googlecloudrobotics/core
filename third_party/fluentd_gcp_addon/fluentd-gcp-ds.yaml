@@ -39,7 +39,7 @@ spec:
       dnsPolicy: Default
       containers:
       - name: fluentd-gcp
-        image: gcr.io/stackdriver-agents/stackdriver-logging-agent:1.6.37
+        image: gcr.io/stackdriver-agents/stackdriver-logging-agent:1.9.3
         volumeMounts:
         - name: varlog
           mountPath: /var/log
