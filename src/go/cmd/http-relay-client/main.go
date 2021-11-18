@@ -119,6 +119,9 @@ func getRequest(remote *http.Client) (*pb.HttpRequest, error) {
 	if resp.StatusCode == http.StatusRequestTimeout {
 		return nil, ErrTimeout
 	}
+	if resp.StatusCode == http.StatusForbidden {
+		return nil, ErrForbidden
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("server status %s: %s", http.StatusText(resp.StatusCode), string(body))
 	}
