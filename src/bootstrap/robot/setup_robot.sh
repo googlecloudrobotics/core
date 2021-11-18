@@ -149,6 +149,7 @@ kc -n default delete secret robot-master-tls 2> /dev/null || true
 # Remove previous instance, in case installation was canceled
 kc delete pod setup-robot 2> /dev/null || true
 faketty kubectl --context "${KUBE_CONTEXT}" run setup-robot --restart=Never -it --rm \
+  --pod-running-timeout=3m \
   --image=${IMAGE_REFERENCE} \
   --env="ACCESS_TOKEN=${ACCESS_TOKEN}" \
   --env="REGISTRY=${REGISTRY}" \
