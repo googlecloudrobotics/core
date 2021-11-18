@@ -64,7 +64,7 @@ var (
 	registryID     = flag.String("registry-id", "", "The ID used when writing the public key to the cloud registry. Default: robot-<robot-name>.")
 	labels         = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
 	annotations    = flag.String("annotations", "", "Robot annotations. Optional if the robot is already registered.")
-	crSyncer       = flag.Bool("cr-syncer", true, "Set up the cr-syncer.")
+	crSyncer       = flag.Bool("cr-syncer", true, "Set up the cr-syncer, and create a Robot CR in the cloud cluster.")
 	fluentd        = flag.Bool("fluentd", true, "Set up fluentd to upload logs to Stackdriver.")
 	dockerDataRoot = flag.String("docker-data-root", "/var/lib/docker", "This should match data-root in /etc/docker/daemon.json.")
 	podCIDR        = flag.String("pod-cidr", "192.168.9.0/24",
@@ -294,8 +294,9 @@ func main() {
 		log.Fatal("Error: ", err)
 	}
 
-	if *robotType != "" || *labels != "" || *annotations != "" {
-		// Set up client for cloud k8s cluster (needed only to obtain list of robots).
+	if *crSyncer {
+		// Set up client for cloud k8s cluster, so we can create/update
+		// the Robot CR there.
 		k8sCloudCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, domain)
 		k8sDynamicClient, err := dynamic.NewForConfig(k8sCloudCfg)
 		if err != nil {
@@ -304,6 +305,12 @@ func main() {
 		if err := createOrUpdateRobot(ctx, k8sDynamicClient, parsedLabels, parsedAnnotations); err != nil {
 			log.Fatalf("Failed to update robot CR %v: %v", *robotName, err)
 		}
+	} else {
+		// Creating a Robot CR would make the app-rollout-controller
+		// create ChartAssignments in the cloud, but if the cr-syncer
+		// is disabled, these would not be synced/installed. Avoiding
+		// CR creation keeps the cloud cluster "cleaner".
+		log.Printf("cr-syncer disabled: skipping Robot CR creation")
 	}
 
 	httpClient := oauth2.NewClient(context.Background(), tokenSource)
