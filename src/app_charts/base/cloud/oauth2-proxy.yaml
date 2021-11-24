@@ -33,17 +33,7 @@ spec:
           value: {{ .Values.oauth2_proxy.client_secret }}
         - name: OAUTH2_PROXY_COOKIE_SECRET
           value: {{ .Values.oauth2_proxy.cookie_secret }}
-        # TODO(https://github.com/oauth2-proxy/oauth2-proxy/issues/1278): revert after a new release has been cut
-        # Test the git version, as this should contain a fix for
-        #   https://github.com/oauth2-proxy/oauth2-proxy/issues/1006
-        # the images was build as:
-        #   git clone https://github.com/oauth2-proxy/oauth2-proxy.git
-        #   cd oauth2-proxy
-        #   git describe 
-        #     v0.1-1557-gfd5e23e
-        #   cp Makefile Makefile.amd64   # remove all arm targets and buildx invocations, fix make target deps
-        #   GOLANGCILINT=/bin/true REGISTRY=gcr.io/cloud-robotics-releases make -f Makefile.amd64 docker-push-all
-        image: gcr.io/cloud-robotics-releases/oauth2-proxy@sha256:fd86272c5c351291400f5ce6d69a1d8b2bafd453ccb07e3e8bb7ccf205d88a07
+        image: quay.io/oauth2-proxy/oauth2-proxy:v7.2.0
         ports:
         - name: http
           containerPort: 8080
