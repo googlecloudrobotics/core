@@ -93,6 +93,37 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: nginx-ingress-lb
+  labels:
+    app: nginx-ingress-lb
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  loadBalancerIP: "{{ .Values.ingress_ip }}"
+  ports:
+  - port: 80
+    name: http
+    targetPort: 80
+  - port: 443
+    name: https
+    targetPort: 443
+  selector:
+    k8s-app: nginx-ingress-controller
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+  name: nginx
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "true"
+spec:
+  controller: k8s.io/ingress-nginx
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: nginx-ingress-controller-metrics
   labels:
     app: nginx-ingress-controller-metrics
