@@ -1,4 +1,4 @@
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: kubernetes-relay-client
@@ -21,11 +21,14 @@ spec:
     http:
       paths:
       - path: /apis/core.kubernetes-relay/client($|/)(.*)
+        pathType: Prefix
         backend:
-          serviceName: kubernetes-relay-server
-          servicePort: 80
+          service:
+            name: kubernetes-relay-server
+            port:
+              number: 80
 ---
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: kubernetes-relay-server
@@ -44,6 +47,9 @@ spec:
     http:
       paths:
       - path: /apis/core.kubernetes-relay/server($|/)(.*)
+        pathType: Prefix
         backend:
-          serviceName: kubernetes-relay-server
-          servicePort: 80
+          service:
+            name: kubernetes-relay-server
+            port:
+              number: 80

@@ -118,7 +118,7 @@ spec:
     app: debug
   type: ClusterIP
 ---
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
@@ -130,10 +130,13 @@ spec:
   - host: www.endpoints.my-project.cloud.goog
     http:
       paths:
-      - backend:
-          serviceName: debug
-          servicePort: 8080
-        path: /google.cloud.robotics.sensordata.v1eap.SensorDataService
+      - path: /google.cloud.robotics.sensordata.v1eap.SensorDataService
+        pathType: Prefix
+        backend:
+          service:
+            name: debug
+            port
+              number: 8080
 ```
 
 This will log the Authorization header to the pod's stdout, so you can view it

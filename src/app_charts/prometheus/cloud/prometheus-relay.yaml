@@ -50,7 +50,7 @@ spec:
     app: prometheus-relay-server
   type: ClusterIP
 ---
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: prometheus-relay-server
@@ -71,9 +71,12 @@ spec:
     http:
       paths:
       - path: /apis/core.prometheus-relay/server($|/)(.*)
+        pathType: Prefix
         backend:
-          serviceName: prometheus-relay-server
-          servicePort: 80
+          service:
+            name: prometheus-relay-server
+            port:
+              number: 80
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

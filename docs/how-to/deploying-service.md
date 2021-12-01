@@ -162,7 +162,7 @@ Create a file called `hello-server.yaml` with the following contents:
 
 [embedmd]:# (examples/hello-service/server/hello-server.yaml yaml)
 ```yaml
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: hello-server-ingress
@@ -175,9 +175,12 @@ spec:
     http:
       paths:
       - path: /apis/hello-server
+        pathType: Prefix
         backend:
-          serviceName: hello-server-service
-          servicePort: 8000
+          service:
+            name: hello-server-service
+            port:
+              number: 8000
 ---
 apiVersion: v1
 kind: Service

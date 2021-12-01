@@ -53,7 +53,7 @@ spec:
     app: oauth2-proxy
   type: ClusterIP
 ---
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: oauth2-proxy
@@ -70,11 +70,14 @@ spec:
     http:
       paths:
       - path: /web-apis($|/)(.*)
+        pathType: Prefix
         backend:
-          serviceName: oauth2-proxy
-          servicePort: http
+          service:
+            name: oauth2-proxy
+            port:
+              name: http
 ---
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: oauth2-proxy-interactive
@@ -89,6 +92,9 @@ spec:
     http:
       paths:
       - path: "/oauth2"
+        pathType: Prefix
         backend:
-          serviceName: oauth2-proxy
-          servicePort: http
+          service:
+            name: oauth2-proxy
+            port:
+              name: http
