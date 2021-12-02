@@ -149,10 +149,10 @@ kind: Ingress
 metadata:
   name: greeter-server-ingress
   annotations:
-    kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/backend-protocol: GRPC
     nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
 spec:
+  ingressClassName: nginx
   rules:
   - host: "www.endpoints.${PROJECT_ID}.cloud.goog"
     http:

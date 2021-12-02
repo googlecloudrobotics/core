@@ -122,10 +122,10 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/backend-protocol: HTTP
   name: debug
 spec:
+  ingressClassName: nginx
   rules:
   - host: www.endpoints.my-project.cloud.goog
     http:

@@ -7,7 +7,6 @@ metadata:
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"  # seconds
     nginx.ingress.kubernetes.io/client-body-buffer-size: "50m"
-    kubernetes.io/ingress.class: "nginx"
     # The web client will reach us through the oauth2-proxy and we need
     # to copy the forwarded access token to an authorization header. Prefer
     # X-Forwarded-Access-Token in case the browser sends a spurious Authorization.
@@ -23,6 +22,7 @@ metadata:
         }
         proxy_set_header Authorization $auth;
 spec:
+  ingressClassName: nginx
   tls:
   - hosts:
     - {{ .Values.domain }}
