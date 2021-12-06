@@ -27,21 +27,11 @@ if ! hash yq; then
 fi
 
 KUBE_CONTEXT=${KUBE_CONTEXT:-minikube}
-LAST_APPLIED="kubectl.kubernetes.io/last-applied-configuration"
 
 function kc {
   kubectl --context="${KUBE_CONTEXT}" "$@"
 }
 
-for r in $(kc get robots -o name); do
-  echo "---"
-  yaml=$(kc get $r -o yaml)
-  if echo ${yaml} | grep -q "${LAST_APPLIED}"; then
-    echo "${yaml}" | \
-      yq 2>/dev/null -ry ".metadata.annotations[\"${LAST_APPLIED}\"]" -
-   else
-     echo "${yaml}" | \
-       yq -ry 'del(.metadata.creationTimestamp,.metadata.generation,.metadata.managedFields,.metadata.resourceVersion,.metadata.selfLink,.metadata.uid,.status)' -
-   fi
-done
+kc get robots -o yaml | \
+  yq 2>/dev/null -ry '.items[] | del(.metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"],.metadata.creationTimestamp,.metadata.generation,.metadata.managedFields,.metadata.resourceVersion,.metadata.selfLink,.metadata.uid,.status)' -
 
