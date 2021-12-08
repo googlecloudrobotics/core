@@ -312,6 +312,11 @@ apiVersion: kubelet.config.k8s.io/v1beta1
 kind: KubeletConfiguration
 # Bind to the docker interface to prevent connections from outside the robot.
 address: 192.168.9.1
+# Enable clean shutdown to avoid slow reconciliation after reboots.
+featureGates:
+  GracefulNodeShutdown: true
+shutdownGracePeriod: 20s
+shutdownGracePeriodCriticalPods: 10s
 EOF
   echo "${temp_config}"
 }
