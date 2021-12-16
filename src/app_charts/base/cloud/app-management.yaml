@@ -72,12 +72,13 @@ spec:
     kind: ClusterIssuer
     name: cluster-authority
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: app-rollout-controller
 webhooks:
 - name: approllouts.apps.cloudrobotics.com
+  admissionReviewVersions: ["v1"]
   failurePolicy: Fail
   clientConfig:
     service:
@@ -95,6 +96,7 @@ webhooks:
     - UPDATE
     resources:
     - approllouts
+  sideEffects: None
 ---
 # chart-assignment-controller
 apiVersion: apps/v1
@@ -177,12 +179,13 @@ spec:
   selector:
     app: chart-assignment-controller
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: chart-assignment-controller
 webhooks:
 - name: chartassignments.apps.cloudrobotics.com
+  admissionReviewVersions: ["v1"]
   failurePolicy: Fail
   clientConfig:
     service:
@@ -200,4 +203,5 @@ webhooks:
     - UPDATE
     resources:
     - chartassignments
+  sideEffects: None
 {{ end }}

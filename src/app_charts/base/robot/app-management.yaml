@@ -79,12 +79,13 @@ spec:
     app: chart-assignment-controller
 ---
 {{ if eq .Values.webhook.enabled "true" }}
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: chart-assignment-controller
 webhooks:
 - name: chartassignments.apps.cloudrobotics.com
+  admissionReviewVersions: ["v1"]
   failurePolicy: Fail
   clientConfig:
     service:
@@ -102,5 +103,6 @@ webhooks:
     - UPDATE
     resources:
     - chartassignments
+  sideEffects: None
 {{ end }}
 {{ end }}
