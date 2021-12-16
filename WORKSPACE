@@ -26,10 +26,10 @@ go_register_toolchains(version = "1.17.1")
 http_archive(
     name = "com_github_kubernetes_sigs_application",
     build_file = "@cloud_robotics//third_party:app_crd.BUILD",
-    sha256 = "316b88383ef635a130b48c0519154274e72c7298b09c1425c736a2bbdd00c021",
-    strip_prefix = "application-0.8.3",
+    sha256 = "8bafd7fb97563d1a15d9afc68c87e3aabd664f60bd8005f1ae685d79842c1ac4",
+    strip_prefix = "application-c8e2959e57a02b3877b394984a288f9178977d8b",
     urls = [
-        "https://github.com/kubernetes-sigs/application/archive/v0.8.3.tar.gz",
+        "https://github.com/kubernetes-sigs/application/archive/c8e2959e57a02b3877b394984a288f9178977d8b.tar.gz",
     ],
 )
 
