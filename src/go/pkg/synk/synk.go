@@ -800,7 +800,9 @@ func (s *Synk) crdAvailable(ucrd *unstructured.Unstructured) (bool, error) {
 	// Get a list of versions to check for.
 	var versions []string
 	for _, v := range crd.Spec.Versions {
-		versions = append(versions, v.Name)
+		if v.Served {
+			versions = append(versions, v.Name)
+		}
 	}
 
 	for _, v := range versions {
