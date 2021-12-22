@@ -1,0 +1,45 @@
+[__config__]
+oldver = "current_versions.txt"
+newver = "new_versions.txt"
+
+# containers
+# git grep -E "^\s+image: " *.yaml | grep -v "{{"
+
+[ingress-nginx]
+source = "container"
+registry = "k8s.gcr.io"
+container = "ingress-nginx/controller"
+prefix = "v"
+
+[oauth2-proxy]
+source = "container"
+registry = "quay.io"
+container = "oauth2-proxy/oauth2-proxy"
+prefix = "v"
+
+[stackdriver-logging-agent]
+source = "container"
+registry = "gcr.io"
+container = "stackdriver-agents/stackdriver-logging-agent"
+
+# github packages
+
+[cert-manager]
+source = "github"
+github = "jetstack/cert-manager"
+use_latest_release = true
+prefix = "v"
+
+# Does find the version, try alternative at the bottom
+#[kube-prometheus-stack]
+#source = "github"
+#github = "prometheus-community/helm-charts"
+#path = "charts/kube-prometheus-stack"
+#use_max_tag = true
+# TODO(ensonic): requires auth token
+# use_latest_tag = true
+#prefix = "kube-prometheus-stack"
+
+# Cover helm repos:
+# https://medium.com/bigdatarepublic/software-versioning-on-kubernetes-806a48480832
+

@@ -43,3 +43,33 @@ echo "https://pkg.go.dev/github.com/googlecloudrobotics/core/src/go@${VERSION}"
 ```
 and open the printed link. Then that version is part of the history.
 
+## third party
+
+We track some external deps through [nvchecker](https://github.com/lilydjwg/nvchecker).
+Get the tool by running:
+```shell
+pip3 install nvchecker
+```
+
+Below are sample commands for the common workflows. Run all those from the root
+of the repo.
+
+Add new dependency by adding a blob to nvchecker.toml:
+```toml
+[ingress-nginx]
+source = "container"
+registry = "k8s.gcr.io"
+container = "ingress-nginx/controller"
+prefix = "v"
+```
+Get initial version (use same command to update the version):
+```shell
+$ nvtake -c nvchecker.toml ingress-nginx=v0.44.0
+```
+
+Check for updates:
+```shell
+$ nvchecker -c nvchecker.toml
+[I 09-06 12:26:20.253 core:354] ingress-nginx: updated from 0.44.0 to 1.0.0
+```
+
