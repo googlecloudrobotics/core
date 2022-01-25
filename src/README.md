@@ -34,6 +34,24 @@ go get github.com/mitchellh/go-server-timing@v1.0.1
 go get github.com/mitchellh/go-server-timing@feb680ab92c20d57c527399b842e1941bde888c3
 ```
 
+### Licenses
+
+Install go-license:
+
+```
+go install github.com/google/go-licenses@latest
+```
+
+run it:
+
+```
+cd src
+# get a vsc of all licenses
+~/go/bin/go-licenses csv .
+# check for bad (forbidden) licenses, should be empty
+~/go/bin/go-licenses check ./...
+```
+
 ### Docs
 
 In order to force a new snapshot, run
