@@ -17,10 +17,14 @@ and 18.04) Linux.
 1. After installing the Cloud SDK, install the `kubectl` command-line tool:
 
     ```shell
-    gcloud components install kubectl
+    gcloud components install kubectl gke-gcloud-auth-plugin
     ```
 
-    If you're using Debian or Ubuntu, you may need to use `apt-get install kubectl` instead.
+    If you're using Cloud Shell, Debian, or Ubuntu, you may need to use apt instead:
+
+    ```shell
+    apt-get install kubectl google-cloud-sdk-gke-gcloud-auth-plugin
+    ```
 
 1. Install tools required for installation:
 
