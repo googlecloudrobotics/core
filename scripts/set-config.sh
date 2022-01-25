@@ -186,7 +186,7 @@ function set_default_vars {
   read_variable GCP_ZONE "In which zone should Cloud Robotics be deployed?" "${GCP_ZONE}"
 
   # Verify the zone exists.
-  gcloud compute zones list -q --project ${GCP_PROJECT_ID} | grep "^${GCP_ZONE} \+" >/dev/null \
+  gcloud compute zones list -q --project "${GCP_PROJECT_ID}" --uri | grep -q "zones/${GCP_ZONE}$" \
     || die "ERROR: the zone does not exist in your project: ${GCP_ZONE}"
 
   GCP_REGION=${GCP_ZONE%-?}
