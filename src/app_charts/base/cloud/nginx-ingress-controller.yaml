@@ -25,7 +25,7 @@ spec:
       dnsPolicy: ClusterFirst
       containers:
         - name: nginx-ingress-controller
-          image: k8s.gcr.io/ingress-nginx/controller:v0.48.1
+          image: k8s.gcr.io/ingress-nginx/controller:v0.50.0
           lifecycle:
             preStop:
               exec:
