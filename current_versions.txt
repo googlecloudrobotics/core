@@ -2,6 +2,6 @@
   "cert-manager": "1.5.3",
   "ingress-nginx": "0.48.1",
   "kube-prometheus-stack": "10.3.5",
-  "oauth2-proxy": "7.2.0",
+  "oauth2-proxy": "7.2.1",
   "stackdriver-logging-agent": "1.9.3"
 }

@@ -82,7 +82,7 @@ prefix = "v"
 ```
 Get initial version (use same command to update the version):
 ```shell
-$ nvtake -c nvchecker.toml ingress-nginx=v0.44.0
+$ nvtake -c nvchecker.toml ingress-nginx=0.44.0
 ```
 
 Check for updates:
