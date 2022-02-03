@@ -2,5 +2,5 @@
   "cert-manager": "1.5.3",
   "ingress-nginx": "0.50.0",
   "oauth2-proxy": "7.2.1",
-  "stackdriver-logging-agent": "1.9.3"
+  "stackdriver-logging-agent": "1.9.5"
 }

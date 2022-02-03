@@ -14,6 +14,9 @@
 # - set the fluentd-gcp-config volume mode to 420
 # - added a taint toleration so it runs on all nodes
 #
+# For release notes check:
+# https://github.com/GoogleCloudPlatform/google-fluentd/releases
+#
 # License: Apache 2.0
 # https://github.com/kubernetes/kubernetes/blob/master/LICENSE
 apiVersion: apps/v1
@@ -39,7 +42,7 @@ spec:
       dnsPolicy: Default
       containers:
       - name: fluentd-gcp
-        image: gcr.io/stackdriver-agents/stackdriver-logging-agent:1.9.3
+        image: gcr.io/stackdriver-agents/stackdriver-logging-agent:1.9.5
         volumeMounts:
         - name: varlog
           mountPath: /var/log
