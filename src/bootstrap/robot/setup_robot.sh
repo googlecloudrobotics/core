@@ -101,21 +101,26 @@ if [[ "$REGISTRY" != "gcr.io/cloud-robotics-releases" ]] ; then
   # private registry, so do it directly.
   echo "Pulling image from ${REGISTRY_DOMAIN}..."
 
+  private_registry_enabled=0
   if hash docker &> /dev/null ; then
     echo ${ACCESS_TOKEN} | docker login -u oauth2accesstoken --password-stdin https://${REGISTRY_DOMAIN} || true
 
-    if ! docker pull ${IMAGE_REFERENCE}; then
+    if docker pull ${IMAGE_REFERENCE}; then
+      private_registry_enabled=1
+    else
       docker logout https://${REGISTRY_DOMAIN}
       echo "ERROR: failed to pull setup-robot image" >&2
-      exit 1
     fi
     docker logout https://${REGISTRY_DOMAIN}
-  elif hash crictl &> /dev/null ; then
-    if ! crictl pull --creds "oauth2accesstoken:${ACCESS_TOKEN}" "${IMAGE_REFERENCE}" ; then
+  fi
+  if hash crictl &> /dev/null ; then
+    if crictl pull --creds "oauth2accesstoken:${ACCESS_TOKEN}" "${IMAGE_REFERENCE}" ; then
+      private_registry_enabled=1
+    else
       echo "ERROR: failed to pull setup-robot image" >&2
-      exit 1
     fi
-  else
+  fi
+  if [[ $private_registry_enabled == "0" ]]; then
     echo "ERROR: failed to find 'crictl' or 'docker' binary. This is required when" >&2
     echo "       Cloud Robotics Core was deployed from source." >&2
     exit 1
