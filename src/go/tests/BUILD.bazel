@@ -20,3 +20,12 @@ go_test(
         "@io_k8s_sigs_controller_runtime//pkg/client:go_default_library",
     ],
 )
+
+sh_test(
+    name = "relay_test",
+    srcs = ["relay_test.sh"],
+    data = [
+        "@kubernetes_helm//:helm",
+    ],
+    tags = ["external"],
+)
