@@ -224,9 +224,6 @@ func (s *Synk) Apply(
 	opts *ApplyOptions,
 	resources ...*unstructured.Unstructured,
 ) (*apps.ResourceSet, error) {
-	ctx, span := trace.StartSpan(ctx, "Apply "+name)
-	defer span.End()
-
 	if opts == nil {
 		opts = &ApplyOptions{}
 	}

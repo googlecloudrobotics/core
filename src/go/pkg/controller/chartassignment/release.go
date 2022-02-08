@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"io"
 	"io/ioutil"
 	"log"
@@ -29,6 +30,7 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -236,7 +238,15 @@ func (r *release) update(as *apps.ChartAssignment) {
 				r.GetName(), msg)
 		},
 	}
-	_, err = r.synk.Apply(context.Background(), as.Name, opts, resources...)
+	spanContext := trace.SpanContext{}
+	if tid, found := as.GetAnnotations()["cloudrobotics.com/trace-id"]; found {
+		if _, err := hex.Decode(spanContext.TraceID[:], []byte(tid)); err != nil {
+			log.Printf("Error: decoding TraceID: %v, %v", tid, err)
+		}
+	}
+	ctx, span := trace.StartSpanWithRemoteParent(context.Background(), "Apply "+as.Name, spanContext)
+	_, err = r.synk.Apply(ctx, as.Name, opts, resources...)
+	span.End()
 	if err != nil {
 		r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
 		r.setFailed(err, synk.IsTransientErr(err))
