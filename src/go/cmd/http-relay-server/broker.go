@@ -114,7 +114,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	case reqChan <- request:
 		return respChan, nil
 	case <-time.After(10 * time.Second):
-		return nil, fmt.Errorf("Timeout waiting for relay client to accept request for %s", server)
+		return nil, fmt.Errorf("%q doesn't appear to be running the relay client. Check that it's turned on, set up, and connected to the internet. (timeout waiting for relay client to accept request)", server)
 	}
 }
 
