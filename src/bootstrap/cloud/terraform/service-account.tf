@@ -1,11 +1,18 @@
+# Configuration for the following service accounts:
+#
+# - robot-service@, which is used by workloads on robot clusters to access GCP
+#   APIs, as well as services like the k8s-relay though ingress-nginx.
+# - human-acl@, which is used as a "virtual permission" for users of the
+#   cluster, allowing access to services like Grafana through ingress-nginx.
+
 resource "google_service_account" "robot-service" {
   account_id   = "robot-service"
   display_name = "robot-service"
   project      = data.google_project.project.project_id
 }
 
-# Allow the the standard compute service account to impersonate the "robot-service"
-# service account and to create new tokens for it.
+# Allow the the token-vendor to impersonate the "robot-service" service account
+# and to create new tokens for it.
 data "google_iam_policy" "robot-service" {
   binding {
     # Security note from b/120897889: This permission allows privilege escalation
@@ -16,6 +23,8 @@ data "google_iam_policy" "robot-service" {
     role = "roles/iam.serviceAccountTokenCreator"
 
     members = [
+      "serviceAccount:${google_service_account.token_vendor.email}",
+      # TODO(b/175282543): stop using the default compute SA
       "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com",
     ]
   }
@@ -24,6 +33,8 @@ data "google_iam_policy" "robot-service" {
     role = "roles/iam.serviceAccountUser"
 
     members = [
+      "serviceAccount:${google_service_account.token_vendor.email}",
+      # TODO(b/175282543): stop using the default compute SA
       "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com",
 
       # This seemingly nonsensical binding is necessary for the robot auth
@@ -102,6 +113,7 @@ resource "google_project_iam_member" "robot_service_monitoring_viewer" {
 
 # The name is slightly misleading - this is about the compute service account.
 # However, renaming in Terraform is hard :-(.
+# TODO(b/175282543): stop using the default compute SA
 resource "google_project_iam_member" "robot-service-container-access" {
   project    = var.private_image_repositories[count.index]
   count      = length(var.private_image_repositories)
