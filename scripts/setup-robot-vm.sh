@@ -36,7 +36,13 @@ gcloud --project=$GCP_PROJECT_ID compute instances create ${ROBOT_NAME} \
   --image-family ubuntu-minimal-2004-lts \
   --image-project ubuntu-os-cloud \
   --boot-disk-size=200GB \
-  --machine-type=e2-standard-2
+  --machine-type=e2-standard-2 \
+  --scopes=cloud-platform \
+  --service-account="robot-service@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+# --service-account avoids using the default SA, which might have limited
+# access, and instead uses the robot-service@ SA. This fixes the race described
+# in b/121175402#comment19.
+
 gcloud --project=$GCP_PROJECT_ID compute instances add-tags ${ROBOT_NAME}  \
   --tags=kokoro-ssh
 

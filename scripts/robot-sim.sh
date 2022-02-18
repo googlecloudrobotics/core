@@ -49,7 +49,10 @@ function create {
 
   local GKE_SIM_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${ROBOT_NAME}"
 
-  # Create cloud cluster for robot simulation unless already exists
+  # Create cloud cluster for robot simulation unless already exists.
+  # To more accurately simulate a robot cluster, this uses the
+  # robot-service@ service account instead of enabling Workload Identity, as we
+  # don't have any on-prem/robot equivalent to that.
   gcloud >/dev/null 2>&1 container clusters describe "${ROBOT_NAME}" \
     --zone=${GCP_ZONE} --project=${GCP_PROJECT_ID} || \
   gcloud container clusters create "${ROBOT_NAME}" \
@@ -61,7 +64,8 @@ function create {
     --issue-client-certificate \
     --no-enable-basic-auth \
     --metadata disable-legacy-endpoints=true \
-    --scopes gke-default,https://www.googleapis.com/auth/cloud-platform \
+    --scopes gke-default,cloud-platform \
+    --service-account "robot-service@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
     --zone=${GCP_ZONE} \
     --project=${GCP_PROJECT_ID}
 
@@ -70,7 +74,7 @@ function create {
 
   # This ensures the 'cloudrobotics.com/master-host' label will point to the VM
   local CLUSTER_IP
-  CLUSTER_IP=$(gcloud compute instances list --project=${GCP_PROJECT_ID} --filter "name~gke-${ROBOT_NAME}-default-pool.*" --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+  CLUSTER_IP=$(gcloud compute instances list --project="${GCP_PROJECT_ID}" --filter "name~gke-${ROBOT_NAME}-default-pool.*" --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
 
   # shellcheck disable=2097 disable=2098
   KUBE_CONTEXT=${GKE_SIM_CONTEXT} \
