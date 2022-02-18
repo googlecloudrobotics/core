@@ -13,9 +13,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# This test only works in conjunction with a sim vm. E.g. From the top of the
+# repo run:
+# ./scripts/robot-sim.sh create "<myproject>" "sim1"
+# bazel test --test_env GCP_PROJECT_ID="<myproject>" --test_env CLUSTER="sim1" --test_env HOME="${HOME}" --test_output=streamed --test_tag_filters="external" //src/go/tests:relay_test
 
-CLUSTER="test-robot"
+
+CLUSTER="${CLUSTER:-test-robot}"
 TEST_POD_NAME="busybox-sleep"
+KC_CFG_DIR=$(mktemp -d -t kc-XXXXXXXXXX)
+export KUBECONFIG="${KC_CFG_DIR}/test"
+touch ${KUBECONFIG}
+
+function kc() {
+  kubectl --context="${CLUSTER}" "$@"
+}
 
 function setup() {
   kubectl config set-credentials "${GCP_PROJECT_ID}" --auth-provider gcp
@@ -24,21 +37,20 @@ function setup() {
   kubectl config set-context "${CLUSTER}" --cluster "${CLUSTER}" --namespace "default" --user "$GCP_PROJECT_ID"
 
   # delete test pod (if running)
-  if kubectl 2>/dev/null --context="${CLUSTER}" get pod "${TEST_POD_NAME}" -o name; then
-    kubectl --context="${CLUSTER}" delete pod --ignore-not-found "${TEST_POD_NAME}"
-    kubectl --context="${CLUSTER}" wait --for=delete pod/"${TEST_POD_NAME}" --timeout=60s
+  if kc get pod "${TEST_POD_NAME}" -o name 2>/dev/null; then
+    kc delete pod --ignore-not-found "${TEST_POD_NAME}"
+    kc wait --for=delete pod/"${TEST_POD_NAME}" --timeout=60s
   fi
   # deploy a container with a shell that runs sleep
-  kubectl --context="${CLUSTER}" run "${TEST_POD_NAME}" --image=gcr.io/google-containers/busybox:latest --restart=Never -- /bin/sh -c "trap : TERM INT; sleep 3600 & wait"
-  kubectl --context="${CLUSTER}" wait --for=condition=Ready pod/"${TEST_POD_NAME}"
+  kc run "${TEST_POD_NAME}" --image=gcr.io/google-containers/busybox:latest --restart=Never -- /bin/sh -c "trap : TERM INT; sleep 3600 & wait"
+  kc wait --for=condition=Ready pod/"${TEST_POD_NAME}"
 }
 
 function teardown() {
   # delete test pod (if running)
-  kubectl --context="${CLUSTER}" delete pod --ignore-not-found "${TEST_POD_NAME}" || /bin/true
-
-  kubectl config delete-cluster "${CLUSTER}" || /bin/true
-  kubectl config delete-context "${CLUSTER}" || /bin/true
+  kc delete pod --ignore-not-found "${TEST_POD_NAME}" || /bin/true
+ 
+  rm -rf "${KC_CFG_DIR}"
 }
 trap teardown EXIT
 
@@ -53,9 +65,9 @@ function test_passed() {
 
 function test_relay_can_exec_to_shell() {
   # exec command in shell-container through the relay
-  res=$(kubectl --context="${CLUSTER}" exec "${TEST_POD_NAME}" -- id)
+  res=$(kc -v7 exec "${TEST_POD_NAME}" -- id)
   if [[ "$res" != "uid=0(root) gid=0(root) groups=10(wheel)" ]]; then
-    test_failed "id command did not run"
+    test_failed "id command did not run, output was \"$res\""
   fi
 
   test_passed "id command worked"
