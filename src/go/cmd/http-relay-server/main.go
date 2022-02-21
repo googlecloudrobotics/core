@@ -200,13 +200,14 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 		// This goroutine handles the request stream from client to backend.
 		bytes := make([]byte, *blockSize)
 		for {
+			// Here we get the kubernetes client stream (e.g. kubectl or k9s)
 			n, err := bufrw.Read(bytes)
 			if err != nil {
 				// TODO(https://github.com/golang/go/issues/4373): in Go 1.13,
 				// we may be able to suppress the "read from closed connection" better.
 				if strings.Contains(err.Error(), "use of closed network connection") {
 					// Request ended and connection closed by HTTP server.
-					log.Printf("End of request stream for %s", id)
+					log.Printf("End of request stream for %s (closed socket)", id)
 				} else {
 					// Connection has unexpectedly failed for some other reason.
 					log.Printf("Error reading from request %s: %v", id, err)
@@ -223,12 +224,14 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 		}
 	}()
 
+	numBytes := 0
 	for bytes := range response {
 		// TODO(b/130706300): detect dropped connection and end request in broker
 		_, _ = bufrw.Write(bytes)
 		bufrw.Flush()
-		log.Printf("Wrote %d response bytes to request %s", len(bytes), id)
+		numBytes += len(bytes)
 	}
+	log.Printf("Wrote %d response bytes to request %s", numBytes, id)
 }
 
 // client sent a request.
@@ -293,14 +296,16 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(status)
+	numBytes := 0
 	for bytes := range response {
 		// TODO(b/130706300): detect dropped connection and end request in broker
 		_, _ = w.Write(bytes)
 		if flush, ok := w.(http.Flusher); ok {
 			flush.Flush()
 		}
+		numBytes += len(bytes)
 	}
-	log.Printf("Delivered response for request %s", id)
+	log.Printf("Wrote %d response bytes to request %s", numBytes, id)
 }
 
 // relay-client sent a request.
