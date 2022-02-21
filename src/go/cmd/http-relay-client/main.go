@@ -162,7 +162,7 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 		req.Host = *breq.Host
 	}
 	for _, h := range breq.Header {
-		req.Header.Set(*h.Name, *h.Value)
+		req.Header.Add(*h.Name, *h.Value)
 	}
 	if *authenticationTokenFile != "" {
 		token, err := ioutil.ReadFile(*authenticationTokenFile)

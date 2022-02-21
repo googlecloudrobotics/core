@@ -14,11 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# This test only works in conjunction with a sim vm. E.g. From the top of the
+# This test only works in conjunction with a sim vm. E.g. from the top of the
 # repo run:
 # ./scripts/robot-sim.sh create "<myproject>" "sim1"
 # bazel test --test_env GCP_PROJECT_ID="<myproject>" --test_env CLUSTER="sim1" --test_env HOME="${HOME}" --test_output=streamed --test_tag_filters="external" //src/go/tests:relay_test
-
+#
+# Add -v7 to kc exec in the tests to get more details when debugging.
 
 CLUSTER="${CLUSTER:-test-robot}"
 TEST_POD_NAME="busybox-sleep"
@@ -73,6 +74,17 @@ function test_relay_can_exec_to_shell() {
   test_passed "id command worked"
 }
 
+function test_relay_handles_eof() {
+  # pipe commands from stdin through the relay
+  res=$({ echo "echo foo"; } | kc exec "${TEST_POD_NAME}" -i -- sh)
+  if [[ "$res" != "foo" ]]; then
+    test_failed "echo command did not run, output was \"$res\""
+  fi
+
+  test_passed "echo command worked"
+}
+
 setup
 test_relay_can_exec_to_shell
+test_relay_handles_eof
 

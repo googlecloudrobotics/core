@@ -126,7 +126,7 @@ func marshalHeader(h *http.Header) []*pb.HttpHeader {
 
 func unmarshalHeader(w http.ResponseWriter, protoHeader []*pb.HttpHeader) {
 	for _, h := range protoHeader {
-		w.Header().Set(*h.Name, *h.Value)
+		w.Header().Add(*h.Name, *h.Value)
 	}
 }
 
