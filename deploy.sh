@@ -209,7 +209,7 @@ function cleanup_helm_data {
   kc delete cm synk-enabled 2> /dev/null || true
   kc -n kube-system delete deploy tiller-deploy 2> /dev/null || true
   kc -n kube-system delete service tiller-deploy 2> /dev/null || true
-  kc -n kube-system delete cm -l OWNER=TILLER 2> /dev/null
+  kc -n kube-system delete cm -l OWNER=TILLER 2> /dev/null || true
 }
 
 function cleanup_old_cert_manager {
