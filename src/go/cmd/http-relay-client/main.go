@@ -88,6 +88,8 @@ var (
 		"Number of pending http requests to the relay")
 	maxIdleConnsPerHost = flag.Int("max_idle_conns_per_host", http.DefaultMaxIdleConnsPerHost,
 		"The maximum number of idle (keep-alive) connections to keep per-host")
+	disableHttp2 = flag.Bool("disable_http2", false,
+		"Disable http2 protocol usage (e.g. for channels that use special streaming protocols such as SPDY).")
 )
 
 var (
@@ -448,12 +450,14 @@ func main() {
 		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 	}
 	transport.MaxIdleConnsPerHost = *maxIdleConnsPerHost
-	// Fix for: http2: invalid Upgrade request header: ["SPDY/3.1"]
-	// according to the docs:
-	//    Programs that must disable HTTP/2 can do so by setting Transport.TLSNextProto (for clients) or
-	//    Server.TLSNextProto (for servers) to a non-nil, empty map.
-	//
-	transport.TLSNextProto = map[string]func(authority string, c *tls.Conn) http.RoundTripper{}
+	if *disableHttp2 {
+		// Fix for: http2: invalid Upgrade request header: ["SPDY/3.1"]
+		// according to the docs:
+		//    Programs that must disable HTTP/2 can do so by setting Transport.TLSNextProto (for clients) or
+		//    Server.TLSNextProto (for servers) to a non-nil, empty map.
+		//
+		transport.TLSNextProto = map[string]func(authority string, c *tls.Conn) http.RoundTripper{}
+	}
 
 	// TODO(https://github.com/golang/go/issues/31391): reimplement timeouts if possible
 	// (see also https://github.com/golang/go/issues/30876)

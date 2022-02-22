@@ -16,20 +16,14 @@ spec:
       - name: kubernetes-relay-client
         image: {{ .Values.registry }}{{ .Values.images.http_relay_client }}
         args:
-        - --backend_address
-        - "$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT)"
-        - --backend_scheme
-        - https
-        - --authentication_token_file
-        - "/var/run/secrets/kubernetes.io/serviceaccount/token"
-        - --root_ca_file
-        - "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-        - --relay_address
-        - {{ .Values.domain }}
-        - --relay_prefix
-        - "/apis/core.kubernetes-relay"
-        - --server_name
-        - "{{ .Values.robot.name }}"
+        - --backend_address=$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT)
+        - --backend_scheme=https
+        - --authentication_token_file=/var/run/secrets/kubernetes.io/serviceaccount/token
+        - --root_ca_file=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        - --relay_address={{ .Values.domain }}
+        - --relay_prefix=/apis/core.kubernetes-relay
+        - --server_name={{ .Values.robot.name }}
+        - --disable_http2
       securityContext:
         runAsUser: 65532
         runAsGroup: 65532

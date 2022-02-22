@@ -14,16 +14,11 @@ spec:
     spec:
       containers:
       - args:
-        - --backend_address
-        - kube-prometheus.{{ .Release.Namespace }}.svc.cluster.local:9090
-        - --backend_scheme
-        - http
-        - --relay_address
-        - {{ .Values.domain }}
-        - --relay_prefix
-        - "/apis/core.prometheus-relay"
-        - --server_name
-        - "{{ .Values.robot.name }}"
+        - --backend_address=kube-prometheus.{{ .Release.Namespace }}.svc.cluster.local:9090
+        - --backend_scheme=http
+        - --relay_address={{ .Values.domain }}
+        - --relay_prefix=/apis/core.prometheus-relay
+        - --server_name={{ .Values.robot.name }}
         image: {{ .Values.registry }}{{ .Values.images.http_relay_client }}
         name: prometheus-relay-client
         resources:
