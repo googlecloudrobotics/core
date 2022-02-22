@@ -23,12 +23,14 @@
 
 CLUSTER="${CLUSTER:-test-robot}"
 TEST_POD_NAME="busybox-sleep"
-KC_CFG_DIR=$(mktemp -d -t kc-XXXXXXXXXX)
-export KUBECONFIG="${KC_CFG_DIR}/test"
-touch ${KUBECONFIG}
+KC_DIR=$(mktemp -d -t kc-XXXXXXXXXX)
+export KUBECONFIG="${KC_DIR}/test"
+touch "${KUBECONFIG}"
+export KUBECACHE="${KC_DIR}/cache"
+mkdir -p "${KUBECACHE}"
 
 function kc() {
-  kubectl --context="${CLUSTER}" "$@"
+  kubectl --cache-dir="${KUBECACHE}" --context="${CLUSTER}" "$@"
 }
 
 function setup() {
@@ -66,7 +68,7 @@ function test_passed() {
 
 function test_relay_can_exec_to_shell() {
   # exec command in shell-container through the relay
-  res=$(kc -v7 exec "${TEST_POD_NAME}" -- id)
+  res=$(kc exec "${TEST_POD_NAME}" -- id)
   if [[ "$res" != "uid=0(root) gid=0(root) groups=10(wheel)" ]]; then
     test_failed "id command did not run, output was \"$res\""
   fi
