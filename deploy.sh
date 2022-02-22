@@ -287,6 +287,11 @@ function cleanup_old_cert_manager {
   kc delete resourcesets.apps.cloudrobotics.com -l name=cert-manager 2>/dev/null || true
 }
 
+function helm_cleanup {
+  cleanup_helm_data
+  cleanup_old_cert_manager
+}
+
 function helm_charts {
   local INGRESS_IP
   INGRESS_IP=$(terraform_exec output ingress-ip)
@@ -333,6 +338,15 @@ function helm_charts {
     ca_key=$(openssl base64 -A < ${certdir}/ca.key)
   fi
 
+  cat <<EOF | kc apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${BASE_NAMESPACE}
+  labels:
+    certmanager.k8s.io/disable-validation: "true"
+EOF
+
   # Create a permissive policy if none exists yet. This allows code running in the
   # cluster to administer it.
   if ! kc get clusterrolebinding permissive-binding &>/dev/null; then
@@ -362,18 +376,6 @@ function helm_charts {
 EOF
 )
 
-  cleanup_helm_data
-  cleanup_old_cert_manager
-
-  cat <<EOF | kc apply -f -
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ${BASE_NAMESPACE}
-  labels:
-    certmanager.k8s.io/disable-validation: "true"
-EOF
-
   echo "installing base-cloud to ${KUBE_CONTEXT}..."
   ${HELM} template -n base-cloud --namespace=${BASE_NAMESPACE} ${values} \
       ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz \
@@ -400,6 +402,7 @@ function create {
     prepare_source_install
   fi
   terraform_apply
+  helm_cleanup
   helm_charts
 }
 
