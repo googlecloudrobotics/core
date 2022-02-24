@@ -61,7 +61,6 @@ type pendingResponse struct {
 	lastActivity   time.Time
 	// For diagnostics only.
 	startTime time.Time
-	server    string
 }
 
 // broker implements a thread-safe map for the request and response queues.
@@ -102,13 +101,12 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 		responseStream: make(chan *pb.HttpResponse),
 		lastActivity:   ts,
 		startTime:      ts,
-		server:         server,
 	}
 	reqChan := r.req[server]
 	respChan := r.resp[id].responseStream
 	r.m.Unlock()
 
-	log.Printf("Enqueuing request %s for %s", id, server)
+	log.Printf("[%s] Enqueuing request", id)
 	brokerRequests.WithLabelValues("client").Inc()
 	select {
 	case reqChan <- request:
@@ -198,7 +196,7 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	r.m.Unlock()
 	brokerRequests.WithLabelValues("server_response").Inc()
 	brokerResponseDurations.WithLabelValues("server_response").Observe(duration)
-	log.Printf("Delivered response %s for server %s to client, elapsed %.3fs", id, pr.server, duration)
+	log.Printf("[%s] Delivered response to client (%d bytes), elapsed %.3fs", id, len(resp.Body), duration)
 	if resp.GetEof() {
 		close(pr.responseStream)
 	}
@@ -208,13 +206,13 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 
 func (r *broker) ReapInactiveRequests(threshold time.Time) {
 	r.m.Lock()
-	for key, value := range r.resp {
-		if value.lastActivity.Before(threshold) {
-			log.Printf("Timeout on inactive request %s", key)
-			defer close(value.requestStream)
-			defer close(value.responseStream)
+	for id, pr := range r.resp {
+		if pr.lastActivity.Before(threshold) {
+			log.Printf("[%s] Timeout on inactive request", id)
+			defer close(pr.requestStream)
+			defer close(pr.responseStream)
 			// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop
-			delete(r.resp, key)
+			delete(r.resp, id)
 		}
 	}
 	r.m.Unlock()

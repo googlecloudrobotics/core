@@ -155,7 +155,7 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 	targetUrl.Scheme = *backendScheme
 	targetUrl.Host = *backendAddress
 	targetUrl.Path = *backendPath + targetUrl.Path
-	log.Printf("Sending request to backend for %s: %s", id, targetUrl)
+	log.Printf("[%s] Sending request to backend: %s", id, targetUrl)
 	req, err := http.NewRequest(*breq.Method, targetUrl.String(), bytes.NewReader(breq.Body))
 	if err != nil {
 		return nil, nil, err
@@ -179,7 +179,7 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 		return nil, nil, err
 	}
 
-	log.Printf("Backend responded with %d to %s", resp.StatusCode, id)
+	log.Printf("[%s] Backend responded with status %d", id, resp.StatusCode)
 	return &pb.HttpResponse{
 		Id:         proto.String(id),
 		StatusCode: proto.Int32(int32(resp.StatusCode)),
@@ -254,12 +254,12 @@ ResponseLoop:
 		case b, more := <-in:
 			resp.Body = append(resp.Body, b...)
 			if !more {
-				log.Printf("Posting final response of %d bytes for %s", len(resp.Body), *resp.Id)
+				log.Printf("[%s] Posting final response of %d bytes", *resp.Id, len(resp.Body))
 				resp.Eof = proto.Bool(true)
 				out <- resp
 				break ResponseLoop
 			} else if len(resp.Body) > *maxChunkSize {
-				log.Printf("Posting intermediate response of %d bytes for %s", len(resp.Body), *resp.Id)
+				log.Printf("[%s] Posting intermediate response of %d bytes", *resp.Id, len(resp.Body))
 				out <- resp
 				resp = &pb.HttpResponse{Id: resp.Id}
 				timeouts = 0
@@ -269,7 +269,7 @@ ResponseLoop:
 			timeouts += 1
 			// We send an empty response after 30 timeouts as a keep-alive packet.
 			if len(resp.Body) > 0 || resp.StatusCode != nil || timeouts > 30 {
-				log.Printf("Posting partial response of %d bytes for %s", len(resp.Body), *resp.Id)
+				log.Printf("[%s] Posting partial response of %d bytes", *resp.Id, len(resp.Body))
 				out <- resp
 				resp = &pb.HttpResponse{Id: resp.Id}
 				timeouts = 0
@@ -294,7 +294,7 @@ func postErrorResponse(remote *http.Client, req *pb.HttpRequest, message string)
 		Eof:  proto.Bool(true),
 	}
 	if err := postResponse(remote, resp); err != nil {
-		log.Printf("Failed to post error response for %s to relay: %v", *resp.Id, err)
+		log.Printf("[%s] Failed to post error response to relay: %v", *resp.Id, err)
 	}
 }
 
@@ -321,26 +321,26 @@ func streamToBackend(remote *http.Client, req *pb.HttpRequest, backendWriter io.
 		if err != nil {
 			// TODO(rodrigoq): detect transient failure and retry w/ backoff?
 			// e.g. "server status Request Timeout: No request received within timeout"
-			log.Printf("Failed to get request stream for %s: %v", *req.Id, err)
+			log.Printf("[%s] Failed to get request stream: %v", *req.Id, err)
 			return
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusGone {
-			log.Printf("End of request stream for %s", *req.Id)
+			log.Printf("[%s] End of request stream", *req.Id)
 			return
 		} else if resp.StatusCode != http.StatusOK {
 			msg, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
 				msg = []byte(fmt.Sprintf("<failed to read response body: %v>", err))
 			}
-			log.Printf("Relay server request stream responded %s: %s", http.StatusText(resp.StatusCode), msg)
+			log.Printf("[%s] Relay server request stream responded %s: %s", *req.Id, http.StatusText(resp.StatusCode), msg)
 			return
 		}
 		if n, err := io.Copy(backendWriter, resp.Body); err != nil {
-			log.Printf("Failed to write to backend for %s: %v", *req.Id, err)
+			log.Printf("[%s] Failed to write to backend: %v", *req.Id, err)
 			return
 		} else {
-			log.Printf("Wrote %d bytes to request stream for %s", n, *req.Id)
+			log.Printf("[%s] Wrote %d bytes to request stream", *req.Id, n)
 		}
 	}
 }
@@ -391,7 +391,7 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 			},
 			backoff.WithMaxRetries(&exponentialBackoff, 10),
 			func(err error, _ time.Duration) {
-				log.Printf("Failed to post response for %s to relay: %v", *resp.Id, err)
+				log.Printf("[%s] Failed to post response to relay: %v", *resp.Id, err)
 			},
 		)
 		if _, ok := err.(*backoff.PermanentError); ok {

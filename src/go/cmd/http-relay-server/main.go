@@ -190,37 +190,37 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 	if err != nil {
 		// After a failed hijack, the connection is in an unknown state and
 		// we can't report an error to the client.
-		log.Printf("Failed to hijack connection after 101: %v", err)
+		log.Printf("[%s] Failed to hijack connection after 101: %v", id, err)
 		return
 	}
-	log.Printf("Switched protocols on request %s", id)
+	log.Printf("[%s] Switched protocols", id)
 	defer conn.Close()
 
 	go func() {
 		// This goroutine handles the request stream from client to backend.
 		bytes := make([]byte, *blockSize)
 		for {
-			// Here we get the kubernetes client stream (e.g. kubectl or k9s)
+			// Here we get the client stream (e.g. kubectl or k9s)
 			n, err := bufrw.Read(bytes)
 			if err != nil {
 				// TODO(https://github.com/golang/go/issues/4373): in Go 1.13,
 				// we may be able to suppress the "read from closed connection" better.
 				if strings.Contains(err.Error(), "use of closed network connection") {
 					// Request ended and connection closed by HTTP server.
-					log.Printf("End of request stream for %s (closed socket)", id)
+					log.Printf("[%s] End of request stream (closed socket)", id)
 				} else {
 					// Connection has unexpectedly failed for some other reason.
-					log.Printf("Error reading from request %s: %v", id, err)
+					log.Printf("[%s] Error reading from request: %v", id, err)
 				}
 				return
 			}
-			log.Printf("Read %d bytes from request %s", n, id)
+			log.Printf("[%s] Read %d bytes from request", id, n)
 			ok = s.b.PutRequestStream(id, bytes[:n])
 			if !ok {
-				log.Printf("End of request stream for %s", id)
+				log.Printf("[%s] End of request stream", id)
 				return
 			}
-			log.Printf("Uploaded %d bytes from request %s", n, id)
+			log.Printf("[%s] Uploaded %d bytes from request", id, n)
 		}
 	}()
 
@@ -231,7 +231,7 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 		bufrw.Flush()
 		numBytes += len(bytes)
 	}
-	log.Printf("Wrote %d response bytes to request %s", numBytes, id)
+	log.Printf("[%s] Wrote %d response bytes to request", id, numBytes)
 }
 
 // client sent a request.
@@ -250,7 +250,8 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 	if len(pathParts) > 1 {
 		strippedPath = pathParts[1]
 	}
-	log.Printf("Wrapping request for %q", r.URL.Path)
+	id := backendName + ":" + createId()
+	log.Printf("[%s] Wrapping request for %q", id, r.URL.Path)
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -264,8 +265,6 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 		RawQuery: r.URL.RawQuery,
 		Fragment: r.URL.Fragment,
 	}
-
-	id := createId()
 	backendReq := &pb.HttpRequest{
 		Id:     proto.String(id),
 		Method: proto.String(r.Method),
@@ -282,12 +281,12 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	header, status, response := responseFilter(backendRespChan)
 	if header != nil {
 		unmarshalHeader(w, header)
 	}
 	m2.Stop()
+
 	if status == http.StatusSwitchingProtocols {
 		// Note: call s.bidirectionalStream before w.WriteHeader so that
 		// bidirectionalStream can set the status on error.
@@ -305,7 +304,7 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 		}
 		numBytes += len(bytes)
 	}
-	log.Printf("Wrote %d response bytes to request %s", numBytes, id)
+	log.Printf("[%s] Wrote %d response bytes to request", id, numBytes)
 }
 
 // relay-client sent a request.
@@ -315,26 +314,26 @@ func (s *server) serverRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing server query parameter", http.StatusBadRequest)
 		return
 	}
-	log.Printf("Relay client connected for server %s", server)
+	log.Printf("[%s] Relay client connected", server)
 
 	// get pending request from client and sent as a reply to the relay-client
 	request, err := s.b.GetRequest(server)
 	if err != nil {
-		log.Printf("Relay client got no request: %v", err)
+		log.Printf("[%s] Relay client got no request: %v", server, err)
 		http.Error(w, err.Error(), http.StatusRequestTimeout)
 		return
 	}
 
 	body, err := proto.Marshal(request)
 	if err != nil {
-		log.Printf("Failed to marshal request: %v", err)
+		log.Printf("[%s] Failed to marshal request: %v", *request.Id, err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/octet-data")
 	w.Write(body)
-	log.Printf("Relay client accepted request for %s", server)
+	log.Printf("[%s] Relay client accepted request", *request.Id)
 }
 
 func (s *server) serverRequestStream(w http.ResponseWriter, r *http.Request) {
@@ -353,7 +352,7 @@ func (s *server) serverRequestStream(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/octet-data")
 	w.Write(data)
-	log.Printf("Relay client pulled streamed request data for %s", id)
+	log.Printf("[%s] Relay client pulled streamed request data", id)
 }
 
 func (s *server) serverResponse(w http.ResponseWriter, r *http.Request) {
@@ -376,10 +375,9 @@ func (s *server) serverResponse(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	log.Printf("Relay client sent response for id %s", *br.Id)
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte("ok"))
+	log.Printf("[%s] Relay client sent response", *br.Id)
 }
 
 func main() {
