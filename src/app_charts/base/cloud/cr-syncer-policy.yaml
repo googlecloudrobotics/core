@@ -9,13 +9,12 @@ rules:
 
 # To sync the specs from the cloud to the robot, the cr-syncer needs to read
 # the resources in the cloud cluster. Note that the Robot and ChartAssignment
-# CRDs enable the /status subresource, whereas the RobotType does not.
+# CRDs enable the /status subresource.
 - apiGroups:
   - registry.cloudrobotics.com
   resources:
   - robots
   - robots/status
-  - robottypes
   verbs:
   - get
   - list

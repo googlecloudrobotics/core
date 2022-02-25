@@ -290,6 +290,7 @@ function cleanup_old_cert_manager {
 function helm_cleanup {
   cleanup_helm_data
   cleanup_old_cert_manager
+  kc delete crd robottypes.registry.cloudrobotics.com 2> /dev/null || true
 }
 
 function helm_charts {
