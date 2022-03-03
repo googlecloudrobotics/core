@@ -26,11 +26,11 @@ import (
 )
 
 const (
-	defaultCorefile = `.:53 {
+	defaultCorefileBeforeMinikube121 = `.:53 {
     whoami
 }
 `
-	modifiedCorefile = `.:53 {
+	modifiedCorefileBeforeMinikube121 = `.:53 {
     hosts hosts metadata.google.internal {
         169.254.169.254 metadata.google.internal
         fallthrough
@@ -38,14 +38,31 @@ const (
     whoami
 }
 `
+	defaultCorefileAfterMinikube121 = `.:53 {
+    whoami
+    hosts {
+        127.0.0.1 host.minikube.internal
+        fallthrough
+    }
+}
+`
+	modifiedCorefileAfterMinikube121 = `.:53 {
+    whoami
+    hosts hosts metadata.google.internal host.minikube.internal {
+        169.254.169.254 metadata.google.internal
+        127.0.0.1 host.minikube.internal
+        fallthrough
+    }
+}
+`
 )
 
-func createCorefile(t *testing.T, k8s kubernetes.Interface) {
+func createCorefile(t *testing.T, k8s kubernetes.Interface, corefileData string) {
 	if _, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Create(
 		context.Background(),
 		&v1.ConfigMap{
 			Data: map[string]string{
-				corefileName: defaultCorefile,
+				corefileName: corefileData,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: configMapName,
@@ -71,38 +88,59 @@ func readCorefile(t *testing.T, k8s kubernetes.Interface) string {
 }
 
 func TestPatchCorefile(t *testing.T) {
-	ctx := context.Background()
-	k8s := fake.NewSimpleClientset()
-	createCorefile(t, k8s)
-
-	if err := PatchCorefile(ctx, k8s); err != nil {
-		t.Errorf("error in PatchCorefile: %v", err)
-	}
-	if got := readCorefile(t, k8s); got != modifiedCorefile {
-		t.Errorf(`want readCorefile(t, k8s) = %q, got %q`, modifiedCorefile, got)
-	}
-
-	// Check that a second patch has no effect.
-	if err := PatchCorefile(ctx, k8s); err != nil {
-		t.Errorf("error in second PatchCorefile: %v", err)
-	}
-	if got := readCorefile(t, k8s); got != modifiedCorefile {
-		t.Errorf(`after second patch, want readCorefile(t, k8s) = %q, got %q`, modifiedCorefile, got)
+	tests := []struct {
+		desc  string
+		input string
+		want  string
+	}{
+		{
+			"default corefile without host.minikube.internal entry",
+			defaultCorefileBeforeMinikube121,
+			modifiedCorefileBeforeMinikube121,
+		},
+		{
+			"default corefile with host.minikube.internal entry",
+			defaultCorefileAfterMinikube121,
+			modifiedCorefileAfterMinikube121,
+		},
 	}
 
-	// Check that reverting undoes the change.
-	if err := RevertCorefile(ctx, k8s); err != nil {
-		t.Errorf("error in RevertCorefile: %v", err)
-	}
-	if got := readCorefile(t, k8s); got != defaultCorefile {
-		t.Errorf(`after revert, want readCorefile(t, k8s) = %q, got %q`, defaultCorefile, got)
-	}
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := context.Background()
+			k8s := fake.NewSimpleClientset()
+			createCorefile(t, k8s, tc.input)
 
-	// Check that a second revert has no effect.
-	if err := RevertCorefile(ctx, k8s); err != nil {
-		t.Errorf("error in second RevertCorefile: %v", err)
-	}
-	if got := readCorefile(t, k8s); got != defaultCorefile {
-		t.Errorf(`after second revert, want readCorefile(t, k8s) = %q, got %q`, defaultCorefile, got)
+			if err := PatchCorefile(ctx, k8s); err != nil {
+				t.Errorf("error in PatchCorefile: %v", err)
+			}
+			if got := readCorefile(t, k8s); got != tc.want {
+				t.Errorf(`want readCorefile(t, k8s) = %q, got %q`, tc.want, got)
+			}
+
+			// Check that a second patch has no effect.
+			if err := PatchCorefile(ctx, k8s); err != nil {
+				t.Errorf("error in second PatchCorefile: %v", err)
+			}
+			if got := readCorefile(t, k8s); got != tc.want {
+				t.Errorf(`after second patch, want readCorefile(t, k8s) = %q, got %q`, tc.want, got)
+			}
+
+			// Check that reverting undoes the change.
+			if err := RevertCorefile(ctx, k8s); err != nil {
+				t.Errorf("error in RevertCorefile: %v", err)
+			}
+			if got := readCorefile(t, k8s); got != tc.input {
+				t.Errorf(`after revert, want readCorefile(t, k8s) = %q, got %q`, tc.input, got)
+			}
+
+			// Check that a second revert has no effect.
+			if err := RevertCorefile(ctx, k8s); err != nil {
+				t.Errorf("error in second RevertCorefile: %v", err)
+			}
+			if got := readCorefile(t, k8s); got != tc.input {
+				t.Errorf(`after second revert, want readCorefile(t, k8s) = %q, got %q`, tc.input, got)
+			}
+		})
 	}
 }
