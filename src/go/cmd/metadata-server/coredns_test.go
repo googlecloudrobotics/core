@@ -56,6 +56,14 @@ const (
     }
 }
 `
+	defaultCorefileUnexpected = `.:53 {
+    whoami
+    hosts {
+        127.0.0.1 host2.minikube.internal
+        fallthrough
+    }
+}
+`
 	differentIp = "1.2.3.456"
 )
 
@@ -149,5 +157,18 @@ func TestPatchCorefile(t *testing.T) {
 				t.Errorf(`after second revert, want readCorefile(t, k8s) = %q, got %q`, tc.input, got)
 			}
 		})
+	}
+}
+
+func TestPatchCorefileUnexpected(t *testing.T) {
+	ctx := context.Background()
+	k8s := fake.NewSimpleClientset()
+	createCorefile(t, k8s, defaultCorefileUnexpected)
+
+	if err := PatchCorefile(ctx, k8s); err == nil {
+		t.Error("PatchCorefile() succeeded with invalid input, wanted error")
+	}
+	if got := readCorefile(t, k8s); got != defaultCorefileUnexpected {
+		t.Errorf(`unexpected input should not be modified, want readCorefile(t, k8s) = %q, got %q`, defaultCorefileUnexpected, got)
 	}
 }
