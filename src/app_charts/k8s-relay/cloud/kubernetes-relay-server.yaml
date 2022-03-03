@@ -17,7 +17,6 @@ spec:
         image: {{ .Values.registry }}{{ .Values.images.http_relay_server }}
         args:
         - --port=8080
-        - --project_id={{ .Values.project }}
         livenessProbe:
           httpGet:
             path: /healthz
