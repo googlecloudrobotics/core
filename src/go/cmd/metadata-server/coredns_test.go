@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"k8s.io/api/core/v1"
@@ -55,6 +56,7 @@ const (
     }
 }
 `
+	differentIp = "1.2.3.456"
 )
 
 func createCorefile(t *testing.T, k8s kubernetes.Interface, corefileData string) {
@@ -102,6 +104,11 @@ func TestPatchCorefile(t *testing.T) {
 			"default corefile with host.minikube.internal entry",
 			defaultCorefileAfterMinikube121,
 			modifiedCorefileAfterMinikube121,
+		},
+		{
+			"default corefile with host.minikube.internal entry, different IP",
+			strings.Replace(defaultCorefileAfterMinikube121, "127.0.0.1", differentIp, 1),
+			strings.Replace(modifiedCorefileAfterMinikube121, "127.0.0.1", differentIp, 1),
 		},
 	}
 
