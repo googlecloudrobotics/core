@@ -43,7 +43,8 @@ const (
 )
 
 var (
-	hostsPattern = regexp.MustCompile(hostsStart + `([.\d]+ host\.minikube\.internal\n\s{8}fallthrough\n\s{4}\})`)
+	hostsHostMinikubeInternalPattern = regexp.MustCompile(hostsStart + `([.\d]+ host\.minikube\.internal\n\s{8}fallthrough\n\s{4}\})`)
+	hostsAnyPattern                  = regexp.MustCompile(`hosts [^{]*{\n`)
 )
 
 func getCorefile(ctx context.Context, k8s kubernetes.Interface) (*v1.ConfigMap, error) {
@@ -76,11 +77,15 @@ func PatchCorefile(ctx context.Context, k8s kubernetes.Interface) error {
 	if strings.Contains(cm.Data[corefileName], zoneStartPatched) || strings.Contains(cm.Data[corefileName], hostsStartPatched) {
 		return nil
 	}
-	if m := hostsPattern.FindStringIndex(cm.Data[corefileName]); m != nil {
-		cm.Data[corefileName] = hostsPattern.ReplaceAllString(cm.Data[corefileName], hostsStartPatched+"$1")
+	if m := hostsHostMinikubeInternalPattern.FindStringIndex(cm.Data[corefileName]); m != nil {
+		cm.Data[corefileName] = hostsHostMinikubeInternalPattern.ReplaceAllString(cm.Data[corefileName], hostsStartPatched+"$1")
 	} else {
 		cm.Data[corefileName] = strings.Replace(cm.Data[corefileName], zoneStart, zoneStartPatched, 1)
 	}
+	if len(hostsAnyPattern.FindAllString(cm.Data[corefileName], -1)) > 1 {
+		return fmt.Errorf("multiple hosts entries after patching, please check the input")
+	}
+
 	return writeCorefile(ctx, k8s, cm)
 }
 
