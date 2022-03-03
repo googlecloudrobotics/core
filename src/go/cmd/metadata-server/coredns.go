@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"k8s.io/api/core/v1"
@@ -35,6 +36,14 @@ const (
         fallthrough
     }
 `
+	hostsStart        = "    hosts {\n        "
+	hostsStartPatched = `    hosts hosts metadata.google.internal host.minikube.internal {
+        169.254.169.254 metadata.google.internal
+        `
+)
+
+var (
+	hostsPattern = regexp.MustCompile(hostsStart + `([.\d]+ host\.minikube\.internal\n\s{8}fallthrough\n\s{4}\})`)
 )
 
 func getCorefile(ctx context.Context, k8s kubernetes.Interface) (*v1.ConfigMap, error) {
@@ -63,10 +72,15 @@ func PatchCorefile(ctx context.Context, k8s kubernetes.Interface) error {
 	if err != nil {
 		return err
 	}
-	if strings.Contains(cm.Data[corefileName], zoneStartPatched) {
+	// must be idempotent
+	if strings.Contains(cm.Data[corefileName], zoneStartPatched) || strings.Contains(cm.Data[corefileName], hostsStartPatched) {
 		return nil
 	}
-	cm.Data[corefileName] = strings.Replace(cm.Data[corefileName], zoneStart, zoneStartPatched, 1)
+	if m := hostsPattern.FindStringIndex(cm.Data[corefileName]); m != nil {
+		cm.Data[corefileName] = hostsPattern.ReplaceAllString(cm.Data[corefileName], hostsStartPatched+"$1")
+	} else {
+		cm.Data[corefileName] = strings.Replace(cm.Data[corefileName], zoneStart, zoneStartPatched, 1)
+	}
 	return writeCorefile(ctx, k8s, cm)
 }
 
@@ -76,9 +90,18 @@ func RevertCorefile(ctx context.Context, k8s kubernetes.Interface) error {
 	if err != nil {
 		return err
 	}
-	if !strings.Contains(cm.Data[corefileName], zoneStartPatched) {
+	containsZoneStartPatch := strings.Contains(cm.Data[corefileName], zoneStartPatched)
+	containsHostsStartPatch := strings.Contains(cm.Data[corefileName], hostsStartPatched)
+	// must be idempotent
+	if !containsZoneStartPatch && !containsHostsStartPatch {
 		return nil
 	}
-	cm.Data[corefileName] = strings.Replace(cm.Data[corefileName], zoneStartPatched, zoneStart, 1)
+	if containsZoneStartPatch && !containsHostsStartPatch {
+		cm.Data[corefileName] = strings.Replace(cm.Data[corefileName], zoneStartPatched, zoneStart, 1)
+	} else if !containsZoneStartPatch && containsHostsStartPatch {
+		cm.Data[corefileName] = strings.Replace(cm.Data[corefileName], hostsStartPatched, hostsStart, 1)
+	} else {
+		return fmt.Errorf("cannot contain both patches")
+	}
 	return writeCorefile(ctx, k8s, cm)
 }
