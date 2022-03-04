@@ -217,21 +217,22 @@ func postResponse(remote *http.Client, br *pb.HttpResponse) error {
 		}
 		return err
 	}
-
+	// body is only 2 bytes 'ok'
 	return nil
 }
 
 // streamBytes converts an io.Reader into a channel to enable select{}-style timeouts.
-func streamBytes(in io.ReadCloser, out chan<- []byte) {
+func streamBytes(id string, in io.ReadCloser, out chan<- []byte) {
 	eof := false
 	for !eof {
 		buffer := make([]byte, *blockSize)
 		n, err := in.Read(buffer)
 		if err != nil && err != io.EOF {
-			log.Printf("Failed to read from http body stream: %v", err)
+			log.Printf("[%s] Failed to read from http body stream: %v", id, err)
 		}
 		eof = err != nil
 		if n > 0 {
+			log.Printf("[%s] Forward %d bytes from http body stream", id, n)
 			out <- buffer[:n]
 		}
 	}
@@ -373,7 +374,7 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 
 	bodyChannel := make(chan []byte)
 	responseChannel := make(chan *pb.HttpResponse)
-	go streamBytes(body, bodyChannel)
+	go streamBytes(*resp.Id, body, bodyChannel)
 	go buildResponses(bodyChannel, resp, responseChannel, responseTimeout)
 
 	exponentialBackoff := backoff.ExponentialBackOff{
