@@ -90,6 +90,8 @@ var (
 		"The maximum number of idle (keep-alive) connections to keep per-host")
 	disableHttp2 = flag.Bool("disable_http2", false,
 		"Disable http2 protocol usage (e.g. for channels that use special streaming protocols such as SPDY).")
+	disableAuthForRemote = flag.Bool("disable_auth_for_remote", false,
+		"Disable auth when talking to the relay server for local testing.")
 )
 
 var (
@@ -430,11 +432,14 @@ func main() {
 	flag.Parse()
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
-	ctx := context.Background()
-	scope := "https://www.googleapis.com/auth/cloud-platform.read-only"
-	remote, err := google.DefaultClient(ctx, scope)
-	if err != nil {
-		log.Fatalf("unable to set up credentials: %v", err)
+	remote := &http.Client{}
+	if !*disableAuthForRemote {
+		ctx := context.Background()
+		scope := "https://www.googleapis.com/auth/cloud-platform.read-only"
+		var err error
+		if remote, err = google.DefaultClient(ctx, scope); err != nil {
+			log.Fatalf("unable to set up credentials for relay-server authentication: %v", err)
+		}
 	}
 	remote.Timeout = remoteRequestTimeout
 	transport := http.DefaultTransport.(*http.Transport).Clone()
