@@ -163,6 +163,3 @@ resource "google_project_iam_member" "gke_node_container_registry_access" {
   role    = "roles/storage.objectViewer"
   member  = "serviceAccount:${google_service_account.gke_node.email}"
 }
-
-# TODO(swolter): Depend on APIs.
-

@@ -13,6 +13,8 @@ resource "google_service_account" "token_vendor" {
 resource "google_service_account_iam_policy" "token_vendor" {
   service_account_id = google_service_account.token_vendor.name
   policy_data        = data.google_iam_policy.token_vendor.policy_data
+  # Avoid Error 400: Identity Pool does not exist (my-project.svc.id.goog).
+  depends_on = [google_container_cluster.cloud-robotics]
 }
 
 data "google_iam_policy" "token_vendor" {
