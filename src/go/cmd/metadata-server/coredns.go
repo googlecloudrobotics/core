@@ -36,14 +36,14 @@ const (
         fallthrough
     }
 `
-	hostsStart        = "    hosts {\n        "
-	hostsStartPatched = `    hosts hosts metadata.google.internal host.minikube.internal {
+	hostsStart        = "hosts {\n"
+	hostsStartPatched = `hosts hosts metadata.google.internal host.minikube.internal {
         169.254.169.254 metadata.google.internal
-        `
+`
 )
 
 var (
-	hostsHostMinikubeInternalPattern = regexp.MustCompile(hostsStart + `([.\d]+ host\.minikube\.internal\n\s{8}fallthrough\n\s{4}\})`)
+	hostsHostMinikubeInternalPattern = regexp.MustCompile(hostsStart + `(\s*[.\d]+ host\.minikube\.internal\n\s*fallthrough\n\s*\})`)
 	hostsAnyPattern                  = regexp.MustCompile(`hosts [^{]*{\n`)
 )
 

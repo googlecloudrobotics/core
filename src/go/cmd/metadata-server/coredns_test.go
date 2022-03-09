@@ -42,8 +42,8 @@ const (
 	defaultCorefileAfterMinikube121 = `.:53 {
     whoami
     hosts {
-        127.0.0.1 host.minikube.internal
-        fallthrough
+       127.0.0.1 host.minikube.internal
+       fallthrough
     }
 }
 `
@@ -51,8 +51,8 @@ const (
     whoami
     hosts hosts metadata.google.internal host.minikube.internal {
         169.254.169.254 metadata.google.internal
-        127.0.0.1 host.minikube.internal
-        fallthrough
+       127.0.0.1 host.minikube.internal
+       fallthrough
     }
 }
 `
