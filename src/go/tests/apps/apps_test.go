@@ -346,7 +346,7 @@ func testUpdateChartAssignment_WithFixedJob_BecomesReady(t *testing.T, f *kubete
 
 	if err := backoff.Retry(
 		f.ChartAssignmentHasStatus(&ca, crcapps.ChartAssignmentPhaseReady),
-		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 60),
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(3*time.Second), 60),
 	); err != nil {
 		t.Fatalf("wait for chart assignment to go from Settled to Ready: %s", err)
 	}

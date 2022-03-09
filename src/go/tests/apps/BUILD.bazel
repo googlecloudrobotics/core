@@ -10,8 +10,6 @@ go_test(
         "//src/go/cmd/synk",
         "@kubernetes_helm//:helm",
     ],
-    # TODO(b/223331353): fix flake
-    flaky = True,
     rundir = ".",
     tags = [
         "requires-access-token",
