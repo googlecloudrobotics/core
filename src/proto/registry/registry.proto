@@ -44,6 +44,26 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
   };
 };
 
+/* Information about the robot model.
+ *
+ * RobotType contains shared information about a specific robot model.
+ */
+message RobotTypeSpec {
+  // Manufacturer name of the robot.
+  // Output only
+  string make = 1;
+
+  // Model name of the robot.
+  // Output only
+  string model = 2;
+
+  // TODO(ensonic): consider more details, such as icons, urdf, ...
+}
+
+message RobotTypeStatus {
+  // Types aren't actuated.
+}
+
 message RobotSpec {
   string type = 1;
   string project = 3;
