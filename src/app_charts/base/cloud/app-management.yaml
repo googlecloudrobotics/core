@@ -77,6 +77,8 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: app-rollout-controller
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/app-rollout-controller
 webhooks:
 - name: approllouts.apps.cloudrobotics.com
   admissionReviewVersions: ["v1"]
@@ -86,7 +88,6 @@ webhooks:
       namespace: {{ .Release.Namespace }}
       name: app-rollout-controller
       path: /approllout/validate
-    caBundle: {{ .Values.certificate_authority.crt }}
   rules:
   - apiGroups:
     - apps.cloudrobotics.com
@@ -185,6 +186,8 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: chart-assignment-controller
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/chart-assignment-controller
 webhooks:
 - name: chartassignments.apps.cloudrobotics.com
   admissionReviewVersions: ["v1"]
@@ -194,7 +197,6 @@ webhooks:
       namespace: {{ .Release.Namespace }}
       name: chart-assignment-controller
       path: /chartassignment/validate
-    caBundle: {{ .Values.certificate_authority.crt }}
   rules:
   - apiGroups:
     - apps.cloudrobotics.com

@@ -60,8 +60,11 @@ metadata:
   name: chart-assignment-controller-tls
   labels:
     cert-format: v2
+  annotations:
+    cert-manager.io/allow-direct-injection: "true"
 type: kubernetes.io/tls
 data:
+  ca.crt: {{ .Values.webhook.tls.crt }}
   tls.key: {{ .Values.webhook.tls.key }}
   tls.crt: {{ .Values.webhook.tls.crt }}
 ---
@@ -83,6 +86,8 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: chart-assignment-controller
+  annotations:
+    cert-manager.io/inject-ca-from-secret: {{ .Release.Namespace }}/chart-assignment-controller-tls
 webhooks:
 - name: chartassignments.apps.cloudrobotics.com
   admissionReviewVersions: ["v1"]
@@ -92,7 +97,6 @@ webhooks:
       namespace: {{ .Release.Namespace }}
       name: chart-assignment-controller
       path: /chartassignment/validate
-    caBundle: {{ .Values.webhook.tls.crt }}
   rules:
   - apiGroups:
     - apps.cloudrobotics.com
