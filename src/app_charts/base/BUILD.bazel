@@ -26,6 +26,7 @@ helm_template(
 app_chart(
     name = "base-robot",
     extra_templates = [
+        ":cloud/namespace.yaml",
         ":cloud/monitoring-crd.yaml",
         ":cloud/registry-crd.yaml",
         ":cloud/apps-crd.yaml",

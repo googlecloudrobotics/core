@@ -339,15 +339,6 @@ function helm_charts {
     ca_key=$(openssl base64 -A < ${certdir}/ca.key)
   fi
 
-  cat <<EOF | kc apply -f -
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ${BASE_NAMESPACE}
-  labels:
-    certmanager.k8s.io/disable-validation: "true"
-EOF
-
   # Delete permissive binding if it exists because from previous deployments
   if kc get clusterrolebinding permissive-binding &>/dev/null; then
     kc delete clusterrolebinding permissive-binding
