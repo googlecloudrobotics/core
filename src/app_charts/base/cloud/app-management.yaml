@@ -24,8 +24,7 @@ spec:
           project={{ .Values.project }},\
           ingress_ip={{ .Values.ingress_ip }},\
           registry={{ .Values.registry }},\
-          deploy_environment={{ .Values.deploy_environment }},\
-          certificate_authority.crt={{ .Values.certificate_authority.crt }}"
+          deploy_environment={{ .Values.deploy_environment }}"
         - "--webhook-port=9876"
         - "--cert-dir=/tls"
         env:
