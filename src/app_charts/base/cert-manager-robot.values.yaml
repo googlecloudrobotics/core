@@ -1,0 +1,5 @@
+# Configuration for the cert-manager chart.
+# Reference: https://github.com/jetstack/cert-manager/blob/master/deploy/charts/cert-manager/values.yaml
+
+# Install CRDs by helm chart that webhook works in different namespace as cert-manager
+installCRDs: true

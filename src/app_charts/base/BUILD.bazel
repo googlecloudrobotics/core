@@ -14,6 +14,15 @@ app_chart(
     visibility = ["//visibility:public"],
 )
 
+helm_template(
+    name = "cert-manager-chart.robot",
+    chart = "//third_party/cert-manager:cert-manager-v1.5.3.tgz",
+    # The namespace will later be replaced with the actual one.
+    namespace = "HELM-NAMESPACE",
+    release_name = "cert-manager",
+    values = "cert-manager-robot.values.yaml",
+)
+
 app_chart(
     name = "base-robot",
     extra_templates = [
@@ -22,6 +31,7 @@ app_chart(
         ":cloud/apps-crd.yaml",
     ],
     files = [
+        ":cert-manager-chart.robot",
         "//third_party/fluentd_gcp_addon",
     ],
     images = {
