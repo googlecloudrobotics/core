@@ -86,8 +86,9 @@ function prepare_source_install {
   ${DIR}/bazel-bin/src/go/cmd/cr-adapter/cr-adapter.push \
     --dst="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/cr-adapter:latest"
 
+  # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl
   # Running :push outside the build system shaves ~3 seconds off an incremental build.
-  ${DIR}/bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
+  TAG="latest" ${DIR}/bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
 }
 
 function clear_iot_devices {

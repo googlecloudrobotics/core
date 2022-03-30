@@ -16,13 +16,17 @@ def _impl(ctx):
     ctx.actions.expand_template(
         template = ctx.file._sh_tpl,
         substitutions = {
-            "%{commands}": "\n".join([
-                "async {command} --dst=\"${{CONTAINER_REGISTRY}}/{repository}:latest\"".format(
-                    command = _get_runfile_path(ctx, target.files_to_run.executable),
-                    repository = repository,
-                )
-                for target, repository in zip(ctx.attr.push_targets, ctx.attr.images.keys())
-            ]),
+            "%{commands}": "\n".join(
+                [
+                    "if [[ -z \"${TAG:-}\" ]]; then echo >&2 \"$0: TAG environment variable must be set when pushing images.\"; exit 1; fi",
+                ] + [
+                    "async {command} --dst=\"${{CONTAINER_REGISTRY}}/{repository}:${{TAG}}\"".format(
+                        command = _get_runfile_path(ctx, target.files_to_run.executable),
+                        repository = repository,
+                    )
+                    for target, repository in zip(ctx.attr.push_targets, ctx.attr.images.keys())
+                ],
+            ),
         },
         output = ctx.outputs.executable,
         is_executable = True,
