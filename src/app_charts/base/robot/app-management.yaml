@@ -54,19 +54,20 @@ spec:
         runAsUser: 65532
         runAsGroup: 65532
 ---
-apiVersion: v1
-kind: Secret
+# The chart assignment controller runs admission webhooks, which need to be served via TLS.
+apiVersion: cert-manager.io/v1
+kind: Certificate
 metadata:
-  name: chart-assignment-controller-tls
-  labels:
-    cert-format: v2
-  annotations:
-    cert-manager.io/allow-direct-injection: "true"
-type: kubernetes.io/tls
-data:
-  ca.crt: {{ .Values.webhook.tls.crt }}
-  tls.key: {{ .Values.webhook.tls.key }}
-  tls.crt: {{ .Values.webhook.tls.crt }}
+  name: chart-assignment-controller
+spec:
+  secretName: chart-assignment-controller-tls
+  commonName: chart-assignment-controller.{{ .Release.Namespace }}.svc
+  dnsNames:
+    - chart-assignment-controller.{{ .Release.Namespace }}.svc
+    - chart-assignment-controller.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    kind: ClusterIssuer
+    name: cluster-authority
 ---
 apiVersion: v1
 kind: Service
@@ -87,7 +88,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: chart-assignment-controller
   annotations:
-    cert-manager.io/inject-ca-from-secret: {{ .Release.Namespace }}/chart-assignment-controller-tls
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/chart-assignment-controller
 webhooks:
 - name: chartassignments.apps.cloudrobotics.com
   admissionReviewVersions: ["v1"]

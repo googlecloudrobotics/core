@@ -142,6 +142,11 @@ until kc get serviceaccount default &>/dev/null; do
   fi
 done
 
+# Remove old unmanaged cert
+if ! kc get secrets cluster-authority -o yaml | grep -q "cert-manager.io/certificate-name: selfsigned-ca"; then
+  kc delete secrets cluster-authority 2> /dev/null || true
+fi
+
 # Remove legacy helm resources
 kc -n kube-system delete deploy tiller-deploy 2> /dev/null || true
 kc -n kube-system delete service tiller-deploy 2> /dev/null || true

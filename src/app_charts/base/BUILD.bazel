@@ -4,8 +4,15 @@ load("//bazel:app_chart.bzl", "app_chart")
 app_chart(
     name = "base-test",
     extra_templates = [
+        ":cloud/namespace.yaml",
         ":cloud/apps-crd.yaml",
         ":robot/app-management.yaml",
+        ":robot/cert-manager.yaml",
+        ":robot/cert-manager-certificates.yaml",
+        ":robot/cert-manager-issuers.yaml",
+    ],
+    files = [
+        ":cert-manager-chart.robot",
     ],
     images = {
         "chart-assignment-controller": "//src/go/cmd/chart-assignment-controller",

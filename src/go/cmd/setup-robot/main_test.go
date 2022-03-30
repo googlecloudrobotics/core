@@ -16,7 +16,6 @@ package main
 
 import (
 	"context"
-	b64 "encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -24,14 +23,12 @@ import (
 	"testing"
 
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynfake "k8s.io/client-go/dynamic/fake"
-	corefake "k8s.io/client-go/kubernetes/fake"
 	k8stest "k8s.io/client-go/testing"
 )
 
@@ -345,43 +342,5 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 				t.Errorf("labels:\n%q\nwant:\n%q", got, tc.wantLabels)
 			}
 		})
-	}
-}
-
-func TestEnsureWebhookCerts_DoesNotReplaceCerts(t *testing.T) {
-	ctx := context.Background()
-	wantCert := "1234"
-	wantKey := "abcd"
-	c := corefake.NewSimpleClientset(
-		&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "chart-assignment-controller-tls",
-				Namespace: "default",
-				Labels:    map[string]string{"cert-format": "v2"},
-			},
-			Data: map[string][]byte{
-				"tls.crt": []byte(wantCert),
-				"tls.key": []byte(wantKey),
-			},
-		},
-	)
-
-	encCert, encKey, err := ensureWebhookCerts(ctx, c, "default")
-	if err != nil {
-		t.Fatalf("failed getting cert and keys: %v", err)
-	}
-	cert, err := b64.URLEncoding.DecodeString(encCert)
-	if err != nil {
-		t.Fatalf("failed decoding cert: %v", err)
-	}
-	if string(cert) != wantCert {
-		t.Fatalf("cert is %q, expected %q", cert, wantCert)
-	}
-	key, err := b64.URLEncoding.DecodeString(encKey)
-	if err != nil {
-		t.Fatalf("failed decoding cert: %v", err)
-	}
-	if string(key) != wantKey {
-		t.Fatalf("key is %q, expected %q", cert, wantKey)
 	}
 }

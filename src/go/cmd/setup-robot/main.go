@@ -17,16 +17,9 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	b64 "encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"log"
-	"math/big"
 	"net"
 	"net/http"
 	"os"
@@ -341,12 +334,6 @@ func main() {
 		}
 	}
 
-	// ensure tls certs
-	whCert, whKey, err := ensureWebhookCerts(ctx, k8sLocalClientSet, baseNamespace)
-	if err != nil {
-		log.Fatalf("Failed to create tls certs for webhook: %v.", err)
-	}
-
 	log.Println("Initializing Synk")
 	output, err := exec.Command(synkPath, "init").CombinedOutput()
 	if err != nil {
@@ -356,74 +343,8 @@ func main() {
 	appManagement := configutil.GetBoolean(vars, "APP_MANAGEMENT", true)
 	// Use "robot" as a suffix for consistency for Synk deployments.
 	installChartOrDie(ctx, k8sLocalClientSet, domain, registry, "base-robot", baseNamespace,
-		"base-robot-0.0.1.tgz", whCert, whKey, appManagement)
+		"base-robot-0.0.1.tgz", appManagement)
 	log.Println("Setup complete")
-}
-
-// create tls certs for the webhook if they don't exist or need an update
-func ensureWebhookCerts(ctx context.Context, cs kubernetes.Interface, namespace string) (string, string, error) {
-	sa, err := cs.CoreV1().Secrets(namespace).Get(ctx, "chart-assignment-controller-tls", metav1.GetOptions{})
-	if err == nil && sa.Labels["cert-format"] == "v2" {
-		// If we already have it and it has the right label, return the certs.
-		// This is crucial, since mounted secrets are only updated once a minute.
-		log.Print("Returning existing certificate.")
-		return b64.URLEncoding.EncodeToString(sa.Data["tls.crt"]), b64.URLEncoding.EncodeToString(sa.Data["tls.key"]), nil
-	}
-
-	// Generate new certs
-	// based on https://golang.org/src/crypto/tls/generate_cert.go
-
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return "", "", errors.Wrap(err, "Failed to generate private key")
-	}
-	// ECDSA, ED25519 and RSA subject keys should have the DigitalSignature
-	// KeyUsage bits set in the x509.Certificate template
-	// Only RSA subject keys should have the KeyEncipherment KeyUsage bits set. In
-	// the context of TLS this KeyUsage is particular to RSA key exchange and
-	// authentication.
-	keyUsage := x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
-
-	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
-	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
-	if err != nil {
-		return "", "", errors.Wrap(err, "Failed to generate serial number")
-	}
-
-	template := x509.Certificate{
-		SerialNumber: serialNumber,
-		Subject: pkix.Name{
-			Organization: []string{"chart-assignment-controller." + namespace + ".svc"},
-		},
-		NotBefore: time.Now(),
-		NotAfter:  time.Now().AddDate(100, 0, 0), // 100 years
-
-		KeyUsage:              keyUsage,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		BasicConstraintsValid: true,
-		DNSNames:              []string{"chart-assignment-controller." + namespace + ".svc"},
-	}
-
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
-	if err != nil {
-		return "", "", errors.Wrap(err, "Failed to create certificate")
-	}
-
-	var crt bytes.Buffer
-	if err := pem.Encode(&crt, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
-		return "", "", errors.Wrap(err, "Failed to write cert data")
-	}
-
-	var key bytes.Buffer
-	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
-	if err != nil {
-		return "", "", errors.Wrap(err, "Unable to marshal private key")
-	}
-	if err := pem.Encode(&key, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes}); err != nil {
-		return "", "", errors.Wrap(err, "Failed to write key data")
-	}
-
-	return b64.URLEncoding.EncodeToString(crt.Bytes()), b64.URLEncoding.EncodeToString(key.Bytes()), nil
 }
 
 func helmValuesStringFromMap(varMap map[string]string) string {
@@ -435,7 +356,7 @@ func helmValuesStringFromMap(varMap map[string]string) string {
 }
 
 // installChartOrDie installs a chart using Synk.
-func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, registry, name, namespace, chartPath, whCert, whKey string, appManagement bool) {
+func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, registry, name, namespace, chartPath string, appManagement bool) {
 	// ensure namespace for chart exists
 	if _, err := cs.CoreV1().Namespaces().Create(ctx,
 		&corev1.Namespace{
@@ -458,8 +379,6 @@ func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, re
 		"pod_cidr":             *podCIDR,
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
 		"robot.name":           *robotName,
-		"webhook.tls.crt":      whCert,
-		"webhook.tls.key":      whKey,
 	})
 	log.Printf("Installing %s chart using Synk from %s", name, chartPath)
 

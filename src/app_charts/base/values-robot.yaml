@@ -24,6 +24,3 @@ robot:
 
 webhook:
   enabled: "true"
-  tls:
-    key: ""
-    crt: ""
