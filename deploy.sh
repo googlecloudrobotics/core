@@ -323,20 +323,9 @@ function helm_charts {
   local BASE_NAMESPACE
   BASE_NAMESPACE="default"
 
-  # Generate a certificate authority if none exists yet. It is used by
-  # cert-manager to issue new cluster-internal certificates.
-  # Avoid creating a new one on each run as rotation may cause intermittent
-  # disruptions, which we don't want to trigger on each deploy.
-  if kc get secret -n "${BASE_NAMESPACE}" cluster-authority; then
-    ca_crt=$(kc get secret -n "${BASE_NAMESPACE}" cluster-authority -o=go-template --template='{{index .data "tls.crt"}}')
-    ca_key=$(kc get secret -n "${BASE_NAMESPACE}" cluster-authority -o=go-template --template='{{index .data "tls.key"}}')
-  else
-    certdir=$(mktemp -d)
-    openssl genrsa -out "${certdir}/ca.key" 2048
-    openssl req -x509 -new -nodes -key "${certdir}/ca.key" -subj "/CN=${CLOUD_ROBOTICS_DOMAIN}" \
-      -days 36500 -reqexts v3_req -extensions v3_ca -out "${certdir}/ca.crt"
-    ca_crt=$(openssl base64 -A < ${certdir}/ca.crt)
-    ca_key=$(openssl base64 -A < ${certdir}/ca.key)
+  # Remove old unmanaged cert
+  if ! kc get secrets cluster-authority -o yaml | grep -q "cert-manager.io/certificate-name: selfsigned-ca"; then
+    kc delete secrets cluster-authority 2> /dev/null || true
   fi
 
   # Delete permissive binding if it exists because from previous deployments
@@ -359,8 +348,6 @@ function helm_charts {
     --set-string oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}
     --set-string oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}
     --set-string oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}
-    --set-string certificate_authority.key=${ca_key}
-    --set-string certificate_authority.crt=${ca_crt}
 EOF
 )
 

@@ -18,16 +18,15 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
   name: cluster-authority
 spec:
   ca:
     secretName: cluster-authority
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cluster-authority
-type: kubernetes.io/tls
-data:
-  tls.key: {{ .Values.certificate_authority.key }}
-  tls.crt: {{ .Values.certificate_authority.crt }}
+
