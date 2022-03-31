@@ -3,11 +3,13 @@
 licenses(["notice"])
 
 # files downloaded by running:
-# cert_manager_version="v0.10.1"
+# cert_manager_version="v1.5.3"
 # curl -o third_party/cert-manager/cert-manager-${cert_manager_version}.tgz https://charts.jetstack.io/charts/cert-manager-${cert_manager_version}.tgz
-# curl -o third_party/cert-manager/00-crds.yaml https://raw.githubusercontent.com/jetstack/cert-manager/${cert_manager_version}/deploy/manifests/00-crds.yaml
 
 exports_files(
-    glob(["*.tgz", "*.yaml"]),
+    glob([
+        "*.tgz",
+        "*.yaml",
+    ]),
     visibility = ["//visibility:public"],
 )
