@@ -32,7 +32,7 @@ if [[ -z "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}" ]]; then
   exit 1
 fi
 
-bazel run //src/app_charts:push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
+TAG="latest" bazel run //src/app_charts:push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
 bazel build //src/go/tests/apps:go_default_test
 
 # Run the artifact directly so the kind clusters can be easily accessed for
