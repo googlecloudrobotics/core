@@ -32,6 +32,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
@@ -456,6 +457,16 @@ func main() {
 		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 	}
 	transport.MaxIdleConnsPerHost = *maxIdleConnsPerHost
+
+	if keyLogFile := os.Getenv("SSLKEYLOGFILE"); keyLogFile != "" {
+		keyLog, err := os.OpenFile(keyLogFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err == nil {
+			transport.TLSClientConfig.KeyLogWriter = keyLog
+		} else {
+			log.Printf("Can open keylog file %q (check SSLKEYLOGFILE env var): %v", keyLogFile, err)
+		}
+	}
+
 	if *disableHttp2 {
 		// Fix for: http2: invalid Upgrade request header: ["SPDY/3.1"]
 		// according to the docs:
