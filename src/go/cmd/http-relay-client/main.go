@@ -227,16 +227,18 @@ func streamBytes(id string, in io.ReadCloser, out chan<- []byte) {
 	eof := false
 	for !eof {
 		buffer := make([]byte, *blockSize)
+		log.Printf("[%s] Reading from backend", id)
 		n, err := in.Read(buffer)
 		if err != nil && err != io.EOF {
-			log.Printf("[%s] Failed to read from http body stream: %v", id, err)
+			log.Printf("[%s] Failed to read from backend: %v", id, err)
 		}
 		eof = err != nil
 		if n > 0 {
-			log.Printf("[%s] Forward %d bytes from http body stream", id, n)
+			log.Printf("[%s] Forward %d bytes from backend", id, n)
 			out <- buffer[:n]
 		}
 	}
+	log.Printf("[%s] Got EOF reading from backend", id)
 	close(out)
 	in.Close()
 }
@@ -249,21 +251,21 @@ func streamBytes(id string, in io.ReadCloser, out chan<- []byte) {
 //  - No data needs to be transferred. We keep sending empty responses every few seconds
 //    to show the relay server that we're still alive.
 func buildResponses(in <-chan []byte, resp *pb.HttpResponse, out chan<- *pb.HttpResponse, timeout time.Duration) {
+	defer close(out)
 	timer := time.NewTimer(timeout)
 	timeouts := 0
 
-ResponseLoop:
 	for {
 		select {
 		case b, more := <-in:
 			resp.Body = append(resp.Body, b...)
 			if !more {
-				log.Printf("[%s] Posting final response of %d bytes", *resp.Id, len(resp.Body))
+				log.Printf("[%s] Posting final response of %d bytes to relay", *resp.Id, len(resp.Body))
 				resp.Eof = proto.Bool(true)
 				out <- resp
-				break ResponseLoop
+				return
 			} else if len(resp.Body) > *maxChunkSize {
-				log.Printf("[%s] Posting intermediate response of %d bytes", *resp.Id, len(resp.Body))
+				log.Printf("[%s] Posting intermediate response of %d bytes to relay", *resp.Id, len(resp.Body))
 				out <- resp
 				resp = &pb.HttpResponse{Id: resp.Id}
 				timeouts = 0
@@ -271,16 +273,15 @@ ResponseLoop:
 		case <-timer.C:
 			timer.Reset(timeout)
 			timeouts += 1
-			// We send an empty response after 30 timeouts as a keep-alive packet.
+			// We send an (empty) response after 30 timeouts as a keep-alive packet.
 			if len(resp.Body) > 0 || resp.StatusCode != nil || timeouts > 30 {
-				log.Printf("[%s] Posting partial response of %d bytes", *resp.Id, len(resp.Body))
+				log.Printf("[%s] Posting partial response of %d bytes to relay", *resp.Id, len(resp.Body))
 				out <- resp
 				resp = &pb.HttpResponse{Id: resp.Id}
 				timeouts = 0
 			}
 		}
 	}
-	close(out)
 }
 
 // postErrorResponse resolves the client's request in case of an internal error.
@@ -321,6 +322,7 @@ func streamToBackend(remote *http.Client, req *pb.HttpRequest, backendWriter io.
 	}).String()
 	for {
 		// Get data from the "request stream", then copy it to the backend.
+		// We use a Post with empty body to avoid caching.
 		resp, err := remote.Post(streamURL, "text/plain", http.NoBody)
 		if err != nil {
 			// TODO(rodrigoq): detect transient failure and retry w/ backoff?
@@ -344,13 +346,13 @@ func streamToBackend(remote *http.Client, req *pb.HttpRequest, backendWriter io.
 			log.Printf("[%s] Failed to write to backend: %v", *req.Id, err)
 			return
 		} else {
-			log.Printf("[%s] Wrote %d bytes to request stream", *req.Id, n)
+			log.Printf("[%s] Wrote %d bytes to backend", *req.Id, n)
 		}
 	}
 }
 
 func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest) {
-	resp, body, err := makeBackendRequest(local, req)
+	resp, backendBody, err := makeBackendRequest(local, req)
 	if err != nil {
 		// Even if we couldn't handle the backend request, send an
 		// answer to the relay that signals the error.
@@ -358,24 +360,28 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 		postErrorResponse(remote, req, fmt.Sprintf("Unable to reach backend: %v", err))
 		return
 	}
+	// backendBody is either closed from the bodyWriter or streamBytes()
 
 	if *resp.StatusCode == http.StatusSwitchingProtocols {
 		// A 101 Switching Protocols response means that the request will be
 		// used for bidirectional streaming, so start a goroutine to stream
 		// from client to backend.
-		bodyWriter, ok := body.(io.ReadWriteCloser)
+		bodyWriter, ok := backendBody.(io.WriteCloser)
 		if !ok {
 			log.Printf("Error: 101 Switching Protocols response with non-writable body.")
 			log.Printf("       This occurs when using Go <1.12 or when http.Client.Timeout > 0.")
 			postErrorResponse(remote, req, "Backend returned 101 Switching Protocols, which is not supported.")
 			return
 		}
+		// Stream stdin from remote to backend
 		go streamToBackend(remote, req, bodyWriter)
 	}
 
 	bodyChannel := make(chan []byte)
 	responseChannel := make(chan *pb.HttpResponse)
-	go streamBytes(*resp.Id, body, bodyChannel)
+	// Stream stdout from backend to bodyChannel
+	go streamBytes(*resp.Id, backendBody, bodyChannel)
+	// collect data from bodyChannel and send to remote (relay-server)
 	go buildResponses(bodyChannel, resp, responseChannel, responseTimeout)
 
 	exponentialBackoff := backoff.ExponentialBackOff{

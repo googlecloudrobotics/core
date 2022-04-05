@@ -63,7 +63,7 @@
 //          .     |        .<-POST /response-.               .
 //          . <-- 101 ---- .         |       .               .
 //          . -- stdin --> .         |       .               .
-//          .     |        . <-GET /request- .               .
+//          .     |        .<-POST /request- .               .
 //          .     |        .        stream   .               .
 //          .     |        . ---- stdin ---> .               .
 //          .     |        .         |       . --- stdin --> .
@@ -197,6 +197,7 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 
 	go func() {
 		// This goroutine handles the request stream from client to backend.
+		log.Printf("[%s] Trying to read from bidi-stream", id)
 		bytes := make([]byte, *blockSize)
 		for {
 			// Here we get the client stream (e.g. kubectl or k9s)
@@ -206,20 +207,19 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 				// we may be able to suppress the "read from closed connection" better.
 				if strings.Contains(err.Error(), "use of closed network connection") {
 					// Request ended and connection closed by HTTP server.
-					log.Printf("[%s] End of request stream (closed socket)", id)
+					log.Printf("[%s] End of bidi-stream stream (closed socket)", id)
 				} else {
 					// Connection has unexpectedly failed for some other reason.
-					log.Printf("[%s] Error reading from request: %v", id, err)
+					log.Printf("[%s] Error reading from bidi-stream: %v", id, err)
 				}
 				return
 			}
-			log.Printf("[%s] Read %d bytes from request", id, n)
-			ok = s.b.PutRequestStream(id, bytes[:n])
-			if !ok {
-				log.Printf("[%s] End of request stream", id)
+			log.Printf("[%s] Read %d bytes from bidi-stream", id, n)
+			if ok = s.b.PutRequestStream(id, bytes[:n]); !ok {
+				log.Printf("[%s] End of bidi-stream stream", id)
 				return
 			}
-			log.Printf("[%s] Uploaded %d bytes from request", id, n)
+			log.Printf("[%s] Uploaded %d bytes from bidi-stream", id, n)
 		}
 	}()
 
@@ -230,7 +230,7 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 		bufrw.Flush()
 		numBytes += len(bytes)
 	}
-	log.Printf("[%s] Wrote %d response bytes to request", id, numBytes)
+	log.Printf("[%s] Wrote %d response bytes to bidi-stream", id, numBytes)
 }
 
 // client sent a request.
@@ -257,6 +257,7 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	log.Printf("[%s] Read %d bytes from client", id, len(body))
 	backendUrl := url.URL{
 		Scheme:   "http",
 		Host:     "invalid",
@@ -351,7 +352,7 @@ func (s *server) serverRequestStream(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/octet-data")
 	w.Write(data)
-	log.Printf("[%s] Relay client pulled streamed request data", id)
+	log.Printf("[%s] Relay client pulled streamed request data of %d bytes", id, len(data))
 }
 
 func (s *server) serverResponse(w http.ResponseWriter, r *http.Request) {
@@ -362,14 +363,12 @@ func (s *server) serverResponse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	br := &pb.HttpResponse{}
-	err = proto.Unmarshal(body, br)
-	if err != nil {
+	if err = proto.Unmarshal(body, br); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	err = s.b.SendResponse(br)
-	if err != nil {
+	if err = s.b.SendResponse(br); err != nil {
 		// SendResponse fails if and only if the request ID is bad.
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

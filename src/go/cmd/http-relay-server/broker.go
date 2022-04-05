@@ -56,7 +56,9 @@ func init() {
 }
 
 type pendingResponse struct {
-	requestStream  chan []byte
+	// for comunication of relay-server to relay-cleint
+	requestStream chan []byte
+	// for communication of relay-server to client
 	responseStream chan *pb.HttpResponse
 	lastActivity   time.Time
 	// For diagnostics only.
@@ -152,8 +154,8 @@ func (r *broker) GetRequestStream(id string) ([]byte, bool) {
 	}
 
 	select {
-	case req := <-pr.requestStream:
-		return req, true
+	case data := <-pr.requestStream:
+		return data, true
 	case <-time.After(time.Second * 30):
 		return []byte{}, true
 	}
