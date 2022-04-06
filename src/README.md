@@ -29,10 +29,14 @@ specific version run eg::
 ```
 cd src
 # use an older version, that the latest stable
-go get github.com/mitchellh/go-server-timing@v1.0.1
+go get -d github.com/mitchellh/go-server-timing@v1.0.1
 # use a specific, yet untagged version
-go get github.com/mitchellh/go-server-timing@feb680ab92c20d57c527399b842e1941bde888c3
+go get -d github.com/mitchellh/go-server-timing@feb680ab92c20d57c527399b842e1941bde888c3
+# to also upgrade dependencies, use:
+go get -d -u github.com/mitchellh/go-server-timing@v1.0.1
 ```
+
+More tips on this [one-pager](https://encore.dev/guide/go.mod)
 
 ### Licenses
 
