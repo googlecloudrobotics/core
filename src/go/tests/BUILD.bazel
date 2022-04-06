@@ -27,7 +27,5 @@ sh_test(
     data = [
         "@kubernetes_helm//:helm",
     ],
-    # TODO(b/219953603): in 2 out of 25 runs we get a timeout from the relay
-    flaky = True,
     tags = ["external"],
 )
