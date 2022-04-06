@@ -198,8 +198,9 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 	go func() {
 		// This goroutine handles the request stream from client to backend.
 		log.Printf("[%s] Trying to read from bidi-stream", id)
-		bytes := make([]byte, *blockSize)
 		for {
+			// This must be a new buffer each time, as the channel is not making a copy
+			bytes := make([]byte, *blockSize)
 			// Here we get the client stream (e.g. kubectl or k9s)
 			n, err := bufrw.Read(bytes)
 			if err != nil {

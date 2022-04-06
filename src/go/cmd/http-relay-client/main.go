@@ -226,6 +226,7 @@ func postResponse(remote *http.Client, br *pb.HttpResponse) error {
 func streamBytes(id string, in io.ReadCloser, out chan<- []byte) {
 	eof := false
 	for !eof {
+		// This must be a new buffer each time, as the channel is not making a copy
 		buffer := make([]byte, *blockSize)
 		log.Printf("[%s] Reading from backend", id)
 		n, err := in.Read(buffer)
