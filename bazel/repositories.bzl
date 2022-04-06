@@ -37,14 +37,10 @@ def cloud_robotics_repositories():
     )
 
     # protos for the Google APIs
-    # TODO(b/119290854): remove "unused import" patch
     _maybe(
         http_archive,
         name = "com_github_googleapis_googleapis",
         patch_args = ["-p1"],
-        patches = [
-            "@cloud_robotics//third_party:com_github_googleapis_googleapis-0001-remove-unused-import.patch",
-        ],
         sha256 = "77216f166548374668a0a8ab1502acf3da6502affa826efca58cf6343b5550ed",
         strip_prefix = "googleapis-58ecdb1f0c0297975e68df5b45200a2d06f6d933",
         urls = [

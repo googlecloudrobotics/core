@@ -14,7 +14,6 @@ proto_library(
     srcs = ["registry.proto"],
     deps = [
         "@com_google_protobuf//:timestamp_proto",
-        "@go_googleapis//google/api:annotations_proto",
         "@grpc_ecosystem_grpc_gateway//protoc-gen-swagger/options:options_proto",
     ],
 )
@@ -32,7 +31,6 @@ go_proto_library(
     importpath = "src/proto/registry",
     proto = ":registry_proto",
     deps = [
-        "@go_googleapis//google/api:annotations_go_proto",
         "@grpc_ecosystem_grpc_gateway//protoc-gen-swagger/options:go_default_library",
     ],
 )
