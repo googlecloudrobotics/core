@@ -201,7 +201,7 @@ func postResponse(remote *http.Client, br *pb.HttpResponse) error {
 		Host:   *relayAddress,
 		Path:   *relayPrefix + "/server/response",
 	}
-	resp, err := remote.Post(responseUrl.String(), "application/octet-data", bytes.NewReader(body))
+	resp, err := remote.Post(responseUrl.String(), "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse", bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("couldn't post response to relay server: %v", err)
 	}

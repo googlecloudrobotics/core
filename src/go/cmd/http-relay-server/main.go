@@ -331,7 +331,7 @@ func (s *server) serverRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/octet-data")
+	w.Header().Set("Content-Type", "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpRequest")
 	w.Write(body)
 	log.Printf("[%s] Relay client accepted request", *request.Id)
 }

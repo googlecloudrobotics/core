@@ -54,9 +54,8 @@ func TestAssertMocksDoneWithin_FailsWhenMocksNotDone(t *testing.T) {
 }
 
 func TestLocalProxy(t *testing.T) {
-	// Hot patch: gock refuses to match bodies with application/octet-data
-	// by default.
-	gock.BodyTypes = append(gock.BodyTypes, "application/octet-data")
+	// Hot patch: gock refuses to match bodies with unknown content-types by default.
+	gock.BodyTypes = append(gock.BodyTypes, "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse")
 	defer gock.Off()
 
 	req, _ := proto.Marshal(&pb.HttpRequest{
@@ -106,9 +105,8 @@ func TestLocalProxy(t *testing.T) {
 }
 
 func TestBackendError(t *testing.T) {
-	// Hot patch: gock refuses to match bodies with application/octet-data
-	// by default.
-	gock.BodyTypes = append(gock.BodyTypes, "application/octet-data")
+	// Hot patch: gock refuses to match bodies with unknown content-types by default.
+	gock.BodyTypes = append(gock.BodyTypes, "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse")
 	defer gock.Off()
 
 	req, _ := proto.Marshal(&pb.HttpRequest{
