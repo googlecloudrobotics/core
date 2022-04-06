@@ -16,6 +16,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -30,6 +31,7 @@ import (
 )
 
 func checkResponse(t *testing.T, resp *http.Response, wantStatus int, wantBody string) {
+	t.Helper()
 	if want, got := wantStatus, resp.StatusCode; want != got {
 		t.Errorf("Wrong response code; want %d; got %d", want, got)
 	}
@@ -112,12 +114,31 @@ func TestClientBadRequest(t *testing.T) {
 	}
 }
 
+func nonRepeatingByteArray(n int) []byte {
+	result := make([]byte, 0, n)
+	i := 0
+	for len(result) < n {
+		result = append(result, []byte(fmt.Sprintf("%8d", i))...)
+		i += 1
+	}
+	return result
+}
+
 func TestRequestStreamHandler(t *testing.T) {
+	// Use a large request stream body to ensure it gets split into multiple
+	// blocks. This would have caught a race that jumbles the request stream.
+	oldBlockSize := *blockSize
+	*blockSize = 64
+	defer func() {
+		*blockSize = oldBlockSize
+	}()
+	wantRequestStream := nonRepeatingByteArray(3 * (*blockSize))
+
 	// In a background goroutine, run a client request with post-request data
 	// in the request stream.
 	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
 	req.Header.Add("X-Deadline", "now")
-	respRecorder := hijacktest.NewRecorder([]byte("request stream data"))
+	respRecorder := hijacktest.NewRecorder(wantRequestStream)
 	server := newServer()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -139,10 +160,23 @@ func TestRequestStreamHandler(t *testing.T) {
 	})
 
 	// Get the data from the request stream and check its contents.
-	reqstreamRecorder := httptest.NewRecorder()
-	streamreq := httptest.NewRequest("POST", "/server/requeststream?id="+*relayRequest.Id, strings.NewReader(""))
-	server.serverRequestStream(reqstreamRecorder, streamreq)
-	checkResponse(t, reqstreamRecorder.Result(), 200, "request stream data")
+	gotRequestStream := []byte{}
+	for len(gotRequestStream) < len(wantRequestStream) {
+		reqstreamRecorder := httptest.NewRecorder()
+		streamreq := httptest.NewRequest("POST", "/server/requeststream?id="+*relayRequest.Id, nil)
+		server.serverRequestStream(reqstreamRecorder, streamreq)
+		switch sc := reqstreamRecorder.Result().StatusCode; sc {
+		case http.StatusOK:
+			gotRequestStream = append(gotRequestStream, reqstreamRecorder.Body.Bytes()...)
+		case http.StatusGone:
+			break
+		default:
+			t.Errorf("POST /server/requeststream returned unexpected status %d, want %d or %d", sc, http.StatusOK, http.StatusGone)
+		}
+	}
+	if !bytes.Equal(wantRequestStream, gotRequestStream) {
+		t.Errorf("POST /server/requeststream returned unexpected data, got:\n%s\nwant:\n%s", gotRequestStream, wantRequestStream)
+	}
 
 	// Terminate the client request and verify the response.
 	server.b.SendResponse(&pb.HttpResponse{
