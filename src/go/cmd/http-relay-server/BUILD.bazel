@@ -13,7 +13,6 @@ go_library(
     deps = [
         "//src/proto/http-relay:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
-        "@com_github_mitchellh_go_server_timing//:go_default_library",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
     ],

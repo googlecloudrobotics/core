@@ -90,7 +90,6 @@ import (
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	"github.com/golang/protobuf/proto"
-	servertiming "github.com/mitchellh/go-server-timing"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -102,8 +101,6 @@ var (
 	port      = flag.Int("port", 80, "Port number to listen on")
 	blockSize = flag.Int("block_size", 10*1024,
 		"Size of i/o buffer in bytes")
-	serverTimings = flag.Bool("server_timings", false,
-		"Return backend timings via http headers")
 )
 
 func createId() string {
@@ -236,9 +233,6 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 
 // client sent a request.
 func (s *server) client(w http.ResponseWriter, r *http.Request) {
-	timing := servertiming.FromContext(r.Context())
-
-	m1 := timing.NewMetric("prepare").WithDesc("Prepare relaying").Start()
 	// After stripping, the path is "${SERVER_NAME}/${REQUEST}"
 	pathParts := strings.SplitN(strings.TrimPrefix(r.URL.Path, clientPrefix), "/", 2)
 	backendName := pathParts[0]
@@ -274,9 +268,7 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 		Header: marshalHeader(&r.Header),
 		Body:   body,
 	}
-	m1.Stop()
 
-	m2 := timing.NewMetric("relay").WithDesc("Relay to backend").Start()
 	backendRespChan, err := s.b.RelayRequest(backendName, backendReq)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -286,7 +278,6 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 	if header != nil {
 		unmarshalHeader(w, header)
 	}
-	m2.Stop()
 
 	if status == http.StatusSwitchingProtocols {
 		// Note: call s.bidirectionalStream before w.WriteHeader so that
@@ -394,9 +385,5 @@ func main() {
 	http.HandleFunc("/server/requeststream", server.serverRequestStream)
 	http.HandleFunc("/server/response", server.serverResponse)
 	http.Handle("/metrics", promhttp.Handler())
-
-	h := servertiming.Middleware(http.DefaultServeMux,
-		&servertiming.MiddlewareOpts{DisableHeaders: !(*serverTimings)},
-	)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), h))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), nil))
 }

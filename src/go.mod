@@ -11,19 +11,16 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cyphar/filepath-securejoin v0.2.2 // indirect
-	github.com/felixge/httpsnoop v1.0.2 // indirect
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590
 	github.com/getlantern/mockconn v0.0.0-20190403061815-a8ffa60494a6 // indirect
 	github.com/go-openapi/spec v0.19.3
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/golang/gddo v0.0.0-20210115222349-20d68f94ee1f // indirect
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.2
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/jhump/protoreflect v1.10.0
 	github.com/mitchellh/copystructure v1.0.0 // indirect
-	github.com/mitchellh/go-server-timing v1.0.2-0.20201108055052-feb680ab92c2
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
 	github.com/motemen/go-loghttp v0.0.0-20170804080138-974ac5ceac27
 	github.com/motemen/go-nuts v0.0.0-20180315145558-42c35bdb11c2 // indirect
