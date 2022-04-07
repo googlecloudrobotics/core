@@ -34,45 +34,6 @@ resource "google_container_cluster" "cloud-robotics" {
   }
 }
 
-# TODO(b/175282543): remove the legacy pool after migrating to workload identity
-resource "google_container_node_pool" "cloud-robotics" {
-  project  = data.google_project.project.project_id
-  name     = "cloud-robotics"
-  location = var.zone
-  cluster  = google_container_cluster.cloud-robotics.name
-
-  initial_node_count = 2
-
-  autoscaling {
-    min_node_count = 2
-    max_node_count = 10
-  }
-
-  node_config {
-    machine_type = "e2-standard-4"
-    # The GCE Metadata Server uses the default service account for workloads.
-    workload_metadata_config {
-      mode = "GCE_METADATA"
-    }
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/bigquery",
-      "https://www.googleapis.com/auth/cloud-platform",
-      "https://www.googleapis.com/auth/cloud-platform.read-only",
-      "https://www.googleapis.com/auth/cloud.useraccounts",
-      "https://www.googleapis.com/auth/compute",
-      "https://www.googleapis.com/auth/devstorage.full_control",
-      "https://www.googleapis.com/auth/logging.write",
-      "https://www.googleapis.com/auth/monitoring",
-      "https://www.googleapis.com/auth/monitoring.write",
-      "https://www.googleapis.com/auth/ndev.clouddns.readwrite",
-      "https://www.googleapis.com/auth/pubsub",
-      "https://www.googleapis.com/auth/servicecontrol",
-      "https://www.googleapis.com/auth/trace.append",
-      "https://www.googleapis.com/auth/userinfo.email",
-    ]
-  }
-}
-
 # This node pool uses Workload Identity and a non-default service account, as
 # recommended for improved security.
 resource "google_container_node_pool" "cloud_robotics_base_pool" {
@@ -98,23 +59,6 @@ resource "google_container_node_pool" "cloud_robotics_base_pool" {
     oauth_scopes = [
       "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/userinfo.email",
-    ]
-    # Avoid breaking existing services by scheduling them on Workload Identity
-    # before they have an appropriate SA configured.
-    # TODO(b/175282543): remove the this taint after migration
-    #
-    # Note: When I tried it, Terraform was unable to remove the taint unless I
-    # set taint=[], which made it want to destroy and recreate the node pool.
-    # If we want to do this with less disruption, it might be better to add
-    # this to deploy.sh:
-    #
-    # gcloud beta container node-pools update pool --node-taints="" ...
-    taint = [
-      {
-        key    = "workload-identity"
-        value  = "true"
-        effect = "NO_SCHEDULE"
-      }
     ]
   }
 }

@@ -116,6 +116,20 @@ function terraform_exec {
   ( cd "${TERRAFORM_DIR}" && ${TERRAFORM} "$@" )
 }
 
+function terraform_cleanup {
+  # Terraform doesn't seem to remove node pool taints without recreating the
+  # node pool, whereas this approach causes less downtime.
+  pool=(base-pool "--cluster=cloud-robotics" "--zone=${GCP_ZONE}" "--project=${GCP_PROJECT_ID}")
+  if [[ -n "$(gcloud container node-pools describe "${pool[@]}" --format 'value(config.taints)')" ]] ; then
+    gcloud beta container node-pools update "${pool[@]}" --quiet \
+      --no-enable-autoscaling
+    gcloud beta container node-pools update "${pool[@]}" --quiet \
+      --node-taints=""
+    gcloud beta container node-pools update "${pool[@]}" --quiet \
+      --enable-autoscaling --min-nodes=2 --max-nodes=10
+  fi
+}
+
 function terraform_init {
   if [[ -z "${PRIVATE_DOCKER_PROJECTS:-}" ]]; then
     # Transition helper: Until all configs have PRIVATE_DOCKER_PROJECTS,
@@ -188,6 +202,7 @@ EOF
 }
 
 function terraform_apply {
+  terraform_cleanup
   terraform_init
 
   # We've stopped managing Google Cloud projects in Terraform, make sure they
