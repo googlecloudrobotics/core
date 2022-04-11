@@ -101,9 +101,9 @@ func selectRobot(f util.Factory, robots []unstructured.Unstructured) (string, er
 	return robots[ix-1].GetName(), nil
 }
 
-// Creates a private key and registers it in the cloud under the ID given
-// as part of the RobotAuth struct. The private key is written to the
-// RobotAuth struct.
+// CreateAndPublishCredentialsToCloud creates a private key and registers it in
+// the cloud under the ID given as part of the RobotAuth struct. The private key
+// is written to the RobotAuth struct.
 func CreateAndPublishCredentialsToCloud(client *http.Client, auth *robotauth.RobotAuth) error {
 	if err := createPrivateKey(auth); err != nil {
 		return fmt.Errorf("Failed to create private key: %v", err)
@@ -191,4 +191,54 @@ func getPublicKey(privateKey []byte) ([]byte, error) {
 		Type:  "PUBLIC KEY",
 		Bytes: pubKey,
 	}), nil
+}
+
+// megeMaps returns `base` with `additions` added on top.
+// I.e., if the same key is present in both maps, the one from `additions` wins.
+func mergeMaps(base, additions map[string]string) map[string]string {
+	result := make(map[string]string)
+	for k, v := range base {
+		result[k] = v
+	}
+	for k, v := range additions {
+		result[k] = v
+	}
+	return result
+}
+
+// CreateOrUpdateRobot adds a new robot-cr or updates an existing one.
+func CreateOrUpdateRobot(ctx context.Context, client dynamic.ResourceInterface, robotName, robotType, project string, labels map[string]string, annotations map[string]string) error {
+	robot, err := client.Get(ctx, robotName, metav1.GetOptions{})
+	if err != nil {
+		if s, ok := err.(*apierrors.StatusError); ok && s.ErrStatus.Reason == metav1.StatusReasonNotFound {
+			robot := &unstructured.Unstructured{}
+			robot.SetKind("Robot")
+			robot.SetAPIVersion("registry.cloudrobotics.com/v1alpha1")
+			robot.SetName(robotName)
+
+			robot.SetLabels(labels)
+			robot.SetAnnotations(annotations)
+			robot.Object["spec"] = map[string]interface{}{
+				"type":    robotType,
+				"project": project,
+			}
+			robot.Object["status"] = make(map[string]interface{})
+			_, err := client.Create(ctx, robot, metav1.CreateOptions{})
+			return err
+		} else {
+			return fmt.Errorf("Failed to get robot %v: %v", robotName, err)
+		}
+	}
+
+	// A robot with the same name already exists.
+	robot.SetLabels(mergeMaps(robot.GetLabels(), labels))
+	robot.SetAnnotations(mergeMaps(robot.GetAnnotations(), annotations))
+	spec, ok := robot.Object["spec"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("unmarshaling robot failed: spec is not a map")
+	}
+	spec["type"] = robotType
+	spec["project"] = project
+	_, err = client.Update(ctx, robot, metav1.UpdateOptions{})
+	return err
 }

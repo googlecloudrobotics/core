@@ -43,7 +43,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -409,19 +408,6 @@ func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, re
 	}
 }
 
-// megeMaps returns `base` with `additions` added on top.
-// I.e., if the same key is present in both maps, the one from `additions` wins.
-func mergeMaps(base, additions map[string]string) map[string]string {
-	result := make(map[string]string)
-	for k, v := range base {
-		result[k] = v
-	}
-	for k, v := range additions {
-		result[k] = v
-	}
-	return result
-}
-
 func createOrUpdateRobot(ctx context.Context, k8sDynamicClient dynamic.Interface, labels map[string]string, annotations map[string]string) error {
 	labels["cloudrobotics.com/robot-name"] = *robotName
 	host := os.Getenv("HOST_HOSTNAME")
@@ -432,41 +418,8 @@ func createOrUpdateRobot(ctx context.Context, k8sDynamicClient dynamic.Interface
 	if crc_version != "" {
 		annotations["cloudrobotics.com/crc-version"] = crc_version
 	}
-
 	robotClient := k8sDynamicClient.Resource(robotGVR).Namespace("default")
-	robot, err := robotClient.Get(ctx, *robotName, metav1.GetOptions{})
-	if err != nil {
-		if s, ok := err.(*apierrors.StatusError); ok && s.ErrStatus.Reason == metav1.StatusReasonNotFound {
-			robot := &unstructured.Unstructured{}
-			robot.SetKind("Robot")
-			robot.SetAPIVersion("registry.cloudrobotics.com/v1alpha1")
-			robot.SetName(*robotName)
-
-			robot.SetLabels(labels)
-			robot.SetAnnotations(annotations)
-			robot.Object["spec"] = map[string]interface{}{
-				"type":    *robotType,
-				"project": *project,
-			}
-			robot.Object["status"] = make(map[string]interface{})
-			_, err := robotClient.Create(ctx, robot, metav1.CreateOptions{})
-			return err
-		} else {
-			return fmt.Errorf("Failed to get robot %v: %v", *robotName, err)
-		}
-	}
-
-	// A robot with the same name already exists.
-	robot.SetLabels(mergeMaps(robot.GetLabels(), labels))
-	robot.SetAnnotations(mergeMaps(robot.GetAnnotations(), annotations))
-	spec, ok := robot.Object["spec"].(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("unmarshaling robot failed: spec is not a map")
-	}
-	spec["type"] = *robotType
-	spec["project"] = *project
-	_, err = robotClient.Update(ctx, robot, metav1.UpdateOptions{})
-	return err
+	return setup.CreateOrUpdateRobot(ctx, robotClient, *robotName, *robotType, *project, labels, annotations)
 }
 
 // parseKeyValues splits a string on ',' and the entries on '=' to build a map.
