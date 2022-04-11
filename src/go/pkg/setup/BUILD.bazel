@@ -9,6 +9,7 @@ go_library(
     deps = [
         "//src/go/pkg/robotauth:go_default_library",
         "//src/go/pkg/setup/util:go_default_library",
+        "@com_github_cenkalti_backoff//:go_default_library",
         "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
@@ -31,8 +32,8 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "connect_test.go",
         "mock_factory_test.go",
+        "setupcommon_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

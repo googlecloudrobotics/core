@@ -23,10 +23,13 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"github.com/googlecloudrobotics/core/src/go/pkg/setup/util"
 
@@ -101,15 +104,93 @@ func selectRobot(f util.Factory, robots []unstructured.Unstructured) (string, er
 	return robots[ix-1].GetName(), nil
 }
 
+func newExponentialBackoff(initialInterval time.Duration, multiplier float64, retries uint64) backoff.BackOff {
+	exponentialBackoff := backoff.ExponentialBackOff{
+		InitialInterval: initialInterval,
+		Multiplier:      multiplier,
+		Clock:           backoff.SystemClock,
+	}
+	exponentialBackoff.Reset()
+	return backoff.WithMaxRetries(&exponentialBackoff, retries)
+}
+
+// WaitForDNS manually resolves the domain name with retries to give a better
+// error in the case of failure. This is useful to catch errors during first
+// interaction with the cluster and cloud-project,
+func WaitForDNS(domain string, retries uint64) error {
+	log.Printf("DNS lookup for %q", domain)
+
+	if err := backoff.RetryNotify(
+		func() error {
+			ips, err := net.LookupIP(domain)
+			if err != nil {
+				return err
+			}
+
+			// Check that the results contain an ipv4 addr. Initially, coredns may only
+			// return ipv6 addresses in which case helm will fail.
+			for _, ip := range ips {
+				if ip.To4() != nil {
+					return nil
+				}
+			}
+
+			return fmt.Errorf("IP not found")
+		},
+		newExponentialBackoff(time.Second, 2, retries),
+		func(_ error, _ time.Duration) {
+			log.Printf("... Retry dns for %q", domain)
+		},
+	); err != nil {
+		return fmt.Errorf("DNS lookup for %q failed: %v", domain, err)
+	}
+
+	return nil
+}
+
+// WaitForService tests a given cloud endpoint with a HEAD request a few times.
+// This lets us wait for the service to be available or error with a better
+// message.
+func WaitForService(client *http.Client, url string, retries uint64) error {
+	log.Printf("Service probe for %q", url)
+
+	if err := backoff.RetryNotify(
+		func() error {
+			_, err := client.Head(url)
+			return err
+		},
+		newExponentialBackoff(time.Second, 2, retries),
+		func(_ error, _ time.Duration) {
+			log.Printf("... Retry service for %q", url)
+		},
+	); err != nil {
+		return fmt.Errorf("service probe for %q failed: %v", url, err)
+	}
+
+	return nil
+}
+
 // CreateAndPublishCredentialsToCloud creates a private key and registers it in
 // the cloud under the ID given as part of the RobotAuth struct. The private key
 // is written to the RobotAuth struct.
-func CreateAndPublishCredentialsToCloud(client *http.Client, auth *robotauth.RobotAuth) error {
+func CreateAndPublishCredentialsToCloud(client *http.Client, auth *robotauth.RobotAuth, retries uint64) error {
+	if err := isKeyRegistryAvailable(auth, client, retries); err != nil {
+		return fmt.Errorf("Failed to connect to cloud key registry: %v", err)
+	}
 	if err := createPrivateKey(auth); err != nil {
 		return fmt.Errorf("Failed to create private key: %v", err)
 	}
 	if err := publishPublicKeyToCloudRegistry(auth, client); err != nil {
-		return fmt.Errorf("Failed to register key with Cloud IoT: %v", err)
+		return fmt.Errorf("Failed to register key with cloud key registry: %v", err)
+	}
+	return nil
+}
+
+func isKeyRegistryAvailable(auth *robotauth.RobotAuth, client *http.Client, retries uint64) error {
+	// Make sure the cloud cluster take requests
+	url := fmt.Sprintf("https://%s/apis/core.token-vendor/v1/public-key.read", auth.Domain)
+	if err := WaitForService(client, url, retries); err != nil {
+		log.Fatalf("Failed to connect to the cloud cluster: %s. Please retry in 5 minutes.", err)
 	}
 	return nil
 }

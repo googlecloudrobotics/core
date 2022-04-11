@@ -17,7 +17,6 @@ package main
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"reflect"
 	"testing"
@@ -31,16 +30,6 @@ import (
 	dynfake "k8s.io/client-go/dynamic/fake"
 	k8stest "k8s.io/client-go/testing"
 )
-
-func TestWaitForService_OkIfServiceResponds(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	defer server.Close()
-
-	err := waitForService(server.Client(), server.URL, 1)
-	if err != nil {
-		t.Errorf("waitForService returned error: %v", err)
-	}
-}
 
 func TestParseKeyValues_ReturnsEmptyMapOnEmptyInput(t *testing.T) {
 	_, err := parseKeyValues("")

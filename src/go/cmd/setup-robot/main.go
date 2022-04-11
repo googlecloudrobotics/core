@@ -19,16 +19,12 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/cenkalti/backoff"
 	"github.com/googlecloudrobotics/core/src/go/pkg/configutil"
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
@@ -113,68 +109,26 @@ func parseFlags() {
 	}
 }
 
-func newExponentialBackoff(initialInterval time.Duration, multiplier float64, retries uint64) backoff.BackOff {
-	exponentialBackoff := backoff.ExponentialBackOff{
-		InitialInterval: initialInterval,
-		Multiplier:      multiplier,
-		Clock:           backoff.SystemClock,
-	}
-	exponentialBackoff.Reset()
-	return backoff.WithMaxRetries(&exponentialBackoff, retries)
-}
+// parseKeyValues splits a string on ',' and the entries on '=' to build a map.
+func parseKeyValues(s string) (map[string]string, error) {
+	lset := map[string]string{}
 
-// Since this might be the first interaction with the cluster, manually resolve the
-// domain name with retries to give a better error in the case of failure.
-func waitForDNS(domain string, retries uint64) error {
-	log.Printf("DNS lookup for %q", domain)
-
-	if err := backoff.RetryNotify(
-		func() error {
-			ips, err := net.LookupIP(domain)
-			if err != nil {
-				return err
-			}
-
-			// Check that the results contain an ipv4 addr. Initially, coredns may only
-			// return ipv6 addresses in which case helm will fail.
-			for _, ip := range ips {
-				if ip.To4() != nil {
-					return nil
-				}
-			}
-
-			return errors.New("IP not found")
-		},
-		newExponentialBackoff(time.Second, 2, retries),
-		func(_ error, _ time.Duration) {
-			log.Printf("... Retry dns for %q", domain)
-		},
-	); err != nil {
-		return fmt.Errorf("DNS lookup for %q failed: %v", domain, err)
+	if s == "" {
+		return lset, nil
 	}
 
-	return nil
-}
-
-// Tests a given cloud endpoint with a HEAD request a few times. This lets us wait for the service
-// to be available or error with a better message
-func waitForService(client *http.Client, url string, retries uint64) error {
-	log.Printf("Service probe for %q", url)
-
-	if err := backoff.RetryNotify(
-		func() error {
-			_, err := client.Head(url)
-			return err
-		},
-		newExponentialBackoff(time.Second, 2, retries),
-		func(_ error, _ time.Duration) {
-			log.Printf("... Retry service for %q", url)
-		},
-	); err != nil {
-		return fmt.Errorf("service probe for %q failed: %v", url, err)
+	// To handle escaped commas, we replace them with a sentinel, then
+	// restore them after splitting individual values.
+	s = strings.ReplaceAll(s, "\\,", commaSentinel)
+	for _, l := range strings.Split(s, ",") {
+		l = strings.ReplaceAll(l, commaSentinel, ",")
+		parts := strings.SplitN(l, "=", 2)
+		if len(parts) != 2 {
+			return nil, errors.New("not a key/value pair")
+		}
+		lset[parts[0]] = parts[1]
 	}
-
-	return nil
+	return lset, nil
 }
 
 // checkRobotName tests whether a Robot resource exists in the local cluster
@@ -223,7 +177,7 @@ func main() {
 
 	// Wait for in-cluster DNS to become available, otherwise
 	// configutil.ReadConfig() may fail.
-	if err := waitForDNS("storage.googleapis.com", numDNSRetries); err != nil {
+	if err := setup.WaitForDNS("storage.googleapis.com", numDNSRetries); err != nil {
 		log.Fatalf("Failed to resolve storage.googleapis.com: %s. Please retry in 5 minutes.", err)
 	}
 
@@ -240,7 +194,7 @@ func main() {
 	}
 
 	// Wait until we can resolve the project domain. This may require DNS propagation.
-	if err := waitForDNS(domain, numDNSRetries); err != nil {
+	if err := setup.WaitForDNS(domain, numDNSRetries); err != nil {
 		log.Fatalf("Failed to resolve cloud cluster: %s. Please retry in 5 minutes.", err)
 	}
 
@@ -297,13 +251,7 @@ func main() {
 			PublicKeyRegistryId: *registryID,
 		}
 
-		// Make sure the cloud cluster take requests
-		url := fmt.Sprintf("https://%s/apis/core.token-vendor/v1/public-key.read", domain)
-		if err := waitForService(httpClient, url, numServiceRetries); err != nil {
-			log.Fatalf("Failed to connect to the cloud cluster: %s. Please retry in 5 minutes.", err)
-		}
-
-		if err := setup.CreateAndPublishCredentialsToCloud(httpClient, auth); err != nil {
+		if err := setup.CreateAndPublishCredentialsToCloud(httpClient, auth, numServiceRetries); err != nil {
 			log.Fatal(err)
 		}
 		if err := auth.StoreInK8sSecret(ctx, k8sLocalClientSet, baseNamespace); err != nil {
@@ -401,26 +349,4 @@ func createOrUpdateRobot(ctx context.Context, k8sDynamicClient dynamic.Interface
 	}
 	robotClient := k8sDynamicClient.Resource(robotGVR).Namespace("default")
 	return setup.CreateOrUpdateRobot(ctx, robotClient, *robotName, *robotType, *project, labels, annotations)
-}
-
-// parseKeyValues splits a string on ',' and the entries on '=' to build a map.
-func parseKeyValues(s string) (map[string]string, error) {
-	lset := map[string]string{}
-
-	if s == "" {
-		return lset, nil
-	}
-
-	// To handle escaped commas, we replace them with a sentinel, then
-	// restore them after splitting individual values.
-	s = strings.ReplaceAll(s, "\\,", commaSentinel)
-	for _, l := range strings.Split(s, ",") {
-		l = strings.ReplaceAll(l, commaSentinel, ",")
-		parts := strings.SplitN(l, "=", 2)
-		if len(parts) != 2 {
-			return nil, errors.New("not a key/value pair")
-		}
-		lset[parts[0]] = parts[1]
-	}
-	return lset, nil
 }

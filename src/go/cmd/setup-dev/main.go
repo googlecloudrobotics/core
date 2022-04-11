@@ -150,7 +150,7 @@ func setupDevCredentials(client *http.Client, domain string, robotName string) e
 		Domain:              domain,
 		PublicKeyRegistryId: makeIdentifier(hostname),
 	}
-	if err := setup.CreateAndPublishCredentialsToCloud(client, auth); err != nil {
+	if err := setup.CreateAndPublishCredentialsToCloud(client, auth /*retries*/, 1); err != nil {
 		return err
 	}
 	if err := auth.StoreInFile(); err != nil {

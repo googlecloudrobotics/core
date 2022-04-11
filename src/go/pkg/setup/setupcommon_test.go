@@ -15,6 +15,8 @@
 package setup
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -51,5 +53,15 @@ func TestSelectRobot(t *testing.T) {
 	id, err := selectRobot(mockFactory, robots)
 	if id != "ro-1234" || err != nil {
 		t.Errorf("selectRobot(mockFactory, oneRobot) = %v, %v want ro-1234, nil", id, err)
+	}
+}
+
+func TestWaitForService_OkIfServiceResponds(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer server.Close()
+
+	err := WaitForService(server.Client(), server.URL, 1)
+	if err != nil {
+		t.Errorf("WaitForService returned error: %v", err)
 	}
 }
