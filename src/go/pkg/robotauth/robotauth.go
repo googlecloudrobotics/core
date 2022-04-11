@@ -29,6 +29,8 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/jwt"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -87,6 +89,24 @@ func (r *RobotAuth) StoreInFile() error {
 	}
 
 	return nil
+}
+
+// StoreInK8sSecret writes new robot-id to kubernetes secret.
+func (r *RobotAuth) StoreInK8sSecret(ctx context.Context, clientset *kubernetes.Clientset, namespace string) error {
+	raw, err := json.Marshal(r)
+	if err != nil {
+		return fmt.Errorf("failed to serialize ID: %v", err)
+	}
+
+	return kubeutils.UpdateSecret(
+		ctx,
+		clientset,
+		"robot-auth",
+		namespace,
+		corev1.SecretTypeOpaque,
+		map[string][]byte{
+			"json": raw,
+		})
 }
 
 func (r *RobotAuth) getTokenEndpoint() string {
