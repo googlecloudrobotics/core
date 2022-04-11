@@ -94,7 +94,8 @@ import (
 )
 
 const (
-	clientPrefix = "/client/"
+	clientPrefix           = "/client/"
+	inactiveRequestTimeout = 60 * time.Second
 )
 
 var (
@@ -134,7 +135,7 @@ func newServer() *server {
 	s := &server{b: newBroker()}
 	go func() {
 		for t := range time.Tick(10 * time.Second) {
-			s.b.ReapInactiveRequests(t.Add(-30 * time.Second))
+			s.b.ReapInactiveRequests(t.Add(-1 * inactiveRequestTimeout))
 		}
 	}()
 	return s
@@ -148,7 +149,7 @@ func responseFilter(in <-chan *pb.HttpResponse) ([]*pb.HttpHeader, int, <-chan [
 	firstMessage, more := <-in
 	if !more {
 		brokerResponses.WithLabelValues("client", "missing_message").Inc()
-		body <- []byte("Received no response from relay client")
+		body <- []byte(fmt.Sprintf("Timeout after %v, either the backend request took too long or the relay client died", inactiveRequestTimeout))
 		close(body)
 		return nil, http.StatusInternalServerError, body
 	}
