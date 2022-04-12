@@ -71,6 +71,14 @@ container_push(
     image = ":setup-robot-image",
 )
 
+genrule(
+    name = "setup-robot-image-digest",
+    srcs = [":setup-robot-image.digest"],
+    outs = ["setup-robot-image-digest"],
+    cmd = "cp $< $@",
+    output_to_bindir = True,
+)
+
 # Ignore this auto-generated target. Gazelle doesn't get that we don't need it.
 go_binary(
     name = "unused",
