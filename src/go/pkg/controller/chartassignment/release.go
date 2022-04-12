@@ -330,7 +330,7 @@ func fetchChartTar(repoURL, name, version string) (io.Reader, error) {
 		Getters: getter.Providers{
 			{Schemes: []string{"http", "https"}, New: newHTTPGetter},
 		},
-		HelmHome: helmpath.Home(os.ExpandEnv("$HOME/.helm")),
+		HelmHome: helmpath.Home("$HELM_HOME"),
 		Out:      os.Stderr,
 		Keyring:  os.ExpandEnv("$HOME/.gnupg/pubring.gpg"),
 		Verify:   downloader.VerifyIfPossible,
@@ -349,7 +349,7 @@ func fetchChartTar(repoURL, name, version string) (io.Reader, error) {
 		return nil, err
 	}
 	// NOTE(fabxc): Since we provide a full chartURL, DownloadTo will pull from exactly
-	// that URL. It will however check for repos in $HOME/.helm to determine
+	// that URL. It will however check for repos in $HELM_HOME to determine
 	// whether it should do this with special certificates for that domain.
 	// (The same cert files we left blank above.)
 	// We might just want to implement this ourselves once we know what auth

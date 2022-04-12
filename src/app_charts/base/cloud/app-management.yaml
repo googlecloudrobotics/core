@@ -126,26 +126,15 @@ spec:
         env:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}
+        - name: HELM_HOME
+          value: "/home/nonroot/helm"
         ports:
         - name: webhook
           containerPort: 9876
         volumeMounts:
-        - mountPath: /home/nonroot
-          name: home
         - mountPath: /tls
           name: tls
-      initContainers:
-      # Run `helm init` to create client-side directories in $HOME/.helm which
-      # some client library functionality expects to exist.
-      - name: helm
-        image: {{ .Values.registry }}{{ .Values.images.chart_assignment_controller }}
-        command: ['/helm', 'init', '--client-only', '--stable-repo-url', 'https://k8s-at-home.com/charts']
-        volumeMounts:
-        - mountPath: /home/nonroot
-          name: home
       volumes:
-      - name: home
-        emptyDir: {}
       - name: tls
         secret:
           secretName: chart-assignment-controller-tls

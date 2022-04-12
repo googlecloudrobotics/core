@@ -26,18 +26,27 @@ go_library(
 
 load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 
+genrule(
+    name = "helm-config",
+    outs = ["helm-config.tar"],
+    # Note: the extra tar flags are use to make builds deterministic
+    cmd = "$(location @kubernetes_helm//:helm) >/dev/null init --client-only --skip-repos " +
+          "&& tar --owner=root --group=root --numeric-owner --mtime='2010-01-01' --create --file $@ .helm/",
+    output_to_bindir = True,
+    tools = ["@kubernetes_helm//:helm"],
+)
+
 container_image(
-    name = "helm_image",
+    name = "helm-image",
     base = "@cc_image_base//image",
-    files = [
-        "@kubernetes_helm//:helm",
-    ],
+    directory = "/home/nonroot/",
+    tars = [":helm-config"],
 )
 
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 
 go_image(
     name = "chart-assignment-controller",
-    base = ":helm_image",
+    base = ":helm-image",
     embed = [":go_default_library"],
 )
