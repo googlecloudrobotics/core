@@ -1889,8 +1889,8 @@ def go_repositories():
     go_repository(
         name = "io_k8s_sigs_kind",
         importpath = "sigs.k8s.io/kind",
-        sum = "h1:Tm+QITIqdRd+efLOsxZHMAfLnr5K4e3/RH8MePspEXs=",
-        version = "v0.10.0",
+        sum = "h1:pVzOkhUwMBrCB0Q/WllQDO3v14Y+o2V0tFgjTqIUjwA=",
+        version = "v0.11.1",
     )
     go_repository(
         name = "io_k8s_sigs_kustomize_api",

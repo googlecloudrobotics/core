@@ -47,7 +47,7 @@ require (
 	k8s.io/helm v2.13.0+incompatible
 	k8s.io/klog v1.0.0
 	sigs.k8s.io/controller-runtime v0.10.2
-	sigs.k8s.io/kind v0.10.0
+	sigs.k8s.io/kind v0.11.1
 	sigs.k8s.io/yaml v1.3.0
 )
 

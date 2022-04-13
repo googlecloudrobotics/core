@@ -14,10 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script can be run just like the regular dep tool. It copies the Go
-# code to a shadow repo against dep can operate as usual and copies the
-# resulting Gopkg.toml and Gopkg.lock files to this directory.
-# It then stages the changed dependenies in the bazel WORKSPACE for manual cleanup.
+# NOTE: if you are running a minikube using vmdriver=none on the same machine
+# this test (or more precisely kind) does not seem to work - see
+# https://github.com/kubernetes-sigs/kind/issues/2516
 
 set -e
 
