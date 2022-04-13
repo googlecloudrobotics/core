@@ -70,7 +70,7 @@ class CloudIotPublicKeyRepository implements PublicKeyPublisher, PublicKeyReposi
       String message =
           String.format(
               "Failed to publish public key for device %s to Cloud IoT Registry", deviceId.value());
-      logger.atSevere().withCause(e).log(message);
+      logger.atSevere().withCause(e).log("%s", message);
       throw new CloudIotException(message, e);
     }
   }
@@ -161,7 +161,7 @@ class CloudIotPublicKeyRepository implements PublicKeyPublisher, PublicKeyReposi
         return ImmutableList.of();
       }
       String message = String.format("Failed to list devices from Cloud IoT Registry");
-      logger.atSevere().withCause(e).log(message);
+      logger.atSevere().withCause(e).log("%s", message);
       throw new CloudIotException(message, e);
     }
   }
@@ -187,7 +187,7 @@ class CloudIotPublicKeyRepository implements PublicKeyPublisher, PublicKeyReposi
       }
       String message =
           String.format("Failed to get device %s from Cloud IoT Registry", deviceId.value());
-      logger.atSevere().withCause(e).log(message);
+      logger.atSevere().withCause(e).log("%s", message);
       throw new CloudIotException(message, e);
     }
   }
