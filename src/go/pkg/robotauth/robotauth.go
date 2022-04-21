@@ -19,7 +19,11 @@ package robotauth
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -107,6 +111,24 @@ func (r *RobotAuth) StoreInK8sSecret(ctx context.Context, clientset *kubernetes.
 		map[string][]byte{
 			"json": raw,
 		})
+}
+
+// CreatePrivateKey creates a private key.
+// The private key is written to the RobotAuth struct.
+func (r *RobotAuth) CreatePrivateKey() error {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return err
+	}
+	pkcs8, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		return err
+	}
+	r.PrivateKey = pem.EncodeToMemory(&pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: pkcs8,
+	})
+	return nil
 }
 
 func (r *RobotAuth) getTokenEndpoint() string {

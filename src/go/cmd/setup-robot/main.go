@@ -240,8 +240,6 @@ func main() {
 		log.Printf("cr-syncer disabled: skipping Robot CR creation")
 	}
 
-	httpClient := oauth2.NewClient(context.Background(), tokenSource)
-
 	if *robotAuthentication {
 		// Set up robot authentication.
 		auth := &robotauth.RobotAuth{
@@ -251,7 +249,12 @@ func main() {
 			PublicKeyRegistryId: *registryID,
 		}
 
-		if err := setup.CreateAndPublishCredentialsToCloud(httpClient, auth, numServiceRetries); err != nil {
+		log.Println("Creating new private key")
+		if err := auth.CreatePrivateKey(); err != nil {
+			log.Fatal(err)
+		}
+		httpClient := oauth2.NewClient(ctx, tokenSource)
+		if err := setup.PublishCredentialsToCloud(httpClient, auth, numServiceRetries); err != nil {
 			log.Fatal(err)
 		}
 		if err := auth.StoreInK8sSecret(ctx, k8sLocalClientSet, baseNamespace); err != nil {

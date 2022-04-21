@@ -17,7 +17,6 @@ package setup
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -170,15 +169,14 @@ func WaitForService(client *http.Client, url string, retries uint64) error {
 	return nil
 }
 
-// CreateAndPublishCredentialsToCloud creates a private key and registers it in
-// the cloud under the ID given as part of the RobotAuth struct. The private key
-// is written to the RobotAuth struct.
-func CreateAndPublishCredentialsToCloud(client *http.Client, auth *robotauth.RobotAuth, retries uint64) error {
+// PublishCredentialsToCloud registers a public-key in the cloud under the ID
+// given as part of the RobotAuth struct.
+func PublishCredentialsToCloud(client *http.Client, auth *robotauth.RobotAuth, retries uint64) error {
+	if len(auth.PrivateKey) == 0 {
+		return fmt.Errorf("Missing key in given auth object")
+	}
 	if err := isKeyRegistryAvailable(auth, client, retries); err != nil {
 		return fmt.Errorf("Failed to connect to cloud key registry: %v", err)
-	}
-	if err := createPrivateKey(auth); err != nil {
-		return fmt.Errorf("Failed to create private key: %v", err)
 	}
 	if err := publishPublicKeyToCloudRegistry(auth, client); err != nil {
 		return fmt.Errorf("Failed to register key with cloud key registry: %v", err)
@@ -192,23 +190,6 @@ func isKeyRegistryAvailable(auth *robotauth.RobotAuth, client *http.Client, retr
 	if err := WaitForService(client, url, retries); err != nil {
 		log.Fatalf("Failed to connect to the cloud cluster: %s. Please retry in 5 minutes.", err)
 	}
-	return nil
-}
-
-func createPrivateKey(auth *robotauth.RobotAuth) error {
-	log.Println("Creating new private key")
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return err
-	}
-	pkcs8, err := x509.MarshalPKCS8PrivateKey(key)
-	if err != nil {
-		return err
-	}
-	auth.PrivateKey = pem.EncodeToMemory(&pem.Block{
-		Type:  "PRIVATE KEY",
-		Bytes: pkcs8,
-	})
 	return nil
 }
 
