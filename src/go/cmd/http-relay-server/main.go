@@ -76,18 +76,24 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -96,6 +102,10 @@ import (
 const (
 	clientPrefix           = "/client/"
 	inactiveRequestTimeout = 60 * time.Second
+	// Time to wait for requests to complete before calling panic(). This should
+	// be less that the kubelet's timeout (30s by default) so that we can print
+	// a stack trace and debug what is still running.
+	cleanShutdownTimeout = 20 * time.Second
 )
 
 var (
@@ -310,7 +320,7 @@ func (s *server) serverRequest(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[%s] Relay client connected", server)
 
 	// get pending request from client and sent as a reply to the relay-client
-	request, err := s.b.GetRequest(server)
+	request, err := s.b.GetRequest(r.Context(), server)
 	if err != nil {
 		log.Printf("[%s] Relay client got no request: %v", server, err)
 		http.Error(w, err.Error(), http.StatusRequestTimeout)
@@ -377,14 +387,53 @@ func main() {
 
 	server := newServer()
 
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	h := http.NewServeMux()
+	h.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("ok"))
 	})
-	http.HandleFunc(clientPrefix, server.client)
-	http.HandleFunc("/server/request", server.serverRequest)
-	http.HandleFunc("/server/requeststream", server.serverRequestStream)
-	http.HandleFunc("/server/response", server.serverResponse)
-	http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), nil))
+	h.HandleFunc(clientPrefix, server.client)
+	h.HandleFunc("/server/request", server.serverRequest)
+	h.HandleFunc("/server/requeststream", server.serverRequestStream)
+	h.HandleFunc("/server/response", server.serverResponse)
+	h.Handle("/metrics", promhttp.Handler())
+
+	// This context will be terminated we get SIGTERM from Kubernetes. We need
+	// some boilerplate to make this terminate the HTTP server and the ongoing
+	// request contexts. This is based on:
+	// https://www.rudderstack.com/blog/implementing-graceful-shutdown-in-go/#:~:text=Canceling%20long%20running%20requests
+	mainCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	httpServer := &http.Server{
+		Addr:    fmt.Sprintf(":%d", *port),
+		Handler: h,
+		BaseContext: func(_ net.Listener) context.Context {
+			return mainCtx
+		},
+	}
+	// Wait for the server to terminate, either because it failed to create a
+	// listener, or because we got SIGTERM.
+	g, gCtx := errgroup.WithContext(mainCtx)
+	g.Go(func() error {
+		if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
+			return err
+		}
+		// ErrServerClosed follows SIGTERM which is normal when updating the
+		// server.
+		return nil
+	})
+	g.Go(func() error {
+		<-gCtx.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), cleanShutdownTimeout)
+		defer cancel()
+		return httpServer.Shutdown(ctx)
+	})
+
+	if err := g.Wait(); err != nil {
+		// SIGTERM indicates either a normal shutdown (eg pod update, node pool
+		// update) or a failed liveness check (eg broker deadlock), we can't
+		// easily tell. We panic to help debugging: if the environment sets
+		// GOTRACEBACK=all they will see stacktraces after the panic.
+		log.Panicf("Server terminated abnormally: %s", err)
+	}
 }

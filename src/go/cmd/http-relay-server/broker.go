@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"sync"
@@ -120,7 +121,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 
 // GetRequest obtains a client's request for the server identifier. It blocks
 // until a client makes a request.
-func (r *broker) GetRequest(server string) (*pb.HttpRequest, error) {
+func (r *broker) GetRequest(ctx context.Context, server string) (*pb.HttpRequest, error) {
 	r.m.Lock()
 	if r.req[server] == nil {
 		// This happens when the relay-server started and a client connects before
@@ -138,6 +139,8 @@ func (r *broker) GetRequest(server string) (*pb.HttpRequest, error) {
 	case <-time.After(time.Second * 30):
 		brokerResponses.WithLabelValues("server_request", "timeout").Inc()
 		return nil, fmt.Errorf("No request received within timeout")
+	case <-ctx.Done():
+		return nil, fmt.Errorf("Server is restarting")
 	}
 }
 

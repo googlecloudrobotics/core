@@ -16,6 +16,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -52,7 +53,7 @@ func TestClientHandler(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() { server.client(respRecorder, req); wg.Done() }()
-	relayRequest, err := server.b.GetRequest("foo")
+	relayRequest, err := server.b.GetRequest(context.Background(), "foo")
 	if err != nil {
 		t.Errorf("Error when getting request: %v", err)
 	}
@@ -145,7 +146,7 @@ func TestRequestStreamHandler(t *testing.T) {
 	go func() { server.client(respRecorder, req); wg.Done() }()
 
 	// Simulate a 101 Switching Protocols response from the backend.
-	relayRequest, err := server.b.GetRequest("foo")
+	relayRequest, err := server.b.GetRequest(context.Background(), "foo")
 	if err != nil {
 		t.Errorf("Error when getting request: %v", err)
 	}

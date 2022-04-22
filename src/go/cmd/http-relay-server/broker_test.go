@@ -16,6 +16,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"log"
 	"sync"
 	"testing"
@@ -52,7 +53,7 @@ func runSender(t *testing.T, b *broker, s string, m string, wg *sync.WaitGroup) 
 }
 
 func runReceiver(t *testing.T, b *broker, s string, wg *sync.WaitGroup) {
-	req, err := b.GetRequest(s)
+	req, err := b.GetRequest(context.Background(), s)
 	if err != nil {
 		t.Errorf("Error when getting request: %s", err)
 	}
@@ -87,7 +88,7 @@ func runSenderStream(t *testing.T, b *broker, s string, m string, wg *sync.WaitG
 // runReceiverStream sends two items in the response stream, waiting before the second.
 // It returns after the first response has been sent.
 func runReceiverStream(t *testing.T, b *broker, s string, wg *sync.WaitGroup, done <-chan bool) {
-	req, err := b.GetRequest(s)
+	req, err := b.GetRequest(context.Background(), s)
 	if err != nil {
 		t.Errorf("Error when getting request: %s", err)
 	}
@@ -206,7 +207,7 @@ func TestTimeout(t *testing.T) {
 	}()
 	go func() {
 		log.Printf("Getting request")
-		b.GetRequest("foo")
+		b.GetRequest(context.Background(), "foo")
 		log.Printf("Reaping inactive requests")
 		b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
 		log.Printf("Done")
