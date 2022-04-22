@@ -1,4 +1,4 @@
-{{ if eq .Values.robot_authentication "true" }}
+{{ if and (eq .Values.robot_authentication "true") (ne .Values.project "") }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
