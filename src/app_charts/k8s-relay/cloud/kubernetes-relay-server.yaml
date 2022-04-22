@@ -17,11 +17,16 @@ spec:
         image: {{ .Values.registry }}{{ .Values.images.http_relay_server }}
         args:
         - --port=8080
+        env:
+        # Enable tracebacks for debugging deadlocks or hanging requests.
+        - name: GOTRACEBACK
+          value: all
         livenessProbe:
           httpGet:
             path: /healthz
             port: 8080
           initialDelaySeconds: 15
+          timeoutSeconds: 10
         ports:
         - name: http
           containerPort: 8080

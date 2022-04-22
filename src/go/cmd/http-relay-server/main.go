@@ -151,6 +151,15 @@ func newServer() *server {
 	return s
 }
 
+func (s *server) health(w http.ResponseWriter, r *http.Request) {
+	if err := s.b.Healthy(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte("ok"))
+}
+
 // responseFilter enforces that there's at least one HttpResponse in the out
 // channel and that the first response has a status code. It splits the status
 // code, headers and body data apart so they can be written back to the client.
@@ -388,10 +397,7 @@ func main() {
 	server := newServer()
 
 	h := http.NewServeMux()
-	h.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte("ok"))
-	})
+	h.HandleFunc("/healthz", server.health)
 	h.HandleFunc(clientPrefix, server.client)
 	h.HandleFunc("/server/request", server.serverRequest)
 	h.HandleFunc("/server/requeststream", server.serverRequestStream)

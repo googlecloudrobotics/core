@@ -85,6 +85,14 @@ func newBroker() *broker {
 	return &r
 }
 
+// Healthy can be used for server health checks. If the server is deadlocked it
+// will block forever.
+func (r *broker) Healthy() error {
+	r.m.Lock()
+	defer r.m.Unlock()
+	return nil
+}
+
 // RelayRequest matches a pending relay client's request to the encapsulated
 // request and returns a channel for the results.
 func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *pb.HttpResponse, error) {
