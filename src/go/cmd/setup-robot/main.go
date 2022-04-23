@@ -221,25 +221,6 @@ func main() {
 		log.Fatal("Error: ", err)
 	}
 
-	if *crSyncer {
-		// Set up client for cloud k8s cluster, so we can create/update
-		// the Robot CR there.
-		k8sCloudCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, domain)
-		k8sDynamicClient, err := dynamic.NewForConfig(k8sCloudCfg)
-		if err != nil {
-			log.Fatalf("Failed to create k8s client: %v", err)
-		}
-		if err := createOrUpdateRobot(ctx, k8sDynamicClient, parsedLabels, parsedAnnotations); err != nil {
-			log.Fatalf("Failed to update robot CR %v: %v", *robotName, err)
-		}
-	} else {
-		// Creating a Robot CR would make the app-rollout-controller
-		// create ChartAssignments in the cloud, but if the cr-syncer
-		// is disabled, these would not be synced/installed. Avoiding
-		// CR creation keeps the cloud cluster "cleaner".
-		log.Printf("cr-syncer disabled: skipping Robot CR creation")
-	}
-
 	if *robotAuthentication {
 		// Set up robot authentication.
 		auth := &robotauth.RobotAuth{
@@ -275,6 +256,28 @@ func main() {
 	// Use "robot" as a suffix for consistency for Synk deployments.
 	installChartOrDie(ctx, k8sLocalClientSet, domain, registry, "base-robot", baseNamespace,
 		"base-robot-0.0.1.tgz", appManagement)
+
+	// Set up Robot CR as a last step (local CR needs CRD to be deployed)
+	if *crSyncer {
+		// Set up client for cloud k8s cluster, to create/update the Robot CR there.
+		k8sCloudCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, domain)
+		k8sCloudDynamic, err := dynamic.NewForConfig(k8sCloudCfg)
+		if err != nil {
+			log.Fatalf("Failed to create k8s client: %v", err)
+		}
+		if err := createOrUpdateRobot(ctx, k8sCloudDynamic, parsedLabels, parsedAnnotations); err != nil {
+			log.Fatalf("Failed to create/update cloud robot CR %v: %v", *robotName, err)
+		}
+	} else {
+		// Creating a Robot CR in the cloud would make the app-rollout-controller
+		// create ChartAssignments in the cloud, but if the cr-syncer is disabled,
+		// these would not be synced/installed.
+		// Hence we create a local Robot CR to keep the same interface.
+		if err := createOrUpdateRobot(ctx, k8sLocalDynamic, parsedLabels, parsedAnnotations); err != nil {
+			log.Fatalf("Failed to create/update local robot CR %v: %v", *robotName, err)
+		}
+	}
+
 	log.Println("Setup complete")
 }
 
