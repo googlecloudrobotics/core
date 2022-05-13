@@ -33,6 +33,7 @@ prometheus:
     ruleNamespaceSelector:
       any: true
     retention: "3d"
+    logLevel: warn
 
 # Throws an invalid namespace "kube-system" error during deployment, as this is
 # trying to install resources into the kube-system namespace, which synk does
@@ -58,6 +59,9 @@ kubeApiServer:
 
 prometheus-node-exporter:
   extraArgs:
+    # This collector produces log-spam on newer kernels
+    # https://github.com/prometheus/node_exporter/issues/1892
+    - --no-collector.rapl
     # This is disabled by default, since it might leak memory
     # (https://github.com/prometheus/node_exporter/blob/master/CHANGELOG.md#0160-rc1--2018-04-04)
     - --collector.wifi
