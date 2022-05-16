@@ -43,6 +43,8 @@ spec:
       containers:
       - name: fluentd-gcp
         image: gcr.io/stackdriver-agents/stackdriver-logging-agent:1.9.5
+        args:
+          - -q
         volumeMounts:
         - name: varlog
           mountPath: /var/log
