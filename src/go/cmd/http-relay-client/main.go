@@ -55,6 +55,8 @@ const (
 	// responseTimeout specifies how long to accumulate before sending response
 	// data. It is part of the round-trip latency when using `kubectl exec`.
 	responseTimeout = 100 * time.Millisecond
+	// Print more detailed logs when enabled.
+	debugLogs = false
 )
 
 var (
@@ -101,7 +103,9 @@ var (
 )
 
 func getRequest(remote *http.Client) (*pb.HttpRequest, error) {
-	log.Printf("Connecting to relay server to get next request for %s", *serverName)
+	if debugLogs {
+		log.Printf("Connecting to relay server to get next request for %s", *serverName)
+	}
 	query := url.Values{}
 	query.Add("server", *serverName)
 	relayURL := url.URL{
@@ -182,7 +186,9 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 		return nil, nil, err
 	}
 
-	log.Printf("[%s] Backend responded with status %d", id, resp.StatusCode)
+	if debugLogs {
+		log.Printf("[%s] Backend responded with status %d", id, resp.StatusCode)
+	}
 	return &pb.HttpResponse{
 		Id:         proto.String(id),
 		StatusCode: proto.Int32(int32(resp.StatusCode)),
@@ -228,18 +234,24 @@ func streamBytes(id string, in io.ReadCloser, out chan<- []byte) {
 	for !eof {
 		// This must be a new buffer each time, as the channel is not making a copy
 		buffer := make([]byte, *blockSize)
-		log.Printf("[%s] Reading from backend", id)
+		if debugLogs {
+			log.Printf("[%s] Reading from backend", id)
+		}
 		n, err := in.Read(buffer)
 		if err != nil && err != io.EOF {
 			log.Printf("[%s] Failed to read from backend: %v", id, err)
 		}
 		eof = err != nil
 		if n > 0 {
-			log.Printf("[%s] Forward %d bytes from backend", id, n)
+			if debugLogs {
+				log.Printf("[%s] Forward %d bytes from backend", id, n)
+			}
 			out <- buffer[:n]
 		}
 	}
-	log.Printf("[%s] Got EOF reading from backend", id)
+	if debugLogs {
+		log.Printf("[%s] Got EOF reading from backend", id)
+	}
 	close(out)
 	in.Close()
 }
@@ -261,12 +273,16 @@ func buildResponses(in <-chan []byte, resp *pb.HttpResponse, out chan<- *pb.Http
 		case b, more := <-in:
 			resp.Body = append(resp.Body, b...)
 			if !more {
-				log.Printf("[%s] Posting final response of %d bytes to relay", *resp.Id, len(resp.Body))
+				if debugLogs {
+					log.Printf("[%s] Posting final response of %d bytes to relay", *resp.Id, len(resp.Body))
+				}
 				resp.Eof = proto.Bool(true)
 				out <- resp
 				return
 			} else if len(resp.Body) > *maxChunkSize {
-				log.Printf("[%s] Posting intermediate response of %d bytes to relay", *resp.Id, len(resp.Body))
+				if debugLogs {
+					log.Printf("[%s] Posting intermediate response of %d bytes to relay", *resp.Id, len(resp.Body))
+				}
 				out <- resp
 				resp = &pb.HttpResponse{Id: resp.Id}
 				timeouts = 0
@@ -276,7 +292,9 @@ func buildResponses(in <-chan []byte, resp *pb.HttpResponse, out chan<- *pb.Http
 			timeouts += 1
 			// We send an (empty) response after 30 timeouts as a keep-alive packet.
 			if len(resp.Body) > 0 || resp.StatusCode != nil || timeouts > 30 {
-				log.Printf("[%s] Posting partial response of %d bytes to relay", *resp.Id, len(resp.Body))
+				if debugLogs {
+					log.Printf("[%s] Posting partial response of %d bytes to relay", *resp.Id, len(resp.Body))
+				}
 				out <- resp
 				resp = &pb.HttpResponse{Id: resp.Id}
 				timeouts = 0
@@ -333,21 +351,27 @@ func streamToBackend(remote *http.Client, req *pb.HttpRequest, backendWriter io.
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusGone {
-			log.Printf("[%s] End of request stream", *req.Id)
+			if debugLogs {
+				log.Printf("[%s] End of request stream", *req.Id)
+			}
 			return
 		} else if resp.StatusCode != http.StatusOK {
 			msg, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
 				msg = []byte(fmt.Sprintf("<failed to read response body: %v>", err))
 			}
-			log.Printf("[%s] Relay server request stream responded %s: %s", *req.Id, http.StatusText(resp.StatusCode), msg)
+			if debugLogs {
+				log.Printf("[%s] Relay server request stream responded %s: %s", *req.Id, http.StatusText(resp.StatusCode), msg)
+			}
 			return
 		}
 		if n, err := io.Copy(backendWriter, resp.Body); err != nil {
 			log.Printf("[%s] Failed to write to backend: %v", *req.Id, err)
 			return
 		} else {
-			log.Printf("[%s] Wrote %d bytes to backend", *req.Id, n)
+			if debugLogs {
+				log.Printf("[%s] Wrote %d bytes to backend", *req.Id, n)
+			}
 		}
 	}
 }
@@ -428,6 +452,7 @@ func localProxy(remote *http.Client, local *http.Client) error {
 }
 
 func localProxyWorker(remote *http.Client, local *http.Client) {
+	log.Printf("Starting to relay server request loop for %s", *serverName)
 	for {
 		err := localProxy(remote, local)
 		if err != nil && !errors.Is(err, ErrTimeout) {
