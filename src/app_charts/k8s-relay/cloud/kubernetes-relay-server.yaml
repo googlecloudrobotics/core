@@ -30,6 +30,10 @@ spec:
         ports:
         - name: http
           containerPort: 8080
+        resources:
+          requests:
+            memory: "16Mi"
+            cpu: "100m"
       securityContext:
         runAsUser: 65532
         runAsGroup: 65532

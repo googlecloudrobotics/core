@@ -24,6 +24,10 @@ spec:
         - --relay_prefix=/apis/core.kubernetes-relay
         - --server_name={{ .Values.robot.name }}
         - --disable_http2
+        resources:
+          requests:
+            memory: "10Mi"
+            cpu: "50m"
       securityContext:
         runAsUser: 65532
         runAsGroup: 65532
