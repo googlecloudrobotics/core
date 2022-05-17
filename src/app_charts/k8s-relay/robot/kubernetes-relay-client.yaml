@@ -28,6 +28,8 @@ spec:
           requests:
             memory: "10Mi"
             cpu: "50m"
+        securityContext:
+          readOnlyRootFilesystem: true
       securityContext:
         runAsUser: 65532
         runAsGroup: 65532
