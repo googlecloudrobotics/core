@@ -26,6 +26,9 @@ spec:
   - port: metrics
     path: /metrics
     interval: 10s
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
   selector:
     matchLabels:
       app: fluentd-metrics

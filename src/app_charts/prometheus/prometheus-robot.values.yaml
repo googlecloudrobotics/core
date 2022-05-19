@@ -34,6 +34,10 @@ prometheus:
       any: true
     retention: "3d"
     logLevel: warn
+  serviceMonitor:
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
 
 # Throws an invalid namespace "kube-system" error during deployment, as this is
 # trying to install resources into the kube-system namespace, which synk does
@@ -49,13 +53,30 @@ kubeScheduler:
 coreDns:
   enabled: false
 
-
 # Default scraping interval is 20s and these metrics result in a large amount of data
 kubeApiServer:
   serviceMonitor:
     interval: 10m
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+
+kubelet:
+  serviceMonitor:
+    # From kubernetes 1.18, /metrics/resource/v1alpha1 renamed to /metrics/resource
+    resourcePath: "/metrics/resource"
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
 
 # Subcharts
+
+nodeExporter:
+  enabled: true
+  serviceMonitor:
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
 
 prometheus-node-exporter:
   extraArgs:

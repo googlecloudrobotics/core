@@ -93,6 +93,9 @@ metadata:
 spec:
   endpoints:
   - port: http
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
   selector:
     matchLabels:
       app: prometheus-relay-server

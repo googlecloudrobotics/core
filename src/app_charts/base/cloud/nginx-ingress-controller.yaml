@@ -145,6 +145,9 @@ metadata:
 spec:
   endpoints:
     - port: healthz
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: instance
   selector:
     matchLabels:
       app: nginx-ingress-controller-metrics

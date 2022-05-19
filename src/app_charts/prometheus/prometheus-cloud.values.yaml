@@ -74,6 +74,10 @@ prometheus:
       readinessProbe:
         initialDelaySeconds: 300
         failureThreshold: 1000
+  serviceMonitor:
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
 
 # etcd, scheduler, and controller-manager are managed by GKE and hidden.
 kubeEtcd:
@@ -91,12 +95,42 @@ coreDns:
 kubeProxy:
   enabled: false
 
+prometheusOperator:
+  serviceMonitor:
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+
 # Default scraping interval is 20s and these metrics result in a large amount of data
 kubeApiServer:
   serviceMonitor:
     interval: 1m
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+
+kubelet:
+  serviceMonitor:
+    # From kubernetes 1.18, /metrics/resource/v1alpha1 renamed to /metrics/resource
+    resourcePath: "/metrics/resource"
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+
+kubeStateMetrics:
+  serviceMonitor:
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
 
 # Subcharts
+
+nodeExporter:
+  enabled: true
+  serviceMonitor:
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
 
 grafana:
   env:
@@ -112,3 +146,8 @@ grafana:
   grafana.ini:
     analytics:
       check_for_updates: false
+  serviceMonitor:
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+

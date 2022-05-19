@@ -15,8 +15,13 @@ spec:
       # As of 2021-07-21 this config reduces the number of time series scraped by approx 1/4
       - '{__name__=~".+", __name__!~"apiserver_request_duration_seconds_bucket|etcd_request_duration_seconds_bucket|apiserver_response_sizes_bucket"}'
     honorLabels: true
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+  # These are the labels below on the federation service
   targetLabels:
   - robot
+  - cluster
   selector:
     matchLabels:
       app: prometheus-federation
@@ -29,6 +34,7 @@ metadata:
   labels:
     app: prometheus-federation
     robot: "{{ .name }}"
+    cluster: "{{ .name }}"
 spec:
   ports:
   - port: 80
