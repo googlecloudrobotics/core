@@ -34,9 +34,9 @@ app_chart(
     name = "base-robot",
     extra_templates = [
         ":cloud/namespace.yaml",
-        ":cloud/monitoring-crd.yaml",
         ":cloud/registry-crd.yaml",
         ":cloud/apps-crd.yaml",
+        "//third_party/kube-prometheus-stack:01-crds.yaml",
     ],
     files = [
         ":cert-manager-chart.robot",
@@ -65,6 +65,7 @@ app_chart(
     name = "base-cloud",
     extra_templates = [
         "@com_github_kubernetes_sigs_application//:app_crd",
+        "//third_party/kube-prometheus-stack:01-crds.yaml",
     ],
     files = [
         "relay-dashboard.json",
