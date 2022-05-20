@@ -449,11 +449,21 @@ def cloud_robotics_repositories():
     _maybe(
         http_archive,
         name = "kubernetes_helm",
-        build_file = "@cloud_robotics//third_party:helm.BUILD",
+        build_file = "@cloud_robotics//third_party/helm2:BUILD.bazel",
         sha256 = "f3bec3c7c55f6a9eb9e6586b8c503f370af92fe987fcbf741f37707606d70296",
         strip_prefix = "linux-amd64",
         urls = [
             "https://get.helm.sh/helm-v2.17.0-linux-amd64.tar.gz",
+        ],
+    )
+    _maybe(
+        http_archive,
+        name = "kubernetes_helm3",
+        build_file = "@cloud_robotics//third_party/helm3:BUILD.bazel",
+        sha256 = "1484ffb0c7a608d8069470f48b88d729e88c41a1b6602f145231e8ea7b43b50a",
+        strip_prefix = "linux-amd64",
+        urls = [
+            "https://get.helm.sh/helm-v3.9.0-linux-amd64.tar.gz",
         ],
     )
 
