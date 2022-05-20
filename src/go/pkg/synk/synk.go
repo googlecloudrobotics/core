@@ -610,6 +610,10 @@ func canReplace(resource *unstructured.Unstructured, patchErr error) bool {
 		}
 		log.Printf("Not replacing PersistentVolume since reclaim policy is not Retain but %q", v)
 	}
+	if (k == "ValidatingWebhookConfiguration" || k == "MutatingWebhookConfiguration") && strings.Contains(e, "must be specified for an update") {
+		return true
+	}
+
 	// TODO(rodrigoq): can other resources be safely replaced?
 	return false
 }
