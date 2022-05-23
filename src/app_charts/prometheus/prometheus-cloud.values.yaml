@@ -116,6 +116,8 @@ kubelet:
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: instance
+    - sourceLabels: [__metrics_path__]
+      targetLabel: metrics_path
 
 kubeStateMetrics:
   serviceMonitor:
