@@ -145,6 +145,7 @@ grafana:
       enabled: true
       label: grafana # Label our own legacy grafana-operator uses.
       searchNamespace: ALL
+      multicluster: true
   grafana.ini:
     analytics:
       check_for_updates: false
