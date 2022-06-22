@@ -30,7 +30,9 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"sync"
@@ -41,6 +43,7 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
+	"golang.org/x/net/http2"
 	"golang.org/x/oauth2/google"
 )
 
@@ -56,7 +59,7 @@ const (
 	// data. It is part of the round-trip latency when using `kubectl exec`.
 	responseTimeout = 100 * time.Millisecond
 	// Print more detailed logs when enabled.
-	debugLogs = false
+	debugLogs = true
 )
 
 var (
@@ -153,7 +156,12 @@ func marshalHeader(h *http.Header) []*pb.HttpHeader {
 	return r
 }
 
-func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpResponse, io.ReadCloser, error) {
+// makeBackendRequest builds a hhtp.Request from the given breq and executes in
+// on the given http.Client.
+// It returns both a new pb.HttpResponse as well as the related http.Response so
+// that the caller can access e.g. http trailers once the response body has
+// been read.
+func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpResponse, *http.Response, error) {
 	id := *breq.Id
 	targetUrl, err := url.Parse(*breq.Url)
 	if err != nil {
@@ -181,6 +189,11 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
+	if debugLogs {
+		dump, _ := httputil.DumpRequest(req, true)
+		log.Printf("%s", dump)
+	}
+
 	resp, err := local.Do(req)
 	if err != nil {
 		return nil, nil, err
@@ -188,12 +201,21 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 
 	if debugLogs {
 		log.Printf("[%s] Backend responded with status %d", id, resp.StatusCode)
+
+		dump, _ := httputil.DumpResponse(resp, false)
+		log.Printf("%s", dump)
+		// We get 'Grpc-Status' and 'Grpc-Message' headers that we need to persist.
+		// Why is it not part of Trailers?
+		log.Printf("[%s] Headers: %+v", id, resp.Header)
+		// Initially only keys, values are set after body has be read (EOF)
+		log.Printf("[%s] Trailers: %+v", id, resp.Trailer)
 	}
 	return &pb.HttpResponse{
 		Id:         proto.String(id),
 		StatusCode: proto.Int32(int32(resp.StatusCode)),
 		Header:     marshalHeader(&resp.Header),
-	}, resp.Body, nil
+		Trailer:    marshalHeader(&resp.Trailer),
+	}, resp, nil
 }
 
 func postResponse(remote *http.Client, br *pb.HttpResponse) error {
@@ -258,11 +280,11 @@ func streamBytes(id string, in io.ReadCloser, out chan<- []byte) {
 
 // buildResponses collates the bytes from the in stream into HttpResponse objects.
 // This function needs to consider three cases:
-//  - Data is coming fast. We chunk the data into 'maxChunkSize' blocks and keep sending it.
-//  - Data is trickling slow. We accumulate data for the timeout duration and then send it.
-//    Timeout is determined by the maximum latency the user should see.
-//  - No data needs to be transferred. We keep sending empty responses every few seconds
-//    to show the relay server that we're still alive.
+//   - Data is coming fast. We chunk the data into 'maxChunkSize' blocks and keep sending it.
+//   - Data is trickling slow. We accumulate data for the timeout duration and then send it.
+//     Timeout is determined by the maximum latency the user should see.
+//   - No data needs to be transferred. We keep sending empty responses every few seconds
+//     to show the relay server that we're still alive.
 func buildResponses(in <-chan []byte, resp *pb.HttpResponse, out chan<- *pb.HttpResponse, timeout time.Duration) {
 	defer close(out)
 	timer := time.NewTimer(timeout)
@@ -377,7 +399,7 @@ func streamToBackend(remote *http.Client, req *pb.HttpRequest, backendWriter io.
 }
 
 func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest) {
-	resp, backendBody, err := makeBackendRequest(local, req)
+	resp, hresp, err := makeBackendRequest(local, req)
 	if err != nil {
 		// Even if we couldn't handle the backend request, send an
 		// answer to the relay that signals the error.
@@ -385,13 +407,13 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 		postErrorResponse(remote, req, fmt.Sprintf("Unable to reach backend: %v", err))
 		return
 	}
-	// backendBody is either closed from the bodyWriter or streamBytes()
+	// hresp.Body is either closed from the bodyWriter or streamBytes()
 
 	if *resp.StatusCode == http.StatusSwitchingProtocols {
 		// A 101 Switching Protocols response means that the request will be
 		// used for bidirectional streaming, so start a goroutine to stream
 		// from client to backend.
-		bodyWriter, ok := backendBody.(io.WriteCloser)
+		bodyWriter, ok := hresp.Body.(io.WriteCloser)
 		if !ok {
 			log.Printf("Error: 101 Switching Protocols response with non-writable body.")
 			log.Printf("       This occurs when using Go <1.12 or when http.Client.Timeout > 0.")
@@ -405,7 +427,7 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 	bodyChannel := make(chan []byte)
 	responseChannel := make(chan *pb.HttpResponse)
 	// Stream stdout from backend to bodyChannel
-	go streamBytes(*resp.Id, backendBody, bodyChannel)
+	go streamBytes(*resp.Id, hresp.Body, bodyChannel)
 	// collect data from bodyChannel and send to remote (relay-server)
 	go buildResponses(bodyChannel, resp, responseChannel, responseTimeout)
 
@@ -422,6 +444,10 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 		exponentialBackoff.Reset()
 		err := backoff.RetryNotify(
 			func() error {
+				if len(hresp.Trailer) > 0 {
+					log.Printf("[%s] Trailers: %+v", *resp.Id, hresp.Trailer)
+					resp.Trailer = append(resp.Trailer, marshalHeader(&hresp.Trailer)...)
+				}
 				return postResponse(remote, resp)
 			},
 			backoff.WithMaxRetries(&exponentialBackoff, 10),
@@ -463,6 +489,8 @@ func localProxyWorker(remote *http.Client, local *http.Client) {
 }
 
 func main() {
+	var err error
+
 	flag.Parse()
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
@@ -470,13 +498,13 @@ func main() {
 	if !*disableAuthForRemote {
 		ctx := context.Background()
 		scope := "https://www.googleapis.com/auth/cloud-platform.read-only"
-		var err error
 		if remote, err = google.DefaultClient(ctx, scope); err != nil {
 			log.Fatalf("unable to set up credentials for relay-server authentication: %v", err)
 		}
 	}
 	remote.Timeout = remoteRequestTimeout
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+
+	var tlsConfig *tls.Config
 	if *rootCAFile != "" {
 		rootCAs := x509.NewCertPool()
 		certs, err := ioutil.ReadFile(*rootCAFile)
@@ -486,34 +514,54 @@ func main() {
 		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
 			log.Fatalf("No certs found in %s", *rootCAFile)
 		}
-		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
-	}
-	transport.MaxIdleConnsPerHost = *maxIdleConnsPerHost
+		tlsConfig = &tls.Config{RootCAs: rootCAs}
 
-	if keyLogFile := os.Getenv("SSLKEYLOGFILE"); keyLogFile != "" {
-		keyLog, err := os.OpenFile(keyLogFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-		if err == nil {
-			transport.TLSClientConfig.KeyLogWriter = keyLog
-		} else {
-			log.Printf("Can open keylog file %q (check SSLKEYLOGFILE env var): %v", keyLogFile, err)
+		if keyLogFile := os.Getenv("SSLKEYLOGFILE"); keyLogFile != "" {
+			keyLog, err := os.OpenFile(keyLogFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+			if err != nil {
+				log.Printf("Can open keylog file %q (check SSLKEYLOGFILE env var): %v", keyLogFile, err)
+			} else {
+				tlsConfig.KeyLogWriter = keyLog
+			}
 		}
 	}
 
+	var transport http.RoundTripper
 	if *disableHttp2 {
+		h1transport := http.DefaultTransport.(*http.Transport).Clone()
+		h1transport.TLSClientConfig = tlsConfig
+		h1transport.MaxIdleConnsPerHost = *maxIdleConnsPerHost
+
 		// Fix for: http2: invalid Upgrade request header: ["SPDY/3.1"]
 		// according to the docs:
 		//    Programs that must disable HTTP/2 can do so by setting Transport.TLSNextProto (for clients) or
 		//    Server.TLSNextProto (for servers) to a non-nil, empty map.
 		//
-		transport.TLSNextProto = map[string]func(authority string, c *tls.Conn) http.RoundTripper{}
+		h1transport.TLSNextProto = map[string]func(authority string, c *tls.Conn) http.RoundTripper{}
+		transport = h1transport
+	} else {
+		// Don't use: transport, err := http2.ConfigureTransports(transport) to
+		// upgrade, it does not what it is suppose to do :/
+		h2transport := &http2.Transport{}
+		h2transport.TLSClientConfig = tlsConfig
+
+		if *backendScheme == "http" {
+			// Enable HTTP/2 Cleartext (H2C) for gRPC backends.
+			h2transport.AllowHTTP = true
+			h2transport.DialTLS = func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+				// Pretend we are dialing a TLS endpoint.
+				// Note, we ignore the passed tls.Config
+				return net.Dial(network, addr)
+			}
+		}
+		transport = h2transport
 	}
 
 	// TODO(https://github.com/golang/go/issues/31391): reimplement timeouts if possible
 	// (see also https://github.com/golang/go/issues/30876)
 	local := &http.Client{
 		CheckRedirect: func(*http.Request, []*http.Request) error {
-			// Don't follow redirects: instead, pass them through
-			// the relay untouched.
+			// Don't follow redirects: instead, pass them through the relay untouched.
 			return http.ErrUseLastResponse
 		},
 		Transport: transport,
