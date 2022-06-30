@@ -36,15 +36,8 @@ import (
 )
 
 const (
-	// In the K8s pod lifecycle, when a pod runs for ten minutes the
-	// restart backoff is reset. As such, we can assume that a pod running
-	// for >10 minutes is healthy.
-	maxTimeSinceRelevantRestart = 10 * time.Minute
-
 	appInitializationTimeout = 7 * time.Minute
-
-	podInitializationTimeout         = 5 * time.Minute
-	podMaxToleratedContainerRestarts = 5
+	podInitializationTimeout = 5 * time.Minute
 )
 
 func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext string) error {
@@ -60,6 +53,8 @@ func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext strin
 
 	numNonRunningPods := 0
 	failingContainers := 0
+
+	restartCount := make(map[string]int32)
 
 	timeStart := time.Now()
 
@@ -88,13 +83,17 @@ func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext strin
 			for _, container := range pod.Status.ContainerStatuses {
 				// Exactly one of Running/Terminated/Waiting in container.State is set
 				if container.State.Running != nil {
-					timeSinceLastRestart := time.Now().Sub(container.State.Running.StartedAt.Time)
-
-					if container.RestartCount > podMaxToleratedContainerRestarts && timeSinceLastRestart < maxTimeSinceRelevantRestart {
+					restartKey := pod.Name + container.Name
+					prevRestarts, ok := restartCount[restartKey]
+					if !ok {
+						prevRestarts = 0
+					}
+					if container.RestartCount > prevRestarts {
 						log.Printf("Warning: Container %s (%s) restarted %d times in pod %s\n", container.Name,
 							container.Image, container.RestartCount, pod.Name)
 						failingContainers += 1
 					}
+					restartCount[restartKey] = container.RestartCount
 				} else if container.State.Terminated != nil && container.State.Terminated.ExitCode != 0 {
 					log.Printf("Warning: Container %s (%s) was terminated in pod %s with error\n", container.Name, container.Image, pod.Name)
 					failingContainers += 1
