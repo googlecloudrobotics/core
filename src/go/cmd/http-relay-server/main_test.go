@@ -101,49 +101,17 @@ func TestClientHandler(t *testing.T) {
 }
 
 func TestClientBadRequest(t *testing.T) {
-	tests := []struct {
-		desc     string
-		req      *http.Request
-		wantCode int
-		wantMsg  string
-	}{
-		{
-			desc:     "url-path misses the backend name and path",
-			req:      httptest.NewRequest("GET", "/client/", strings.NewReader("body")),
-			wantCode: 400,
-			wantMsg:  "Request path too short:",
-		},
-		{
-			desc:     "url-path misses the backend header",
-			req:      httptest.NewRequest("GET", "/", strings.NewReader("body")),
-			wantCode: 400,
-			wantMsg:  "Request without required header:",
-		},
-	}
+	// path misses the backend name and path
+	req := httptest.NewRequest("GET", "/client/", strings.NewReader("body"))
+	respRecorder := httptest.NewRecorder()
+	server := newServer()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() { server.client(respRecorder, req); wg.Done() }()
+	wg.Wait()
 
-	for _, tc := range tests {
-		t.Run(tc.desc, func(t *testing.T) {
-			respRecorder := httptest.NewRecorder()
-			server := newServer()
-			wg := sync.WaitGroup{}
-			wg.Add(1)
-			go func() { server.client(respRecorder, tc.req); wg.Done() }()
-			wg.Wait()
-
-			resp := respRecorder.Result()
-			if got := resp.StatusCode; tc.wantCode != got {
-				t.Errorf("Wrong response code; want %d; got %d", tc.wantCode, got)
-			}
-			if tc.wantMsg != "" {
-				body, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					t.Errorf("Failed to read body stream: %s", err)
-				}
-				if !strings.Contains(string(body), tc.wantMsg) {
-					t.Errorf("Wrong response body; want %q; got %q", tc.wantMsg, body)
-				}
-			}
-		})
+	if want, got := 400, respRecorder.Result().StatusCode; want != got {
+		t.Errorf("Wrong response code; want %d; got %d", want, got)
 	}
 }
 

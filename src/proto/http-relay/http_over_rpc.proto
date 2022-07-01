@@ -45,5 +45,4 @@ message HttpResponse {
   repeated HttpHeader header = 2;
   optional bytes body = 3;
   optional bool eof = 5;
-  repeated HttpHeader trailer = 6;
 }
