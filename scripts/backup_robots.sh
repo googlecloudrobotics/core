@@ -17,13 +17,13 @@
 # see https://github.com/kubernetes/kubernetes/issues/90066#issuecomment-780236185 for hiding managed-fields
 # another tool: https://github.com/itaysk/kubectl-neat
 
-if ! hash jq; then
-  echo "This script needs jq (apt install jq)."
-  exit
+if ! hash jq 2>/dev/null; then
+  echo >&2 "This script needs jq (apt install jq)."
+  exit 1
 fi
-if ! hash yq; then
-  echo "This script needs yq (pip3 install yq)."
-  exit
+if ! hash yq 2>/dev/null; then
+  echo >&2 "This script needs yq (pip3 install yq)."
+  exit 1
 fi
 
 KUBE_CONTEXT=${KUBE_CONTEXT:-minikube}
