@@ -3,10 +3,15 @@
 licenses(["notice"])
 
 # this chart was downloaded by running:
-# helm fetch prometheus-community/kube-prometheus-stack --version=x.y.z
-# run update_crd.sh to generate new 00-crds.yaml
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm fetch prometheus-community/kube-prometheus-stack --version=x.y.z
+# then edit VERSION= in update_crd.sh
+# then run update_crd.sh to generate new 00-crds.yaml
 
 exports_files(
-    glob(["*.tgz", "*.yaml"]),
+    glob([
+        "*.tgz",
+        "*.yaml",
+    ]),
     visibility = ["//visibility:public"],
 )

@@ -11,7 +11,7 @@
 nameOverride: kube
 fullnameOverride: kube
 
-kubeTargetVersionOverride: "1.16.6"
+kubeTargetVersionOverride: "1.23.8"
 
 alertmanager:
   enabled: false
