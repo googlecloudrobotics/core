@@ -89,6 +89,8 @@ Get initial version (use same command to update the version):
 $ nvtake -c nvchecker.toml ingress-nginx=0.44.0
 ```
 
+After updating, please also manually keep METADATA file in sync.
+
 Check for updates:
 ```shell
 $ nvchecker -c nvchecker.toml

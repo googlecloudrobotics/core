@@ -1,6 +1,6 @@
 {
-  "cert-manager": "1.8.0",
-  "ingress-nginx": "1.2.0-beta.0",
-  "oauth2-proxy": "7.2.1",
+  "cert-manager": "1.8.2",
+  "ingress-nginx": "1.2.1",
+  "oauth2-proxy": "7.3.0",
   "stackdriver-logging-agent": "1.9.7"
 }
