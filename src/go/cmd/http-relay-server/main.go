@@ -415,7 +415,8 @@ func main() {
 	httpServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", *port),
 		Handler: h,
-		BaseContext: func(_ net.Listener) context.Context {
+		BaseContext: func(l net.Listener) context.Context {
+			log.Printf("Relay server listening on: 127.0.0.1:%d", l.Addr().(*net.TCPAddr).Port)
 			return mainCtx
 		},
 	}

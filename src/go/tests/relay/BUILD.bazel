@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "go_default_test",
+    size = "large",
+    timeout = "long",
+    srcs = ["nok8s_relay_test.go"],
+    data = [
+        "//src/go/cmd/http-relay-client:http-relay-client-bin",
+        "//src/go/cmd/http-relay-server:http-relay-server-bin",
+    ],
+    rundir = ".",
+)
