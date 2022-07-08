@@ -87,6 +87,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
@@ -94,11 +95,13 @@ import (
 	"syscall"
 	"time"
 
-	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/golang/protobuf/proto"
+	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -108,6 +111,8 @@ const (
 	// be less that the kubelet's timeout (30s by default) so that we can print
 	// a stack trace and debug what is still running.
 	cleanShutdownTimeout = 20 * time.Second
+	// Print more detailed logs when enabled.
+	debugLogs = false
 )
 
 var (
@@ -163,16 +168,16 @@ func (s *server) health(w http.ResponseWriter, r *http.Request) {
 }
 
 // responseFilter enforces that there's at least one HttpResponse in the out
-// channel and that the first response has a status code. It splits the status
-// code, headers and body data apart so they can be written back to the client.
-func responseFilter(in <-chan *pb.HttpResponse) ([]*pb.HttpHeader, int, <-chan []byte) {
+// channel and that the first response has a status code. From the reposnses it
+// extracts and return headers, trailers, status-code and body data.
+func responseFilter(in <-chan *pb.HttpResponse) ([]*pb.HttpHeader, []*pb.HttpHeader, int, <-chan []byte) {
 	body := make(chan []byte, 1)
 	firstMessage, more := <-in
 	if !more {
 		brokerResponses.WithLabelValues("client", "missing_message").Inc()
 		body <- []byte(fmt.Sprintf("Timeout after %v, either the backend request took too long or the relay client died", inactiveRequestTimeout))
 		close(body)
-		return nil, http.StatusInternalServerError, body
+		return nil, nil, http.StatusInternalServerError, body
 	}
 	if firstMessage.StatusCode == nil {
 		brokerResponses.WithLabelValues("client", "missing_header").Inc()
@@ -181,17 +186,19 @@ func responseFilter(in <-chan *pb.HttpResponse) ([]*pb.HttpHeader, int, <-chan [
 		// Flush remaining messages
 		for range in {
 		}
-		return nil, http.StatusInternalServerError, body
+		return nil, nil, http.StatusInternalServerError, body
 	}
 	body <- []byte(firstMessage.Body)
+	lastMessage := firstMessage
 	go func() {
 		for backendResp := range in {
 			brokerResponses.WithLabelValues("client", "ok").Inc()
 			body <- []byte(backendResp.Body)
+			lastMessage = backendResp
 		}
 		close(body)
 	}()
-	return firstMessage.Header, int(*firstMessage.StatusCode), body
+	return firstMessage.Header, lastMessage.Trailer, int(*firstMessage.StatusCode), body
 }
 
 // bidirectionalStream handles a 101 Switching Protocols response from the
@@ -255,19 +262,38 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 
 // client sent a request.
 func (s *server) client(w http.ResponseWriter, r *http.Request) {
-	// After stripping, the path is "${SERVER_NAME}/${REQUEST}"
-	pathParts := strings.SplitN(strings.TrimPrefix(r.URL.Path, clientPrefix), "/", 2)
-	backendName := pathParts[0]
-	if backendName == "" {
-		http.Error(w, "Request path too short: missing remote server identifier", http.StatusBadRequest)
-		return
+	if debugLogs {
+		dump, _ := httputil.DumpRequest(r, true)
+		log.Printf("%s", dump)
 	}
-	strippedPath := ""
-	if len(pathParts) > 1 {
-		strippedPath = pathParts[1]
+
+	var backendName, path string
+	if strings.HasPrefix(r.URL.Path, clientPrefix) {
+		// After stripping, the path is "${SERVER_NAME}/${REQUEST}"
+		pathParts := strings.SplitN(strings.TrimPrefix(r.URL.Path, clientPrefix), "/", 2)
+		backendName = pathParts[0]
+		if backendName == "" {
+			http.Error(w, "Request path too short: missing remote server identifier", http.StatusBadRequest)
+			return
+		}
+		path = "/"
+		if len(pathParts) > 1 {
+			path += pathParts[1]
+		}
+	} else {
+		// Requests without the /client/ prefix are gRPC requests. The backend is
+		// identified by "X-Server-Name" header.
+		headers, ok := r.Header["X-Server-Name"]
+		if !ok {
+			http.Error(w, "Request without required header: \"X-Server-Name\"", http.StatusBadRequest)
+			return
+		}
+		backendName = headers[0]
+		path = r.URL.Path
 	}
+
 	id := backendName + ":" + createId()
-	log.Printf("[%s] Wrapping request for %q", id, r.URL.Path)
+	log.Printf("[%s] Wrapping request for %s%s", id, backendName, path)
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -278,7 +304,7 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 	backendUrl := url.URL{
 		Scheme:   "http",
 		Host:     "invalid",
-		Path:     fmt.Sprintf("/%s", strippedPath),
+		Path:     path,
 		RawQuery: r.URL.RawQuery,
 		Fragment: r.URL.Fragment,
 	}
@@ -296,7 +322,7 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	header, status, response := responseFilter(backendRespChan)
+	header, trailer, status, response := responseFilter(backendRespChan)
 	if header != nil {
 		unmarshalHeader(w, header)
 	}
@@ -318,6 +344,22 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 		}
 		numBytes += len(bytes)
 	}
+	// TODO(ensonic): open questions:
+	// - can we do this less hacky? (see unmarshalHeader() above)
+	// - why do we not always get them as trailers?
+	for _, h := range header {
+		if strings.HasPrefix(*h.Name, "Grpc-") {
+			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
+			log.Printf("[%s] Adding trailer from header: %q:%q", id, *h.Name, *h.Value)
+		}
+	}
+	if trailer != nil {
+		for _, h := range trailer {
+			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
+			log.Printf("[%s] Adding real trailer: %q:%q", id, *h.Name, *h.Value)
+		}
+	}
+
 	log.Printf("[%s] Wrote %d response bytes to request", id, numBytes)
 }
 
@@ -397,10 +439,11 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
 	server := newServer()
+	h2s := &http2.Server{}
 
 	h := http.NewServeMux()
 	h.HandleFunc("/healthz", server.health)
-	h.HandleFunc(clientPrefix, server.client)
+	h.HandleFunc("/", server.client)
 	h.HandleFunc("/server/request", server.serverRequest)
 	h.HandleFunc("/server/requeststream", server.serverRequestStream)
 	h.HandleFunc("/server/response", server.serverResponse)
@@ -412,9 +455,9 @@ func main() {
 	// https://www.rudderstack.com/blog/implementing-graceful-shutdown-in-go/#:~:text=Canceling%20long%20running%20requests
 	mainCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	httpServer := &http.Server{
+	h1s := &http.Server{
 		Addr:    fmt.Sprintf(":%d", *port),
-		Handler: h,
+		Handler: h2c.NewHandler(h, h2s),
 		BaseContext: func(l net.Listener) context.Context {
 			log.Printf("Relay server listening on: 127.0.0.1:%d", l.Addr().(*net.TCPAddr).Port)
 			return mainCtx
@@ -424,7 +467,7 @@ func main() {
 	// listener, or because we got SIGTERM.
 	g, gCtx := errgroup.WithContext(mainCtx)
 	g.Go(func() error {
-		if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
+		if err := h1s.ListenAndServe(); err != http.ErrServerClosed {
 			return err
 		}
 		// ErrServerClosed follows SIGTERM which is normal when updating the
@@ -435,7 +478,7 @@ func main() {
 		<-gCtx.Done()
 		ctx, cancel := context.WithTimeout(context.Background(), cleanShutdownTimeout)
 		defer cancel()
-		return httpServer.Shutdown(ctx)
+		return h1s.Shutdown(ctx)
 	})
 
 	if err := g.Wait(); err != nil {

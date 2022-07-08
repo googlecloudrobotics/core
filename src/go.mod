@@ -32,9 +32,9 @@ require (
 	github.com/spf13/pflag v1.0.5
 	go.opencensus.io v0.23.0
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
-	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d
+	golang.org/x/net v0.0.0-20220706163947-c90051bbdb60
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210908233432-aa78b53d3365 // indirect
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	google.golang.org/api v0.48.0
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
@@ -124,8 +124,8 @@ require (
 	go.uber.org/zap v1.19.0 // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
-	golang.org/x/text v0.3.6 // indirect
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
+	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	golang.org/x/tools v0.1.2 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
