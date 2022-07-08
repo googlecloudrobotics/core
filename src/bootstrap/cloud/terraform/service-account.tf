@@ -4,6 +4,8 @@
 #   APIs, as well as services like the k8s-relay though ingress-nginx.
 # - human-acl@, which is used as a "virtual permission" for users of the
 #   cluster, allowing access to services like Grafana through ingress-nginx.
+#   It can also be used to generate tokens for registering new clusters to the
+#   cloud.
 
 resource "google_service_account" "robot-service" {
   account_id   = "robot-service"
@@ -133,4 +135,29 @@ resource "google_service_account_iam_member" "human-acl-shared-owner-account-use
   service_account_id = google_service_account.human-acl.name
   role               = "roles/iam.serviceAccountUser"
   member             = "group:${var.shared_owner_group}"
+}
+
+###
+# The following permissions make human-acl@ tokens work with setup_robot.sh.
+# To create such tokens, the user needs roles/iam.serviceAccountTokenCreator.
+# https://cloud.google.com/iam/docs/create-short-lived-credentials-direct
+#
+# This also RBAC policy to create Robot CRs, defined in
+# src/app_charts/base/cloud/registry-policy.yaml.
+###
+
+# Allow reading GCS objects such as setup_robot_crc_version.txt.
+resource "google_project_iam_member" "human-acl-object-viewer" {
+  project = data.google_project.project.project_id
+  role    = "roles/storage.objectViewer"
+  member  = "serviceAccount:${google_service_account.human-acl.email}"
+}
+
+# Allow robot registration with the token vendor, which checks if the client's
+# token can "act as" the human-acl@ SA. We need this binding even if the
+# client provided a token for the human-acl@ SA itself.
+resource "google_service_account_iam_member" "human-acl-act-as-self" {
+  service_account_id = google_service_account.human-acl.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.human-acl.email}"
 }

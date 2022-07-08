@@ -20,6 +20,24 @@ Once you've done this, you can:
     gcloud auth application-default print-access-token
     ```
 
+> **Note:** If you want to reduce the risk that your cloud project is
+> compromised using this token during its 1h lifetime, you can generate a less
+> privileged service account token:
+>
+> ```
+> SA="human-acl@${PROJECT_ID}.iam.gserviceaccount.com"
+> gcloud iam service-accounts add-iam-policy-binding "${SA}" \
+>   --role=roles/iam.serviceAccountTokenCreator \
+>   --project="${PROJECT_ID}" --member="user:${YOUR_EMAIL_ADDRESS:?}"
+> gcloud auth print-access-token --impersonate-service-account="${SA}"
+> ```
+>
+> If you see `ERROR: Failed to impersonate ...`, wait a few minutes for the IAM
+> policy to propagate.
+>
+> You can ignore the "WARNING: This command is using service account
+> impersonation."
+
 ## Installing the cluster on the robot
 
 You'll need to install a Kubernetes cluster on the robot before you can connect it to the cloud. The cluster manages and supports the processes that communicate with the cloud.

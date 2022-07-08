@@ -1,0 +1,29 @@
+# This policy lets the human-acl GCP SA register robots. For context, see the
+# IAM policy in service-account.tf.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloud-robotics:robot-creator
+rules:
+- apiGroups:
+  - registry.cloudrobotics.com
+  resources:
+  - robots
+  - robots/status
+  verbs:
+  - create
+  - get
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cloud-robotics:human-acl
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cloud-robotics:robot-creator
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: human-acl@{{ .Values.project }}.iam.gserviceaccount.com
