@@ -258,11 +258,11 @@ func streamBytes(id string, in io.ReadCloser, out chan<- []byte) {
 
 // buildResponses collates the bytes from the in stream into HttpResponse objects.
 // This function needs to consider three cases:
-//  - Data is coming fast. We chunk the data into 'maxChunkSize' blocks and keep sending it.
-//  - Data is trickling slow. We accumulate data for the timeout duration and then send it.
-//    Timeout is determined by the maximum latency the user should see.
-//  - No data needs to be transferred. We keep sending empty responses every few seconds
-//    to show the relay server that we're still alive.
+//   - Data is coming fast. We chunk the data into 'maxChunkSize' blocks and keep sending it.
+//   - Data is trickling slow. We accumulate data for the timeout duration and then send it.
+//     Timeout is determined by the maximum latency the user should see.
+//   - No data needs to be transferred. We keep sending empty responses every few seconds
+//     to show the relay server that we're still alive.
 func buildResponses(in <-chan []byte, resp *pb.HttpResponse, out chan<- *pb.HttpResponse, timeout time.Duration) {
 	defer close(out)
 	timer := time.NewTimer(timeout)
@@ -512,8 +512,7 @@ func main() {
 	// (see also https://github.com/golang/go/issues/30876)
 	local := &http.Client{
 		CheckRedirect: func(*http.Request, []*http.Request) error {
-			// Don't follow redirects: instead, pass them through
-			// the relay untouched.
+			// Don't follow redirects: instead, pass them through the relay untouched.
 			return http.ErrUseLastResponse
 		},
 		Transport: transport,

@@ -19,58 +19,60 @@
 // backend and works together with a relay client that's colocated with the
 // backend.
 //
-//          lan   |    internet      |               lan
-//                |                  |
-//        client ---> relay server <--- relay client ---> backend
-//                |                  |
-//             firewall           firewall
+//	  lan   |    internet      |               lan
+//	        |                  |
+//	client ---> relay server <--- relay client ---> backend
+//	        |                  |
+//	     firewall           firewall
 //
 // The relay server is multiplexing: It allows multiple relay clients to
 // connect under unique names, each handling requests for a subpath of /client.
+// Alternatively (e.g. for grpc conenctions) the backend can be selected by
+// omitting the client prefix and passing an `X-Server-Name` header.
 //
 // Sequence of operations:
-//   * Client makes request on /client/$foo/$request.
-//   * Relay server assigns an ID and stores request (with path $request) in
+//   - Client makes request on /client/$foo/$request.
+//   - Relay server assigns an ID and stores request (with path $request) in
 //     memory. It keeps the client's request pending.
-//   * Relay client requests /server/request?server=$foo
-//   * Relay server responds with stored request (or timeout if no request comes
+//   - Relay client requests /server/request?server=$foo
+//   - Relay server responds with stored request (or timeout if no request comes
 //     in within the next 30 sec).
-//   * Relay client makes the stored request to backend.
-//   * Backend replies.
-//   * Relay client posts backend's reply to /server/response.
-//   * Relay server responds to client's request with backend's reply.
+//   - Relay client makes the stored request to backend.
+//   - Backend replies.
+//   - Relay client posts backend's reply to /server/response.
+//   - Relay server responds to client's request with backend's reply.
 //
 // For some requests (eg kubectl exec), the backend responds with
 // 101 Switching Protocols, resulting in the following operations.
-//   * Relay server responds to client's request with backend's 101 reply.
-//   * Client sends bytes from stdin to the relay server.
-//   * Relay client requests /server/requeststream?id=$id.
-//   * Relay server responds with stdin bytes from client.
-//   * Relay client sends stdin bytes to backend.
-//   * Backend sends stdout bytes to relay client.
-//   * Relay client posts stdout bytes to /server/response.
-//   * Relay server sends stdout bytes to the client.
+//   - Relay server responds to client's request with backend's 101 reply.
+//   - Client sends bytes from stdin to the relay server.
+//   - Relay client requests /server/requeststream?id=$id.
+//   - Relay server responds with stdin bytes from client.
+//   - Relay client sends stdin bytes to backend.
+//   - Backend sends stdout bytes to relay client.
+//   - Relay client posts stdout bytes to /server/response.
+//   - Relay server sends stdout bytes to the client.
 //
 // This simplified graphic shows the back-and-forth for an `exec` request:
 //
-//        client ---> relay server <--- relay client ---> backend
-//          .     |        .         |       .               .
-//          . -POST /exec->.         |       .               .
-//          .     |        . <-GET /request- .               .
-//          .     |        . ---- exec ----> .               .
-//          .     |        .         |       . -POST /exec-> .
-//          .     |        .         |       . <--- 101 ---- .
-//          .     |        .<-POST /response-.               .
-//          . <-- 101 ---- .         |       .               .
-//          . -- stdin --> .         |       .               .
-//          .     |        .<-POST /request- .               .
-//          .     |        .        stream   .               .
-//          .     |        . ---- stdin ---> .               .
-//          .     |        .         |       . --- stdin --> .
-//          .     |        .         |       . <-- stdout--- .
-//          .     |        .<-POST /response-.               .
-//          . <- stdout -- .         |       .               .
-//          .     |        .         |       .               .
+//	client ---> relay server <--- relay client ---> backend
+//	  .     |        .         |       .               .
+//	  . -POST /exec->.         |       .               .
+//	  .     |        . <-GET /request- .               .
+//	  .     |        . ---- exec ----> .               .
+//	  .     |        .         |       . -POST /exec-> .
+//	  .     |        .         |       . <--- 101 ---- .
+//	  .     |        .<-POST /response-.               .
+//	  . <-- 101 ---- .         |       .               .
+//	  . -- stdin --> .         |       .               .
+//	  .     |        .<-POST /request- .               .
+//	  .     |        .        stream   .               .
+//	  .     |        . ---- stdin ---> .               .
+//	  .     |        .         |       . --- stdin --> .
+//	  .     |        .         |       . <-- stdout--- .
+//	  .     |        .<-POST /response-.               .
+//	  . <- stdout -- .         |       .               .
+//	  .     |        .         |       .               .
 //
 // The client side implementation is in ../http-relay-client.
 package main
