@@ -10,4 +10,12 @@ go_test(
         "//src/go/cmd/http-relay-server:http-relay-server-bin",
     ],
     rundir = ".",
+    deps = [
+        "@com_github_pkg_errors//:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//metadata:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
+        "@org_golang_google_grpc//test/grpc_testing:go_default_library",
+    ],
 )
