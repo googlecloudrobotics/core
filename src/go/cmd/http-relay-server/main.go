@@ -263,7 +263,7 @@ func (s *server) bidirectionalStream(w http.ResponseWriter, id string, response 
 // client sent a request.
 func (s *server) client(w http.ResponseWriter, r *http.Request) {
 	if debugLogs {
-		dump, _ := httputil.DumpRequest(r, true)
+		dump, _ := httputil.DumpRequest(r, false)
 		log.Printf("%s", dump)
 	}
 

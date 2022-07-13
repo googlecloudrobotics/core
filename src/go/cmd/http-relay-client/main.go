@@ -43,6 +43,7 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
+	"golang.org/x/net/http2"
 	"golang.org/x/oauth2/google"
 )
 
@@ -95,6 +96,8 @@ var (
 		"The maximum number of idle (keep-alive) connections to keep per-host")
 	disableHttp2 = flag.Bool("disable_http2", false,
 		"Disable http2 protocol usage (e.g. for channels that use special streaming protocols such as SPDY).")
+	forceHttp2 = flag.Bool("force_http2", false,
+		"Force enable http2 protocol usage through the use of go's http2 transport (e.g. when relaying grpc).")
 	disableAuthForRemote = flag.Bool("disable_auth_for_remote", false,
 		"Disable auth when talking to the relay server for local testing.")
 )
@@ -169,7 +172,7 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 	targetUrl.Scheme = *backendScheme
 	targetUrl.Host = *backendAddress
 	targetUrl.Path = *backendPath + targetUrl.Path
-	log.Printf("[%s] Sending request to backend: %s", id, targetUrl)
+	log.Printf("[%s] Sending %s request to backend: %s", id, *breq.Method, targetUrl)
 	req, err := http.NewRequest(*breq.Method, targetUrl.String(), bytes.NewReader(breq.Body))
 	if err != nil {
 		return nil, nil, err
@@ -189,7 +192,7 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 	}
 
 	if debugLogs {
-		dump, _ := httputil.DumpRequest(req, true)
+		dump, _ := httputil.DumpRequest(req, false)
 		log.Printf("%s", dump)
 	}
 
@@ -503,9 +506,7 @@ func main() {
 	}
 	remote.Timeout = remoteRequestTimeout
 
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.MaxIdleConnsPerHost = *maxIdleConnsPerHost
-
+	var tlsConfig *tls.Config
 	if *rootCAFile != "" {
 		rootCAs := x509.NewCertPool()
 		certs, err := ioutil.ReadFile(*rootCAFile)
@@ -515,7 +516,7 @@ func main() {
 		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
 			log.Fatalf("No certs found in %s", *rootCAFile)
 		}
-		tlsConfig := &tls.Config{RootCAs: rootCAs}
+		tlsConfig = &tls.Config{RootCAs: rootCAs}
 
 		if keyLogFile := os.Getenv("SSLKEYLOGFILE"); keyLogFile != "" {
 			keyLog, err := os.OpenFile(keyLogFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
@@ -525,25 +526,43 @@ func main() {
 				tlsConfig.KeyLogWriter = keyLog
 			}
 		}
-		transport.TLSClientConfig = tlsConfig
 	}
 
-	if *disableHttp2 {
-		// Fix for: http2: invalid Upgrade request header: ["SPDY/3.1"]
-		// according to the docs:
-		//    Programs that must disable HTTP/2 can do so by setting Transport.TLSNextProto (for clients) or
-		//    Server.TLSNextProto (for servers) to a non-nil, empty map.
-		//
-		transport.TLSNextProto = map[string]func(authority string, c *tls.Conn) http.RoundTripper{}
-	}
+	var transport http.RoundTripper
+	if *forceHttp2 {
+		h2transport := &http2.Transport{}
+		h2transport.TLSClientConfig = tlsConfig
 
-	if *backendScheme == "http" {
-		// Enable HTTP/2 Cleartext (H2C) for gRPC backends.
-		transport.DialTLS = func(network, addr string) (net.Conn, error) {
-			// Pretend we are dialing a TLS endpoint.
-			// Note, we ignore the passed tls.Config
-			return net.Dial(network, addr)
+		if *disableHttp2 {
+			log.Fatal("Cannot use --force_http2 together with --disable_http2")
 		}
+
+		if *backendScheme == "http" {
+			// Enable HTTP/2 Cleartext (H2C) for gRPC backends.
+			h2transport.AllowHTTP = true
+			h2transport.DialTLS = func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+				// Pretend we are dialing a TLS endpoint.
+				// Note, we ignore the passed tls.Config
+				return net.Dial(network, addr)
+			}
+		}
+
+		transport = h2transport
+	} else {
+		h1transport := http.DefaultTransport.(*http.Transport).Clone()
+		h1transport.MaxIdleConnsPerHost = *maxIdleConnsPerHost
+		h1transport.TLSClientConfig = tlsConfig
+
+		if *disableHttp2 {
+			// Fix for: http2: invalid Upgrade request header: ["SPDY/3.1"]
+			// according to the docs:
+			//    Programs that must disable HTTP/2 can do so by setting Transport.TLSNextProto (for clients) or
+			//    Server.TLSNextProto (for servers) to a non-nil, empty map.
+			//
+			h1transport.TLSNextProto = map[string]func(authority string, c *tls.Conn) http.RoundTripper{}
+		}
+
+		transport = h1transport
 	}
 
 	// TODO(https://github.com/golang/go/issues/31391): reimplement timeouts if possible
