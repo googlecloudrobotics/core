@@ -718,13 +718,6 @@ def go_repositories():
     )
 
     go_repository(
-        name = "com_github_gordonklaus_ineffassign",
-        importpath = "github.com/gordonklaus/ineffassign",
-        sum = "h1:vc7Dmrk4JwS0ZPS6WZvWlwDflgDTA26jItmbSj83nug=",
-        version = "v0.0.0-20200309095847-7953dde2c7bf",
-    )
-
-    go_repository(
         name = "com_github_gorilla_websocket",
         importpath = "github.com/gorilla/websocket",
         sum = "h1:+/TMaTYc4QFitKJxsQ7Yye35DkWvkdLcvGKqM+x0Ufc=",
@@ -915,13 +908,6 @@ def go_repositories():
         importpath = "github.com/jessevdk/go-flags",
         sum = "h1:4IU2WS7AumrZ/40jfhf4QVDMsQwqA7VEHozFRrGARJA=",
         version = "v1.4.0",
-    )
-
-    go_repository(
-        name = "com_github_jhump_protoreflect",
-        importpath = "github.com/jhump/protoreflect",
-        sum = "h1:mbS/mqFrJSliRdPuNP+LY0JqitVP0SW58GQ7A2l2dTI=",
-        version = "v1.10.0",
     )
 
     go_repository(
@@ -1239,13 +1225,6 @@ def go_repositories():
         importpath = "github.com/niemeyer/pretty",
         sum = "h1:fD57ERR4JtEqsWbfPhv4DMiApHyliiK5xCTNVSPiaAs=",
         version = "v0.0.0-20200227124842-a10e7caefd8e",
-    )
-
-    go_repository(
-        name = "com_github_nishanths_predeclared",
-        importpath = "github.com/nishanths/predeclared",
-        sum = "h1:3f0nxAmdj/VoCGN/ijdMy7bj6SBagaqYg1B0hu8clMA=",
-        version = "v0.0.0-20200524104333-86fad755b4d3",
     )
 
     go_repository(

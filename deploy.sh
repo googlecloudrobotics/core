@@ -65,7 +65,6 @@ function prepare_source_install {
       //src/app_charts/base:base-cloud \
       //src/app_charts/platform-apps:platform-apps-cloud \
       //src/app_charts:push \
-      //src/go/cmd/cr-adapter:cr-adapter.push \
       //src/go/cmd/setup-robot:setup-robot.push \
       //src/go/cmd/synk
 
@@ -80,10 +79,6 @@ function prepare_source_install {
   # created projects (see b/123625511).
   ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push \
     --dst="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot:latest"
-
-  # The cr-adapter isn't packaged as a GCR app and hence pushed separately.
-  ${DIR}/bazel-bin/src/go/cmd/cr-adapter/cr-adapter.push \
-    --dst="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/cr-adapter:latest"
 
   # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl
   # Running :push outside the build system shaves ~3 seconds off an incremental build.

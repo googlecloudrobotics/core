@@ -19,7 +19,6 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.2
 	github.com/huandu/xstrings v1.2.0 // indirect
-	github.com/jhump/protoreflect v1.10.0
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
 	github.com/motemen/go-loghttp v0.0.0-20170804080138-974ac5ceac27
@@ -37,7 +36,7 @@ require (
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	google.golang.org/api v0.48.0
 	google.golang.org/grpc v1.40.0
-	google.golang.org/protobuf v1.27.1
+	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/h2non/gock.v1 v1.1.2
 	k8s.io/api v0.22.2
 	k8s.io/apiextensions-apiserver v0.22.2
