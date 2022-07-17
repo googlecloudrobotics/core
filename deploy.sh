@@ -65,7 +65,6 @@ function prepare_source_install {
       //src/app_charts/base:base-cloud \
       //src/app_charts/platform-apps:platform-apps-cloud \
       //src/app_charts:push \
-      //src/go/cmd/setup-robot:setup-robot-image-digest \
       //src/go/cmd/cr-adapter:cr-adapter.push \
       //src/go/cmd/setup-robot:setup-robot.push \
       //src/go/cmd/synk
@@ -140,7 +139,7 @@ function terraform_init {
   fi
 
   local ROBOT_IMAGE_DIGEST
-  ROBOT_IMAGE_DIGEST=$(cat bazel-bin/src/go/cmd/setup-robot/setup-robot-image-digest)
+  ROBOT_IMAGE_DIGEST=$(cat bazel-bin/src/go/cmd/setup-robot/setup-robot.push.digest)
 
   # We only need to create dns resources if a custom domain is used.
   local CUSTOM_DOMAIN
