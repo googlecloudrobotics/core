@@ -69,6 +69,7 @@ container_push(
     name = "setup-robot.push",
     format = "Docker",
     image = ":setup-robot-image",
+    visibility = ["//visibility:public"],
 )
 
 # Ignore this auto-generated target. Gazelle doesn't get that we don't need it.
