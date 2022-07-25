@@ -253,6 +253,10 @@ spec:
       storage: true
       subresources:
         status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
