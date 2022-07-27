@@ -70,12 +70,72 @@ type TokenHandler struct {
 	AllowedSources *net.IPNet
 	TokenSource    oauth2.TokenSource
 	Clock          func() time.Time
+	robotAuth      *robotauth.RobotAuth
 }
 
 type TokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	ExpiresInSec int    `json:"expires_in"`
 	TokenType    string `json:"token_type"`
+}
+
+func NewTokenHandler(ctx context.Context) (*TokenHandler, error) {
+	_, allowedSources, err := net.ParseCIDR(*sourceCidr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid source CIDR %s: %w", *sourceCidr, err)
+	}
+
+	t := &TokenHandler{
+		AllowedSources: allowedSources,
+		Clock:          time.Now,
+	}
+	if err := t.updateRobotAuth(); err != nil {
+		return nil, err
+	}
+	t.updateRobotTokenSource(ctx)
+	return t, nil
+}
+
+func (th *TokenHandler) updateRobotAuth() error {
+	robotAuth, err := robotauth.LoadFromFile(*robotIdFile)
+	if err != nil {
+		return fmt.Errorf("failed to read robot id file %s: %w", *robotIdFile, err)
+	}
+	th.robotAuth = robotAuth
+	return nil
+}
+
+func (th *TokenHandler) updateRobotTokenSource(ctx context.Context) {
+	th.TokenSource = th.robotAuth.CreateRobotTokenSource(ctx)
+}
+
+func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler {
+	idHash := fnv.New64a()
+	idHash.Write([]byte(th.robotAuth.RobotName))
+
+	var projectNumber int64
+	backoff.Retry(
+		func() error {
+			var err error
+			projectNumber, err = getProjectNumber(oauth2.NewClient(ctx, th.TokenSource), th.robotAuth.ProjectId)
+			if err != nil {
+				log.Printf("will retry to obtain project number for %s: %v", th.robotAuth.ProjectId, err)
+			}
+			return err
+		},
+		backoff.NewConstantBackOff(5*time.Second),
+	)
+	return &MetadataHandler{
+		ClusterName:   th.robotAuth.RobotName,
+		ProjectId:     th.robotAuth.ProjectId,
+		ProjectNumber: projectNumber,
+		RobotName:     th.robotAuth.RobotName,
+		InstanceId:    idHash.Sum64(),
+		// This needs to be an actual Cloud zone so that it can be mapped
+		// to a Monarch/Stackdriver region. TODO(swolter): We should make
+		// this zone configurable to avoid confusing users.
+		Zone: "europe-west1-c",
+	}
 }
 
 func (th TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -309,53 +369,17 @@ func main() {
 		log.Fatal("BIND_IP environment variable not set")
 	}
 
-	_, allowedSources, err := net.ParseCIDR(*sourceCidr)
-	if err != nil {
-		log.Fatalf("invalid source CIDR %s: %v", *sourceCidr, err)
-	}
-
-	robotAuth, err := robotauth.LoadFromFile(*robotIdFile)
-	if err != nil {
-		log.Fatalf("failed to read robot id file %s: %v", *robotIdFile, err)
-	}
-
-	idHash := fnv.New64a()
-	idHash.Write([]byte(robotAuth.RobotName))
-
 	ctx := context.Background()
-	tokenSource := robotAuth.CreateRobotTokenSource(ctx)
-	var projectNumber int64
-	backoff.Retry(
-		func() error {
-			projectNumber, err = getProjectNumber(oauth2.NewClient(ctx, tokenSource), robotAuth.ProjectId)
-			if err != nil {
-				log.Printf("will retry to obtain project number for %s: %v", robotAuth.ProjectId, err)
-			}
-			return err
-		},
-		backoff.NewConstantBackOff(5*time.Second),
-	)
-
-	tokenHandler := TokenHandler{
-		AllowedSources: allowedSources,
-		TokenSource:    tokenSource,
-		Clock:          time.Now,
+	tokenHandler, err := NewTokenHandler(ctx)
+	if err != nil {
+		log.Fatalf("%v", err)
 	}
+
 	http.Handle("/computeMetadata/v1/instance/service-accounts/default/token", tokenHandler)
 	serviceAccountHandler := ServiceAccountHandler{}
 	http.Handle("/computeMetadata/v1/instance/service-accounts/default/", serviceAccountHandler)
 	http.Handle("/computeMetadata/v1/instance/service-accounts/", ConstHandler{[]byte("default/\n")})
-	metadataHandler := MetadataHandler{
-		ClusterName:   robotAuth.RobotName,
-		ProjectId:     robotAuth.ProjectId,
-		ProjectNumber: projectNumber,
-		RobotName:     robotAuth.RobotName,
-		InstanceId:    idHash.Sum64(),
-		// This needs to be an actual Cloud zone so that it can be mapped
-		// to a Monarch/Stackdriver region. TODO(swolter): We should make
-		// this zone configurable to avoid confusing users.
-		Zone: "europe-west1-c",
-	}
+	metadataHandler := tokenHandler.NewMetadataHandler(ctx)
 	http.Handle("/computeMetadata/v1/", metadataHandler)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
