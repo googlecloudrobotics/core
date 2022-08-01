@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"io/ioutil"
 	"log"
 	"net"
@@ -55,13 +56,17 @@ func TestConstHandler(t *testing.T) {
 }
 
 func TestTokenHandlerServesToken(t *testing.T) {
+	oldMinTokenExpiry := *minTokenExpiry
+	*minTokenExpiry = 1
+	t.Cleanup(func() { *minTokenExpiry = oldMinTokenExpiry })
+	testTime := time.Unix(1531319123, 0)
 	req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/token", strings.NewReader("body"))
 	req.RemoteAddr = "192.168.0.101:8001"
 	respRecorder := httptest.NewRecorder()
 	th := TokenHandler{
 		AllowedSources: &net.IPNet{net.IPv4(192, 168, 0, 0), net.CIDRMask(24, 32)},
-		TokenSource:    oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "mytoken", Expiry: time.Unix(1531319133, 0), TokenType: "Bearer"}),
-		Clock:          func() time.Time { return time.Unix(1531319123, 0) },
+		TokenSource:    oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "mytoken", Expiry: testTime.Add(10 * time.Second), TokenType: "Bearer"}),
+		Clock:          func() time.Time { return testTime },
 	}
 	th.ServeHTTP(respRecorder, req)
 
@@ -69,6 +74,50 @@ func TestTokenHandlerServesToken(t *testing.T) {
 		t.Errorf("Wrong response code; want %d; got %d", want, got)
 	}
 	if want, got := "{\"access_token\":\"mytoken\",\"expires_in\":10,\"token_type\":\"Bearer\"}", bodyOrDie(respRecorder.Result()); want != got {
+		t.Errorf("Wrong response body; want %s; got %s", want, got)
+	}
+}
+
+type fakeRobotAuth struct {
+	ts   oauth2.TokenSource
+	id   string
+	name string
+}
+
+func (a *fakeRobotAuth) CreateRobotTokenSource(context.Context) oauth2.TokenSource {
+	return a.ts
+}
+
+func (a *fakeRobotAuth) projectID() string {
+	return a.id
+}
+
+func (a *fakeRobotAuth) robotName() string {
+	return a.name
+}
+
+func TestTokenHandlerServesLastingToken(t *testing.T) {
+	oldMinTokenExpiry := *minTokenExpiry
+	*minTokenExpiry = 300
+	t.Cleanup(func() { *minTokenExpiry = oldMinTokenExpiry })
+	testTime := time.Unix(1531319123, 0)
+	req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/token", strings.NewReader("body"))
+	req.RemoteAddr = "192.168.0.101:8001"
+	respRecorder := httptest.NewRecorder()
+	th := TokenHandler{
+		AllowedSources: &net.IPNet{net.IPv4(192, 168, 0, 0), net.CIDRMask(24, 32)},
+		TokenSource:    oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "mytoken", Expiry: testTime.Add(10 * time.Second), TokenType: "Bearer"}),
+		Clock:          func() time.Time { return testTime },
+		robotAuth: &fakeRobotAuth{
+			ts: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "mytoken", Expiry: testTime.Add(1000 * time.Second), TokenType: "Bearer"}),
+		},
+	}
+	th.ServeHTTP(respRecorder, req)
+
+	if want, got := 200, respRecorder.Result().StatusCode; want != got {
+		t.Errorf("Wrong response code; want %d; got %d", want, got)
+	}
+	if want, got := "{\"access_token\":\"mytoken\",\"expires_in\":1000,\"token_type\":\"Bearer\"}", bodyOrDie(respRecorder.Result()); want != got {
 		t.Errorf("Wrong response body; want %s; got %s", want, got)
 	}
 }

@@ -51,6 +51,9 @@ var (
 	port        = flag.Int("port", 80, "Port number to listen on")
 	robotIdFile = flag.String("robot_id_file", "", "robot-id.json file")
 	sourceCidr  = flag.String("source_cidr", "127.0.0.1/32", "CIDR giving allowed source addresses for token retrieval")
+	// Mirror gke behavior and return token with at least 5 minutes of remaining time.
+	// https://cloud.google.com/compute/docs/access/create-enable-service-accounts-for-instances#applications
+	minTokenExpiry = flag.Int("min_token_expiry", 300, "Minimum time a token needs to be valid for in seconds")
 )
 
 const deprecatedPort = 8080
@@ -70,7 +73,25 @@ type TokenHandler struct {
 	AllowedSources *net.IPNet
 	TokenSource    oauth2.TokenSource
 	Clock          func() time.Time
-	robotAuth      *robotauth.RobotAuth
+	robotAuth      auth
+}
+
+type auth interface {
+	CreateRobotTokenSource(context.Context) oauth2.TokenSource
+	projectID() string
+	robotName() string
+}
+
+type rAuth struct {
+	robotauth.RobotAuth
+}
+
+func (a rAuth) projectID() string {
+	return a.ProjectId
+}
+
+func (a rAuth) robotName() string {
+	return a.RobotName
 }
 
 type TokenResponse struct {
@@ -101,7 +122,7 @@ func (th *TokenHandler) updateRobotAuth() error {
 	if err != nil {
 		return fmt.Errorf("failed to read robot id file %s: %w", *robotIdFile, err)
 	}
-	th.robotAuth = robotAuth
+	th.robotAuth = &rAuth{*robotAuth}
 	return nil
 }
 
@@ -111,25 +132,25 @@ func (th *TokenHandler) updateRobotTokenSource(ctx context.Context) {
 
 func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler {
 	idHash := fnv.New64a()
-	idHash.Write([]byte(th.robotAuth.RobotName))
+	idHash.Write([]byte(th.robotAuth.robotName()))
 
 	var projectNumber int64
 	backoff.Retry(
 		func() error {
 			var err error
-			projectNumber, err = getProjectNumber(oauth2.NewClient(ctx, th.TokenSource), th.robotAuth.ProjectId)
+			projectNumber, err = getProjectNumber(oauth2.NewClient(ctx, th.TokenSource), th.robotAuth.projectID())
 			if err != nil {
-				log.Printf("will retry to obtain project number for %s: %v", th.robotAuth.ProjectId, err)
+				log.Printf("will retry to obtain project number for %s: %v", th.robotAuth.projectID(), err)
 			}
 			return err
 		},
 		backoff.NewConstantBackOff(5*time.Second),
 	)
 	return &MetadataHandler{
-		ClusterName:   th.robotAuth.RobotName,
-		ProjectId:     th.robotAuth.ProjectId,
+		ClusterName:   th.robotAuth.robotName(),
+		ProjectId:     th.robotAuth.projectID(),
 		ProjectNumber: projectNumber,
-		RobotName:     th.robotAuth.RobotName,
+		RobotName:     th.robotAuth.robotName(),
 		InstanceId:    idHash.Sum64(),
 		// This needs to be an actual Cloud zone so that it can be mapped
 		// to a Monarch/Stackdriver region. TODO(swolter): We should make
@@ -138,7 +159,7 @@ func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler
 	}
 }
 
-func (th TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (th *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ipPort := strings.Split(r.RemoteAddr, ":")
 	if len(ipPort) != 2 {
 		log.Printf("Unable to obtain IP from remote address %s", r.RemoteAddr)
@@ -159,14 +180,22 @@ func (th TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := th.Clock()
-	if now.After(token.Expiry) {
-		http.Error(w, "Internal access token is expired", http.StatusInternalServerError)
-		return
+	expiresInSec := int(token.Expiry.Sub(now).Seconds())
+	// fluent-bit expects expires_in - 10% > 60 seconds
+	if expiresInSec < *minTokenExpiry {
+		th.updateRobotTokenSource(r.Context())
+		token, err = th.TokenSource.Token()
+		if err != nil {
+			log.Printf("Token retrieval error: %v", err)
+			http.Error(w, fmt.Sprintf("Token retrieval failed: %v", err), http.StatusInternalServerError)
+			return
+		}
+		expiresInSec = int(token.Expiry.Sub(now).Seconds())
 	}
 
 	tokenResponse := TokenResponse{
 		AccessToken:  token.AccessToken,
-		ExpiresInSec: int(token.Expiry.Sub(now).Seconds()),
+		ExpiresInSec: expiresInSec,
 		TokenType:    token.TokenType,
 	}
 	bytes, err := json.Marshal(tokenResponse)
@@ -178,6 +207,7 @@ func (th TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Metadata-Flavor", "Google")
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	w.Write(bytes)
 	log.Printf("Served access token to %s", r.RemoteAddr)
