@@ -11,6 +11,10 @@ cr_syncer: "true"
 
 # Setting fluentd to "false" will remove the fluentd stackdriver integration.
 fluentd: "true"
+
+# Setting fluentbit to "true" will enable the fluentbit stackdriver integration.
+fluentbit: "false"
+
 # docker_data_root should match "data-root" in /etc/docker/daemon.json.
 docker_data_root: "/var/lib/docker"
 
