@@ -170,17 +170,17 @@ func (s *server) health(w http.ResponseWriter, r *http.Request) {
 // responseFilter enforces that there's at least one HttpResponse in the out
 // channel and that the first response has a status code. From the reposnses it
 // extracts and return headers, trailers, status-code and body data.
-func responseFilter(in <-chan *pb.HttpResponse) ([]*pb.HttpHeader, []*pb.HttpHeader, int, <-chan []byte) {
+func responseFilter(in <-chan *pb.HttpResponse, id string) ([]*pb.HttpHeader, []*pb.HttpHeader, int, <-chan []byte) {
 	body := make(chan []byte, 1)
 	firstMessage, more := <-in
 	if !more {
-		brokerResponses.WithLabelValues("client", "missing_message").Inc()
+		brokerResponses.WithLabelValues("client", "missing_message", id).Inc()
 		body <- []byte(fmt.Sprintf("Timeout after %v, either the backend request took too long or the relay client died", inactiveRequestTimeout))
 		close(body)
 		return nil, nil, http.StatusInternalServerError, body
 	}
 	if firstMessage.StatusCode == nil {
-		brokerResponses.WithLabelValues("client", "missing_header").Inc()
+		brokerResponses.WithLabelValues("client", "missing_header", id).Inc()
 		body <- []byte("Received no header from relay client")
 		close(body)
 		// Flush remaining messages
@@ -192,7 +192,7 @@ func responseFilter(in <-chan *pb.HttpResponse) ([]*pb.HttpHeader, []*pb.HttpHea
 	lastMessage := firstMessage
 	go func() {
 		for backendResp := range in {
-			brokerResponses.WithLabelValues("client", "ok").Inc()
+			brokerResponses.WithLabelValues("client", "ok", id).Inc()
 			body <- []byte(backendResp.Body)
 			lastMessage = backendResp
 		}
@@ -322,7 +322,7 @@ func (s *server) client(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	header, trailer, status, response := responseFilter(backendRespChan)
+	header, trailer, status, response := responseFilter(backendRespChan, backendName)
 	if header != nil {
 		unmarshalHeader(w, header)
 	}

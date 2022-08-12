@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,21 +33,21 @@ var (
 			Name: "broker_requests",
 			Help: "Number of requests to the broker",
 		},
-		[]string{"method"},
+		[]string{"method", "backend"},
 	)
 	brokerResponses = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "broker_responses",
 			Help: "Number of responses from the broker",
 		},
-		[]string{"method", "result"},
+		[]string{"method", "result", "backend"},
 	)
 	brokerResponseDurations = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name: "broker_responses_durations",
 			Help: "Time from request to final response in ms",
 		},
-		[]string{"method"},
+		[]string{"method", "backend"},
 	)
 )
 
@@ -118,7 +119,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	r.m.Unlock()
 
 	log.Printf("[%s] Enqueuing request", id)
-	brokerRequests.WithLabelValues("client").Inc()
+	brokerRequests.WithLabelValues("client", server).Inc()
 	select {
 	case reqChan <- request:
 		return respChan, nil
@@ -139,13 +140,13 @@ func (r *broker) GetRequest(ctx context.Context, server string) (*pb.HttpRequest
 	reqChan := r.req[server]
 	r.m.Unlock()
 
-	brokerRequests.WithLabelValues("server_request").Inc()
+	brokerRequests.WithLabelValues("server_request", server).Inc()
 	select {
 	case req := <-reqChan:
-		brokerResponses.WithLabelValues("server_request", "ok").Inc()
+		brokerResponses.WithLabelValues("server_request", "ok", server).Inc()
 		return req, nil
 	case <-time.After(time.Second * 30):
-		brokerResponses.WithLabelValues("server_request", "timeout").Inc()
+		brokerResponses.WithLabelValues("server_request", "timeout", server).Inc()
 		return nil, fmt.Errorf("No request received within timeout")
 	case <-ctx.Done():
 		return nil, fmt.Errorf("Server is restarting")
@@ -192,11 +193,12 @@ func (r *broker) PutRequestStream(id string, data []byte) bool {
 // request. It fails if and only if the request ID is not recognized.
 func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	id := *resp.Id
+	backendName := strings.SplitN(id, ":", 2)[0]
 	r.m.Lock()
 	pr := r.resp[id]
 	if pr == nil {
 		r.m.Unlock()
-		brokerResponses.WithLabelValues("server_response", "invalid").Inc()
+		brokerResponses.WithLabelValues("server_response", "invalid", backendName).Inc()
 		return fmt.Errorf("Duplicate or invalid request ID %s", id)
 	}
 	if resp.GetEof() {
@@ -207,13 +209,13 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	duration := time.Since(pr.startTime).Seconds()
 	pr.responseStream <- resp
 	r.m.Unlock()
-	brokerRequests.WithLabelValues("server_response").Inc()
-	brokerResponseDurations.WithLabelValues("server_response").Observe(duration)
+	brokerRequests.WithLabelValues("server_response", backendName).Inc()
+	brokerResponseDurations.WithLabelValues("server_response", backendName).Observe(duration)
 	log.Printf("[%s] Delivered response to client (%d bytes), elapsed %.3fs", id, len(resp.Body), duration)
 	if resp.GetEof() {
 		close(pr.responseStream)
 	}
-	brokerResponses.WithLabelValues("server_response", "ok").Inc()
+	brokerResponses.WithLabelValues("server_response", "ok", backendName).Inc()
 	return nil
 }
 
