@@ -7,3 +7,16 @@ global:
 
 # Install CRDs by helm chart that webhook works in different namespace as cert-manager
 installCRDs: true
+
+# Disable leader-elect for cert-manager and cainjector.
+# Since we only have one replica running, we don't
+# need leader election to ensure only one instance is active.
+# By turning this off, the leader will not update its leases in etcd every N seconds which
+# ultimately reduces etcd disk writes.
+extraArgs:
+  - --leader-elect=false
+
+cainjector:
+  extraArgs:
+    - --leader-elect=false
+
