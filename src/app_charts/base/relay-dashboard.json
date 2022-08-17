@@ -261,9 +261,9 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum by (method) (rate(broker_responses{result!~\"(ok|timeout)\"}[10m]))",
+          "expr": "sum by (method,result) (rate(broker_responses{result!~\"(ok|timeout)\"}[10m]))",
           "interval": "",
-          "legendFormat": "method=\"{{method}}\", result=\"{{result}}\"",
+          "legendFormat": "method=\"{{method}}\",result=\"{{result}}\"",
           "refId": "A"
         }
       ],
@@ -516,9 +516,9 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum by (job) (rate(broker_responses{result!~\"(ok|timeout)\"}[10m]))",
+          "expr": "sum by (job,result) (rate(broker_responses{result!~\"(ok|timeout)\"}[10m]))",
           "interval": "",
-          "legendFormat": "job=\"{{job}}\", result=\"{{result}}\"",
+          "legendFormat": "job=\"{{job}}\",result=\"{{result}}\"",
           "refId": "A"
         }
       ],
@@ -771,9 +771,9 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum by (backend) (rate(broker_responses{result!~\"(ok|timeout)\"}[10m]))",
+          "expr": "sum by (backend,result) (rate(broker_responses{result!~\"(ok|timeout)\"}[10m]))",
           "interval": "",
-          "legendFormat": "backend=\"{{backend}}\", result=\"{{result}}\"",
+          "legendFormat": "backend=\"{{backend}}\",result=\"{{result}}\"",
           "refId": "A"
         }
       ],
