@@ -1,0 +1,24 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/go/cmd/token-vendor/api:go_default_library",
+        "//src/go/cmd/token-vendor/api/v1:go_default_library",
+        "//src/go/cmd/token-vendor/app:go_default_library",
+        "//src/go/cmd/token-vendor/repository/cloudiot:go_default_library",
+    ],
+)
+
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+
+go_image(
+    name = "token-vendor",
+    base = "@cc_image_base//image",
+    embed = [":go_default_library"],
+)
