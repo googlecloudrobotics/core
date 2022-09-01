@@ -15,12 +15,20 @@
 package v1
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"path"
+	"regexp"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
+)
+
+const (
+	paramDeviceID = "device-id"
+	contentType   = "content-type"
+	pemFile       = "application/x-pem-file"
 )
 
 type HandlerContext struct {
@@ -31,8 +39,70 @@ func NewHandlerContext(tv *app.TokenVendor) *HandlerContext {
 	return &HandlerContext{tv}
 }
 
+// getQueryParam extracts a query parameter from the request.
+//
+// Multiple parameters with the same key are considered undefined and will result in error
+func getQueryParam(r *http.Request, param string) (string, error) {
+	values, ok := r.URL.Query()[param]
+	if !ok || len(values) != 1 {
+		err := fmt.Errorf("missing or multiple query parameter %s", param)
+		return "", err
+	}
+	return values[0], nil
+}
+
+// RFC952 hostnames
+var isValidDeviceIDRegex = regexp.MustCompile(`^[a-zA-Z]([a-zA-Z0-9\-]+[\.]?)*[a-zA-Z0-9]$`).MatchString
+
+// isValidDeviceID validates the given identifier for string length and characters used
+//
+// Validation is based on the RFC952 for hostnames.
+func isValidDeviceID(ID string) bool {
+	const minLen, maxLen = 3, 255
+	l := len(ID)
+	if l < minLen || l > maxLen {
+		return false
+	}
+	if !isValidDeviceIDRegex(ID) {
+		return false
+	}
+	return true
+}
+
+// Handle requests to read a device's public key by device identifier.
+//
+// Method: GET
+// URL parameter: device-id, the string identifier of the device
+//
+// Response code: 200 (even if key not found)
+// Response body: A single public key or "" if no key was found.
 func (h *HandlerContext) publicKeyReadHandler(w http.ResponseWriter, r *http.Request) {
-	api.ErrResponse(w, http.StatusInternalServerError, "not implemented yet")
+	// validate request and parameters
+	if r.Method != http.MethodGet {
+		api.ErrResponse(w, http.StatusBadRequest,
+			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
+		return
+	}
+	deviceID, err := getQueryParam(r, paramDeviceID)
+	if err != nil {
+		api.ErrResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !isValidDeviceID(deviceID) {
+		api.ErrResponse(w, http.StatusBadRequest, "invalid device id")
+		return
+	}
+	// retrieve public key from key repository
+	publicKey, err := h.tv.ReadPublicKey(r.Context(), deviceID)
+	if err != nil {
+		api.ErrResponse(w, http.StatusInternalServerError,
+			fmt.Sprintf("request failed with %v", err))
+		return
+	}
+	// for missing public keys (publicKey == "") we return 200 with
+	// empty body for conformance with the original token vendor API.
+	w.Header().Add(contentType, pemFile)
+	w.Write([]byte(publicKey))
 }
 
 func (h *HandlerContext) publicKeyPublishHandler(w http.ResponseWriter, r *http.Request) {
