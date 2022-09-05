@@ -54,7 +54,8 @@ func main() {
 	ctx := context.Background()
 
 	// init components
-	iotreg, err := cloudiot.NewCloudIoTRepository(ctx, *project, *region, *registry)
+	r := cloudiot.Registry{Project: *project, Region: *region, Registry: *registry}
+	iotreg, err := cloudiot.NewCloudIoTRepository(ctx, r, nil)
 	if err != nil {
 		log.Panic(err)
 	}
