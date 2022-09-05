@@ -176,7 +176,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum by (method) (rate(broker_requests[10m]))",
+          "expr": "sum by (method) (rate(broker_responses{result=\"ok\"}[10m]))",
           "interval": "",
           "legendFormat": "method=\"{{method}}\"",
           "refId": "A"
@@ -184,7 +184,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Broker Requests by method",
+      "title": "# of successful Broker Responses by method",
       "type": "timeseries"
     },
     {
@@ -346,7 +346,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum by (job) (rate(broker_responses{result=\"ok\"}[10m]))",
+          "expr": "sum by (job) (rate(broker_requests[10m])) ",
           "interval": "",
           "legendFormat": "job=\"{{job}}\"",
           "refId": "A"
@@ -354,7 +354,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "# of successful Broker Responses by relay",
+      "title": "Broker Requests by relay ",
       "type": "timeseries"
     },
     {
