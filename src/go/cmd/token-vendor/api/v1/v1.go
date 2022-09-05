@@ -95,8 +95,8 @@ func (h *HandlerContext) publicKeyReadHandler(w http.ResponseWriter, r *http.Req
 	// retrieve public key from key repository
 	publicKey, err := h.tv.ReadPublicKey(r.Context(), deviceID)
 	if err != nil {
-		api.ErrResponse(w, http.StatusInternalServerError,
-			fmt.Sprintf("request failed with %v", err))
+		api.ErrResponse(w, http.StatusInternalServerError, "request to repository failed")
+		log.Printf("%v\n", err)
 		return
 	}
 	// for missing public keys (publicKey == "") we return 200 with

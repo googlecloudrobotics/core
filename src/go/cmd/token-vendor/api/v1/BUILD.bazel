@@ -14,5 +14,10 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = ["v1_test.go"],
+    data = glob(["testdata/**"]),
     embed = [":go_default_library"],
+    deps = [
+        "//src/go/cmd/token-vendor/app:go_default_library",
+        "//src/go/cmd/token-vendor/repository/cloudiot:go_default_library",
+    ],
 )

@@ -43,7 +43,7 @@ func (tv *TokenVendor) PublishPublicKey(ctx context.Context, deviceID, publicKey
 }
 
 func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (string, error) {
-	panic("not implemented")
+	return tv.repo.LookupKey(ctx, deviceID)
 }
 
 func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwt string) (*GCPTokenResponse, error) {

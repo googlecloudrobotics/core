@@ -1,0 +1,19 @@
+{
+    "id": "robot-dev-device",
+    "name": "projects/testproject/locations/europe-west1/registries/cloud-robotics/devices/3072877074145970",
+    "numId": "3072877074145970",
+    "credentials": [
+      {
+        "publicKey": {
+          "format": "RSA_PEM",
+          "key": "a_public_key"
+        },
+        "expirationTime": "1970-01-01T00:00:00Z"
+      }
+    ],
+    "config": {
+      "version": "1",
+      "cloudUpdateTime": "2022-08-18T15:36:53.627428Z"
+    },
+    "gatewayConfig": {}
+  }
