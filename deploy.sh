@@ -357,6 +357,7 @@ function helm_charts {
     --set-string oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}
     --set-string oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}
     --set-string oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}
+    --set use_go_token_vendor=${CRC_USE_GO_TOKEN_VENDOR}
 EOF
 )
 

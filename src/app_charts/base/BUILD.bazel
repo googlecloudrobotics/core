@@ -75,6 +75,7 @@ app_chart(
     images = {
         "app-rollout-controller": "//src/go/cmd/app-rollout-controller",
         "chart-assignment-controller": "//src/go/cmd/chart-assignment-controller",
+        "token-vendor-go": "//src/go/cmd/token-vendor:token-vendor-go",
         "token-vendor": "//src/java/com/cloudrobotics/tokenvendor:token_vendor",
     },
     values = "values-cloud.yaml",
