@@ -23,6 +23,7 @@ import (
 
 	"github.com/pkg/errors"
 	iot "google.golang.org/api/cloudiot/v1"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 )
 
@@ -58,8 +59,8 @@ func (c *CloudIoTRepository) PublishKey(ctx context.Context, deviceID, publicKey
 
 // LookupKey retrieves the public key of a device from the IoT registry.
 //
-// An empty string return indicates that no key exists for the given identifier. If multiple
-// keys are found only the first is returned.
+// An empty string return indicates that no key exists for the given identifier or
+// that the device is blocked. If multiple keys are found only the first is returned.
 func (c *CloudIoTRepository) LookupKey(ctx context.Context, deviceID string) (string, error) {
 	if c.service == nil {
 		return "", fmt.Errorf("IoT client not initialized")
@@ -68,10 +69,18 @@ func (c *CloudIoTRepository) LookupKey(ctx context.Context, deviceID string) (st
 	device, err := c.service.Projects.Locations.Registries.Devices.
 		Get(path).Context(ctx).FieldMask("credentials,blocked").Do()
 	if err != nil {
+		gerr, ok := err.(*googleapi.Error)
+		if !ok {
+			return "", errors.Wrap(err, "unknown googleapi error")
+		}
+		if gerr.Code == http.StatusNotFound {
+			return "", nil
+		}
 		return "", errors.Wrap(err, "key lookup failed")
 	}
 	if device.Blocked {
-		return "", fmt.Errorf("device %q is blocked, not returning keys", path)
+		log.Printf("device %q is blocked, not returning keys", path)
+		return "", nil
 	}
 	keys := extractValidKeys(device)
 	if len(keys) == 0 {
