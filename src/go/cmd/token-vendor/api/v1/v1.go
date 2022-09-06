@@ -15,7 +15,10 @@
 package v1
 
 import (
+	"bytes"
+	"encoding/pem"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"path"
@@ -105,8 +108,68 @@ func (h *HandlerContext) publicKeyReadHandler(w http.ResponseWriter, r *http.Req
 	w.Write([]byte(publicKey))
 }
 
+// Handle requests to publish the public key of a given device identifier.
+//
+// Method: POST
+// URL parameter: device-id, the identifier of the device
+// Request body: a single public key to publish
+// Response code: 200 if publish succeeded
 func (h *HandlerContext) publicKeyPublishHandler(w http.ResponseWriter, r *http.Request) {
-	api.ErrResponse(w, http.StatusInternalServerError, "not implemented yet")
+	// validate request and parameters
+	if r.Method != http.MethodPost {
+		api.ErrResponse(w, http.StatusBadRequest,
+			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodPost))
+		return
+	}
+	deviceID, err := getQueryParam(r, paramDeviceID)
+	if err != nil {
+		api.ErrResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !isValidDeviceID(deviceID) {
+		api.ErrResponse(w, http.StatusBadRequest, "invalid device id")
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		api.ErrResponse(w, http.StatusInternalServerError, "failed to read request body")
+		return
+	}
+	_, err = isValidPublicKey(body)
+	if err != nil {
+		api.ErrResponse(w, http.StatusBadRequest, fmt.Sprintf("public key format error %v", err))
+		return
+	}
+	// publish the key
+	err = h.tv.PublishPublicKey(r.Context(), deviceID, string(body))
+	if err != nil {
+		api.ErrResponse(w, http.StatusInternalServerError, "publish key failed")
+		log.Printf("%v\n", err)
+		return
+	}
+}
+
+// isValidPublicKeyFormat validates the given public key in PEM format.
+//
+// The returned error provides details on why the validation failed.
+func isValidPublicKey(pk []byte) (bool, error) {
+	const minSize, maxSize = 100, 18000 // educated guesses, technically unlimited
+	if len(pk) < minSize || len(pk) > maxSize {
+		return false, fmt.Errorf("invalid key size, assert %d <= %d <= %d", minSize, len(pk), maxSize)
+	}
+	pk = bytes.TrimSpace(pk)
+	var pkStart = []byte("-----BEGIN ")
+	if !bytes.HasPrefix(pk, pkStart) {
+		return false, fmt.Errorf("public key suffix %q missing", pk)
+	}
+	block, extraData := pem.Decode(pk)
+	if len(extraData) > 0 {
+		return false, fmt.Errorf("public key contains extra data (%d Bytes)", len(extraData))
+	}
+	if block == nil || block.Type != "PUBLIC KEY" {
+		return false, fmt.Errorf("failed to decode PEM block expecting public key")
+	}
+	return true, nil
 }
 
 func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Request) {

@@ -39,7 +39,7 @@ func NewTokenVendor(ctx context.Context, repo PubKeyRepository) (*TokenVendor, e
 }
 
 func (tv *TokenVendor) PublishPublicKey(ctx context.Context, deviceID, publicKey string) error {
-	panic("not implemented")
+	return tv.repo.PublishKey(ctx, deviceID, publicKey)
 }
 
 func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (string, error) {
