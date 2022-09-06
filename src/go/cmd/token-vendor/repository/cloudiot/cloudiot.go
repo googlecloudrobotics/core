@@ -52,11 +52,6 @@ func NewCloudIoTRepository(ctx context.Context, r Registry, client *http.Client)
 	return repo, nil
 }
 
-// PublishKey publishes a public key to the device registry.
-func (c *CloudIoTRepository) PublishKey(ctx context.Context, deviceID, publicKey string) error {
-	panic("not implemented yet")
-}
-
 // LookupKey retrieves the public key of a device from the IoT registry.
 //
 // An empty string return indicates that no key exists for the given identifier or
@@ -65,21 +60,15 @@ func (c *CloudIoTRepository) LookupKey(ctx context.Context, deviceID string) (st
 	if c.service == nil {
 		return "", fmt.Errorf("IoT client not initialized")
 	}
-	path := c.devicePath(deviceID)
-	device, err := c.service.Projects.Locations.Registries.Devices.
-		Get(path).Context(ctx).FieldMask("credentials,blocked").Do()
+	device, err := c.retrieveDevice(ctx, deviceID, "credentials,blocked")
 	if err != nil {
-		gerr, ok := err.(*googleapi.Error)
-		if !ok {
-			return "", errors.Wrap(err, "unknown googleapi error")
-		}
-		if gerr.Code == http.StatusNotFound {
-			return "", nil
-		}
-		return "", errors.Wrap(err, "key lookup failed")
+		return "", errors.Wrapf(err, "failed to retrieve device %q", deviceID)
+	}
+	if device == nil {
+		return "", nil
 	}
 	if device.Blocked {
-		log.Printf("device %q is blocked, not returning keys", path)
+		log.Printf("device %q is blocked, not returning keys", deviceID)
 		return "", nil
 	}
 	keys := extractValidKeys(device)
@@ -89,7 +78,7 @@ func (c *CloudIoTRepository) LookupKey(ctx context.Context, deviceID string) (st
 	// only return the first key if multiple are found
 	// the API does not support multiple keys anyway
 	if len(keys) > 1 {
-		log.Printf("multiple keys found for device %q, only returning first", path)
+		log.Printf("multiple keys found for device %q, only returning first", deviceID)
 	}
 	return keys[0], nil
 }
@@ -116,7 +105,7 @@ func extractValidKeys(device *iot.Device) (publicKeys []string) {
 		}
 		expired, err := isExpired(cred)
 		if err != nil {
-			log.Printf("%s, ignoring key", err.Error())
+			log.Printf("ignoring key %v", err)
 			continue
 		}
 		if expired {
@@ -141,11 +130,87 @@ func isExpired(cred *iot.DeviceCredential) (bool, error) {
 	}
 	exp, err := time.Parse(time.RFC3339Nano, cred.ExpirationTime)
 	if err != nil {
-		return true, errors.Wrapf(err, "failed to parse expiration time %s", cred.ExpirationTime)
+		return true, errors.Wrapf(err, "failed to parse expiration time %q", cred.ExpirationTime)
 	}
 	now := time.Now()
 	if exp.Before(now) || exp.Equal(now) {
 		return true, nil
 	}
 	return false, nil
+}
+
+// PublishKey updates the public key of a device.
+//
+// Creates a new device if the given device identifier does not exist.
+// Blocked devices can be updated.
+func (c *CloudIoTRepository) PublishKey(ctx context.Context, deviceID, publicKey string) error {
+	if c.service == nil {
+		return fmt.Errorf("IoT client not initialized")
+	}
+	device, err := c.retrieveDevice(ctx, deviceID, "blocked")
+	if err != nil {
+		return errors.Wrap(err, "failed to retrieve device")
+	}
+	if device != nil { // device exists already, updating it
+		err = c.updatePublicKey(ctx, deviceID, publicKey)
+		if err != nil {
+			return errors.Wrap(err, "failed to update key for existing device")
+		}
+		log.Printf("updated key for existing device %q", deviceID)
+	} else { // device does not exist, needs to be created
+		err = c.createDeviceWithPublicKey(ctx, deviceID, publicKey)
+		if err != nil {
+			return errors.Wrapf(err, "failed to create device %q", deviceID)
+		}
+		log.Printf("created device %q", deviceID)
+	}
+	return nil
+}
+
+// retrieveDevice retrieves a device object from the registry.
+//
+// If the device is not found, (nil, nil) is returned. Blocked
+// devices are returned.
+func (c *CloudIoTRepository) retrieveDevice(ctx context.Context, deviceID, fieldMask string) (*iot.Device, error) {
+	path := c.devicePath(deviceID)
+	device, err := c.service.Projects.Locations.Registries.Devices.
+		Get(path).Context(ctx).FieldMask(fieldMask).Do()
+	if err != nil {
+		gerr, ok := err.(*googleapi.Error)
+		if !ok {
+			return nil, errors.Wrapf(err, "unknown googleapi error accessing path %q", path)
+		}
+		if gerr.Code == http.StatusNotFound {
+			return nil, nil
+		}
+		return nil, errors.Wrapf(err, "device lookup failed accessing path %q", path)
+	}
+	return device, nil
+}
+
+// Update the public key of an existing device in the registry
+func (iotr *CloudIoTRepository) updatePublicKey(ctx context.Context, deviceId, publicKey string) error {
+	device := deviceWithPublicKey(publicKey)
+	_, err := iotr.service.Projects.Locations.Registries.Devices.
+		Patch(iotr.devicePath(deviceId), device).UpdateMask("credentials").Do()
+	return err
+}
+
+// Prepopulate an iot.Device struct with a public key credential
+func deviceWithPublicKey(publicKey string) *iot.Device {
+	credentials := []*iot.DeviceCredential{
+		{
+			PublicKey: &iot.PublicKeyCredential{Format: "RSA_PEM", Key: publicKey},
+		},
+	}
+	return &iot.Device{Credentials: credentials}
+}
+
+// Register a new device in the registry with a given public key
+func (iotr *CloudIoTRepository) createDeviceWithPublicKey(ctx context.Context, deviceId, publicKey string) error {
+	device := deviceWithPublicKey(publicKey)
+	device.Id = deviceId
+	_, err := iotr.service.Projects.Locations.Registries.Devices.
+		Create(iotr.registryPath(), device).Do()
+	return err
 }
