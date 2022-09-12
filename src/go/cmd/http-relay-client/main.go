@@ -36,6 +36,7 @@ import (
 	"net/url"
 	"os"
 	"sync"
+	"syscall"
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
@@ -471,6 +472,8 @@ func localProxy(remote *http.Client, local *http.Client) error {
 			return err
 		} else if errors.Is(err, ErrForbidden) {
 			log.Fatalf("failed to authenticate to cloud-api, restarting: %v", err)
+		} else if errors.Is(err, syscall.ECONNREFUSED) {
+			log.Fatalf("failed to connect to cloud-api, restarting: %v", err)
 		} else {
 			return fmt.Errorf("failed to get request from relay: %v", err)
 		}
