@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -252,6 +253,111 @@ func TestIsValidPublicKey(t *testing.T) {
 			}
 			if test.isValid && err != nil || !test.isValid && err == nil {
 				t.Errorf("isValidPublicKey(..): is %v, but got error %v", test.isValid, err)
+			}
+		})
+	}
+}
+
+type isValidTokenTest struct {
+	desc    string
+	token   string
+	isValid bool
+}
+
+func TestIsValidToken(t *testing.T) {
+	const p = "ya29."
+	var cases = []isValidTokenTest{
+		// valid
+		{"valid", p + "a_bc-D0348" + strings.Repeat("a", 100), true},
+		//invalid
+		{"empty", "", false}, {"too short", "abc", false},
+		{"wrong prefix", "ya244" + strings.Repeat("a", 100), false},
+		{"new line", p + strings.Repeat("a", 100) + "\n" + p + strings.Repeat("a", 100), false},
+		{"wrong characters", p + strings.Repeat("a", 100) + "#!", false},
+	}
+	for _, test := range cases {
+		t.Run(test.desc, func(t *testing.T) {
+			gotValid, gotErr := isValidToken(test.token)
+			if gotValid != test.isValid {
+				t.Errorf("isValidToken(%q): is %v, got %v", test.token, test.isValid, gotValid)
+				return
+			}
+			if (test.isValid && gotErr != nil) || (!test.isValid && gotErr == nil) {
+				t.Errorf("isValidToken(%q): is %v, but got error %v",
+					test.token, test.isValid, gotErr)
+			}
+		})
+	}
+}
+
+type tokenFromRequestTest struct {
+	desc    string
+	h       http.Header
+	u       *url.URL
+	isToken string
+	isErr   bool
+}
+
+func TestTokenFromRequest(t *testing.T) {
+	validToken := `ya29.a_bc-d` + strings.Repeat("a", 100)
+	validUrl, _ := url.Parse("http://127.0.0.1:80/?token=" + validToken)
+	var cases = []tokenFromRequestTest{
+		{
+			"token in auth header",
+			http.Header{"Authorization": {"Bearer: " + validToken}},
+			&url.URL{},
+			validToken,
+			false,
+		},
+		{
+			"invalid auth header",
+			http.Header{"Authorization": {"SomethingElse: " + validToken}},
+			&url.URL{},
+			"",
+			true,
+		},
+		{
+			"token in x forwarded header",
+			http.Header{"X-Forwarded-Access-Token": {validToken}},
+			&url.URL{},
+			validToken,
+			false,
+		},
+		{
+			"invalid token in x forwarded header",
+			http.Header{"X-Forwarded-Access-Token": {"InvalidTokenString"}},
+			&url.URL{},
+			validToken,
+			true,
+		},
+		{
+			"token in URL",
+			http.Header{},
+			validUrl,
+			validToken,
+			false,
+		},
+		{
+			"no token",
+			http.Header{},
+			&url.URL{},
+			"",
+			true,
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.desc, func(t *testing.T) {
+			gotToken, gotErr := tokenFromRequest(test.u, &test.h)
+			if test.isErr && gotErr == nil || !test.isErr && gotErr != nil {
+				t.Errorf("tokenFromRequest(..): error is %v, but got error %v", test.isErr, gotErr)
+				return
+			}
+			if gotErr != nil {
+				return
+			}
+			if gotToken != test.isToken {
+				t.Errorf("tokenFromRequest(..): is %q, got %q", test.isToken, gotToken)
+				return
 			}
 		})
 	}

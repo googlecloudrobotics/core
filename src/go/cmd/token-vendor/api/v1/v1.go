@@ -21,8 +21,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"path"
 	"regexp"
+	"strings"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
@@ -42,11 +44,11 @@ func NewHandlerContext(tv *app.TokenVendor) *HandlerContext {
 	return &HandlerContext{tv}
 }
 
-// getQueryParam extracts a query parameter from the request.
+// getQueryParam extracts a query parameter from the request URL.
 //
 // Multiple parameters with the same key are considered undefined and will result in error
-func getQueryParam(r *http.Request, param string) (string, error) {
-	values, ok := r.URL.Query()[param]
+func getQueryParam(u *url.URL, param string) (string, error) {
+	values, ok := u.Query()[param]
 	if !ok || len(values) != 1 {
 		err := fmt.Errorf("missing or multiple query parameter %s", param)
 		return "", err
@@ -86,7 +88,7 @@ func (h *HandlerContext) publicKeyReadHandler(w http.ResponseWriter, r *http.Req
 			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
 		return
 	}
-	deviceID, err := getQueryParam(r, paramDeviceID)
+	deviceID, err := getQueryParam(r.URL, paramDeviceID)
 	if err != nil {
 		api.ErrResponse(w, http.StatusBadRequest, err.Error())
 		return
@@ -121,7 +123,7 @@ func (h *HandlerContext) publicKeyPublishHandler(w http.ResponseWriter, r *http.
 			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodPost))
 		return
 	}
-	deviceID, err := getQueryParam(r, paramDeviceID)
+	deviceID, err := getQueryParam(r.URL, paramDeviceID)
 	if err != nil {
 		api.ErrResponse(w, http.StatusBadRequest, err.Error())
 		return
@@ -176,8 +178,107 @@ func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Reque
 	api.ErrResponse(w, http.StatusInternalServerError, "not implemented yet")
 }
 
+// Handle requests to verify if a given token has cloud access.
+//
+// The token is verified by testing if the token has `iam.serviceAccounts.actAs`
+// authorization on either the `humanacl` or `robot-service` account by
+// calling the GCP testIamPermissions API.
+//
+// Method: GET
+// URL Parameters:
+// - robots (optional): "true" to verify against `robot-service` role, else `humanacl`
+// - token (optional): access token, if not given via header
+// Headers (optional): X_FORWARDED_ACCESS_TOKEN or AUTHORIZATION
+// See function `tokenFromRequest` for details on how to supply the token.
 func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
-	api.ErrResponse(w, http.StatusInternalServerError, "not implemented yet")
+	if r.Method != http.MethodGet {
+		api.ErrResponse(w, http.StatusBadRequest,
+			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
+		return
+	}
+	robots := testForRobotACL(r.URL)
+	token, err := tokenFromRequest(r.URL, &r.Header)
+	if err != nil {
+		api.ErrResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	err = h.tv.VerifyToken(r.Context(), token, robots)
+	if err != nil {
+		api.ErrResponse(w, http.StatusForbidden, "unable to verify token")
+		log.Printf("%v\n", err)
+		return
+	}
+	w.Write([]byte("OK"))
+}
+
+// testForRobotACL determines if the "robots" parameter is set.
+func testForRobotACL(u *url.URL) bool {
+	robots, err := getQueryParam(u, "robots")
+	if err != nil || robots != "true" {
+		return false
+	}
+	return true
+}
+
+// tokenFromRequest extracts the access token from the request.
+//
+// The access token can be supplied in one of the following ways, checked in the
+// give order. This is based on the specification of the original java token vendor.
+// 1. Header `X-Forwarded-Access-Token`: Token without prefix
+// 2. Header `Authorization`: Token with "Bearer: " prefix
+// 3. URL Parameter `token`
+func tokenFromRequest(u *url.URL, h *http.Header) (string, error) {
+	const fwdToken = "X-Forwarded-Access-Token"
+	if t := h.Get(fwdToken); t != "" {
+		if _, err := isValidToken(t); err != nil {
+			return "", err
+		}
+		return t, nil
+	}
+	const authHeader, authPrefix = "Authorization", "Bearer: "
+	if t := h.Get(authHeader); t != "" {
+		if !strings.HasPrefix(t, authPrefix) {
+			return "", fmt.Errorf("token in header %q has no prefix %q",
+				authHeader, authPrefix)
+		}
+		t = strings.TrimPrefix(t, authPrefix)
+		if _, err := isValidToken(t); err != nil {
+			return "", err
+		}
+		return t, nil
+	}
+	const paramToken = "token"
+	t, err := getQueryParam(u, paramToken)
+	if err != nil {
+		return "", fmt.Errorf("no token in headers %q or %q and unable to get token from URL param %q: %v",
+			fwdToken, authHeader, paramToken, err)
+	}
+	_, err = isValidToken(t)
+	if err != nil {
+		return "", err
+	}
+	return t, nil
+}
+
+const tokenRegex = `^ya29\.[a-zA-Z0-9\.\-_]+$`
+
+var tokenMatch = regexp.MustCompile(tokenRegex).MatchString
+
+// isValidToken verifies the format of the token string.
+//
+// The returned error provides details on why the validation failed.
+func isValidToken(token string) (bool, error) {
+	// Minimum length is dummy, maximum from documentation
+	// Source: https://cloud.google.com/iam/docs/reference/sts/rest/v1/TopLevel/token#response-body
+	const minSize, maxSize = 100, 12288
+	if len(token) < minSize || len(token) > maxSize {
+		return false, fmt.Errorf("invalid token size, assert %d <= %d <= %d",
+			minSize, len(token), maxSize)
+	}
+	if !tokenMatch(token) {
+		return false, fmt.Errorf("token failed validation against %q", tokenRegex)
+	}
+	return true, nil
 }
 
 // Register the API V1 API handler functions to the default http.DefaultServeMux

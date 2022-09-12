@@ -50,6 +50,6 @@ func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwt string) (*GCPToke
 	panic("not implemented")
 }
 
-func (tv *TokenVendor) VerifyToken(ctx context.Context, jwt string, robots bool) error {
+func (tv *TokenVendor) VerifyToken(ctx context.Context, token string, robots bool) error {
 	panic("not implemented")
 }
