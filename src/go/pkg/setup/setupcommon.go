@@ -141,7 +141,7 @@ func WaitForDNS(domain string, retries uint64) error {
 			log.Printf("... Retry dns for %q", domain)
 		},
 	); err != nil {
-		return fmt.Errorf("DNS lookup for %q failed: %v", domain, err)
+		return fmt.Errorf("DNS lookup for %q failed: %w", domain, err)
 	}
 
 	return nil
@@ -163,7 +163,7 @@ func WaitForService(client *http.Client, url string, retries uint64) error {
 			log.Printf("... Retry service for %q", url)
 		},
 	); err != nil {
-		return fmt.Errorf("service probe for %q failed: %v", url, err)
+		return fmt.Errorf("service probe for %q failed: %w", url, err)
 	}
 
 	return nil
@@ -176,10 +176,10 @@ func PublishCredentialsToCloud(client *http.Client, auth *robotauth.RobotAuth, r
 		return fmt.Errorf("Missing key in given auth object")
 	}
 	if err := isKeyRegistryAvailable(auth, client, retries); err != nil {
-		return fmt.Errorf("Failed to connect to cloud key registry: %v", err)
+		return fmt.Errorf("Failed to connect to cloud key registry: %w", err)
 	}
 	if err := publishPublicKeyToCloudRegistry(auth, client); err != nil {
-		return fmt.Errorf("Failed to register key with cloud key registry: %v", err)
+		return fmt.Errorf("Failed to register key with cloud key registry: %w", err)
 	}
 	return nil
 }
@@ -188,7 +188,7 @@ func isKeyRegistryAvailable(auth *robotauth.RobotAuth, client *http.Client, retr
 	// Make sure the cloud cluster take requests
 	url := fmt.Sprintf("https://%s/apis/core.token-vendor/v1/public-key.read", auth.Domain)
 	if err := WaitForService(client, url, retries); err != nil {
-		log.Fatalf("Failed to connect to the cloud cluster: %s. Please retry in 5 minutes.", err)
+		return fmt.Errorf("Failed to connect to the cloud cluster: %w. Please retry in 5 minutes.", err)
 	}
 	return nil
 }
@@ -210,7 +210,7 @@ func publishPublicKeyToCloudRegistry(auth *robotauth.RobotAuth, client *http.Cli
 		url, "application/x-pem-file", strings.NewReader(string(pubKey)))
 
 	if err != nil {
-		return fmt.Errorf("publishing the token failed: %v", err)
+		return fmt.Errorf("publishing the token failed: %w", err)
 	} else if response.StatusCode != http.StatusOK {
 		responseBody := new(bytes.Buffer)
 		responseBody.ReadFrom(response.Body)
@@ -288,7 +288,7 @@ func CreateOrUpdateRobot(ctx context.Context, client dynamic.ResourceInterface, 
 			_, err := client.Create(ctx, robot, metav1.CreateOptions{})
 			return err
 		} else {
-			return fmt.Errorf("Failed to get robot %v: %v", robotName, err)
+			return fmt.Errorf("Failed to get robot %v: %w", robotName, err)
 		}
 	}
 
