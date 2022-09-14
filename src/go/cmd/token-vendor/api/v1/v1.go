@@ -28,6 +28,7 @@ import (
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 )
 
 const (
@@ -202,7 +203,7 @@ func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Reque
 		api.ErrResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	err = h.tv.VerifyToken(r.Context(), token, robots)
+	err = h.tv.VerifyToken(r.Context(), oauth.Token(token), robots)
 	if err != nil {
 		api.ErrResponse(w, http.StatusForbidden, "unable to verify token")
 		log.Printf("%v\n", err)
@@ -225,7 +226,7 @@ func testForRobotACL(u *url.URL) bool {
 // The access token can be supplied in one of the following ways, checked in the
 // give order. This is based on the specification of the original java token vendor.
 // 1. Header `X-Forwarded-Access-Token`: Token without prefix
-// 2. Header `Authorization`: Token with "Bearer: " prefix
+// 2. Header `Authorization`: Token with "Bearer " prefix
 // 3. URL Parameter `token`
 func tokenFromRequest(u *url.URL, h *http.Header) (string, error) {
 	const fwdToken = "X-Forwarded-Access-Token"
@@ -235,7 +236,7 @@ func tokenFromRequest(u *url.URL, h *http.Header) (string, error) {
 		}
 		return t, nil
 	}
-	const authHeader, authPrefix = "Authorization", "Bearer: "
+	const authHeader, authPrefix = "Authorization", "Bearer "
 	if t := h.Get(authHeader); t != "" {
 		if !strings.HasPrefix(t, authPrefix) {
 			return "", fmt.Errorf("token in header %q has no prefix %q",

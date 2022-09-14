@@ -19,11 +19,13 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"path"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api"
 	apiv1 "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api/v1"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/cloudiot"
 )
 
@@ -59,7 +61,8 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-	tv, err := app.NewTokenVendor(ctx, iotreg)
+	verifier, err := oauth.NewTokenVerifier(ctx, &http.Client{}, *project)
+	tv, err := app.NewTokenVendor(ctx, iotreg, verifier)
 	if err != nil {
 		log.Panic(err)
 	}

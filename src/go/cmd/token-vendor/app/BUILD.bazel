@@ -5,4 +5,5 @@ go_library(
     srcs = ["tokenvendor.go"],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app",
     visibility = ["//visibility:public"],
+    deps = ["//src/go/cmd/token-vendor/oauth:go_default_library"],
 )

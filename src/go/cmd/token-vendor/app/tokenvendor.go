@@ -16,6 +16,8 @@ package app
 
 import (
 	"context"
+
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 )
 
 type GCPTokenResponse struct {
@@ -32,10 +34,11 @@ type PubKeyRepository interface {
 
 type TokenVendor struct {
 	repo PubKeyRepository
+	v    *oauth.TokenVerifier
 }
 
-func NewTokenVendor(ctx context.Context, repo PubKeyRepository) (*TokenVendor, error) {
-	return &TokenVendor{repo: repo}, nil
+func NewTokenVendor(ctx context.Context, repo PubKeyRepository, v *oauth.TokenVerifier) (*TokenVendor, error) {
+	return &TokenVendor{repo: repo, v: v}, nil
 }
 
 func (tv *TokenVendor) PublishPublicKey(ctx context.Context, deviceID, publicKey string) error {
@@ -50,6 +53,12 @@ func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwt string) (*GCPToke
 	panic("not implemented")
 }
 
-func (tv *TokenVendor) VerifyToken(ctx context.Context, token string, robots bool) error {
-	panic("not implemented")
+func (tv *TokenVendor) VerifyToken(ctx context.Context, token oauth.Token, robots bool) error {
+	var acl string
+	if robots {
+		acl = "robot-service"
+	} else {
+		acl = "human-acl"
+	}
+	return tv.v.Verify(ctx, token, acl)
 }

@@ -9,10 +9,12 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/cloudiot"
 )
 
@@ -112,7 +114,7 @@ func runPublicKeyReadHandlerWithIoTCase(t *testing.T, test *publicKeyReadHandler
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), r)
+	tv, err := app.NewTokenVendor(context.TODO(), r, nil)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -157,7 +159,7 @@ func mustSetupAppHandlerWithIoT(t *testing.T, client *http.Client) *HandlerConte
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), r)
+	tv, err := app.NewTokenVendor(context.TODO(), r, nil)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -304,7 +306,7 @@ func TestTokenFromRequest(t *testing.T) {
 	var cases = []tokenFromRequestTest{
 		{
 			"token in auth header",
-			http.Header{"Authorization": {"Bearer: " + validToken}},
+			http.Header{"Authorization": {"Bearer " + validToken}},
 			&url.URL{},
 			validToken,
 			false,
@@ -360,5 +362,99 @@ func TestTokenFromRequest(t *testing.T) {
 				return
 			}
 		})
+	}
+}
+
+type VerifyTokenHandlerTest struct {
+	desc string
+	// handler request variables (test -> handler)
+	reqIsRobots bool
+	// IAM request variables (token verifier -> GCP IAM)
+	iamReqIsUrl string
+	// fake IAM response variables (GCP IAM -> token verifier)
+	iamRespPermissions string
+	iamRespStatusCode  int
+	// handler response variables (handler -> test)
+	handlerIsStatusCode int
+}
+
+func TestVerifyTokenHandler(t *testing.T) {
+	const permHappy = `{"permissions":["iam.serviceAccounts.actAs"]}`
+	const permBad = `{"permissions":[]}`
+	const isUrlRobotsACL = "https://iam.googleapis.com/v1/projects/testproject/serviceAccounts/robot-service@testproject.iam.gserviceaccount.com:testIamPermissions?alt=json&prettyPrint=false"
+	const isUrlHumanACL = "https://iam.googleapis.com/v1/projects/testproject/serviceAccounts/human-acl@testproject.iam.gserviceaccount.com:testIamPermissions?alt=json&prettyPrint=false"
+
+	var cases = []VerifyTokenHandlerTest{
+		{"human-acl happy path", false, isUrlHumanACL, permHappy, http.StatusOK, http.StatusOK},
+		{"human-acl missing permission", false, isUrlHumanACL, permBad, http.StatusOK, http.StatusForbidden},
+		{"robots-service happy path", true, isUrlRobotsACL, permHappy, http.StatusOK, http.StatusOK},
+		{"error from GCP IAM", true, isUrlRobotsACL, permHappy, http.StatusBadRequest, http.StatusForbidden},
+	}
+
+	for _, test := range cases {
+		t.Run(test.desc, func(t *testing.T) {
+			runVerifyTokenHandlerTest(t, &test)
+		})
+	}
+}
+
+func runVerifyTokenHandlerTest(t *testing.T, test *VerifyTokenHandlerTest) {
+	isToken := "ya29." + strings.Repeat("a", 100)
+	// fake IAM response
+	fakeIAMHandler := func(req *http.Request) *http.Response {
+		if req.Method != http.MethodPost {
+			t.Fatalf("unexpected request method %q", req.Method)
+		}
+		if req.URL.String() != test.iamReqIsUrl {
+			t.Fatalf("wrong POST URL, is %q, got %q", test.iamReqIsUrl, req.URL)
+		}
+		auth := req.Header.Get("Authorization")
+		if !strings.HasPrefix(auth, "Bearer ") {
+			t.Fatal("missing auth bearer prefix")
+		}
+		gotToken := strings.TrimPrefix(auth, "Bearer ")
+		if isToken != gotToken {
+			t.Fatalf("wrong token, is %q, got %q", isToken, gotToken)
+		}
+		// only check if the permission is in the request body and not unmarshal the whole json
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		if !strings.Contains(string(body), "iam.serviceAccounts.actAs") {
+			t.Fatalf("request does not contain expected permission")
+		}
+		// respond with the requested permissions
+		return &http.Response{
+			StatusCode: test.iamRespStatusCode,
+			Body:       io.NopCloser(strings.NewReader(test.iamRespPermissions)),
+			Header:     make(http.Header),
+		}
+	}
+
+	// setup app and http client
+	client := NewTestHTTPClient(fakeIAMHandler)
+	tver, err := oauth.NewTokenVerifier(context.TODO(), client, "testproject")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	tv, err := app.NewTokenVendor(context.TODO(), nil, tver)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	h := &HandlerContext{tv: tv}
+
+	// make request to the handler
+	rr := httptest.NewRecorder()
+	req := mustNewRequest(t, "GET", "/anything", nil)
+	req.Header.Add("Authorization", "Bearer "+isToken)
+	q := req.URL.Query()
+	q.Add("robots", strconv.FormatBool(test.reqIsRobots))
+	req.URL.RawQuery = q.Encode()
+	h.verifyTokenHandler(rr, req)
+
+	// check response
+	if rr.Code != test.handlerIsStatusCode {
+		t.Errorf("wrong status code, is %d, got %d", test.handlerIsStatusCode, rr.Code)
 	}
 }

@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//src/go/cmd/token-vendor/api:go_default_library",
         "//src/go/cmd/token-vendor/app:go_default_library",
+        "//src/go/cmd/token-vendor/oauth:go_default_library",
     ],
 )
 
@@ -18,6 +19,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//src/go/cmd/token-vendor/app:go_default_library",
+        "//src/go/cmd/token-vendor/oauth:go_default_library",
         "//src/go/cmd/token-vendor/repository/cloudiot:go_default_library",
     ],
 )
