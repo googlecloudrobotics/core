@@ -292,6 +292,36 @@ func TestIsValidToken(t *testing.T) {
 	}
 }
 
+type isValidJWTTest struct {
+	desc      string
+	token     string
+	wantValid bool
+}
+
+func TestIsValidJWT(t *testing.T) {
+	var cases = []isValidJWTTest{
+		// valid
+		{"valid", "a_bc-D0348" + strings.Repeat("a", 100), true},
+		//invalid
+		{"empty", "", false}, {"too short", "abc", false},
+		{"new line", strings.Repeat("a", 100) + "\n" + strings.Repeat("a", 100), false},
+		{"wrong characters", strings.Repeat("a", 100) + "#!", false},
+	}
+	for _, test := range cases {
+		t.Run(test.desc, func(t *testing.T) {
+			gotValid, gotErr := isValidJWT(test.token)
+			if gotValid != test.wantValid {
+				t.Errorf("isValidJWT(%q): got %v, want %v", test.token, gotValid, test.wantValid)
+				return
+			}
+			if (test.wantValid && gotErr != nil) || (!test.wantValid && gotErr == nil) {
+				t.Errorf("isValidJWT(%q): got error %v, want %v",
+					test.token, gotErr, test.wantValid)
+			}
+		})
+	}
+}
+
 type tokenFromRequestTest struct {
 	desc    string
 	h       http.Header

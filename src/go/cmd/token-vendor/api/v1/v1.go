@@ -16,6 +16,7 @@ package v1
 
 import (
 	"bytes"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -102,7 +103,7 @@ func (h *HandlerContext) publicKeyReadHandler(w http.ResponseWriter, r *http.Req
 	publicKey, err := h.tv.ReadPublicKey(r.Context(), deviceID)
 	if err != nil {
 		api.ErrResponse(w, http.StatusInternalServerError, "request to repository failed")
-		log.Printf("%v\n", err)
+		log.Println(err)
 		return
 	}
 	// for missing public keys (publicKey == "") we return 200 with
@@ -147,7 +148,7 @@ func (h *HandlerContext) publicKeyPublishHandler(w http.ResponseWriter, r *http.
 	err = h.tv.PublishPublicKey(r.Context(), deviceID, string(body))
 	if err != nil {
 		api.ErrResponse(w, http.StatusInternalServerError, "publish key failed")
-		log.Printf("%v\n", err)
+		log.Println(err)
 		return
 	}
 }
@@ -175,8 +176,87 @@ func isValidPublicKey(pk []byte) (bool, error) {
 	return true, nil
 }
 
+// Handle requests to retrieve a GCP access token for access to cloud resources.
+//
+// The robot identifies itself using its private key to sign a JWT. The JWT is
+// verified by the token vendor using the public key from the key repository and
+// the device identifier from the `iss` key from the JWT's payload section.
+// After successful verification, the token vendor uses its own IAM identity to
+// generate an access token for the `robot-service` service account and returns
+// the access token to the robot.
+//
+// Method: POST
+// The body is formatted like an URL query with two parameters:
+//   - grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer
+//   - assertion=<jwt signed by robots private key>
+//
+// Signed JWT expected header:
+// “`json
+// {
+//
+//	"alg": "RS256",
+//	"typ": "JWT"
+//
+// }
+// “`
+// The JWT body is expected to look like this:
+// “`json
+// {
+//
+//	"aud": "...", // unused
+//	"iss": "<device identifier>",
+//	"exp": <expiration timestamp>,
+//	"scopes": "...",  // unused
+//	"claims": "<accepted audience>" or "<accepted audience>?token_type=access_token"
+//
+// }
+// “`
 func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Request) {
-	api.ErrResponse(w, http.StatusInternalServerError, "not implemented yet")
+	if r.Method != http.MethodPost {
+		api.ErrResponse(w, http.StatusBadRequest,
+			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodPost))
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		api.ErrResponse(w, http.StatusInternalServerError, "error reading request body")
+		fmt.Println(err)
+		return
+	}
+	values, err := url.ParseQuery(string(body))
+	if err != nil {
+		api.ErrResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	const paramGrant = "grant_type"
+	const jwtGrant = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+	grant := values.Get(paramGrant)
+	if grant != jwtGrant {
+		api.ErrResponse(w, http.StatusBadRequest,
+			fmt.Sprintf("expected %s=%s in body", paramGrant, jwtGrant))
+		return
+	}
+	const paramAssert = "assertion"
+	assertion := values.Get(paramAssert)
+	if _, err := isValidJWT(assertion); err != nil {
+		api.ErrResponse(w, http.StatusBadRequest,
+			fmt.Sprintf("expected %s=<jwt> in body, invalid token format: %v", paramAssert, err))
+		return
+	}
+	token, err := h.tv.GetOAuth2Token(r.Context(), assertion)
+	if err != nil {
+		api.ErrResponse(w, http.StatusForbidden, "unable to retrieve token with given JWT")
+		fmt.Println(err)
+		return
+	}
+	tokenBytes, err := json.Marshal(token)
+	if err != nil {
+		api.ErrResponse(w, http.StatusInternalServerError, "failed to marshal upstream response")
+		fmt.Println(err)
+		return
+	}
+	w.Header().Add(contentType, "application/json")
+	w.Write(tokenBytes)
 }
 
 // Handle requests to verify if a given token has cloud access.
@@ -206,7 +286,7 @@ func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Reque
 	err = h.tv.VerifyToken(r.Context(), oauth.Token(token), robots)
 	if err != nil {
 		api.ErrResponse(w, http.StatusForbidden, "unable to verify token")
-		log.Printf("%v\n", err)
+		log.Println(err)
 		return
 	}
 	w.Write([]byte("OK"))
@@ -278,6 +358,25 @@ func isValidToken(token string) (bool, error) {
 	}
 	if !tokenMatch(token) {
 		return false, fmt.Errorf("token failed validation against %q", tokenRegex)
+	}
+	return true, nil
+}
+
+const jwtRegex = `^[a-zA-Z0-9\.\-_]+$`
+
+var jwtMatch = regexp.MustCompile(jwtRegex).MatchString
+
+// isValidJWT verifies the format of an encoded JWT.
+//
+// The returned error provides details on why the validation failed.
+func isValidJWT(token string) (bool, error) {
+	const minSize, maxSize = 100, 5000 // guess
+	if len(token) < minSize || len(token) > maxSize {
+		return false, fmt.Errorf("invalid size, assert %d <= %d <= %d",
+			minSize, len(token), maxSize)
+	}
+	if !jwtMatch(token) {
+		return false, fmt.Errorf("token failed validation against %q", jwtRegex)
 	}
 	return true, nil
 }
