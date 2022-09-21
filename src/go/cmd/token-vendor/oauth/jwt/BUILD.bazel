@@ -2,18 +2,18 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["tokenvendor.go"],
-    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app",
+    srcs = ["jwt.go"],
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth/jwt",
     visibility = ["//visibility:public"],
     deps = [
-        "//src/go/cmd/token-vendor/oauth:go_default_library",
-        "//src/go/cmd/token-vendor/oauth/jwt:go_default_library",
+        "@com_github_form3tech_oss_jwt_go//:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
-    srcs = ["tokenvendor_test.go"],
+    srcs = ["jwt_test.go"],
     embed = [":go_default_library"],
+    deps = ["@com_github_google_go_cmp//cmp:go_default_library"],
 )

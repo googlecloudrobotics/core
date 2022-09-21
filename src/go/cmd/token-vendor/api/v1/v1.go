@@ -58,24 +58,6 @@ func getQueryParam(u *url.URL, param string) (string, error) {
 	return values[0], nil
 }
 
-// RFC952 hostnames
-var isValidDeviceIDRegex = regexp.MustCompile(`^[a-zA-Z]([a-zA-Z0-9\-]+[\.]?)*[a-zA-Z0-9]$`).MatchString
-
-// isValidDeviceID validates the given identifier for string length and characters used
-//
-// Validation is based on the RFC952 for hostnames.
-func isValidDeviceID(ID string) bool {
-	const minLen, maxLen = 3, 255
-	l := len(ID)
-	if l < minLen || l > maxLen {
-		return false
-	}
-	if !isValidDeviceIDRegex(ID) {
-		return false
-	}
-	return true
-}
-
 // Handle requests to read a device's public key by device identifier.
 //
 // Method: GET
@@ -95,7 +77,7 @@ func (h *HandlerContext) publicKeyReadHandler(w http.ResponseWriter, r *http.Req
 		api.ErrResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if !isValidDeviceID(deviceID) {
+	if !app.IsValidDeviceID(deviceID) {
 		api.ErrResponse(w, http.StatusBadRequest, "invalid device id")
 		return
 	}
@@ -130,7 +112,7 @@ func (h *HandlerContext) publicKeyPublishHandler(w http.ResponseWriter, r *http.
 		api.ErrResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if !isValidDeviceID(deviceID) {
+	if !app.IsValidDeviceID(deviceID) {
 		api.ErrResponse(w, http.StatusBadRequest, "invalid device id")
 		return
 	}
@@ -183,7 +165,10 @@ func isValidPublicKey(pk []byte) (bool, error) {
 // the device identifier from the `iss` key from the JWT's payload section.
 // After successful verification, the token vendor uses its own IAM identity to
 // generate an access token for the `robot-service` service account and returns
-// the access token to the robot.
+// the access token to the robot. We only accept RSA as signing algorithm right
+// now. This is the default used by the metadata server's oauth package [1].
+//
+// [1] https://github.com/golang/oauth2/blob/f21342109be17cd214ecfcd33065b79cd571673e/jwt/jwt.go#L29
 //
 // Method: POST
 // The body is formatted like an URL query with two parameters:
@@ -362,7 +347,7 @@ func isValidToken(token string) (bool, error) {
 	return true, nil
 }
 
-const jwtRegex = `^[a-zA-Z0-9\.\-_]+$`
+const jwtRegex = `^[a-zA-Z0-9\.\-_]+\.[a-zA-Z0-9\.\-_]+\.[a-zA-Z0-9\.\-_]+$`
 
 var jwtMatch = regexp.MustCompile(jwtRegex).MatchString
 

@@ -42,9 +42,10 @@ var (
 	registry = flag.String("registry", "", "The cloud registry")
 	region   = flag.String("region", "", "The cloud region")
 
+	acceptedAudience = flag.String("accepted-audience",
+		"", "Endpoint URL of the token vendor. Used for verification of JWTs send by robots.")
+
 	// not yet in use:
-	// acceptedAudience = flag.String("accepted-audience",
-	// 	"", "Endpoint url of the service.")
 	// serviceAccount = flag.String("service-account",
 	// 	"", "Name of the service account to use.")
 	// scope = flag.String("scope", "", "Authentication scopes")
@@ -62,7 +63,10 @@ func main() {
 		log.Panic(err)
 	}
 	verifier, err := oauth.NewTokenVerifier(ctx, &http.Client{}, *project)
-	tv, err := app.NewTokenVendor(ctx, iotreg, verifier)
+	if err != nil {
+		log.Panic(err)
+	}
+	tv, err := app.NewTokenVendor(ctx, iotreg, verifier, *acceptedAudience)
 	if err != nil {
 		log.Panic(err)
 	}

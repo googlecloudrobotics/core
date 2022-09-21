@@ -21,30 +21,6 @@ import (
 const testDataPath = "testdata/cloudiot"
 const testPubKey = "testdata/rsa_cert.pem"
 
-type isValidDeviceIDTest struct {
-	deviceId string
-	ret      bool
-}
-
-func TestValidateDeviceId(t *testing.T) {
-
-	var isValidDeviceIDTests = []isValidDeviceIDTest{
-		// invalid
-		{"", false}, {`\\\\\\\\\\\\\`, false}, {"t\nt", false}, {"1", false},
-		{"robot-dev-\ndevice", false}, {"1test", false},
-		{"AAAAAAAAAAAAAAAAAAAarobot-dev-device-\neuwest1-test-com", false},
-		// valid
-		{"robot-dev-device", true}, {"TEST.com", true},
-	}
-
-	for _, test := range isValidDeviceIDTests {
-		v := isValidDeviceID(test.deviceId)
-		if v != test.ret {
-			t.Errorf("isValidDeviceID(%q), got %v, want %v", test.deviceId, v, test.ret)
-		}
-	}
-}
-
 type RoundTripFunc func(req *http.Request) *http.Response
 
 func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -114,7 +90,7 @@ func runPublicKeyReadHandlerWithIoTCase(t *testing.T, test *publicKeyReadHandler
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), r, nil)
+	tv, err := app.NewTokenVendor(context.TODO(), r, nil, "")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -159,7 +135,7 @@ func mustSetupAppHandlerWithIoT(t *testing.T, client *http.Client) *HandlerConte
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), r, nil)
+	tv, err := app.NewTokenVendor(context.TODO(), r, nil, "")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -301,9 +277,10 @@ type isValidJWTTest struct {
 func TestIsValidJWT(t *testing.T) {
 	var cases = []isValidJWTTest{
 		// valid
-		{"valid", "a_bc-D0348" + strings.Repeat("a", 100), true},
+		{"valid", strings.Repeat("a", 100) + "." + strings.Repeat("a", 100) +
+			"." + strings.Repeat("a", 100), true},
 		//invalid
-		{"empty", "", false}, {"too short", "abc", false},
+		{"empty", "", false}, {"too short", "abc", false}, {"no dots", strings.Repeat("a", 100), false},
 		{"new line", strings.Repeat("a", 100) + "\n" + strings.Repeat("a", 100), false},
 		{"wrong characters", strings.Repeat("a", 100) + "#!", false},
 	}
@@ -311,7 +288,8 @@ func TestIsValidJWT(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			gotValid, gotErr := isValidJWT(test.token)
 			if gotValid != test.wantValid {
-				t.Errorf("isValidJWT(%q): got %v, want %v", test.token, gotValid, test.wantValid)
+				t.Errorf("isValidJWT(%q): got %v, want %v, error %v",
+					test.token, gotValid, test.wantValid, gotErr)
 				return
 			}
 			if (test.wantValid && gotErr != nil) || (!test.wantValid && gotErr == nil) {
@@ -468,7 +446,7 @@ func runVerifyTokenHandlerTest(t *testing.T, test *VerifyTokenHandlerTest) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), nil, tver)
+	tv, err := app.NewTokenVendor(context.TODO(), nil, tver, "")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
