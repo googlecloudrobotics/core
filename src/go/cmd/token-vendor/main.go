@@ -21,13 +21,26 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"strings"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api"
 	apiv1 "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api/v1"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/cloudiot"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
 )
+
+type scopeFlags []string
+
+func (i *scopeFlags) String() string {
+	return strings.Join(*i, ",")
+}
+
+func (i *scopeFlags) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
 
 var (
 	// API options
@@ -37,22 +50,24 @@ var (
 		"/apis/core.token-vendor",
 		"Base path where the API will be mounted to.")
 
+	// GCP Cloud options
+	project = flag.String("project", "", "The cloud project")
+
 	// GCP Cloud IoT core options
-	project  = flag.String("project", "", "The cloud project")
 	registry = flag.String("registry", "", "The cloud registry")
 	region   = flag.String("region", "", "The cloud region")
 
+	// Authentication / JWT options
 	acceptedAudience = flag.String("accepted-audience",
 		"", "Endpoint URL of the token vendor. Used for verification of JWTs send by robots.")
-
-	// not yet in use:
-	// serviceAccount = flag.String("service-account",
-	// 	"", "Name of the service account to use.")
-	// scope = flag.String("scope", "", "Authentication scopes")
+	scopes    = scopeFlags{}
+	robotName = flag.String("service_account", "robot-service",
+		"Name of the service account to generate cloud access tokens for.")
 )
 
 func main() {
 
+	flag.Var(&scopes, "scope", "GCP scopes included in the token given out to robots.")
 	flag.Parse()
 	ctx := context.Background()
 
@@ -66,7 +81,11 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-	tv, err := app.NewTokenVendor(ctx, iotreg, verifier, *acceptedAudience)
+	ts, err := tokensource.NewGCPTokenSource(ctx, &http.Client{}, *project, *robotName, scopes)
+	if err != nil {
+		log.Panic(err)
+	}
+	tv, err := app.NewTokenVendor(ctx, iotreg, verifier, ts, *acceptedAudience)
 	if err != nil {
 		log.Panic(err)
 	}

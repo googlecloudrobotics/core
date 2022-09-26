@@ -23,15 +23,9 @@ import (
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth/jwt"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
 	"github.com/pkg/errors"
 )
-
-type GCPTokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	ExpiresInSec int    `json:"expires_in"`
-	TokenType    string `json:"token_type"`
-	Scope        string `json:"scope"`
-}
 
 type PubKeyRepository interface {
 	LookupKey(ctx context.Context, deviceID string) (string, error)
@@ -41,11 +35,15 @@ type PubKeyRepository interface {
 type TokenVendor struct {
 	repo   PubKeyRepository
 	v      *oauth.TokenVerifier
+	ts     *tokensource.GCPTokenSource
 	accAud string
 }
 
-func NewTokenVendor(ctx context.Context, repo PubKeyRepository, v *oauth.TokenVerifier, acceptedAudience string) (*TokenVendor, error) {
-	return &TokenVendor{repo: repo, v: v, accAud: acceptedAudience}, nil
+func NewTokenVendor(ctx context.Context, repo PubKeyRepository, v *oauth.TokenVerifier, ts *tokensource.GCPTokenSource, acceptedAudience string) (*TokenVendor, error) {
+	if acceptedAudience == "" {
+		return nil, errors.New("accepted audience must not be empty")
+	}
+	return &TokenVendor{repo: repo, v: v, accAud: acceptedAudience, ts: ts}, nil
 }
 
 func (tv *TokenVendor) PublishPublicKey(ctx context.Context, deviceID, publicKey string) error {
@@ -56,8 +54,8 @@ func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (stri
 	return tv.repo.LookupKey(ctx, deviceID)
 }
 
-func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, token string) (*GCPTokenResponse, error) {
-	p, err := jwt.PayloadUnsafe(token)
+func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk string) (*tokensource.TokenResponse, error) {
+	p, err := jwt.PayloadUnsafe(jwtk)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to extract JWT payload")
 	}
@@ -76,12 +74,15 @@ func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, token string) (*GCPTo
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to retrieve public key for device %q", deviceId)
 	}
-	err = jwt.VerifySignature(token, pubKey)
+	err = jwt.VerifySignature(jwtk, pubKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to verify signature")
 	}
-	//TODO(csieber): Missing implementation for generating the access token
-	return nil, errors.New("not implemented yet")
+	cloudToken, err := tv.ts.Token(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to retrieve a cloud token")
+	}
+	return cloudToken, nil
 }
 
 // acceptedAudience validates JWT audience as defined by Java-based token vendor

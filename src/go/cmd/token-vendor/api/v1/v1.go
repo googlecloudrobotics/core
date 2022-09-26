@@ -188,11 +188,21 @@ func isValidPublicKey(pk []byte) (bool, error) {
 // “`json
 // {
 //
-//	"aud": "...", // unused
+//	"aud": "<accepted audience>" or "<accepted audience>?token_type=access_token", // has to match the one specified in the token vendor config
 //	"iss": "<device identifier>",
 //	"exp": <expiration timestamp>,
 //	"scopes": "...",  // unused
-//	"claims": "<accepted audience>" or "<accepted audience>?token_type=access_token"
+//	"claims": "..." // unused
+//
+// }
+// The response body will look like this:
+// "`json
+// {
+//
+//	"access_token":"foo", // the cloud access token
+//	"expires_in":3600, // the cloud access token expiration in seconds from now
+//	"scope":"http://example1.com http://example2.com", // GCP API scope URLs from token vendor config
+//	"token_type":"Bearer" // static
 //
 // }
 // “`
@@ -218,19 +228,19 @@ func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Reque
 	grant := values.Get(paramGrant)
 	if grant != jwtGrant {
 		api.ErrResponse(w, http.StatusBadRequest,
-			fmt.Sprintf("expected %s=%s in body", paramGrant, jwtGrant))
+			fmt.Sprintf(`expected "%s=%s" in body`, paramGrant, jwtGrant))
 		return
 	}
 	const paramAssert = "assertion"
 	assertion := values.Get(paramAssert)
 	if _, err := isValidJWT(assertion); err != nil {
 		api.ErrResponse(w, http.StatusBadRequest,
-			fmt.Sprintf("expected %s=<jwt> in body, invalid token format: %v", paramAssert, err))
+			fmt.Sprintf(`expected "%s=<jwt>" in body, invalid token format: %v`, paramAssert, err))
 		return
 	}
 	token, err := h.tv.GetOAuth2Token(r.Context(), assertion)
 	if err != nil {
-		api.ErrResponse(w, http.StatusForbidden, "unable to retrieve token with given JWT")
+		api.ErrResponse(w, http.StatusForbidden, "unable to retrieve cloud access token with given JWT")
 		fmt.Println(err)
 		return
 	}
@@ -354,14 +364,14 @@ var jwtMatch = regexp.MustCompile(jwtRegex).MatchString
 // isValidJWT verifies the format of an encoded JWT.
 //
 // The returned error provides details on why the validation failed.
-func isValidJWT(token string) (bool, error) {
+func isValidJWT(jwt string) (bool, error) {
 	const minSize, maxSize = 100, 5000 // guess
-	if len(token) < minSize || len(token) > maxSize {
+	if len(jwt) < minSize || len(jwt) > maxSize {
 		return false, fmt.Errorf("invalid size, assert %d <= %d <= %d",
-			minSize, len(token), maxSize)
+			minSize, len(jwt), maxSize)
 	}
-	if !jwtMatch(token) {
-		return false, fmt.Errorf("token failed validation against %q", jwtRegex)
+	if !jwtMatch(jwt) {
+		return false, fmt.Errorf("jwt failed validation against %q", jwtRegex)
 	}
 	return true, nil
 }

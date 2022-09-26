@@ -21,5 +21,6 @@ go_test(
         "//src/go/cmd/token-vendor/app:go_default_library",
         "//src/go/cmd/token-vendor/oauth:go_default_library",
         "//src/go/cmd/token-vendor/repository/cloudiot:go_default_library",
+        "//src/go/cmd/token-vendor/tokensource:go_default_library",
     ],
 )

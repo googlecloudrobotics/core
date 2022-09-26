@@ -3,6 +3,7 @@ package v1
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/cloudiot"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
 )
 
 const testDataPath = "testdata/cloudiot"
@@ -55,7 +57,7 @@ func TestPublicKeyReadHandlerWithIoT(t *testing.T) {
 			"happy_path",
 			"https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices/testid?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false",
 			mustRespBodyFromFile(t, path.Join(testDataPath, "describe_device.json")),
-			"a_public_key",
+			mustFileToString(t, testPubKey),
 		},
 		{
 			"happy_path_expired_key",
@@ -90,7 +92,7 @@ func runPublicKeyReadHandlerWithIoTCase(t *testing.T, test *publicKeyReadHandler
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), r, nil, "")
+	tv, err := app.NewTokenVendor(context.TODO(), r, nil, nil, "aud")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -98,7 +100,7 @@ func runPublicKeyReadHandlerWithIoTCase(t *testing.T, test *publicKeyReadHandler
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	if key != test.isKey {
+	if strings.ReplaceAll(key, "\n", "") != strings.ReplaceAll(test.isKey, "\n", "") {
 		t.Errorf("public key response does not match with the test data, is %q, got %q",
 			test.isKey, key)
 	}
@@ -135,7 +137,7 @@ func mustSetupAppHandlerWithIoT(t *testing.T, client *http.Client) *HandlerConte
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), r, nil, "")
+	tv, err := app.NewTokenVendor(context.TODO(), r, nil, nil, "aud")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -270,7 +272,7 @@ func TestIsValidToken(t *testing.T) {
 
 type isValidJWTTest struct {
 	desc      string
-	token     string
+	jwt       string
 	wantValid bool
 }
 
@@ -286,15 +288,15 @@ func TestIsValidJWT(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.desc, func(t *testing.T) {
-			gotValid, gotErr := isValidJWT(test.token)
+			gotValid, gotErr := isValidJWT(test.jwt)
 			if gotValid != test.wantValid {
 				t.Errorf("isValidJWT(%q): got %v, want %v, error %v",
-					test.token, gotValid, test.wantValid, gotErr)
+					test.jwt, gotValid, test.wantValid, gotErr)
 				return
 			}
 			if (test.wantValid && gotErr != nil) || (!test.wantValid && gotErr == nil) {
 				t.Errorf("isValidJWT(%q): got error %v, want %v",
-					test.token, gotErr, test.wantValid)
+					test.jwt, gotErr, test.wantValid)
 			}
 		})
 	}
@@ -446,7 +448,7 @@ func runVerifyTokenHandlerTest(t *testing.T, test *VerifyTokenHandlerTest) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), nil, tver, "")
+	tv, err := app.NewTokenVendor(context.TODO(), nil, tver, nil, "aud")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -464,5 +466,139 @@ func runVerifyTokenHandlerTest(t *testing.T, test *VerifyTokenHandlerTest) {
 	// check response
 	if rr.Code != test.handlerIsStatusCode {
 		t.Errorf("wrong status code, is %d, got %d", test.handlerIsStatusCode, rr.Code)
+	}
+}
+
+type TokenOAuth2HandlerTest struct {
+	desc string
+	// token vendor config
+	acceptedAud string
+	scopes      []string
+	// test -> handler
+	body string
+	// fake GCP -> Token Vendor
+	token  string
+	expire string
+	// handler -> test
+	wantStatusCode int
+}
+
+// we create a happy test first and afterwards variations of it
+var TokenOAuth2HandlerTestHappyPath = TokenOAuth2HandlerTest{
+	desc:        "happy path",
+	acceptedAud: "testaud",
+	scopes:      []string{"abc", "def"},
+	// token defined in oauth/jwt/jwt_test.go
+	body:  "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZXN0YXVkIiwiaXNzIjoicm9ib3QtZGV2LXRlc3R1c2VyIiwiZXhwIjoxOTEzMzczMDEwLCJzY29wZXMiOiJ0ZXN0c2NvcGVzIiwiY2xhaW1zIjoidGVzdGNsYWltcyJ9.WJP0shiqynW9ZrmV4k78W3_nn_YA86XLK58IJYyqUF-8LAG92MraNqVqD0t6i-s90VBL64hCXlsA7zP3WlsMHOEvXCyRkGffhbJNIlJqIVTVfGvyF-ZmuaAr352n5kmKTrfTRi7h9LWTcvDgSosN438J8Jy9BT1FE9P-BHfyBUegZ15DWFAiAhz0r_Fgj7hAMXUnRdZfj3_dE0Nhi5IGs3L-0XzU-dE150ZJvtGMdIjc_QCqYHV3wtSgETKDYQoonD08n6g5GqC8nNkqrWFMttafLdPaDAsr8KWtj1dD1w9sw1YJClEzF9JOc63WNPZf8CgdU2enFW-V-2vHbUaekg",
+	token: "abc",
+	// expire needs to be the same across all tests because checked the same across all tests
+	expire:         "2100-06-30T15:01:23.045123456Z",
+	wantStatusCode: 200,
+}
+
+func TestTokenOAuth2HandlerHapyPath(t *testing.T) {
+	runTokenOAuth2HandlerTest(t, TokenOAuth2HandlerTestHappyPath)
+}
+
+func TestTokenOAuth2HandlerDifferentPrivateKey(t *testing.T) {
+	test := TokenOAuth2HandlerTestHappyPath
+	test.desc = "JWT signed with different private key"
+	// JWT is valid but signed with a different (random) private key not matching
+	// the one returned from the registry for the given device
+	test.body = "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZXN0YXVkIiwiaXNzIjoicm9ib3QtZGV2LXRlc3R1c2VyIiwiZXhwIjoxOTEzMzczMDEwLCJzY29wZXMiOiIuLi4iLCJjbGFpbXMiOiIuLi4ifQ.krAYHjkConzVudfXJUMiDNbVHF3RwkvOAhSCyTvOaJdlJ6sxh-TjPXo6W0yVT31qjLwhl1NYI-JlhcHX7TLiZbLCbGVXlQN2Nn4LvpbGdAH0KvSJkthqX7ld9tlVQGdlOUHCE5bBDG_9uBtpdOAv1zKUTquhyDM0qWVrQV1qUVOtwBCO6nt21l1eXgTwz50FVN33f1ZmhZfHW1u7Dq_XwBJmHFwN3aiD0NZohU7MpQiz-0u94Q9yZ588IjdZEUhSEUKrVtJjoPcxDhrXxoRMA8iP8_bMeOHteiAdYeBVBwFhu1d8pfcn6uoZROYD1xB1LWDTJx4GfQh6v3wtAwFu7Q"
+	test.wantStatusCode = 403
+	runTokenOAuth2HandlerTest(t, test)
+}
+
+func TestTokenOAuth2HandlerWrongAud(t *testing.T) {
+	test := TokenOAuth2HandlerTestHappyPath
+	test.desc = "invalid JWT (junk audience)"
+	// JWT "aud" is changed to "abc"
+	test.body = "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhYmMiLCJpc3MiOiJyb2JvdC1kZXYtdGVzdHVzZXIiLCJleHAiOjE5MTMzNzMwMTAsInNjb3BlcyI6Ii4uLiIsImNsYWltcyI6Ii4uLiJ9.XIoSfJl7QE51XUt7XHvZTomuXAAjVKWhnBhCgZl91-dGO9aF_pVu9sc_kR-MODoZci9pUKaLfqLTbZkNgkwGvApXF4GZ1DBu0uG6ewbNzIA-2l67xztnGw_M5DrQpLnq31HT1hRlvB9cXOYj2qtVfQaOhZtSPeHviYXj1NiPzHIWdyZKGIYu-gofkAZACEKKDd8HBRv6bLOzgrJ9sxlsyIB_O-FzpgoGSH-bKj9QEbSazx1j7AdICq1pJ_ER9ovb0qcYqg1JPToeEB1L-GFGwZp2JAnVp2rbbwPfjQTVlGmmAu-NUA5SjbjrNSjwDnQZDBBhmx75uToptJsnC_xZAw"
+	test.wantStatusCode = 403
+	runTokenOAuth2HandlerTest(t, test)
+}
+
+func runTokenOAuth2HandlerTest(t *testing.T, test TokenOAuth2HandlerTest) {
+	// fake Cloud IoT responses
+	fakeIoTHandler := func(req *http.Request) *http.Response {
+		const wantUrl = "https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices/robot-dev-testuser?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false"
+		if req.URL.String() != wantUrl {
+			t.Fatalf("wrong get device URL, got %q, want %q", req.URL, wantUrl)
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       mustRespBodyFromFile(t, path.Join(testDataPath, "describe_device.json")),
+			Header:     make(http.Header),
+		}
+	}
+	// fake GCP IAM response for an access token
+	fakeIAMAPI := func(req *http.Request) *http.Response {
+		const wantUrl = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/testsa@testproject.iam.gserviceaccount.com:generateAccessToken?alt=json&prettyPrint=false"
+		if req.URL.String() != wantUrl {
+			t.Fatalf("wrong IAM URL, got %q, want %q", req.URL, wantUrl)
+		}
+		body := `{
+			"accessToken": "` + test.token + `",
+			"expireTime": "` + test.expire + `"
+		  }`
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(http.Header),
+		}
+	}
+	// setup app and http client
+	clientIAM := NewTestHTTPClient(fakeIAMAPI)
+	clientIoT := NewTestHTTPClient(fakeIoTHandler)
+	rep, err := cloudiot.NewCloudIoTRepository(context.TODO(),
+		cloudiot.Registry{Project: "testproject", Region: "testregion", Registry: "testregistry"},
+		clientIoT)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts, err := tokensource.NewGCPTokenSource(context.TODO(), clientIAM, "testproject", "testsa",
+		test.scopes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tv, err := app.NewTokenVendor(context.TODO(), rep, nil, ts, test.acceptedAud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &HandlerContext{tv: tv}
+
+	// make request to the handler
+	rr := httptest.NewRecorder()
+	req := mustNewRequest(t, "POST", "/anything", io.NopCloser(strings.NewReader(test.body)))
+	h.tokenOAuth2Handler(rr, req)
+
+	// check response
+	if rr.Code != test.wantStatusCode {
+		t.Fatalf("wrong status code, got %d, want %d", rr.Code, test.wantStatusCode)
+	}
+	// no body is provided in case of bad requests
+	if test.wantStatusCode != 200 {
+		return
+	}
+	var resp tokensource.TokenResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if err != nil {
+		t.Fatalf("failed to unmarshal response body, got body %q", rr.Body)
+	}
+	if resp.AccessToken != test.token {
+		t.Fatalf("Token(..) access token: got %q, want %q", resp.AccessToken, test.token)
+	}
+	wantScopes := strings.Join(test.scopes, " ")
+	if resp.Scope != wantScopes {
+		t.Fatalf("Token(..) scopes: got %v, want %v", resp.Scope, wantScopes)
+	}
+	if resp.TokenType != "Bearer" {
+		t.Fatalf("Token(..) token type: got %q, want %q", resp.TokenType, "Bearer")
+	}
+	// test will fail in the year 2070
+	if resp.ExpiresIn < 1_507_248_000 || resp.ExpiresIn > 2_453_852_873 {
+		t.Fatalf("Token(..) expires in wrong, got %d, wanted far in the future, but not too far",
+			resp.ExpiresIn)
 	}
 }

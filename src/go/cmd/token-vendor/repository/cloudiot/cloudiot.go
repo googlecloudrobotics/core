@@ -42,7 +42,9 @@ type CloudIoTRepository struct {
 
 // NewCloudIoTRepository creates a new Cloud IoT repostory client.
 //
-// `client` parameter is optional
+// `client` parameter is optional. If you supply your own client, you have to make
+// sure you set the correct authentication headers yourself. If no client is given,
+// authentication information is looked up from the environment.
 func NewCloudIoTRepository(ctx context.Context, r Registry, client *http.Client) (*CloudIoTRepository, error) {
 	service, err := iot.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
