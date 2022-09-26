@@ -100,12 +100,12 @@ func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *
 		}
 		namespace := ns.ObjectMeta.Name
 
-		// Only ever create secrets in the 'default' namespace. For app namespaces the ChartAssignment
-		// controller will create the initial secret and patch the service account.
+		// Only ever create secrets in a few specific, well-known namespaces. For app-* namespaces
+		// the ChartAssignment controller will create the initial secret and patch the service account.
 		// This avoids us putting pull secrets into eg foreign namespaces.
 		s := k8s.CoreV1().Secrets(namespace)
 		if _, err := s.Get(ctx, SecretName, metav1.GetOptions{}); k8serrors.IsNotFound(err) {
-			if namespace != "default" {
+			if namespace != "default" && namespace != "kube-system" {
 				continue
 			}
 		}
