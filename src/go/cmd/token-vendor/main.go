@@ -44,8 +44,8 @@ func (i *scopeFlags) Set(value string) error {
 
 var (
 	// API options
-	bind     = flag.String("bind", "127.0.0.1", "Address to bind to")
-	port     = flag.Int("port", 80, "Port number to listen on")
+	bind     = flag.String("bind", "0.0.0.0", "Address to bind to")
+	port     = flag.Int("port", 9090, "Port number to listen on")
 	basePath = flag.String("base",
 		"/apis/core.token-vendor",
 		"Base path where the API will be mounted to.")
@@ -58,7 +58,7 @@ var (
 	region   = flag.String("region", "", "The cloud region")
 
 	// Authentication / JWT options
-	acceptedAudience = flag.String("accepted-audience",
+	acceptedAudience = flag.String("accepted_audience",
 		"", "Endpoint URL of the token vendor. Used for verification of JWTs send by robots.")
 	scopes    = scopeFlags{}
 	robotName = flag.String("service_account", "robot-service",
@@ -81,7 +81,7 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-	ts, err := tokensource.NewGCPTokenSource(ctx, &http.Client{}, *project, *robotName, scopes)
+	ts, err := tokensource.NewGCPTokenSource(ctx, nil, *project, *robotName, scopes)
 	if err != nil {
 		log.Panic(err)
 	}
