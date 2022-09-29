@@ -18,10 +18,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"path"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api"
 	apiv1 "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api/v1"
@@ -43,6 +44,7 @@ func (i *scopeFlags) Set(value string) error {
 }
 
 var (
+	verbose = flag.Bool("verbose", false, "Increase log level to DEBUG.")
 	// API options
 	bind     = flag.String("bind", "0.0.0.0", "Address to bind to")
 	port     = flag.Int("port", 9090, "Port number to listen on")
@@ -70,6 +72,12 @@ func main() {
 	flag.Var(&scopes, "scope", "GCP scopes included in the token given out to robots.")
 	flag.Parse()
 	ctx := context.Background()
+
+	if *verbose {
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.SetLevel(log.InfoLevel)
+	}
 
 	// init components
 	r := cloudiot.Registry{Project: *project, Region: *region, Registry: *registry}

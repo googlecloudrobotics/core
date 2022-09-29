@@ -17,7 +17,9 @@ package cloudiot
 import (
 	"context"
 	"fmt"
-	"log"
+
+	log "github.com/sirupsen/logrus"
+
 	"net/http"
 	"time"
 
@@ -70,7 +72,7 @@ func (c *CloudIoTRepository) LookupKey(ctx context.Context, deviceID string) (st
 		return "", nil
 	}
 	if device.Blocked {
-		log.Printf("device %q is blocked, not returning keys", deviceID)
+		log.Debugf("device %q is blocked, not returning keys", deviceID)
 		return "", nil
 	}
 	keys := extractValidKeys(device)
@@ -80,7 +82,7 @@ func (c *CloudIoTRepository) LookupKey(ctx context.Context, deviceID string) (st
 	// only return the first key if multiple are found
 	// the API does not support multiple keys anyway
 	if len(keys) > 1 {
-		log.Printf("multiple keys found for device %q, only returning first", deviceID)
+		log.Warnf("multiple keys found for device %q, only returning first", deviceID)
 	}
 	return keys[0], nil
 }
@@ -107,11 +109,11 @@ func extractValidKeys(device *iot.Device) (publicKeys []string) {
 		}
 		expired, err := isExpired(cred)
 		if err != nil {
-			log.Printf("ignoring key %v", err)
+			log.Debug("ignoring key ", err)
 			continue
 		}
 		if expired {
-			log.Printf("ignoring expired key")
+			log.Debug("ignoring expired key")
 			continue
 		}
 		publicKeys = append(publicKeys, cred.PublicKey.Key)
@@ -158,13 +160,13 @@ func (c *CloudIoTRepository) PublishKey(ctx context.Context, deviceID, publicKey
 		if err != nil {
 			return errors.Wrap(err, "failed to update key for existing device")
 		}
-		log.Printf("updated key for existing device %q", deviceID)
+		log.Info("updated key for existing device ", deviceID)
 	} else { // device does not exist, needs to be created
 		err = c.createDeviceWithPublicKey(ctx, deviceID, publicKey)
 		if err != nil {
 			return errors.Wrapf(err, "failed to create device %q", deviceID)
 		}
-		log.Printf("created device %q", deviceID)
+		log.Info("created device ", deviceID)
 	}
 	return nil
 }

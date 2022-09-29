@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth/jwt"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
@@ -47,10 +49,12 @@ func NewTokenVendor(ctx context.Context, repo PubKeyRepository, v *oauth.TokenVe
 }
 
 func (tv *TokenVendor) PublishPublicKey(ctx context.Context, deviceID, publicKey string) error {
+	log.Info("Publishing public key for device ", deviceID)
 	return tv.repo.PublishKey(ctx, deviceID, publicKey)
 }
 
 func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (string, error) {
+	log.Debug("Returning public key for device ", deviceID)
 	return tv.repo.LookupKey(ctx, deviceID)
 }
 
@@ -69,10 +73,10 @@ func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk string) (*tokens
 	if !IsValidDeviceID(p.Iss) {
 		return nil, errors.New("missing or invalid device identifier (`iss` key)")
 	}
-	deviceId := p.Iss
-	pubKey, err := tv.repo.LookupKey(ctx, deviceId)
+	deviceID := p.Iss
+	pubKey, err := tv.repo.LookupKey(ctx, deviceID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to retrieve public key for device %q", deviceId)
+		return nil, errors.Wrapf(err, "failed to retrieve public key for device %q", deviceID)
 	}
 	err = jwt.VerifySignature(jwtk, pubKey)
 	if err != nil {
@@ -82,6 +86,7 @@ func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk string) (*tokens
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to retrieve a cloud token")
 	}
+	log.Info("Handing out cloud token for device ", deviceID)
 	return cloudToken, nil
 }
 
@@ -114,6 +119,7 @@ func (tv *TokenVendor) VerifyToken(ctx context.Context, token oauth.Token, robot
 	} else {
 		acl = "human-acl"
 	}
+	log.Debug("Verifying a token against ACL ", acl)
 	return tv.v.Verify(ctx, token, acl)
 }
 

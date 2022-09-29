@@ -15,9 +15,10 @@
 package api
 
 import (
-	"log"
 	"net/http"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -50,19 +51,20 @@ func SetupAndServe(addr string) error {
 		Handler: http.TimeoutHandler(LoggingMiddleware(http.DefaultServeMux),
 			httpTimeoutHandler, "handler timeout"),
 	}
-	log.Println("api listening on", addr)
+	log.Info("api listening on ", addr)
 	return srv.ListenAndServe()
 }
 
 func LoggingMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[%s] [%s] %s\n", r.RemoteAddr, r.Method, r.URL)
+		xFwd := r.Header.Get("X-Forwarded-For")
+		log.Debugf("[%s, for %q] [%s] %s", r.RemoteAddr, xFwd, r.Method, r.URL)
 		handler.ServeHTTP(w, r)
 	})
 }
 
 func ErrResponse(w http.ResponseWriter, statusCode int, message string) {
-	log.Printf("-> error [%d] %s", statusCode, message)
+	log.Warnf("-> error [%d] %s", statusCode, message)
 	w.WriteHeader(statusCode)
 	w.Write([]byte(message))
 }
