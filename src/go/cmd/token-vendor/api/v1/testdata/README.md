@@ -2,8 +2,7 @@
 
 ## RSA Keys
 
-These files were generated according to [Cloud IoT key generation instructions]
-(https://cloud.google.com/iot/docs/how-tos/credentials/keys):
+These files were generated according to [Cloud IoT key generation instructions](https://cloud.google.com/iot/docs/how-tos/credentials/keys):
 
 ```shell
 openssl genrsa -out rsa_private.pem 2048
@@ -12,7 +11,7 @@ openssl rsa -in rsa_private.pem -pubout -out rsa_cert.pem
 
 ## Create a test JWT
 
-Go to [jwt.io]. Use the following header:
+Go to [jwt.io](https://jwt.io/). Use the following header:
 
 ```json
 {
