@@ -31,7 +31,7 @@ genrule(
     outs = ["helm-config.tar"],
     # Note: the extra tar flags are use to make builds deterministic
     cmd = "$(location @kubernetes_helm//:helm) >/dev/null init --client-only --skip-repos " +
-          "&& tar --owner=root --group=root --numeric-owner --mtime='2010-01-01' --create --file $@ .helm/",
+          "&& mkdir -p .helm && tar --owner=root --group=root --numeric-owner --mtime='2010-01-01' --create --file $@ .helm/",
     output_to_bindir = True,
     tools = ["@kubernetes_helm//:helm"],
 )

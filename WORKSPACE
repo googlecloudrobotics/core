@@ -1,7 +1,31 @@
 workspace(name = "cloud_robotics")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("//bazel:repositories.bzl", "cloud_robotics_repositories")
+
+git_repository(
+    name = "com_grail_bazel_toolchain",
+    commit = "e4b62c9a4f123cf25701ce0760fe050fc4e293b3",
+    remote = "https://github.com/grailbio/bazel-toolchain.git",
+    shallow_since = "1621296040 -0700",
+)
+
+load("@com_grail_bazel_toolchain//toolchain:deps.bzl", "bazel_toolchain_dependencies")
+
+bazel_toolchain_dependencies()
+
+load("@com_grail_bazel_toolchain//toolchain:rules.bzl", "llvm_toolchain")
+
+llvm_toolchain(
+    name = "llvm_toolchain",
+    distribution = "clang+llvm-12.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz",
+    llvm_version = "12.0.0",
+)
+
+load("@llvm_toolchain//:toolchains.bzl", "llvm_register_toolchains")
+
+llvm_register_toolchains()
 
 # gazelle:repo bazel_gazelle
 cloud_robotics_repositories()
