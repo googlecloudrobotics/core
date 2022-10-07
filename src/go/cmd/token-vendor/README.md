@@ -1,6 +1,4 @@
-# Token Vendor (golang, WIP)
-
-**NOTE**: The golang version of the token vendor is work in progress. For original Java-based implemention please refer to [src/java/com/cloudrobotics/tokenvendor/README.md].
+# Token Vendor
 
 The token vendor provides authentication for requests from the robots to our cloud environment.
 The robots identity is generated during setup via a public-private key pair.
@@ -14,7 +12,28 @@ The following workflows are covered by the token vendor:
 * Generate an scoped and time-limited IAM access token for access to GCP resources
 * Validate a given IAM access token 
 
-## Robot registration
+## Public Key Backends
+
+The token vendor supports multiple backends for storage of public keys for registered devices.
+
+### Cloud IoT Backend
+
+GCP Cloud IoT is deprecated and will be turned off in April 2023.
+The Cloud IoT token vendor backend stores a key as credential.
+To block a device or remove the device completely the GCP UI can be used.
+
+### Kubernetes Configmaps (WIP)
+
+The Kubernetes backend uses configmaps to store and lookup public keys.
+The configmaps are stored in a configured namespace with a constant name prefix and the device identifier (example: device-testdevice).
+The public key is stored under a key in the configmap.
+Devices can be removed by deleting the configmap.
+
+The backend is WIP and can not yet be configured for use.
+
+## API
+
+### /public-key.publish: Robot registration
 
 New robots get registered by a human administrator (authorized by an access
 token on the request). The method add the provided public key to the configured
@@ -28,7 +47,7 @@ refuse eg. robots to register other robots.
 * Body: application/x-pem-file
 * Response: only http status code
 
-## Public key retrieval
+### /public-key.read: Public key retrieval
 
 To verify messages send by a robot one can fetch the public key from the 
 keystore using this method.
@@ -39,7 +58,7 @@ keystore using this method.
   * device-id: unique device name (by default robot-<robot-id>)
 * Response: application/x-pem-file
 
-## OAuth2 access token requests by robots
+### /token.oauth2: OAuth2 access token requests by robots
 
 Robots sign JWTs with their local private keys. These get verified against the
 public keys from the keystore. If the key is present and enabled, the token
@@ -50,7 +69,7 @@ vendor will hand out an OAuth access token for robot-service@ service account.
 * Body: JWT query (TokenSource)
 * Response: application/json
 
-## AuthN/Z verification
+### /token.verify: AuthN/Z verification
 
 Browsers or robots can query endpoints like the ws-proxy with authorization
 headers or a `?token=` query parameter. They are already authenticated, and the
@@ -65,7 +84,7 @@ token vendor just checks that IAM authorizes the request.
 Results are backed by a cache with a 5 minute lifetime to ease the load on the
 IAM backend.
 
-## Interactive AuthN & AuthZ
+## Interactive AuthN & AuthZ (with oauth2-proxy)
 
 We use the token vendor together with oauth2-proxy as an authentication and
 authorization helper for nginx. This is essentially a poor man's IAP, used
