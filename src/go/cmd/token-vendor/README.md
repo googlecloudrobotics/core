@@ -25,7 +25,7 @@ To block a device or remove the device completely the GCP UI can be used.
 ### Kubernetes Configmaps (WIP)
 
 The Kubernetes backend uses configmaps to store and lookup public keys.
-The configmaps are stored in a configured namespace with a constant name prefix and the device identifier (example: device-testdevice).
+The configmaps are stored in a configured namespace with the device identifier as name.
 The public key is stored under a key in the configmap.
 Devices can be removed by deleting the configmap.
 

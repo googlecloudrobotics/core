@@ -248,7 +248,7 @@ spec:
     singular: chargeaction
   scope: Namespaced
   versions:
-    - name: v1alpha1
+    - name: v1
       served: true
       storage: true
       subresources:

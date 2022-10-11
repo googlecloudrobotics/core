@@ -1,10 +1,17 @@
 package cloudiot
 
 import (
+	"bytes"
+	"context"
+	"io"
+	"net/http"
+	"os"
+	"path"
 	"reflect"
 	"sort"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	iot "google.golang.org/api/cloudiot/v1"
 )
 
@@ -96,5 +103,82 @@ func TestRegistryPath(t *testing.T) {
 	got := iotr.registryPath()
 	if is != got {
 		t.Errorf("is %s != got %s", is, got)
+	}
+}
+
+type RoundTripFunc func(req *http.Request) *http.Response
+
+func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req), nil
+}
+
+func mustRespBodyFromFile(t *testing.T, file string) io.ReadCloser {
+	isResponseBody, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return io.NopCloser(bytes.NewBuffer(isResponseBody))
+}
+
+func NewTestHTTPClient(fn RoundTripFunc) *http.Client {
+	return &http.Client{Transport: fn}
+}
+
+type ListAllDeviceIDsTest struct {
+	desc          string
+	responseBody  io.ReadCloser
+	wantCalledUrl string
+	wantDeviceIDs []string
+}
+
+const testDataPath = "testdata"
+
+func TestListAllDeviceIDs(t *testing.T) {
+	var cases = []ListAllDeviceIDsTest{
+		{
+			"happy_path",
+			mustRespBodyFromFile(t, path.Join(testDataPath, "list_devices.json")),
+			"https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices?alt=json&fieldMask=&prettyPrint=false",
+			[]string{"testdevice-a", "testdevice-b"},
+		},
+		{
+			"empty_registry",
+			mustRespBodyFromFile(t, path.Join(testDataPath, "list_devices_empty.json")),
+			"https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices?alt=json&fieldMask=&prettyPrint=false",
+			[]string{},
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.desc, func(t *testing.T) {
+			runListAllDeviceIDsTest(t, &test)
+		})
+	}
+}
+
+func runListAllDeviceIDsTest(t *testing.T, test *ListAllDeviceIDsTest) {
+	fakeIoTHandler := func(req *http.Request) *http.Response {
+		gotCalledUrl := req.URL.String()
+		if gotCalledUrl != test.wantCalledUrl {
+			t.Fatalf("request URL missmatch, got %q, want %q", gotCalledUrl, test.wantCalledUrl)
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       test.responseBody,
+			Header:     make(http.Header),
+		}
+	}
+	client := NewTestHTTPClient(fakeIoTHandler)
+	reg := Registry{Project: "testproject", Region: "testregion", Registry: "testregistry"}
+	r, err := NewCloudIoTRepository(context.TODO(), reg, client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotDeviceIDs, err := r.ListAllDeviceIDs(context.TODO())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff(gotDeviceIDs, test.wantDeviceIDs); diff != "" {
+		t.Fatalf("ListAllDeviceIDs(..): got %+v, want %+v, diff %v", gotDeviceIDs, test.wantDeviceIDs, diff)
 	}
 }

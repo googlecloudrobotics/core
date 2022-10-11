@@ -171,6 +171,26 @@ func (c *CloudIoTRepository) PublishKey(ctx context.Context, deviceID, publicKey
 	return nil
 }
 
+// ListAllDeviceIDs returns a slice of all device identifiers found in the registry.
+//
+// Blocked credentials are included.
+func (c *CloudIoTRepository) ListAllDeviceIDs(ctx context.Context) ([]string, error) {
+	if c.service == nil {
+		return []string{}, fmt.Errorf("IoT client not initialized")
+	}
+	r := c.registryPath()
+	ls, err := c.service.Projects.Locations.Registries.Devices.List(r).
+		Context(ctx).FieldMask("").Do()
+	if err != nil {
+		return []string{}, errors.Wrapf(err, "failed to list devices in registry %q", r)
+	}
+	names := make([]string, 0, len(ls.Devices))
+	for _, device := range ls.Devices {
+		names = append(names, device.Id)
+	}
+	return names, nil
+}
+
 // retrieveDevice retrieves a device object from the registry.
 //
 // If the device is not found, (nil, nil) is returned. Blocked
