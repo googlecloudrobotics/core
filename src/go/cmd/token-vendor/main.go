@@ -23,12 +23,15 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api"
 	apiv1 "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api/v1"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/cloudiot"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/k8s"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
 )
 
@@ -43,8 +46,25 @@ func (i *scopeFlags) Set(value string) error {
 	return nil
 }
 
+type KeyStoreOpt string
+
+const (
+	CloudIoT   = "CLOUD_IOT"
+	Kubernetes = "KUBERNETES" // Work in progress
+)
+
+// Supported public key backends. Kubernetes is WIP and should only be used
+// for testing right now.
+var keyStoreOpts = []string{string(CloudIoT), string(Kubernetes)}
+
 var (
 	verbose = flag.Bool("verbose", false, "Increase log level to DEBUG.")
+	// Backend options
+	keyStore = flag.String(
+		"key-store",
+		string(CloudIoT),
+		"Public key repository implementation to use. Options: "+strings.Join(keyStoreOpts, ","))
+
 	// API options
 	bind     = flag.String("bind", "0.0.0.0", "Address to bind to")
 	port     = flag.Int("port", 9090, "Port number to listen on")
@@ -56,8 +76,12 @@ var (
 	project = flag.String("project", "", "The cloud project")
 
 	// GCP Cloud IoT core options
-	registry = flag.String("registry", "", "The cloud registry")
-	region   = flag.String("region", "", "The cloud region")
+	registry = flag.String("registry", "", "The cloud registry (Cloud IoT)")
+	region   = flag.String("region", "", "The cloud region (Cloud IoT)")
+
+	// Kubernetes backend options
+	namespace = flag.String("namespace", "default",
+		"The namespace where to store the device keys. (Kubernetes)")
 
 	// Authentication / JWT options
 	acceptedAudience = flag.String("accepted_audience",
@@ -68,7 +92,6 @@ var (
 )
 
 func main() {
-
 	flag.Var(&scopes, "scope", "GCP scopes included in the token given out to robots.")
 	flag.Parse()
 	ctx := context.Background()
@@ -80,11 +103,31 @@ func main() {
 	}
 
 	// init components
-	r := cloudiot.Registry{Project: *project, Region: *region, Registry: *registry}
-	iotreg, err := cloudiot.NewCloudIoTRepository(ctx, r, nil)
-	if err != nil {
-		log.Panic(err)
+	var rep app.PubKeyRepository
+	var err error
+	if *keyStore == CloudIoT {
+		r := cloudiot.Registry{Project: *project, Region: *region, Registry: *registry}
+		rep, err = cloudiot.NewCloudIoTRepository(ctx, r, nil)
+		if err != nil {
+			log.Panic(err)
+		}
+	} else if *keyStore == Kubernetes {
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			log.Panic(err)
+		}
+		cs, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			log.Panic(err)
+		}
+		rep, err = k8s.NewK8sRepository(ctx, cs, *namespace)
+		if err != nil {
+			log.Panic(err)
+		}
+	} else {
+		log.Panicf("unsupported key store option %q", *keyStore)
 	}
+
 	verifier, err := oauth.NewTokenVerifier(ctx, &http.Client{}, *project)
 	if err != nil {
 		log.Panic(err)
@@ -93,7 +136,7 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-	tv, err := app.NewTokenVendor(ctx, iotreg, verifier, ts, *acceptedAudience)
+	tv, err := app.NewTokenVendor(ctx, rep, verifier, ts, *acceptedAudience)
 	if err != nil {
 		log.Panic(err)
 	}
