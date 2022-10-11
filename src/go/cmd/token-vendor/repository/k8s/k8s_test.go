@@ -68,3 +68,19 @@ func TestPublishKeyUpdate(t *testing.T) {
 		t.Fatalf("LookupKey(..) = %q, want %q", k, key2)
 	}
 }
+
+// Test if Lookup returns an empty key string in case the configmap is not found.
+func TestLookupDoesNotExist(t *testing.T) {
+	cs := fake.NewSimpleClientset()
+	kcl, err := NewK8sRepository(context.TODO(), cs, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	k, err := kcl.LookupKey(context.TODO(), "testdevice")
+	if err != nil {
+		t.Fatalf("LookupKey produced error %v, want nil", err)
+	}
+	if k != "" {
+		t.Fatalf("LookupKey(..) = %q, want empty string", k)
+	}
+}

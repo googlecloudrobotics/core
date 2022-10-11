@@ -30,6 +30,10 @@ import (
 )
 
 type PubKeyRepository interface {
+
+	// LookupKey retrieves the public key of a device from the repository.
+	// An empty string return indicates that no key exists for the given identifier or
+	// that the device is blocked.
 	LookupKey(ctx context.Context, deviceID string) (string, error)
 	PublishKey(ctx context.Context, deviceID, publicKey string) error
 }

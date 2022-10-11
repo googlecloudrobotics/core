@@ -17,7 +17,12 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/cloudiot"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/k8s"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 const testDataPath = "testdata/cloudiot"
@@ -33,7 +38,121 @@ func NewTestHTTPClient(fn RoundTripFunc) *http.Client {
 	return &http.Client{Transport: fn}
 }
 
-type publicKeyReadHandlerTest struct {
+type publicKeyReadHandlerK8sTest struct {
+	desc           string
+	configmaps     []*corev1.ConfigMap
+	deviceID       string
+	wantKey        string
+	wantStatusCode int
+}
+
+func TestPublicKeyReadHandlerWithK8s(t *testing.T) {
+	var cases = []publicKeyReadHandlerK8sTest{
+		{
+			"key_found",
+			[]*corev1.ConfigMap{
+				{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "ConfigMap",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testdevice",
+						Namespace: "default",
+					},
+					Data: map[string]string{"pubKey": "testkey"},
+				},
+			},
+			"testdevice",
+			"testkey",
+			http.StatusOK,
+		},
+		// key not found is not an error and returns an empty response
+		{
+			"key_not_found",
+			[]*corev1.ConfigMap{},
+			"testdevice",
+			"",
+			http.StatusOK,
+		},
+		// for malformed configmaps we expect an error
+		{
+			"malformed_configmap",
+			[]*corev1.ConfigMap{
+				{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "ConfigMap",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testdevice",
+						Namespace: "default",
+					},
+					// missing Data field
+				},
+			},
+			"testdevice",
+			"",
+			http.StatusInternalServerError,
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.desc, func(t *testing.T) {
+			runPublicKeyReadHandlerWithK8sCase(t, &test)
+		})
+	}
+}
+
+func populateK8sEnv(env kubernetes.Interface, ns string, maps []*corev1.ConfigMap) error {
+	for _, m := range maps {
+		if _, err := env.CoreV1().ConfigMaps(ns).Create(context.TODO(), m, metav1.CreateOptions{}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func runPublicKeyReadHandlerWithK8sCase(t *testing.T, test *publicKeyReadHandlerK8sTest) {
+	// Setup fake K8s environment
+	cs := fake.NewSimpleClientset()
+	if err := populateK8sEnv(cs, "default", test.configmaps); err != nil {
+		t.Fatal(err)
+	}
+	kcl, err := k8s.NewK8sRepository(context.TODO(), cs, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Setup app & API handler
+	tv, err := app.NewTokenVendor(context.TODO(), kcl, nil, nil, "aud")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := HandlerContext{tv: tv}
+	// Make API call
+	rr := httptest.NewRecorder()
+	req := mustNewRequest(t, "GET", "/anything", nil)
+	q := req.URL.Query()
+	q.Add("device-id", test.deviceID)
+	req.URL.RawQuery = q.Encode()
+	h.publicKeyReadHandler(rr, req)
+	// check API response
+	if rr.Code != test.wantStatusCode {
+		t.Errorf("wrong status code, is %d, want %d", rr.Code, test.wantStatusCode)
+	}
+	if rr.Code != http.StatusOK {
+		return
+	}
+	body, err := io.ReadAll(rr.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotKey := string(body)
+	if gotKey != test.wantKey {
+		t.Errorf("readHandler(..) = %v, want %v", gotKey, test.wantKey)
+	}
+}
+
+type publicKeyReadHandlerIoTTest struct {
 	desc           string
 	isCalledUrl    string
 	isResponseBody io.ReadCloser
@@ -52,7 +171,7 @@ func mustRespBodyFromFile(t *testing.T, file string) io.ReadCloser {
 //
 // Only the happy path of receiving a single key or no key is tested right now.
 func TestPublicKeyReadHandlerWithIoT(t *testing.T) {
-	var cases = []publicKeyReadHandlerTest{
+	var cases = []publicKeyReadHandlerIoTTest{
 		{
 			"happy_path",
 			"https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices/testid?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false",
@@ -74,7 +193,7 @@ func TestPublicKeyReadHandlerWithIoT(t *testing.T) {
 	}
 }
 
-func runPublicKeyReadHandlerWithIoTCase(t *testing.T, test *publicKeyReadHandlerTest) {
+func runPublicKeyReadHandlerWithIoTCase(t *testing.T, test *publicKeyReadHandlerIoTTest) {
 	fakeIoTHandler := func(req *http.Request) *http.Response {
 		gotCalledUrl := req.URL.String()
 		if gotCalledUrl != test.isCalledUrl {

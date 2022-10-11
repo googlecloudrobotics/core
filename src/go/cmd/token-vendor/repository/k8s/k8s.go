@@ -59,9 +59,14 @@ func (k *K8sRepository) ListAllDeviceIDs(ctx context.Context) ([]string, error) 
 
 // LookupKey returns the public key for a given device identifier.
 //
-// The public key is stored under a specific key in the configmap.
+// The public key is stored under a specific key in the configmap. If the configmap
+// does not exist, we return an empty string. For any other error or a malformed
+// configmap we return an error.
 func (k *K8sRepository) LookupKey(ctx context.Context, deviceID string) (string, error) {
 	cm, err := k.kcl.CoreV1().ConfigMaps(k.ns).Get(ctx, deviceID, metav1.GetOptions{})
+	if kerrors.IsNotFound(err) {
+		return "", nil
+	}
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to retrieve configmap %q/%q", k.ns, deviceID)
 	}
