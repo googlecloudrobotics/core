@@ -263,6 +263,125 @@ func mustSetupAppHandlerWithIoT(t *testing.T, client *http.Client) *HandlerConte
 	return &HandlerContext{tv: tv}
 }
 
+type publicKeyPublishHandlerK8sTest struct {
+	desc       string
+	configmaps []*corev1.ConfigMap
+	deviceID   string
+	// read key before publish
+	wantKeyBefore string
+	// publish and read key again
+	body    io.Reader
+	wantKey string
+}
+
+func TestPublicKeyPublishHandlerWithK8s(t *testing.T) {
+	var cases = []publicKeyPublishHandlerK8sTest{
+		{
+			// happy path where no device is registered yet
+			"register_new_device",
+			[]*corev1.ConfigMap{},
+			"testdevice",
+			"",
+			mustFileOpen(t, path.Join("testdata", "rsa_cert.pem")),
+			mustFileToString(t, path.Join("testdata", "rsa_cert.pem")),
+		},
+		{
+			// happy path where the device is already registered
+			"update_device_key",
+			[]*corev1.ConfigMap{
+				{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "ConfigMap",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testdevice",
+					},
+					Data: map[string]string{"pubKey": "testkey"},
+				},
+			},
+			"testdevice",
+			"testkey",
+			mustFileOpen(t, path.Join("testdata", "rsa_cert.pem")),
+			mustFileToString(t, path.Join("testdata", "rsa_cert.pem")),
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.desc, func(t *testing.T) {
+			runPublicKeyPublishHandlerWithK8sCase(t, &test)
+		})
+	}
+}
+
+func runPublicKeyPublishHandlerWithK8sCase(t *testing.T, test *publicKeyPublishHandlerK8sTest) {
+	// Setup fake K8s environment
+	cs := fake.NewSimpleClientset()
+	if err := populateK8sEnv(cs, "default", test.configmaps); err != nil {
+		t.Fatal(err)
+	}
+	kcl, err := k8s.NewK8sRepository(context.TODO(), cs, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Setup app & API handler
+	tv, err := app.NewTokenVendor(context.TODO(), kcl, nil, nil, "aud")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := HandlerContext{tv: tv}
+	// Read the current device key
+	rr := httptest.NewRecorder()
+	req := mustNewRequest(t, "GET", "/anything", nil)
+	q := req.URL.Query()
+	q.Add("device-id", test.deviceID)
+	req.URL.RawQuery = q.Encode()
+	h.publicKeyReadHandler(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("before update,publicKeyReadHandler(..): wrong status code, got %d, want %d",
+			rr.Code, http.StatusOK)
+	}
+	body, err := io.ReadAll(rr.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotKey := string(body)
+	if gotKey != test.wantKeyBefore {
+		t.Errorf("before update,publicKeyReadHandler(..): wrong key, got %v, want %v",
+			gotKey, test.wantKey)
+	}
+	// POST a new key
+	rr = httptest.NewRecorder()
+	req = mustNewRequest(t, "POST", "/anything", test.body)
+	q = req.URL.Query()
+	q.Add("device-id", test.deviceID)
+	req.URL.RawQuery = q.Encode()
+	h.publicKeyPublishHandler(rr, req)
+	// check API response
+	if rr.Code != http.StatusOK {
+		t.Errorf("publicKeyPublishHandler(..): wrong status code %d, want %d", rr.Code, http.StatusOK)
+	}
+	// Read key back again
+	rr = httptest.NewRecorder()
+	req = mustNewRequest(t, "GET", "/anything", nil)
+	q = req.URL.Query()
+	q.Add("device-id", test.deviceID)
+	req.URL.RawQuery = q.Encode()
+	h.publicKeyReadHandler(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("after update,publicKeyReadHandler(..): wrong status code, got %d, want %d",
+			rr.Code, http.StatusOK)
+	}
+	body, err = io.ReadAll(rr.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotKey = string(body)
+	if gotKey != test.wantKey {
+		t.Errorf("after update,publicKeyReadHandler(..): wrong key, got %v, want %v",
+			gotKey, test.wantKey)
+	}
+}
+
 func TestPublicKeyPublishHandlerWithIoT(t *testing.T) {
 	t.Run("happy path with IoT", func(t *testing.T) {
 		runPublicKeyPublishHandlerWithIoTHappyPath(t)
