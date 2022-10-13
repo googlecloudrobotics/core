@@ -735,7 +735,12 @@ var TokenOAuth2HandlerTestHappyPath = TokenOAuth2HandlerTest{
 }
 
 func TestTokenOAuth2HandlerHapyPath(t *testing.T) {
-	runTokenOAuth2HandlerTest(t, TokenOAuth2HandlerTestHappyPath)
+	t.Run("with_iot", func(t *testing.T) {
+		runTokenOAuth2HandlerTestWithIoT(t, TokenOAuth2HandlerTestHappyPath)
+	})
+	t.Run("with_k8s", func(t *testing.T) {
+		runTokenOAuth2HandlerTestWithK8s(t, TokenOAuth2HandlerTestHappyPath)
+	})
 }
 
 func TestTokenOAuth2HandlerDifferentPrivateKey(t *testing.T) {
@@ -745,7 +750,12 @@ func TestTokenOAuth2HandlerDifferentPrivateKey(t *testing.T) {
 	// the one returned from the registry for the given device
 	test.body = "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZXN0YXVkIiwiaXNzIjoicm9ib3QtZGV2LXRlc3R1c2VyIiwiZXhwIjoxOTEzMzczMDEwLCJzY29wZXMiOiIuLi4iLCJjbGFpbXMiOiIuLi4ifQ.krAYHjkConzVudfXJUMiDNbVHF3RwkvOAhSCyTvOaJdlJ6sxh-TjPXo6W0yVT31qjLwhl1NYI-JlhcHX7TLiZbLCbGVXlQN2Nn4LvpbGdAH0KvSJkthqX7ld9tlVQGdlOUHCE5bBDG_9uBtpdOAv1zKUTquhyDM0qWVrQV1qUVOtwBCO6nt21l1eXgTwz50FVN33f1ZmhZfHW1u7Dq_XwBJmHFwN3aiD0NZohU7MpQiz-0u94Q9yZ588IjdZEUhSEUKrVtJjoPcxDhrXxoRMA8iP8_bMeOHteiAdYeBVBwFhu1d8pfcn6uoZROYD1xB1LWDTJx4GfQh6v3wtAwFu7Q"
 	test.wantStatusCode = 403
-	runTokenOAuth2HandlerTest(t, test)
+	t.Run("with_iot", func(t *testing.T) {
+		runTokenOAuth2HandlerTestWithIoT(t, test)
+	})
+	t.Run("with_k8s", func(t *testing.T) {
+		runTokenOAuth2HandlerTestWithK8s(t, test)
+	})
 }
 
 func TestTokenOAuth2HandlerWrongAud(t *testing.T) {
@@ -754,10 +764,15 @@ func TestTokenOAuth2HandlerWrongAud(t *testing.T) {
 	// JWT "aud" is changed to "abc"
 	test.body = "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhYmMiLCJpc3MiOiJyb2JvdC1kZXYtdGVzdHVzZXIiLCJleHAiOjE5MTMzNzMwMTAsInNjb3BlcyI6Ii4uLiIsImNsYWltcyI6Ii4uLiJ9.XIoSfJl7QE51XUt7XHvZTomuXAAjVKWhnBhCgZl91-dGO9aF_pVu9sc_kR-MODoZci9pUKaLfqLTbZkNgkwGvApXF4GZ1DBu0uG6ewbNzIA-2l67xztnGw_M5DrQpLnq31HT1hRlvB9cXOYj2qtVfQaOhZtSPeHviYXj1NiPzHIWdyZKGIYu-gofkAZACEKKDd8HBRv6bLOzgrJ9sxlsyIB_O-FzpgoGSH-bKj9QEbSazx1j7AdICq1pJ_ER9ovb0qcYqg1JPToeEB1L-GFGwZp2JAnVp2rbbwPfjQTVlGmmAu-NUA5SjbjrNSjwDnQZDBBhmx75uToptJsnC_xZAw"
 	test.wantStatusCode = 403
-	runTokenOAuth2HandlerTest(t, test)
+	t.Run("with_iot", func(t *testing.T) {
+		runTokenOAuth2HandlerTestWithIoT(t, test)
+	})
+	t.Run("with_k8s", func(t *testing.T) {
+		runTokenOAuth2HandlerTestWithK8s(t, test)
+	})
 }
 
-func runTokenOAuth2HandlerTest(t *testing.T, test TokenOAuth2HandlerTest) {
+func runTokenOAuth2HandlerTestWithIoT(t *testing.T, test TokenOAuth2HandlerTest) {
 	// fake Cloud IoT responses
 	fakeIoTHandler := func(req *http.Request) *http.Response {
 		const wantUrl = "https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices/robot-dev-testuser?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false"
@@ -801,6 +816,91 @@ func runTokenOAuth2HandlerTest(t *testing.T, test TokenOAuth2HandlerTest) {
 		t.Fatal(err)
 	}
 	tv, err := app.NewTokenVendor(context.TODO(), rep, nil, ts, test.acceptedAud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &HandlerContext{tv: tv}
+
+	// make request to the handler
+	rr := httptest.NewRecorder()
+	req := mustNewRequest(t, "POST", "/anything", io.NopCloser(strings.NewReader(test.body)))
+	h.tokenOAuth2Handler(rr, req)
+
+	// check response
+	if rr.Code != test.wantStatusCode {
+		t.Fatalf("wrong status code, got %d, want %d", rr.Code, test.wantStatusCode)
+	}
+	// no body is provided in case of bad requests
+	if test.wantStatusCode != 200 {
+		return
+	}
+	var resp tokensource.TokenResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if err != nil {
+		t.Fatalf("failed to unmarshal response body, got body %q", rr.Body)
+	}
+	if resp.AccessToken != test.token {
+		t.Fatalf("Token(..) access token: got %q, want %q", resp.AccessToken, test.token)
+	}
+	wantScopes := strings.Join(test.scopes, " ")
+	if resp.Scope != wantScopes {
+		t.Fatalf("Token(..) scopes: got %v, want %v", resp.Scope, wantScopes)
+	}
+	if resp.TokenType != "Bearer" {
+		t.Fatalf("Token(..) token type: got %q, want %q", resp.TokenType, "Bearer")
+	}
+	// test will fail in the year 2070
+	if resp.ExpiresIn < 1_507_248_000 || resp.ExpiresIn > 2_453_852_873 {
+		t.Fatalf("Token(..) expires in wrong, got %d, wanted far in the future, but not too far",
+			resp.ExpiresIn)
+	}
+}
+
+func runTokenOAuth2HandlerTestWithK8s(t *testing.T, test TokenOAuth2HandlerTest) {
+	// fake GCP IAM response for an access token
+	fakeIAMAPI := func(req *http.Request) *http.Response {
+		const wantUrl = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/testsa@testproject.iam.gserviceaccount.com:generateAccessToken?alt=json&prettyPrint=false"
+		if req.URL.String() != wantUrl {
+			t.Fatalf("wrong IAM URL, got %q, want %q", req.URL, wantUrl)
+		}
+		body := `{
+			"accessToken": "` + test.token + `",
+			"expireTime": "` + test.expire + `"
+		  }`
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(http.Header),
+		}
+	}
+	// setup app and http client
+	clientIAM := NewTestHTTPClient(fakeIAMAPI)
+	ts, err := tokensource.NewGCPTokenSource(context.TODO(), clientIAM, "testproject", "testsa",
+		test.scopes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cs := fake.NewSimpleClientset()
+	if err = populateK8sEnv(cs, "default",
+		[]*corev1.ConfigMap{
+			{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ConfigMap",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "robot-dev-testuser",
+				},
+				Data: map[string]string{"pubKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvTGUksynbWhvZkHNJn8C2oXVD400jiK4T0JoyS/SwbBGwFr3OJGlPwXCsvAPAzmpTuZpge6T3pnIcO/s97sMgyld9ZYio7SQiiRV/nwYZittGf9/yfHSNDJUvT25yhuK2p3UqRCom1a3KljeXbxXvGuYG48IH0kqAQbYBI/0lAV3H5pkdXPFZC6PHltC3jySVIOg7qPXrNuxdxmg/gmzQ9+NmKvXWKATAPax1yYoESaZtc22aCZWouIdJr3baYlfBb4w8stoJPoONuyn4ard17gywb46HHGl2XoY+Y5pihwvctsFeZXLfYwUmFPfgncQHJ02lCV3+Xyk4AAZy3xDpwIDAQAB\n-----END PUBLIC KEY-----"},
+			},
+		}); err != nil {
+		t.Fatal(err)
+	}
+	r, err := k8s.NewK8sRepository(context.TODO(), cs, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tv, err := app.NewTokenVendor(context.TODO(), r, nil, ts, test.acceptedAud)
 	if err != nil {
 		t.Fatal(err)
 	}
