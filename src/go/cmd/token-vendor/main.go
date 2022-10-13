@@ -89,13 +89,21 @@ var (
 	scopes    = scopeFlags{}
 	robotName = flag.String("service_account", "robot-service",
 		"Name of the service account to generate cloud access tokens for.")
+
+	// Other run modes
+	migrateIoT = flag.Bool("migrate-iot-to-k8s", false,
+		"Migrate the public keys stored in Cloud IoT to the Kubernetes backend and quit afterwards.")
 )
 
 func main() {
 	flag.Var(&scopes, "scope", "GCP scopes included in the token given out to robots.")
 	flag.Parse()
+	// Run the migration from Cloud IoT to Kubernetes backend if flag is set and quit.
+	if *migrateIoT {
+		runMigration()
+		return
+	}
 	ctx := context.Background()
-
 	if *verbose {
 		log.SetLevel(log.DebugLevel)
 	} else {
