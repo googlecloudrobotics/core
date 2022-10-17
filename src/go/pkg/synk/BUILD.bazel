@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "interface.go",
+        "sort.go",
         "synk.go",
     ],
     importpath = "github.com/googlecloudrobotics/core/src/go/pkg/synk",
@@ -36,7 +37,10 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["synk_test.go"],
+    srcs = [
+        "sort_test.go",
+        "synk_test.go",
+    ],
     embed = [":go_default_library"],
     deps = [
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",

@@ -204,7 +204,9 @@ func (s *Synk) Init() error {
 // 'name'. It uses so-called "foreground cascading deletion", which means that:
 //
 // - it returns after marking the ResourceSet for deletion, but before the
-//   resources have been deleted
+//
+//	resources have been deleted
+//
 // - the ResourceSet will not be deleted until all resources have been deleted
 //
 // This ensures that if a new ResourceSet is created before all resources have
@@ -455,8 +457,7 @@ func (s *Synk) initialize(
 		})
 	}
 	sort.Slice(rs.Spec.Resources, func(i, j int) bool {
-		a, b := rs.Spec.Resources[i], rs.Spec.Resources[j]
-		return gvkKey(a.Group, a.Version, a.Kind) < gvkKey(b.Group, b.Version, b.Kind)
+		return lessResourceSetSpecGroup(&rs.Spec.Resources[i], &rs.Spec.Resources[j])
 	})
 
 	rs.Status = apps.ResourceSetStatus{
@@ -881,7 +882,7 @@ func (r applyResults) list() (l []*applyResult) {
 		l = append(l, res)
 	}
 	sort.Slice(l, func(i, j int) bool {
-		return resourceKey(l[i].resource) < resourceKey(l[j].resource)
+		return lessUnstructured(l[i].resource, l[j].resource)
 	})
 	return l
 }
@@ -919,8 +920,7 @@ func (s *Synk) updateResourceSetStatus(ctx context.Context, rs *apps.ResourceSet
 			})
 		}
 		sort.Slice(*list, func(i, j int) bool {
-			a, b := (*list)[i], (*list)[j]
-			return gvkKey(a.Group, a.Version, a.Kind) < gvkKey(b.Group, b.Version, b.Kind)
+			return lessResourceSetStatusGroup(&(*list)[i], &(*list)[j])
 		})
 	}
 	build(applied, &rs.Status.Applied)
@@ -1038,7 +1038,7 @@ func decodeResourceSetName(s string) (string, int32, bool) {
 
 func sortResources(res []*unstructured.Unstructured) {
 	sort.Slice(res, func(i, j int) (b bool) {
-		return resourceKey(res[i]) < resourceKey(res[j])
+		return lessUnstructured(res[i], res[j])
 	})
 }
 
