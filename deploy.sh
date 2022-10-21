@@ -358,8 +358,26 @@ function helm_charts {
     --set-string oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}
     --set-string oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}
     --set use_go_token_vendor=${CRC_USE_GO_TOKEN_VENDOR}
+    --set use_tv_k8s_backend=${CRC_USE_TV_K8S_BACKEND}
+    --set use_tv_verbose=${CRC_USE_TV_VERBOSE}
 EOF
 )
+
+  # If the K8s Token Vendor backend is selected, we migrate all
+  # device keys found on IoT Core to Kubernetes. It is safe to
+  # run the migration multiple times.
+  if [[ "${CRC_USE_TV_K8S_BACKEND}" == 1 ]]; then
+    echo "running migration from IoT Core to Kubernetes backend"
+    # First run a validation of the existing IoT Core device identifiers
+    bazel run //src/go/cmd/token-vendor -- \
+      --project ${GCP_PROJECT_ID} --region ${GCP_REGION} --registry cloud-robotics \
+      --validate-iot-identifiers
+    # Migrate the device keys to Kubernetes
+    bazel run //src/go/cmd/token-vendor -- \
+      --project ${GCP_PROJECT_ID} --region ${GCP_REGION} --registry cloud-robotics \
+      --namespace ${BASE_NAMESPACE} \
+      --migrate-iot-to-k8s --migrate-k8s-ctx "${KUBE_CONTEXT}"
+  fi
 
   echo "installing base-cloud to ${KUBE_CONTEXT}..."
   ${HELM} template -n base-cloud --namespace=${BASE_NAMESPACE} ${values} \
