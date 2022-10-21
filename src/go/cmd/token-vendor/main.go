@@ -92,25 +92,31 @@ var (
 
 	// Other run modes
 	migrateIoT = flag.Bool("migrate-iot-to-k8s", false,
-		"Migrate the public keys stored in Cloud IoT to the Kubernetes backend and quit afterwards.")
+		"Migrate the public keys stored in Cloud IoT to the Kubernetes backend and quit.")
+	migrateK8sCtx = flag.String("migrate-k8s-ctx", "",
+		"Local K8s context to use as target cluster for migration.")
+	validateIoTidentifiers = flag.Bool("validate-iot-identifiers", false,
+		"Validate IoT identifiers. Returns non-zero if incompatible identifiers are detected.")
 )
 
 func main() {
 	flag.Var(&scopes, "scope", "GCP scopes included in the token given out to robots.")
 	flag.Parse()
-	// Run the migration from Cloud IoT to Kubernetes backend if flag is set and quit.
-	if *migrateIoT {
-		runMigration()
-		return
-	}
-	ctx := context.Background()
 	if *verbose {
 		log.SetLevel(log.DebugLevel)
 	} else {
 		log.SetLevel(log.InfoLevel)
 	}
-
+	// Run a scan of the Cloud IoT device identifiers if they can be migrated to K8s
+	if *validateIoTidentifiers {
+		runValidation()
+	}
+	// Run the migration from Cloud IoT to Kubernetes backend if flag is set
+	if *migrateIoT {
+		runMigration()
+	}
 	// init components
+	ctx := context.Background()
 	var rep app.PubKeyRepository
 	var err error
 	if *keyStore == CloudIoT {

@@ -2,18 +2,31 @@ package main
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/cloudiot"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/k8s"
 )
 
-// runMigration migrates public keys from Cloud IoT to Kubernetes backend.
+func fromKubeconfig(context, kubeconfigPath string) (*rest.Config, error) {
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
+		&clientcmd.ConfigOverrides{
+			CurrentContext: context,
+		}).ClientConfig()
+}
+
+// runMigration migrates public keys from Cloud IoT to Kubernetes backend. Never returns.
 func runMigration() {
 	log.SetLevel(log.DebugLevel)
 	log.Info("running migration of public keys from Cloud IoT to Kubernetes backend.")
@@ -23,7 +36,8 @@ func runMigration() {
 	if err != nil {
 		log.Panic(err)
 	}
-	config, err := rest.InClusterConfig()
+	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
+	config, err := fromKubeconfig(*migrateK8sCtx, kubeconfig)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -38,6 +52,7 @@ func runMigration() {
 	if _, err = migrate(ctx, iotR, k8sR); err != nil {
 		log.Panic(err)
 	}
+	os.Exit(0)
 }
 
 type summary struct {
@@ -111,4 +126,37 @@ func migrate(ctx context.Context, i *cloudiot.CloudIoTRepository, k *k8s.K8sRepo
 	log.Infof("Summary: IoT devices %d, K8s devices %d, already existed on K8s %d, on K8s but not on IoT %d, migrated now %d, blocked %d, elapsed %s",
 		s.iotCntBefore, s.k8sCntBefore, s.existed, s.k8sOwned, s.migrated, s.blocked, elapsed)
 	return &s, nil
+}
+
+// Validate the device identifiers in the IoT registry. Never returns.
+//
+// Panics on error. Exits with non-zero exit code if incompatible devices are detected.
+func runValidation() {
+	ctx := context.Background()
+	reg := cloudiot.Registry{Project: *project, Region: *region, Registry: *registry}
+	log.Infof("scanning for incompatible device identifiers: %+v\n", reg)
+	r, err := cloudiot.NewCloudIoTRepository(ctx, reg, nil)
+	if err != nil {
+		log.Panicf("failed to create cloud iot repository: %v", err)
+	}
+	keys, err := r.ListAllDeviceIDs(ctx)
+	if err != nil {
+		log.Panicf("failed to get all device identifiers: %v", err)
+	}
+	invalid := 0
+	for _, k := range keys {
+		v := app.IsValidDeviceID(k)
+		if v {
+			log.Debugf("%s is valid\n", k)
+		} else {
+			log.Errorf("%s NOT VALID\n", k)
+			invalid += 1
+		}
+	}
+	log.Infof("scan of %d identifiers completed, %d are invalid", len(keys), invalid)
+	if invalid > 0 {
+		log.Errorf("found %d invalid device identifiers! Need to be valid RFC952 hostnames.", invalid)
+		os.Exit(-1)
+	}
+	os.Exit(0)
 }

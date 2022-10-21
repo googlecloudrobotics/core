@@ -29,7 +29,22 @@ The configmaps are stored in a configured namespace with the device identifier a
 The public key is stored under a key in the configmap.
 Devices can be removed by deleting the configmap.
 
-The backend is WIP and can not yet be configured for use.
+#### Migration from IoT to Kubernetes backend
+
+You can run the Token Vendor with `--migrate-iot-to-k8s` to migrate all public keys
+from the IoT backend to the Kubernetes backend. For this you have to set all relevant
+CLI flags for both backends. Example:
+
+```sh
+bazel run //src/go/cmd/token-vendor -- --verbose --project testproject --region europe-west1 --registry cloud-robotics --namespace default --migrate-iot-to-k8s --migrate-k8s-ctx KUBECONTEXT
+```
+
+Before the migration you should run `--validate-iot-identifiers` to validate the
+identifiers currently on the registry to confirm that they are valid K8s identifiers. Example:
+
+```sh
+bazel run //src/go/cmd/token-vendor -- -verbose --project testproject --region europe-west1 --registry cloud-robotics --validate-iot-identifiers
+```
 
 ## API
 
