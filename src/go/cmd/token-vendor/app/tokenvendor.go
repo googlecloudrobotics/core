@@ -127,8 +127,12 @@ func (tv *TokenVendor) VerifyToken(ctx context.Context, token oauth.Token, robot
 	return tv.v.Verify(ctx, token, acl)
 }
 
-// RFC952 hostnames
-var isValidDeviceIDRegex = regexp.MustCompile(`^[a-zA-Z]([a-zA-Z0-9\-]+[\.]?)*[a-zA-Z0-9]$`).MatchString
+// Regex for RFC 1123 subdomain format
+// The device identifier is used as name for the Kubernetes configmap and thus is validated
+// using the same regex as it is used by the Kubernetes API.
+// https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
+// https://github.com/kubernetes/kubernetes/blob/976a940f4a4e84fe814583848f97b9aafcdb083f/staging/src/k8s.io/apimachinery/pkg/util/validation/validation.go#L209
+var isValidDeviceIDRegex = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`).MatchString
 
 // IsValidDeviceID validates the given identifier for string length and characters used
 //

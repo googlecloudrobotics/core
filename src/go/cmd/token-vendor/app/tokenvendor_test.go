@@ -12,10 +12,11 @@ func TestValidateDeviceId(t *testing.T) {
 	var isValidDeviceIDTests = []isValidDeviceIDTest{
 		// invalid
 		{"", false}, {`\\\\\\\\\\\\\`, false}, {"t\nt", false}, {"1", false},
-		{"robot-dev-\ndevice", false}, {"1test", false},
+		{"robot-dev-\ndevice", false},
 		{"AAAAAAAAAAAAAAAAAAAarobot-dev-device-\neuwest1-test-com", false},
+		{"TEST.com", false}, {"TEST.com.", false}, {"1-.test", false},
 		// valid
-		{"robot-dev-device", true}, {"TEST.com", true},
+		{"robot-dev-device", true}, {"1test", true}, {"1-test", true},
 	}
 
 	for _, test := range isValidDeviceIDTests {
