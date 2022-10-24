@@ -63,12 +63,12 @@ spec:
           "--verbose",
 {{- end }}
 {{- if not .Values.use_go_token_vendor }}
+          "--region", "{{ .Values.region }}",
+          "--registry", "cloud-robotics",
   {{- if eq .Values.deploy_environment "GCP-testing" }}
           "--key-store", "IN_MEMORY",
   {{- else }}
           "--key-store", "CLOUD_IOT",
-          "--region", "{{ .Values.region }}",
-          "--registry", "cloud-robotics",
   {{- end }}
 {{- else }}
   {{- if .Values.use_tv_k8s_backend }}
