@@ -1,0 +1,9 @@
+apiVersion: apps.cloudrobotics.com/v1alpha1
+kind: AppRollout
+metadata:
+  name: token-vendor
+  labels:
+    app: token-vendor
+spec:
+  appName: token-vendor-dev
+  cloud: {}

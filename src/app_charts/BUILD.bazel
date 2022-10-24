@@ -8,6 +8,7 @@ APPS = [
     "k8s-relay",
     "mission-crd",
     "prometheus",
+    "token-vendor",
 ]
 
 run_parallel(

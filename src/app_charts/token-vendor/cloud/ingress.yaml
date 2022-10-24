@@ -1,0 +1,74 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: public-key-access
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - {{ .Values.domain }}
+  rules:
+  - host: {{ .Values.domain }}
+    http:
+      paths:
+      - path: "/apis/core.token-vendor/v1/public-key.read"
+        pathType: Prefix
+        backend:
+          service:
+            name: token-vendor
+            port:
+              name: token-vendor
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: public-key-manager
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=false"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - {{ .Values.domain }}
+  rules:
+  - host: {{ .Values.domain }}
+    http:
+      paths:
+      - path: "/apis/core.token-vendor/v1/public-key.publish"
+        pathType: Prefix
+        backend:
+          service:
+            name: token-vendor
+            port:
+              name: token-vendor
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: token-vendor
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - {{ .Values.domain }}
+  rules:
+  - host: {{ .Values.domain }}
+    http:
+      paths:
+      - path: "/apis/core.token-vendor/v1/token.verify"
+        pathType: Prefix
+        backend:
+          service:
+            name: token-vendor
+            port:
+              name: token-vendor
+      - path: "/apis/core.token-vendor/v1/token.oauth2"
+        pathType: Prefix
+        backend:
+          service:
+            name: token-vendor
+            port:
+              name: token-vendor
+---

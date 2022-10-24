@@ -3,3 +3,8 @@ project: "my-gcp-project"
 deploy_environment: "GCP"
 registry: "gcr.io/my-gcp-project"
 robots: []
+region: example-gcp-region
+# Token Vendor feature flags
+use_go_token_vendor: false
+use_tv_k8s_backend: false
+use_tv_k8s_verbose: false

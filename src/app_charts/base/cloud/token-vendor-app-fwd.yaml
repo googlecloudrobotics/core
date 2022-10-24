@@ -1,0 +1,17 @@
+# The Token Vendor was moved to the app namespace.
+# We create this service here in default namespace 
+# as some codepaths still use the hard-coded
+# "token-vendor.default.svc.cluster.local" address.
+apiVersion: v1
+kind: Service
+metadata:
+  name: token-vendor
+  annotations:
+spec:
+  ports:
+  - port: 80
+    targetPort: 9090
+    protocol: TCP
+    name: token-vendor
+  type: ExternalName
+  externalName: token-vendor.app-token-vendor.svc.cluster.local

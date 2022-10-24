@@ -9,7 +9,7 @@ resource "google_service_account" "token_vendor" {
   project      = data.google_project.project.project_id
 }
 
-# Allow the default/token-vendor Kubernetes SA to use this GCP SA.
+# Allow the app-token-vendor/token-vendor Kubernetes SA to use this GCP SA.
 resource "google_service_account_iam_policy" "token_vendor" {
   service_account_id = google_service_account.token_vendor.name
   policy_data        = data.google_iam_policy.token_vendor.policy_data
@@ -21,7 +21,7 @@ data "google_iam_policy" "token_vendor" {
   binding {
     role = "roles/iam.workloadIdentityUser"
     members = [
-      "serviceAccount:${data.google_project.project.project_id}.svc.id.goog[default/token-vendor]"
+      "serviceAccount:${data.google_project.project.project_id}.svc.id.goog[app-token-vendor/token-vendor]"
     ]
   }
 }

@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: token-vendor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: token-vendor
+  template:
+    metadata:
+      labels:
+        app: token-vendor
+    spec:
+      containers:
+      - name: token-vendor
+{{- if .Values.use_go_token_vendor }}
+        image: {{ .Values.registry }}{{ .Values.images.token_vendor_go }}
+{{- else }}
+        image: {{ .Values.registry }}{{ .Values.images.token_vendor }}
+{{- end }}
+        ports:
+        - name: token-vendor
+          containerPort: 9090
+        args: [
+          "--project", "{{ .Values.project }}",
+          "--accepted_audience", "https://{{ .Values.domain }}/apis/core.token-vendor/v1/token.oauth2",
+          "--service_account", "robot-service",
+          # This scope is for token vendor and for access to GCS/GCR.
+          "--scope", "https://www.googleapis.com/auth/cloud-platform",
+          # This scope allows GKE RBAC policy bindings to refer to service accounts by email.
+          # https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control#forbidden_error_for_service_accounts_on_vm_instances
+          "--scope", "https://www.googleapis.com/auth/userinfo.email",
+{{- if not .Values.use_go_token_vendor }}
+          "--region", "{{ .Values.region }}",
+          "--registry", "cloud-robotics",
+ {{- if eq .Values.deploy_environment "GCP-testing" }}
+          "--key-store", "IN_MEMORY",
+ {{- else }}
+          "--key-store", "CLOUD_IOT",
+ {{- end }}
+{{- else }}
+ {{- if .Values.use_tv_verbose }}
+          "--verbose",
+ {{- end }}
+ {{- if .Values.use_tv_k8s_backend }}
+          "--key-store", "KUBERNETES",
+          "--namespace", "app-token-vendor",
+ {{- else }}
+          "--key-store", "CLOUD_IOT",
+          "--region", "{{ .Values.region }}",
+          "--registry", "cloud-robotics",
+ {{- end }}
+{{- end }}
+        ]
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9090
+          initialDelaySeconds: 15
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+      tolerations:
+        - key: "workload-identity"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      nodeSelector:
+        iam.gke.io/gke-metadata-server-enabled: "true"
+      serviceAccountName: token-vendor
