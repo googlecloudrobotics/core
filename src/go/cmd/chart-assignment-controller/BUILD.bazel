@@ -18,7 +18,6 @@ go_library(
         "@io_k8s_sigs_controller_runtime//pkg/log/zap:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/manager:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/manager/signals:go_default_library",
-        "@io_k8s_sigs_controller_runtime//pkg/webhook/admission:go_default_library",
         "@io_opencensus_go//trace:go_default_library",
         "@io_opencensus_go_contrib_exporter_stackdriver//:go_default_library",
     ],
@@ -31,7 +30,7 @@ genrule(
     outs = ["helm-config.tar"],
     # Note: the extra tar flags are use to make builds deterministic
     cmd = "$(location @kubernetes_helm//:helm) >/dev/null init --client-only --skip-repos " +
-          "&& tar --owner=root --group=root --numeric-owner --mtime='2010-01-01' --create --file $@ .helm/",
+          "&& mkdir -p .helm && tar --owner=root --group=root --numeric-owner --mtime='2010-01-01' --create --file $@ .helm/",
     output_to_bindir = True,
     tools = ["@kubernetes_helm//:helm"],
 )
