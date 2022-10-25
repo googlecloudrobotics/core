@@ -82,6 +82,9 @@ func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk string) (*tokens
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to retrieve public key for device %q", deviceID)
 	}
+	if pubKey == "" {
+		return nil, errors.Errorf("no public key found for device %q", deviceID)
+	}
 	err = jwt.VerifySignature(jwtk, pubKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to verify signature")
