@@ -42,10 +42,10 @@ import (
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	"github.com/cenkalti/backoff"
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/protobuf/proto"
 )
 
 const (

@@ -22,8 +22,8 @@ import (
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
-	"github.com/golang/protobuf/proto"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 	"gopkg.in/h2non/gock.v1"
 )
 
@@ -69,7 +69,7 @@ func TestLocalProxy(t *testing.T) {
 	})
 	resp, _ := proto.Marshal(&pb.HttpResponse{
 		Id:         proto.String("15"),
-		StatusCode: proto.Int(201),
+		StatusCode: proto.Int32(201),
 		Header: []*pb.HttpHeader{
 			{
 				Name:  proto.String("Priority"),
@@ -120,7 +120,7 @@ func TestBackendError(t *testing.T) {
 	})
 	resp, _ := proto.Marshal(&pb.HttpResponse{
 		Id:         proto.String("15"),
-		StatusCode: proto.Int(400),
+		StatusCode: proto.Int32(400),
 		Body:       []byte("theresponsebody"),
 		Eof:        proto.Bool(true),
 	})

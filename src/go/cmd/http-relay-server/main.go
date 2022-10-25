@@ -95,9 +95,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"google.golang.org/protobuf/proto"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"

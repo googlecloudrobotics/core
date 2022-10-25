@@ -2,4 +2,6 @@
 // process. This dummy file exists to make the Golang toolchain happy.
 // We may need to replace it with a generated file to truly fix the build,
 // though.
+//
+//go:generate protoc --go_out=. --go_opt=paths=source_relative http_over_rpc.proto
 package http_relay

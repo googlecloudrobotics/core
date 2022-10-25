@@ -28,7 +28,7 @@ import (
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	hijacktest "github.com/getlantern/httptest"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 func checkResponse(t *testing.T, resp *http.Response, wantStatus int, wantBody string) {
@@ -75,7 +75,7 @@ func TestClientHandler(t *testing.T) {
 
 	server.b.SendResponse(&pb.HttpResponse{
 		Id:         relayRequest.Id,
-		StatusCode: proto.Int(201),
+		StatusCode: proto.Int32(201),
 		Header: []*pb.HttpHeader{{
 			Name:  proto.String("X-GFE"),
 			Value: proto.String("google.com"),
@@ -184,7 +184,7 @@ func TestRequestStreamHandler(t *testing.T) {
 	}
 	server.b.SendResponse(&pb.HttpResponse{
 		Id:         relayRequest.Id,
-		StatusCode: proto.Int(101),
+		StatusCode: proto.Int32(101),
 		Header: []*pb.HttpHeader{{
 			Name:  proto.String("Upgrade"),
 			Value: proto.String("SPDY/3.1"),
@@ -235,7 +235,7 @@ func TestServerRequestResponseHandler(t *testing.T) {
 
 	backendResp := &pb.HttpResponse{
 		Id:         backendReq.Id,
-		StatusCode: proto.Int(201),
+		StatusCode: proto.Int32(201),
 		Header: []*pb.HttpHeader{{
 			Name:  proto.String("X-GFE"),
 			Value: proto.String("google.com"),
@@ -294,7 +294,7 @@ func TestServerRequestResponseHandler(t *testing.T) {
 func TestServerResponseHandlerWithInvalidRequestID(t *testing.T) {
 	backendResp := &pb.HttpResponse{
 		Id:         proto.String("not found"),
-		StatusCode: proto.Int(201),
+		StatusCode: proto.Int32(201),
 		Header: []*pb.HttpHeader{{
 			Name:  proto.String("X-GFE"),
 			Value: proto.String("google.com"),

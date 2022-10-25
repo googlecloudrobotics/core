@@ -10,7 +10,7 @@ go_library(
     deps = [
         "//src/proto/http-relay:go_default_library",
         "@com_github_cenkalti_backoff//:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
+        "@org_golang_google_protobuf//proto:go_default_library",
         "@org_golang_x_net//context:go_default_library",
         "@org_golang_x_net//http2:go_default_library",
         "@org_golang_x_oauth2//google:go_default_library",
@@ -25,9 +25,9 @@ go_test(
     visibility = ["//visibility:private"],
     deps = [
         "//src/proto/http-relay:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_onsi_gomega//:go_default_library",
         "@in_gopkg_h2non_gock_v1//:go_default_library",
+        "@org_golang_google_protobuf//proto:go_default_library",
     ],
 )
 

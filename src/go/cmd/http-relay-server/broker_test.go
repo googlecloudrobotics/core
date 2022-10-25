@@ -23,8 +23,7 @@ import (
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
-
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 const (

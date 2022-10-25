@@ -17,7 +17,7 @@ require (
 	github.com/go-openapi/spec v0.19.3
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang/mock v1.6.0
-	github.com/golang/protobuf v1.5.2
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
@@ -36,7 +36,7 @@ require (
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	google.golang.org/api v0.48.0
 	google.golang.org/grpc v1.40.0
-	google.golang.org/protobuf v1.27.1 // indirect
+	google.golang.org/protobuf v1.27.1
 	gopkg.in/h2non/gock.v1 v1.1.2
 	k8s.io/api v0.22.2
 	k8s.io/apiextensions-apiserver v0.22.2
