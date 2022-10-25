@@ -147,6 +147,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	} else if err != nil {
 		return reconcile.Result{}, fmt.Errorf("getting ChartAssignment %q failed: %s", req, err)
 	}
+	// Reconcile ChartAssignments for own clusterName only
+	if as.Spec.ClusterName != r.cluster {
+		return reconcile.Result{}, nil
+	}
 	return r.reconcile(ctx, &as)
 }
 
@@ -504,9 +508,18 @@ func NewValidationWebhook(mgr manager.Manager) *admission.Webhook {
 	return &admission.Webhook{Handler: newChartAssignmentValidator(mgr.GetScheme())}
 }
 
+// NewValidationWebhookForEdgeCluster returns a webhook that checks
+// ChartAssignments are valid and apply to a cluster with the given name.
+func NewValidationWebhookForEdgeCluster(mgr manager.Manager, clusterName string) *admission.Webhook {
+	v := newChartAssignmentValidator(mgr.GetScheme())
+	v.clusterName = clusterName
+	return &admission.Webhook{Handler: v}
+}
+
 // chartAssignmentValidator implements a validation webhook.
 type chartAssignmentValidator struct {
-	decoder runtime.Decoder
+	decoder     runtime.Decoder
+	clusterName string
 }
 
 func newChartAssignmentValidator(sc *runtime.Scheme) *chartAssignmentValidator {
@@ -536,6 +549,12 @@ func (v *chartAssignmentValidator) Handle(_ context.Context, req admission.Reque
 }
 
 func (v *chartAssignmentValidator) validate(cur, old *apps.ChartAssignment) error {
+	if cur.Spec.ClusterName == "" {
+		return fmt.Errorf("cluster name missing")
+	}
+	if v.clusterName != "" && cur.Spec.ClusterName != v.clusterName {
+		return fmt.Errorf("invalid cluster name %q, expected %q", cur.Spec.ClusterName, v.clusterName)
+	}
 	if cur.Spec.NamespaceName == "" {
 		return fmt.Errorf("namespace name missing")
 	}
@@ -543,9 +562,16 @@ func (v *chartAssignmentValidator) validate(cur, old *apps.ChartAssignment) erro
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid namespace name %q: %s", cur.Spec.NamespaceName, strings.Join(errs, ", "))
 	}
+	errs = validation.ValidateClusterName(cur.Spec.ClusterName, false)
+	if len(errs) > 0 {
+		return fmt.Errorf("invalid cluster name %q: %s", cur.Spec.ClusterName, strings.Join(errs, ", "))
+	}
 	if old != nil {
 		if cur.Spec.NamespaceName != old.Spec.NamespaceName {
 			return fmt.Errorf("target namespace name must not be changed")
+		}
+		if cur.Spec.ClusterName != old.Spec.ClusterName {
+			return fmt.Errorf("target cluster name must not be changed")
 		}
 	}
 	c := cur.Spec.Chart

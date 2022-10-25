@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 var (
@@ -125,7 +126,12 @@ func setupAppV2(ctx context.Context, cfg *rest.Config, cluster string) error {
 	}
 
 	if *webhookEnabled {
-		webhook := chartassignment.NewValidationWebhook(mgr)
+		var webhook *admission.Webhook
+		if *cloudCluster {
+			webhook = chartassignment.NewValidationWebhook(mgr)
+		} else {
+			webhook = chartassignment.NewValidationWebhookForEdgeCluster(mgr, cluster)
+		}
 		srv := mgr.GetWebhookServer()
 		srv.CertDir = *certDir
 		srv.Register("/chartassignment/validate", webhook)
