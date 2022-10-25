@@ -6,6 +6,7 @@ go_library(
     srcs = [
         "controller.go",
         "release.go",
+        "validator.go",
     ],
     importpath = "github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment",
     visibility = ["//visibility:public"],
@@ -56,9 +57,9 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "controller_test.go",
         "release_test.go",
         "synk_interface_test.go",
+        "validator_test.go",
     ],
     embed = [":go_default_library"],
     visibility = ["//visibility:private"],
