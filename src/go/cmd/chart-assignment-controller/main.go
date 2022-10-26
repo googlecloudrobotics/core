@@ -121,7 +121,7 @@ func setupAppV2(ctx context.Context, cfg *rest.Config, cluster string) error {
 	if err != nil {
 		return errors.Wrap(err, "create controller manager")
 	}
-	if err := chartassignment.Add(ctx, mgr, cluster); err != nil {
+	if err := chartassignment.Add(ctx, mgr, *cloudCluster); err != nil {
 		return errors.Wrap(err, "add ChartAssignment controller")
 	}
 

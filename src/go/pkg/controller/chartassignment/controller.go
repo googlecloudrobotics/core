@@ -49,11 +49,11 @@ const (
 // Add adds a controller and validation webhook for the ChartAssignment resource type
 // to the manager and server.
 // Handled ChartAssignments are filtered by the provided cluster.
-func Add(ctx context.Context, mgr manager.Manager, cluster string) error {
+func Add(ctx context.Context, mgr manager.Manager, cloud bool) error {
 	r := &Reconciler{
 		kube:     mgr.GetClient(),
 		recorder: mgr.GetEventRecorderFor("chartassignment-controller"),
-		cluster:  cluster,
+		cloud:    cloud,
 	}
 	var err error
 	r.releases, err = newReleases(mgr.GetConfig(), r.recorder)
@@ -121,8 +121,8 @@ func (r *Reconciler) enqueueForPod(ctx context.Context, m meta.Object, q workque
 type Reconciler struct {
 	kube     kclient.Client
 	recorder record.EventRecorder
-	cluster  string // Cluster for which to handle ChartAssignments.
 	releases *releases
+	cloud    bool
 }
 
 // Reconcile creates and updates a Synk ResourceSet for the given chart
@@ -141,8 +141,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	} else if err != nil {
 		return reconcile.Result{}, fmt.Errorf("getting ChartAssignment %q failed: %s", req, err)
 	}
-	// Reconcile ChartAssignments for own clusterName only
-	if as.Spec.ClusterName != r.cluster {
+	// Reconcile no ChartAssignments for robots on the cloud.
+	// We do have ChartAssignments without the robot label on the robot but they
+	// do not pass through the cloud cluster.
+	// Labels is of type map[string]string but we care only for the existence
+	// of the key.
+	_, isRobot := as.Labels["cloudrobotics.com/robot-name"]
+	if r.cloud && isRobot {
 		return reconcile.Result{}, nil
 	}
 	return r.reconcile(ctx, &as)
@@ -219,7 +224,7 @@ func (r *Reconciler) ensureNamespace(ctx context.Context, as *apps.ChartAssignme
 // reference images from a private container registry.
 // TODO(ensonic): Put this behind a flag to only do this as needed.
 func (r *Reconciler) ensureServiceAccount(ctx context.Context, ns *core.Namespace, as *apps.ChartAssignment) error {
-	if r.cluster == "cloud" {
+	if r.cloud {
 		// We don't need any of this for cloud charts.
 		return nil
 	}
