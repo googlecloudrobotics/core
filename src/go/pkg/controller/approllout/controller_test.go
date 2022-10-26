@@ -467,11 +467,11 @@ status:
 	}
 	if c := ar.Status.Conditions[0]; c.Type != apps.AppRolloutConditionSettled ||
 		c.Status != core.ConditionFalse {
-		t.Errorf("Unexpected first condition %v, expected Settled=False")
+		t.Errorf("Unexpected first condition %v, expected Settled=False", c)
 	}
 	if c := ar.Status.Conditions[1]; c.Type != apps.AppRolloutConditionReady ||
 		c.Status != core.ConditionFalse {
-		t.Errorf("Unexpected second condition %v, expected Ready=False")
+		t.Errorf("Unexpected second condition %v, expected Ready=False", c)
 	}
 }
 
