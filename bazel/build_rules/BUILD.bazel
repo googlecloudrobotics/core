@@ -1,5 +1,4 @@
 exports_files([
-    "proto_descriptor.bzl",
     "rosmsg.bzl",
 ])
 
