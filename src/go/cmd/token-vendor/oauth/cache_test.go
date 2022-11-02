@@ -14,12 +14,16 @@ type tokenProp struct {
 	actAs bool
 }
 
-var counter int
+var (
+	counter   int
+	counterMu sync.Mutex
+)
 
 func randToken() *tokenProp {
+	counterMu.Lock()
+	defer counterMu.Unlock()
 	counter += 1
 	token := Token(fmt.Sprintf("%X", counter))
-	counter += 1
 	return &tokenProp{token: token, acl: fmt.Sprintf("%X", counter),
 		actAs: rand.Intn(2) == 1}
 }
