@@ -1,12 +1,12 @@
-load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
 
 # mission service
 
 package(default_visibility = ["//visibility:public"])
 
-# move api
+# language bindings
 
 proto_library(
     name = "mission_proto",
@@ -14,64 +14,14 @@ proto_library(
     deps = ["@com_google_protobuf//:timestamp_proto"],
 )
 
-# language bindings
-
-java_proto_library(
-    name = "mission_proto_java",
-    deps = [":mission_proto"],
-)
-
-proto_library(
-    name = "proto_proto",
-    srcs = ["mission.proto"],
-    deps = ["@com_google_protobuf//:timestamp_proto"],
-)
-
 go_proto_library(
-    name = "proto_go_proto",
-    importpath = "src/proto",
-    proto = ":proto_proto",
+    name = "mission_go_proto",
+    importpath = "src/proto/mission",
+    proto = ":mission_proto",
 )
 
 go_library(
     name = "go_default_library",
     embed = [":mission_go_proto"],
     importpath = "src/proto/mission",
-)
-
-# generates the mission proto needed to communicate with the cr-adapter
-load("//bazel/proto_crd:proto_k8s_service.bzl", "proto_k8s_service")
-
-proto_k8s_service(
-    name = "mission_cr",
-    filter_by_robot_name = True,
-    group = "mission.cloudrobotics.com",
-    message = "cloudrobotics.mission.v1alpha1.Mission",
-    spec = ":mission_proto",
-    spec_source = "{{ .Values.crd_spec_source }}",
-)
-
-go_proto_library(
-    name = "mission_cr_go_proto",
-    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
-    importpath = "github.com/googlecloudrobotics/core/src/proto/mission",
-    protos = [
-        ":mission_cr_proto",
-        ":mission_proto",
-    ],
-    deps = [
-        "//third_party/kubernetes_proto/meta:go_default_library",
-    ],
-)
-
-go_library(
-    name = "mission_cr_go_proto_library",
-    embed = [":mission_cr_go_proto"],
-    importpath = "github.com/googlecloudrobotics/core/src/proto/mission",
-)
-
-go_proto_library(
-    name = "mission_go_proto",
-    importpath = "src/proto/mission",
-    proto = ":mission_proto",
 )

@@ -1,0 +1,132 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cr-syncer.cloudrobotics.com/filter-by-robot-name: "true"
+    cr-syncer.cloudrobotics.com/spec-source: cloud
+  name: missions.mission.cloudrobotics.com
+spec:
+  group: mission.cloudrobotics.com
+  names:
+    kind: Mission
+    plural: missions
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            properties:
+              actions:
+                items:
+                  properties:
+                    charge:
+                      properties:
+                        charger_name:
+                          type: string
+                        target_battery_percent:
+                          description: |-
+                            If actually performing the charge action, charge until this level is
+                            reached.
+                          format: int64
+                          type: integer
+                        threshold_battery_percent:
+                          description: |-
+                            Only perform the charge action if battery level is lower than this
+                            threshold, otherwise do nothing.
+                          format: int64
+                          type: integer
+                      type: object
+                    get_trolley:
+                      properties:
+                        dock_name:
+                          description: |-
+                            Name of dock to get trolley from, eg "1". This should correspond to
+                            the name of the mission created by ROEQ's Create_docking_station.exe, eg
+                            "ROEQ_Get cart 1".
+                          type: string
+                      type: object
+                    move_to_named_position:
+                      properties:
+                        target_name:
+                          description: String id of target position as created in
+                            MiR's web frontend.
+                          type: string
+                      type: object
+                    return_trolley:
+                      properties:
+                        dock_name:
+                          description: |-
+                            Name of dock to return trolley to, eg "1". This should correspond to
+                            the name of the mission created by ROEQ's Create_docking_station.exe, eg
+                            "ROEQ_Return cart 1".
+                          type: string
+                      type: object
+                  type: object
+                type: array
+              time_out_sec:
+                format: float
+                type: number
+            type: object
+          status:
+            properties:
+              active_action:
+                properties:
+                  id:
+                    title: The ID of the currently executed action
+                    type: string
+                  index:
+                    format: int64
+                    title: The index of the currently executed action
+                    type: integer
+                  status:
+                    description: |2-
+                       - DEFAULT: Used if no other specific status applies.
+                       - DOCKING: Robot is currently docking.
+                       - MOVING: Robot is moving.
+                       - TIMEOUT: Mission duration exceeded MissionSpec.time_out_sec. Can only be set if
+                      MissionStatus.status is FAILED.
+                    enum:
+                    - DEFAULT
+                    - DOCKING
+                    - MOVING
+                    - TIMEOUT
+                    type: string
+                title: Information about the currently executed action within a mission
+                type: object
+              message:
+                type: string
+              queue_entry_id:
+                description: Links the goal to the entry in the MiR's mission queue.
+                format: int64
+                type: string
+              status:
+                description: |-
+                  The various states of the mission execution.
+
+                   - CREATED: initial state
+                   - ACCEPTED: mission has been validated on
+                   - RUNNING: active state (processing)
+                   - SUCCEEDED: terminal states
+                enum:
+                - CREATED
+                - ACCEPTED
+                - RUNNING
+                - SUCCEEDED
+                - CANCELED
+                - FAILED
+                type: string
+              time_of_actuation:
+                format: date-time
+                type: string
+            type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions:
+  - v1alpha1
