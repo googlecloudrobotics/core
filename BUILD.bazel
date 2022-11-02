@@ -35,5 +35,5 @@ gazelle(
 # These directives tell Gazelle how to resolve the proto imports within the
 # grpc-gateway repo.
 #
-# gazelle:resolve proto protoc-gen-swagger/options/annotations.proto @grpc_ecosystem_grpc_gateway//protoc-gen-swagger/options:options_proto
-# gazelle:resolve proto go protoc-gen-swagger/options/annotations.proto @grpc_ecosystem_grpc_gateway//protoc-gen-swagger/options:go_default_library
+# gazelle:resolve proto protoc-gen-openapiv2/options/annotations.proto @grpc_ecosystem_grpc_gateway//protoc-gen-openapiv2/options:options_proto
+# gazelle:resolve proto go protoc-gen-openapiv2/options/annotations.proto @grpc_ecosystem_grpc_gateway//protoc-gen-openapiv2/options:go_default_library

@@ -12,10 +12,10 @@ protobuf_deps()
 
 http_archive(
     name = "rules_pkg",
-    sha256 = "8a298e832762eda1830597d64fe7db58178aa84cd5926d76d5b744d6558941c2",
+    sha256 = "451e08a4d78988c06fa3f9306ec813b836b1d076d0f055595444ba4ff22b867f",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.7.0/rules_pkg-0.7.0.tar.gz",
-        "https://github.com/bazelbuild/rules_pkg/releases/download/0.7.0/rules_pkg-0.7.0.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.7.1/rules_pkg-0.7.1.tar.gz",
+        "https://github.com/bazelbuild/rules_pkg/releases/download/0.7.1/rules_pkg-0.7.1.tar.gz",
     ],
 )
 
@@ -34,7 +34,7 @@ load("@bazel_gazelle//:deps.bzl", "go_repository")
 # Do not call go_rules_dependencies() until after all other go_repository
 # calls, or else the top-level definitions may be silently ignored.
 # https://github.com/bazelbuild/bazel/issues/3908
-go_register_toolchains(version = "1.17.1")
+go_register_toolchains(version = "1.19.2")
 
 http_archive(
     name = "com_github_kubernetes_sigs_application",
@@ -124,7 +124,7 @@ _go_image_repos()
 
 go_repository(
     name = "grpc_ecosystem_grpc_gateway",
-    commit = "50c55a9810a974dc5a9e7dd1a5c0d295d525f283",
+    commit = "a63ed0e69747e4e668fbffbed370f2e50aca36d4",
     importpath = "github.com/grpc-ecosystem/grpc-gateway",
 )
 

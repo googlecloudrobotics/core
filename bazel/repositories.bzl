@@ -28,11 +28,11 @@ def cloud_robotics_repositories():
     _maybe(
         http_archive,
         name = "com_google_protobuf",
-        sha256 = "bb1ddd8172b745cbdc75f06841bd9e7c9de0b3956397723d883423abfab8e176",
-        strip_prefix = "protobuf-3.18.0",
+        sha256 = "f66073dee0bc159157b0bd7f502d7d1ee0bc76b3c1eac9836927511bdc4b3fc1",
+        strip_prefix = "protobuf-3.21.9",
         urls = [
-            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.18.0.zip",
-            "https://github.com/protocolbuffers/protobuf/archive/v3.18.0.zip",
+            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.21.9.zip",
+            "https://github.com/protocolbuffers/protobuf/archive/v3.21.9.zip",
         ],
     )
 
@@ -491,13 +491,12 @@ def cloud_robotics_repositories():
     _maybe(
         http_archive,
         name = "io_bazel_rules_go",
-        sha256 = "2b1641428dff9018f9e85c0384f03ec6c10660d935b750e3fa1492a281a53b0f",
+        sha256 = "099a9fb96a376ccbbb7d291ed4ecbdfd42f6bc822ab77ae6f1b5cb9e914e94fa",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",
-            "https://github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.35.0/rules_go-v0.35.0.zip",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.35.0/rules_go-v0.35.0.zip",
         ],
     )
-
     _maybe(
         http_archive,
         name = "bazel_gazelle",
@@ -511,11 +510,9 @@ def cloud_robotics_repositories():
     _maybe(
         http_archive,
         name = "com_github_bazelbuild_buildtools",
-        sha256 = "ae34c344514e08c23e90da0e2d6cb700fcd28e80c02e23e4d5715dddcb42f7b3",
-        strip_prefix = "buildtools-4.2.2",
-        urls = [
-            "https://github.com/bazelbuild/buildtools/archive/4.2.2.tar.gz",
-        ],
+        sha256 = "e3bb0dc8b0274ea1aca75f1f8c0c835adbe589708ea89bf698069d0790701ea3",
+        strip_prefix = "buildtools-5.1.0",
+        urls = ["https://github.com/bazelbuild/buildtools/archive/5.1.0.tar.gz"],
     )
 
 def _maybe(repo_rule, name, **kwargs):
