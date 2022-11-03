@@ -94,7 +94,7 @@ func parseFlags() {
 	} else if flag.NArg() > 1 {
 		flag.Usage()
 		log.Fatalf("ERROR: too many positional arguments (%d), expected 1.", flag.NArg())
-	} else if errs := validation.ValidateClusterName(flag.Arg(0), false); len(errs) > 0 {
+	} else if errs := validation.NameIsDNS1035Label(flag.Arg(0), false); len(errs) > 0 {
 		log.Fatalf("ERROR: invalid cluster name %q: %s", flag.Arg(0), strings.Join(errs, ", "))
 	}
 

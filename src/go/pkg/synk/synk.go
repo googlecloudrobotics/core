@@ -479,7 +479,7 @@ func (s *Synk) populateNamespaces(
 	resources ...*unstructured.Unstructured,
 ) error {
 	_, span := trace.StartSpan(ctx, "Discover server resources")
-	list, err := s.discovery.ServerResources()
+	_, list, err := s.discovery.ServerGroupsAndResources()
 	span.End()
 	if err != nil {
 		return errors.Wrap(err, "discover server resources")

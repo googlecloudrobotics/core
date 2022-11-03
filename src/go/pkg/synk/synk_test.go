@@ -47,8 +47,8 @@ type fakeCachedDiscoveryClient struct {
 
 func (d *fakeCachedDiscoveryClient) Invalidate() {}
 
-func (d *fakeCachedDiscoveryClient) ServerResources() ([]*metav1.APIResourceList, error) {
-	return []*metav1.APIResourceList{
+func (d *fakeCachedDiscoveryClient) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+	return nil, []*metav1.APIResourceList{
 		{
 			GroupVersion: "v1",
 			APIResources: []metav1.APIResource{
