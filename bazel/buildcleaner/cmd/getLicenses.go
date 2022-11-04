@@ -58,10 +58,11 @@ func getSourceURL(r *build.Rule) (string, error) {
 
 // getRepoID gets an identifier for the archive by transforming the source URL.
 // Examples:
-//   https://github.com/libexpat/libexpat/archive/R_2_2_4.tar.gz
-//   -> github.com/libexpat/libexpat
-//   http://www.dest-unreach.org/socat/download/socat-1.7.3.2.tar.gz
-//   -> www.dest-unreach.org/socat/download
+//
+//	https://github.com/libexpat/libexpat/archive/R_2_2_4.tar.gz
+//	-> github.com/libexpat/libexpat
+//	http://www.dest-unreach.org/socat/download/socat-1.7.3.2.tar.gz
+//	-> www.dest-unreach.org/socat/download
 func getRepoID(u string) string {
 	u = strings.TrimPrefix(u, "http://")
 	u = strings.TrimPrefix(u, "https://")
@@ -97,43 +98,10 @@ type ROSPackage struct {
 	License string   `xml:"license"`
 }
 
-// getROSLicense tries to read license info from package.xml files in the
-// repo.
-func getROSLicense(repoDir string) (string, error) {
-	licenseMap := make(map[string]bool)
-	visit := func(path string, f os.FileInfo, err error) error {
-		if f.Name() != "package.xml" {
-			return nil
-		}
-		reader, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer reader.Close()
-		d := xml.NewDecoder(reader)
-		d.CharsetReader = charsetReader
-		var p ROSPackage
-		d.Decode(&p)
-		if err != nil {
-			return err
-		}
-		if p.License != "" {
-			licenseMap[p.License] = true
-		}
-		// If we found package.xml, don't recurse further into this
-		// subdir.
-		return filepath.SkipDir
-	}
-	err := filepath.Walk(repoDir, visit)
-	if err != nil {
-		return "", err
-	}
-	return mapToString(licenseMap), nil
-}
-
 // getBazelLicense tries to read license info from BUILD.bazel, by finding
 // lines such as:
-//   licenses(["notice"])  # BSD
+//
+//	licenses(["notice"])  # BSD
 func getBazelLicense(repoDir string) (string, error) {
 	f, err := os.Open(filepath.Join(repoDir, "BUILD.bazel"))
 	if err != nil {
@@ -195,18 +163,8 @@ func getLicense(repoDir string) (string, error) {
 	if strings.Contains(repoDir, "eigen") {
 		return "LGPL v2.1+, GPL v3, MPL2", nil
 	}
-	if strings.HasSuffix(repoDir, "ros_planning_navigation") {
-		return "BSD, LGPL", nil
-	}
-	l, err := getROSLicense(repoDir)
-	if err != nil {
-		return "", err
-	}
-	if l != "" {
-		return l, nil
-	}
 
-	l, err = getBazelLicense(repoDir)
+	l, err := getBazelLicense(repoDir)
 	if err != nil {
 		return "", err
 	}

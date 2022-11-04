@@ -1,7 +1,3 @@
-exports_files([
-    "rosmsg.bzl",
-])
-
 config_setting(
     name = "optimized",
     values = {"compilation_mode": "opt"},
