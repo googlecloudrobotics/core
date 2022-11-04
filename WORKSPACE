@@ -29,7 +29,6 @@ load("//third_party:maven_dependencies.bzl", "maven_dependencies")
 maven_dependencies()
 
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains")
-load("@bazel_gazelle//:deps.bzl", "go_repository")
 
 # Do not call go_rules_dependencies() until after all other go_repository
 # calls, or else the top-level definitions may be silently ignored.
@@ -121,12 +120,6 @@ load(
 )
 
 _go_image_repos()
-
-go_repository(
-    name = "grpc_ecosystem_grpc_gateway",
-    commit = "a63ed0e69747e4e668fbffbed370f2e50aca36d4",
-    importpath = "github.com/grpc-ecosystem/grpc-gateway",
-)
 
 # grafana dashboards for nginx ingress controller
 
