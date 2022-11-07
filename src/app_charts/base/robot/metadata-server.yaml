@@ -26,13 +26,6 @@ spec:
           path: /etc/ssl
       containers:
       - name: metadata-server
-        securityContext:
-          capabilities:
-            drop:
-              - all
-            add:
-              - NET_ADMIN
-              - NET_RAW
         image: {{ .Values.registry }}{{ .Values.images.metadata_server }}
         args:
         - --port
@@ -44,6 +37,14 @@ spec:
         env:
         - name: BIND_IP
           value: "127.0.0.1"
+        securityContext:
+          readOnlyRootFilesystem: true  
+          capabilities:
+            drop:
+              - all
+            add:
+              - NET_ADMIN
+              - NET_RAW
         volumeMounts:
         - mountPath: /credentials
           name: robot-id

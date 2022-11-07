@@ -58,7 +58,11 @@ spec:
             path: /healthz
             port: 9090
           initialDelaySeconds: 15
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
       securityContext:
+        runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
       tolerations:

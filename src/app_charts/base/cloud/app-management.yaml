@@ -40,7 +40,11 @@ spec:
         volumeMounts:
         - mountPath: /tls
           name: tls
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true  
       securityContext:
+        runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
       volumes:
@@ -135,14 +139,24 @@ spec:
         ports:
         - name: webhook
           containerPort: 9876
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true  
         volumeMounts:
-        - mountPath: /tls
-          name: tls
+        - name: tls
+          mountPath: /tls
+        - name: tmp
+          mountPath: /tmp
       volumes:
       - name: tls
         secret:
           secretName: chart-assignment-controller-tls
+      - name: tmp
+        emptyDir:
+          medium: Memory
       securityContext:
+        readOnlyRootFilesystem: true  
+        runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
 ---
