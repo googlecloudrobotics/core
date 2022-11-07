@@ -50,6 +50,12 @@ resource "google_project_service" "containerregistry" {
   disable_on_destroy = false
 }
 
+resource "google_project_service" "containersecurity" {
+  project            = data.google_project.project.project_id
+  service            = "containersecurity.googleapis.com"
+  disable_on_destroy = false
+}
+
 resource "google_project_service" "dns" {
   project            = data.google_project.project.project_id
   service            = "dns.googleapis.com"
