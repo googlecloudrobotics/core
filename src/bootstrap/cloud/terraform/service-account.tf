@@ -66,6 +66,7 @@ resource "google_project_iam_member" "robot-service-account-container-access" {
   member  = "serviceAccount:${google_service_account.robot-service.email}"
 }
 
+# Unused by the cloud-robotics stack, but existing users might need to carefully migrate
 resource "google_project_iam_member" "robot-service-datastore" {
   project = data.google_project.project.project_id
   role    = "roles/datastore.user"
