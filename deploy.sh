@@ -345,6 +345,16 @@ function helm_charts {
   ${SYNK} init
   echo "synk init done"
 
+  # Make the go version of the token vendor default but allow
+  # to turn off via CRC_USE_GO_TOKEN_VENDOR=0.
+  if [[ "${CRC_USE_GO_TOKEN_VENDOR}" == 0 ]]; then
+    # only unset values are interpreted as false by our script
+    # needs debugging why
+    unset CRC_USE_GO_TOKEN_VENDOR
+  else
+    CRC_USE_GO_TOKEN_VENDOR=1
+  fi
+
   values=$(cat <<EOF
     --set-string domain=${CLOUD_ROBOTICS_DOMAIN}
     --set-string ingress_ip=${INGRESS_IP}
