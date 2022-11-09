@@ -160,10 +160,6 @@ func searchForLicense(path string, licenseMap map[string]bool) error {
 // getLicense wraps the different license finding methods.
 func getLicense(repoDir string) (string, error) {
 	// First check for hardcoded results for otherwise-difficult repos.
-	if strings.Contains(repoDir, "eigen") {
-		return "LGPL v2.1+, GPL v3, MPL2", nil
-	}
-
 	l, err := getBazelLicense(repoDir)
 	if err != nil {
 		return "", err
