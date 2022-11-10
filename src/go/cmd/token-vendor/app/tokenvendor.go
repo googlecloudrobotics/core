@@ -69,13 +69,14 @@ func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk string) (*tokens
 	}
 	exp := time.Unix(p.Exp, 0)
 	if exp.Before(time.Now()) {
-		return nil, errors.New("JWT has expired")
+		return nil, fmt.Errorf("JWT has expired %v, %v ago (iss: %q)",
+			exp, time.Since(exp), p.Iss)
 	}
 	if err := acceptedAudience(p.Aud, tv.accAud); err != nil {
-		return nil, errors.Wrap(err, "validation of JWT audience failed")
+		return nil, errors.Wrapf(err, "validation of JWT audience failed (iss: %q)", p.Iss)
 	}
 	if !IsValidDeviceID(p.Iss) {
-		return nil, errors.New("missing or invalid device identifier (`iss` key)")
+		return nil, fmt.Errorf("missing or invalid device identifier (`iss`: %q)", p.Iss)
 	}
 	deviceID := p.Iss
 	pubKey, err := tv.repo.LookupKey(ctx, deviceID)
@@ -87,11 +88,11 @@ func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk string) (*tokens
 	}
 	err = jwt.VerifySignature(jwtk, pubKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to verify signature")
+		return nil, errors.Wrapf(err, "failed to verify signature for device %q", deviceID)
 	}
 	cloudToken, err := tv.ts.Token(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to retrieve a cloud token")
+		return nil, errors.Wrapf(err, "failed to retrieve a cloud token for device %q", deviceID)
 	}
 	log.Info("Handing out cloud token for device ", deviceID)
 	return cloudToken, nil
