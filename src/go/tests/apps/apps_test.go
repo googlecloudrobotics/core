@@ -153,6 +153,11 @@ func TestAll(t *testing.T) {
 func testCreateChartAssignment_WithChartReference_Works(t *testing.T, f *kubetest.Fixture) {
 	robot := f.Client(robotClusterName)
 
+	// for the version, run:
+	// helm repo add oauth2-proxy https://oauth2-proxy.github.io/manifests
+	// helm repo update
+	// helm search oauth2-proxy/oauth2-proxy -l
+	// Important: we need a V1 chart!
 	tmpl := `
 apiVersion: apps.cloudrobotics.com/v1alpha1
 kind: ChartAssignment
@@ -165,7 +170,7 @@ spec:
   chart:
     repository: https://oauth2-proxy.github.io/manifests
     name: oauth2-proxy
-    version: 4.2.1
+    version: 3.2.6
     values:
       fullnameOverride: test
 `
