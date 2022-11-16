@@ -601,6 +601,9 @@ func canReplace(resource *unstructured.Unstructured, patchErr error) bool {
 	if k == "Job" && strings.Contains(e, "field is immutable") {
 		return true
 	}
+	if k == "DaemonSet" && strings.Contains(e, "field is immutable") {
+		return true
+	}
 	if k == "Service" && (strings.Contains(e, "field is immutable") || strings.Contains(e, "may not change once set") || strings.Contains(e, "can not be unset")) {
 		return true
 	}
