@@ -598,10 +598,7 @@ func setOwnerRef(r *unstructured.Unstructured, set *apps.ResourceSet) {
 func canReplace(resource *unstructured.Unstructured, patchErr error) bool {
 	k := resource.GetKind()
 	e := patchErr.Error()
-	if k == "Job" && strings.Contains(e, "field is immutable") {
-		return true
-	}
-	if k == "DaemonSet" && strings.Contains(e, "field is immutable") {
+	if (k == "DaemonSet" || k == "Deployment" || k == "Job") && strings.Contains(e, "field is immutable") {
 		return true
 	}
 	if k == "Service" && (strings.Contains(e, "field is immutable") || strings.Contains(e, "may not change once set") || strings.Contains(e, "can not be unset")) {
