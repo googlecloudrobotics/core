@@ -23,6 +23,7 @@ resource "google_project_service" "cloudiot" {
   project            = data.google_project.project.project_id
   service            = "cloudiot.googleapis.com"
   disable_on_destroy = false
+  count              = var.use_cloudiot ? 1 : 0
 }
 
 # This is needed for Terraform's data.google_project.project.resource to work.
