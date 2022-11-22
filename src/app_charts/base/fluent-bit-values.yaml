@@ -111,6 +111,24 @@ config:
         Add severity ERROR
 
     [FILTER]
+        Name         modify
+        Match        kube.*
+        Condition Key_value_matches log ^I\d{4}
+        Add severity INFO
+
+    [FILTER]
+        Name         modify
+        Match        kube.*
+        Condition Key_value_matches log ^W\d{4}
+        Add severity WARNING
+
+    [FILTER]
+        Name         modify
+        Match        kube.*
+        Condition Key_value_matches log ^E\d{4}
+        Add severity ERROR
+
+    [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals stream stderr
