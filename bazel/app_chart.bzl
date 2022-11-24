@@ -173,7 +173,7 @@ def app_chart(
         name = name,
         chart = chart,
         values = values,
-        templates = native.glob([chart + "/*.yaml"]) + (extra_templates or []),
+        templates = native.glob([chart + "/*.yaml"], allow_empty = True) + (extra_templates or []),
         files = files,
         images = reversed_images,
         visibility = visibility,
