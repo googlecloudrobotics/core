@@ -86,11 +86,29 @@ func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *
 		return fmt.Errorf("failed to get token: %v", err)
 	}
 
+	// First, update the default/gcr-json-key Secret, which is the
+	// source-of-truth when creating new chart namespaces.
+	cfgData := map[string][]byte{".dockercfg": DockerCfgJSON(token.AccessToken)}
+	if err := kubeutils.UpdateSecret(ctx, k8s, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      SecretName,
+			Namespace: "default",
+			Labels: map[string]string{
+				// The chart-assignment-controller looks for this label and copies
+				// gcr-json-key to new namespaces, so that the pods can pull images.
+				"cloudrobotics.com/copy-to-chart-namespaces": "true",
+			},
+		},
+		Type: corev1.SecretTypeDockercfg,
+		Data: cfgData,
+	}); err != nil {
+		return fmt.Errorf("failed to update default/%s: %v", SecretName, err)
+	}
+
 	nsList, err := k8s.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list namespaces: %v", err)
 	}
-	cfgData := map[string][]byte{".dockercfg": DockerCfgJSON(token.AccessToken)}
 	patchData := []byte(`{"imagePullSecrets": [{"name": "` + SecretName + `"}]}`)
 	haveError := false
 	for _, ns := range nsList.Items {
@@ -99,18 +117,22 @@ func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *
 			continue
 		}
 		namespace := ns.ObjectMeta.Name
+		if namespace == "default" {
+			// Handled above.
+			continue
+		}
 
 		// Only ever create secrets in a few specific, well-known namespaces. For app-* namespaces
 		// the ChartAssignment controller will create the initial secret and patch the service account.
 		// This avoids us putting pull secrets into eg foreign namespaces.
 		s := k8s.CoreV1().Secrets(namespace)
 		if _, err := s.Get(ctx, SecretName, metav1.GetOptions{}); k8serrors.IsNotFound(err) {
-			if namespace != "default" && namespace != "kube-system" {
+			if namespace != "kube-system" {
 				continue
 			}
 		}
 		// If we get here, the namespace has a secret that we need to update or
-		// it is the default namespace where it is okay to create the secret.
+		// it is the kube-system namespace where it is okay to create the secret.
 
 		// Create or update a secret containing a docker config with the access-token.
 		err = kubeutils.UpdateSecret(ctx, k8s, &corev1.Secret{
