@@ -93,7 +93,15 @@ ChartAssignments. A ChartAssignment represents a single instance of a chart that
 installed into a single cluster. These internal objects describe the task of installing parts of
 the application.
 
-The federation layer will sync ChartAssignments to robots as needed. The actual installation is
-done by another controller, this time running both in the cloud and on the robots. The AppRollout
-controller will watch the status updates and consolidate the information into status updates on
+The federation layer will sync ChartAssignments to robots as needed. The actual
+installation is done by another controller (chart-assignment-controller), this
+time running both in the cloud and on the robots. The AppRollout controller will
+watch the status updates and consolidate the information into status updates on
 the AppRollout.
+
+## Sharing secrets
+
+If you create a Secret in the `default` namespace labelled
+`cloudrobotics.com/copy-to-chart-namespaces=true`, it will be copied into all
+namespaces created by the chart-assignment-controller. This is useful for
+cluster-specific license keys that can be used by applications.

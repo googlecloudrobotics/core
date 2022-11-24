@@ -219,6 +219,32 @@ func (r *Reconciler) ensureNamespace(ctx context.Context, as *apps.ChartAssignme
 	return &ns, r.kube.Update(ctx, &ns)
 }
 
+// ensureSecrets copies secrets from the default namespace, since service
+// accounts and pods cannot reference secrets in other namespaces.
+func (r *Reconciler) ensureSecrets(ctx context.Context, as *apps.ChartAssignment) error {
+	var secrets core.SecretList
+	err := r.kube.List(ctx, &secrets, kclient.MatchingLabels(map[string]string{
+		"cloudrobotics.com/copy-to-chart-namespaces": "true",
+	}))
+	for _, secret := range secrets.Items {
+		// Drop the resourceVersion/uid/etc from the copied resource, to avoid
+		// confusing the apiserver, and drop annotations/labels that aren't
+		// needed. We just need the name and the new namespace.
+		secret.ObjectMeta = meta.ObjectMeta{
+			Namespace: as.Spec.NamespaceName,
+			Name:      secret.Name,
+		}
+		err = r.kube.Create(ctx, &secret)
+		if k8serrors.IsAlreadyExists(err) {
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("create Secret %s/%s: %w", as.Spec.NamespaceName, secret.Name, err)
+		}
+	}
+
+	return nil
+}
+
 // ensureServiceAccount makes sure we have an image pull secret for gcr.io inside the apps namespace
 // and the default service account configured to use it. This is needed to make apps work that
 // reference images from a private container registry.
@@ -229,27 +255,11 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, ns *core.Namespac
 		return nil
 	}
 
-	// Copy imagePullSecret from 'default' namespace, since service accounts cannot reference
-	// secrets in other namespaces.
+	// Check for the image pull secret that the SA will refer to.
 	var secret core.Secret
 	err := r.kube.Get(ctx, kclient.ObjectKey{Namespace: as.Spec.NamespaceName, Name: gcr.SecretName}, &secret)
 	if k8serrors.IsNotFound(err) {
-		err = r.kube.Get(ctx, kclient.ObjectKey{Namespace: "default", Name: gcr.SecretName}, &secret)
-		if k8serrors.IsNotFound(err) {
-			log.Printf("Failed to get Secret \"default:%s\" (this is expected when simulating a robot on GKE)", gcr.SecretName)
-			return nil
-		} else if err != nil {
-			return fmt.Errorf("getting Secret \"default:%s\" failed: %s", gcr.SecretName, err)
-		}
-		// Don't reuse full metadata in created secret.
-		secret.ObjectMeta = meta.ObjectMeta{
-			Namespace: ns.Name,
-			Name:      gcr.SecretName,
-		}
-		err = r.kube.Create(ctx, &secret)
-		if err != nil {
-			return fmt.Errorf("creating Secret \"%s:%s\" failed: %s", as.Spec.NamespaceName, gcr.SecretName, err)
-		}
+		return nil
 	}
 
 	// Configure the default service account in the namespace.
@@ -304,6 +314,9 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 			return reconcile.Result{Requeue: true, RequeueAfter: requeueFast}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("ensure namespace: %s", err)
+	}
+	if err := r.ensureSecrets(ctx, as); err != nil {
+		return reconcile.Result{}, fmt.Errorf("ensure secrets: %s", err)
 	}
 	if err := r.ensureServiceAccount(ctx, ns, as); err != nil {
 		if _, ok := err.(*missingServiceAccountError); ok {

@@ -23,7 +23,9 @@ import (
 	crcapps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubetest"
 	apps "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -126,6 +128,7 @@ func TestAll(t *testing.T) {
 		robotClusterName, "base-test", "default",
 		"src/app_charts/base/base-test-0.0.1.tgz",
 		map[string]string{
+			"project":         "",
 			"robot.name":      robotClusterName,
 			"registry":        os.Getenv("REGISTRY"),
 			"webhook.enabled": "false",
@@ -147,6 +150,7 @@ func TestAll(t *testing.T) {
 		testCreateChartAssignment_WithBadDeployment_BecomesFailed,
 		testUpdateChartAssignment_WithFixedDeployment_BecomesReady,
 		testUpdateChartAssignment_WithFixedJob_BecomesReady,
+		testCreateChartAssignment_CopiesLabelledSecret,
 	)
 }
 
@@ -354,5 +358,50 @@ func testUpdateChartAssignment_WithFixedJob_BecomesReady(t *testing.T, f *kubete
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(3*time.Second), 60),
 	); err != nil {
 		t.Fatalf("wait for chart assignment to go from Settled to Ready: %s", err)
+	}
+}
+
+func testCreateChartAssignment_CopiesLabelledSecret(t *testing.T, f *kubetest.Fixture) {
+	robot := f.Client(robotClusterName)
+	const secretName = "my-secret"
+	if err := robot.Create(f.Ctx(), &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: "default",
+			Labels: map[string]string{
+				"cloudrobotics.com/copy-to-chart-namespaces": "true",
+			},
+		},
+		Type: corev1.SecretTypeOpaque,
+	}); err != nil {
+		t.Fatalf("create Secret default/my-secret: %s", err)
+	}
+
+	data := map[string]string{
+		"cluster":   robotClusterName,
+		"name":      f.Uniq("example"),
+		"namespace": f.Uniq("ns"),
+		"chart":     kubetest.BuildInlineChart(t, "example", goodDeployment /*values=*/, ""),
+	}
+	var ca crcapps.ChartAssignment
+	f.FromYAML(inlineChartTemplate, data, &ca)
+	if err := robot.Create(f.Ctx(), &ca); err != nil {
+		t.Fatalf("create ChartAssignment: %s", err)
+	}
+
+	if err := backoff.Retry(
+		f.ChartAssignmentHasStatus(&ca, crcapps.ChartAssignmentPhaseSettled),
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 60),
+	); err != nil {
+		t.Fatalf("wait for chart assignment settled: %s", err)
+	}
+
+	// We should find a secret in its own namespace now.
+	var s corev1.Secret
+	if err := robot.Get(f.Ctx(), client.ObjectKey{
+		Namespace: data["namespace"],
+		Name:      secretName,
+	}, &s); err != nil {
+		t.Errorf("failed to get Secret %s/%s: %s", data["namespace"], secretName, err)
 	}
 }
