@@ -14,11 +14,23 @@ config:
         Daemon Off
         Flush {{ .Values.flush }}
         Log_Level {{ .Values.logLevel }}
-        Parsers_File parsers.conf
+        Parsers_File custom_parsers.conf
         HTTP_Server On
         HTTP_Listen 0.0.0.0
         HTTP_Port {{ .Values.metricsPort }}
         Health_Check On
+
+  ## https://docs.fluentbit.io/manual/pipeline/parsers
+  customParsers: |
+    # A parser for Abseil log files: https://abseil.io/docs/cpp/guides/logging#prefix
+    [PARSER]
+        Name        absl_logs
+        Format      regex
+        Regex       ^(?<severity>(W|I|E|F))([0-9]{4}) (?<time>[^ ]+)\s+(?<pid>[-0-9]+) (?<source>\S+:\d+)] (?<message>.*)$
+        Time_Key    time
+        Time_Format %H:%M:%S.%L
+        Time_Keep   On
+        Types       pid:integer
 
   ## https://docs.fluentbit.io/manual/pipeline/inputs
   inputs: |
@@ -49,6 +61,13 @@ config:
         Keep_Log Off
         K8S-Logging.Parser On
         K8S-Logging.Exclude On
+
+    # Applies the absl_logs parser to the 'log' field
+    [FILTER]
+        Name          parser
+        Match         kube.*
+        Key_Name      log
+        Parser        absl_logs
 
     [FILTER]
         Name          modify
@@ -111,24 +130,6 @@ config:
         Add severity ERROR
 
     [FILTER]
-        Name         modify
-        Match        kube.*
-        Condition Key_value_matches log ^I\d{4}
-        Add severity INFO
-
-    [FILTER]
-        Name         modify
-        Match        kube.*
-        Condition Key_value_matches log ^W\d{4}
-        Add severity WARNING
-
-    [FILTER]
-        Name         modify
-        Match        kube.*
-        Condition Key_value_matches log ^E\d{4}
-        Add severity ERROR
-
-    [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals stream stderr
@@ -179,6 +180,9 @@ volumeMounts:
   - name: config
     mountPath: /fluent-bit/etc/fluent-bit.conf
     subPath: fluent-bit.conf
+  - name: config
+    mountPath: /fluent-bit/etc/custom_parsers.conf
+    subPath: custom_parsers.conf
 
 daemonSetVolumes:
   - name: varlog
@@ -195,4 +199,3 @@ daemonSetVolumeMounts:
   - name: etcmachineid
     mountPath: /etc/machine-id
     readOnly: true
-
