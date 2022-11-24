@@ -131,27 +131,21 @@ func BuildCloudKubernetesConfig(ts oauth2.TokenSource, remoteServer string) *res
 }
 
 // UpdateSecret (over-) writes a k8s secret.
-func UpdateSecret(ctx context.Context, k8s *kubernetes.Clientset, name string, namespace string, secretType corev1.SecretType, data map[string][]byte) error {
-	s := k8s.CoreV1().Secrets(namespace)
+func UpdateSecret(ctx context.Context, k8s *kubernetes.Clientset, input *corev1.Secret) error {
+	s := k8s.CoreV1().Secrets(input.Namespace)
 	b := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 5)
 	return backoff.Retry(func() error {
-		secret, err := s.Get(ctx, name, metav1.GetOptions{})
+		secret, err := s.Get(ctx, input.Name, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				_, err = s.Create(ctx,
-					&corev1.Secret{
-						Type: secretType,
-						Data: data,
-						ObjectMeta: metav1.ObjectMeta{
-							Name: name,
-						},
-					},
-					metav1.CreateOptions{})
+				_, err = s.Create(ctx, input, metav1.CreateOptions{})
 				return backoff.Permanent(errors.Wrap(err, "create secret"))
 			}
 			return backoff.Permanent(errors.Wrap(err, "get secret"))
 		}
-		secret.Data = data
+		secret.Labels = input.Labels
+		secret.Annotations = input.Annotations
+		secret.Data = input.Data
 		_, err = s.Update(ctx, secret, metav1.UpdateOptions{})
 		if k8serrors.IsConflict(err) {
 			// Retry conflicts.

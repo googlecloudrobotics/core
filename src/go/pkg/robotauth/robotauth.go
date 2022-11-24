@@ -34,6 +34,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/jwt"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -102,15 +103,16 @@ func (r *RobotAuth) StoreInK8sSecret(ctx context.Context, clientset *kubernetes.
 		return fmt.Errorf("failed to serialize ID: %v", err)
 	}
 
-	return kubeutils.UpdateSecret(
-		ctx,
-		clientset,
-		"robot-auth",
-		namespace,
-		corev1.SecretTypeOpaque,
-		map[string][]byte{
+	return kubeutils.UpdateSecret(ctx, clientset, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "robot-auth",
+			Namespace: namespace,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
 			"json": raw,
-		})
+		},
+	})
 }
 
 // CreatePrivateKey creates a private key.

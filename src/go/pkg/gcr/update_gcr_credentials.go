@@ -113,14 +113,19 @@ func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *
 		// it is the default namespace where it is okay to create the secret.
 
 		// Create or update a secret containing a docker config with the access-token.
-		err = kubeutils.UpdateSecret(ctx, k8s, SecretName, namespace, corev1.SecretTypeDockercfg,
-			cfgData)
+		err = kubeutils.UpdateSecret(ctx, k8s, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      SecretName,
+				Namespace: namespace,
+			},
+			Type: corev1.SecretTypeDockercfg,
+			Data: cfgData,
+		})
 		if err != nil {
 			log.Printf("failed to update kubernetes secret for namespace %s: %v", namespace, err)
 			haveError = true
 			continue
 		}
-
 		// Tell k8s to use this key by pointing the default SA at it.
 		err = patchServiceAccount(ctx, k8s, "default", namespace, patchData)
 		if err != nil {
