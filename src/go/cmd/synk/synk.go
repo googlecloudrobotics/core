@@ -38,6 +38,7 @@ const (
 )
 
 var (
+	maxQPS  int
 	retries uint64
 
 	cmdRoot = &cobra.Command{
@@ -68,6 +69,7 @@ func main() {
 	restOpts.AddFlags(cmdRoot.PersistentFlags())
 	resourceOpts.AddFlags(cmdApply.PersistentFlags())
 
+	cmdRoot.PersistentFlags().IntVar(&maxQPS, "max-qps", 50, "max number of calls to the apiserver per second")
 	cmdApply.PersistentFlags().Uint64Var(&retries, "retries", 60, "max number of retries for transient errors, with a 5 second constant backoff")
 
 	cmdRoot.AddCommand(cmdInit)
@@ -85,6 +87,8 @@ func newSynk() (*synk.Synk, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get config")
 	}
+	restcfg.QPS = float32(maxQPS)
+	restcfg.Burst = maxQPS * 2
 	discovery, err := restOpts.ToDiscoveryClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "get discovery client")
