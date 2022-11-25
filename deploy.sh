@@ -361,6 +361,17 @@ function helm_charts {
     CRC_USE_GO_TOKEN_VENDOR=1
   fi
 
+  # Make the K8s backend the default backend for the token vendor.
+  # This flag implies the go token version flag.
+  if [[ "${CRC_USE_TV_K8S_BACKEND}" == 0 ]]; then
+    # only unset values are interpreted as false by our script
+    # needs debugging why
+    unset CRC_USE_TV_K8S_BACKEND
+  else
+    CRC_USE_GO_TOKEN_VENDOR=1
+    CRC_USE_TV_K8S_BACKEND=1
+  fi
+
   values=$(cat <<EOF
     --set-string domain=${CLOUD_ROBOTICS_DOMAIN}
     --set-string ingress_ip=${INGRESS_IP}
