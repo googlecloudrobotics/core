@@ -41,6 +41,7 @@ pkg_tar(
     name = "binary_tools",
     srcs = [
         "//src/go/cmd/synk",
+        "//src/go/cmd/token-vendor",
         "@hashicorp_terraform//:terraform",
         "@kubernetes_helm//:helm",
     ],

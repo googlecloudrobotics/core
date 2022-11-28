@@ -32,10 +32,12 @@ if is_source_install; then
   # subdirectory of bazel-out/, which is not as easy to hardcode as
   # bazel-bin/... Instead, we use `bazel run` to locate and execute the binary.
   SYNK_COMMAND="bazel run //src/go/cmd/synk --"
+  TV_COMMAND="bazel run //src/go/cmd/token-vendor --"
 else
   TERRAFORM="${DIR}/bin/terraform"
   HELM_COMMAND="${DIR}/bin/helm"
   SYNK_COMMAND="${DIR}/bin/synk"
+  TV_COMMAND="${DIR}/bin/token-vendor"
 fi
 
 TERRAFORM_DIR="${DIR}/src/bootstrap/cloud/terraform"
@@ -396,11 +398,11 @@ EOF
   if [[ "${CRC_USE_TV_K8S_BACKEND}" == 1 ]]; then
     echo "running migration from IoT Core to Kubernetes backend"
     # First run a validation of the existing IoT Core device identifiers
-    bazel run //src/go/cmd/token-vendor -- \
+    ${TV_COMMAND} \
       --project ${GCP_PROJECT_ID} --region ${GCP_REGION} --registry cloud-robotics \
       --validate-iot-identifiers
     # Migrate the device keys to Kubernetes
-    bazel run //src/go/cmd/token-vendor -- \
+    ${TV_COMMAND} \
       --project ${GCP_PROJECT_ID} --region ${GCP_REGION} --registry cloud-robotics \
       --namespace ${BASE_NAMESPACE} \
       --migrate-iot-to-k8s --migrate-k8s-ctx "${KUBE_CONTEXT}"
