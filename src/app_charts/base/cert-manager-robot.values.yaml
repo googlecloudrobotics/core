@@ -13,10 +13,16 @@ installCRDs: true
 # need leader election to ensure only one instance is active.
 # By turning this off, the leader will not update its leases in etcd every N seconds which
 # ultimately reduces etcd disk writes.
+#
+# To ensure that we only have one replica running, we need to use the Recreate
+# deployment strategy.
 extraArgs:
   - --leader-elect=false
+strategy:
+  type: Recreate
 
 cainjector:
   extraArgs:
     - --leader-elect=false
-
+  strategy:
+    type: Recreate
