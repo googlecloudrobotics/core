@@ -54,7 +54,7 @@ func TestMigration(t *testing.T) {
 			// simplest case, 2 on IoT, none on Kubernetes
 			"none_on_k8s",
 			map[string]string{
-				iotBaseUrl + "/devices?alt=json&fieldMask=&prettyPrint=false":                                   "testdata/list_devices.json",
+				iotBaseUrl + "/devices?alt=json&fieldMask=&pageSize=1000&pageToken=&prettyPrint=false":          "testdata/list_devices.json",
 				iotBaseUrl + "/devices/testdevice-a?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false": "testdata/describe_device_a.json",
 				iotBaseUrl + "/devices/testdevice-b?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false": "testdata/describe_device_b.json",
 			},
@@ -66,7 +66,7 @@ func TestMigration(t *testing.T) {
 		{
 			"all_on_k8s",
 			map[string]string{
-				iotBaseUrl + "/devices?alt=json&fieldMask=&prettyPrint=false":                                   "testdata/list_devices.json",
+				iotBaseUrl + "/devices?alt=json&fieldMask=&pageSize=1000&pageToken=&prettyPrint=false":          "testdata/list_devices.json",
 				iotBaseUrl + "/devices/testdevice-a?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false": "testdata/describe_device_a.json",
 				iotBaseUrl + "/devices/testdevice-b?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false": "testdata/describe_device_b.json",
 			},
@@ -78,7 +78,7 @@ func TestMigration(t *testing.T) {
 		{
 			"one_new_one_exists_one_k8s",
 			map[string]string{
-				iotBaseUrl + "/devices?alt=json&fieldMask=&prettyPrint=false":                                   "testdata/list_devices.json",
+				iotBaseUrl + "/devices?alt=json&fieldMask=&pageSize=1000&pageToken=&prettyPrint=false":          "testdata/list_devices.json",
 				iotBaseUrl + "/devices/testdevice-a?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false": "testdata/describe_device_a.json",
 				iotBaseUrl + "/devices/testdevice-b?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false": "testdata/describe_device_b.json",
 			},
@@ -90,7 +90,7 @@ func TestMigration(t *testing.T) {
 		{
 			"one_new_one_blocked",
 			map[string]string{
-				iotBaseUrl + "/devices?alt=json&fieldMask=&prettyPrint=false":                                   "testdata/list_devices.json",
+				iotBaseUrl + "/devices?alt=json&fieldMask=&pageSize=1000&pageToken=&prettyPrint=false":          "testdata/list_devices.json",
 				iotBaseUrl + "/devices/testdevice-a?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false": "testdata/describe_device_a.json",
 				iotBaseUrl + "/devices/testdevice-b?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false": "testdata/describe_device_b_blocked.json",
 			},

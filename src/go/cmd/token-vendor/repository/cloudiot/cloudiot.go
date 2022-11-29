@@ -179,14 +179,21 @@ func (c *CloudIoTRepository) ListAllDeviceIDs(ctx context.Context) ([]string, er
 		return []string{}, fmt.Errorf("IoT client not initialized")
 	}
 	r := c.registryPath()
-	ls, err := c.service.Projects.Locations.Registries.Devices.List(r).
-		Context(ctx).FieldMask("").Do()
-	if err != nil {
-		return []string{}, errors.Wrapf(err, "failed to list devices in registry %q", r)
-	}
-	names := make([]string, 0, len(ls.Devices))
-	for _, device := range ls.Devices {
-		names = append(names, device.Id)
+	names := make([]string, 0)
+	var lastPageToken = ""
+	for {
+		ls, err := c.service.Projects.Locations.Registries.Devices.List(r).
+			Context(ctx).FieldMask("").PageToken(lastPageToken).PageSize(1_000).Do()
+		if err != nil {
+			return []string{}, errors.Wrapf(err, "failed to list devices in registry %q", r)
+		}
+		for _, device := range ls.Devices {
+			names = append(names, device.Id)
+		}
+		if ls.NextPageToken == "" {
+			break
+		}
+		lastPageToken = ls.NextPageToken
 	}
 	return names, nil
 }

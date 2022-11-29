@@ -138,13 +138,13 @@ func TestListAllDeviceIDs(t *testing.T) {
 		{
 			"happy_path",
 			mustRespBodyFromFile(t, path.Join(testDataPath, "list_devices.json")),
-			"https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices?alt=json&fieldMask=&prettyPrint=false",
+			"https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices?alt=json&fieldMask=&pageSize=1000&pageToken=&prettyPrint=false",
 			[]string{"testdevice-a", "testdevice-b"},
 		},
 		{
 			"empty_registry",
 			mustRespBodyFromFile(t, path.Join(testDataPath, "list_devices_empty.json")),
-			"https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices?alt=json&fieldMask=&prettyPrint=false",
+			"https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices?alt=json&fieldMask=&pageSize=1000&pageToken=&prettyPrint=false",
 			[]string{},
 		},
 	}
