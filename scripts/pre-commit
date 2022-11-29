@@ -28,7 +28,7 @@ function files_matching {
     echo $(echo "$files" | tr ' ' '\n' | grep -E "${include}")
   else
     echo $(echo "$files" | tr ' ' '\n' | grep -E "${include}" | grep -vE "${exclude}")
-  fi    
+  fi
 }
 
 go_files=$(files_matching "\.go$")
@@ -177,16 +177,16 @@ md_files=$(files_matching "\.md$")
 example_files=$(files_matching "example")
 if [[ -n "$md_files" || -n "$example_files" ]]; then
   EMBEDMD=${GOPATH:-$HOME/go}/bin/embedmd
-  if [[ ! -f "$EMBEDMD" ]] && ! go get github.com/campoy/embedmd ; then
+  if [[ ! -f "$EMBEDMD" ]] && ! go install github.com/campoy/embedmd@latest ; then
     echo "ERROR: embedmd not found and couldn't be installed." >&2
     result=1
   else
     # An unchanged .md file may still have changes in the embedded files.
-    all_md_files=$(git ls-files | grep '\.md$')
+    all_md_files=$(git ls-files | grep --color=never '\.md$')
     diff=$($EMBEDMD -d $all_md_files)
     if [[ $? -ne 0 ]] ; then
       echo "$diff"
-      echo "To fix, run: $EMBEDMD -w \$(git ls-files | grep '\\.md$')"
+      echo "To fix, run: $EMBEDMD -w \$(git ls-files | grep --color=never '\\.md$')"
       result=1
     fi
   fi
