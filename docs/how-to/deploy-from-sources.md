@@ -140,5 +140,5 @@ If you want to completely shut down the project, see [the Resource Manager docum
 
 ## What's next
 
-* [Connecting a robot to the cloud](how-to/connecting-robot.md).
-* [Setting up OAuth for web UIs](how-to/setting-up-oauth.md).
+* [Connecting a robot to the cloud](connecting-robot.md).
+* [Setting up OAuth for web UIs](setting-up-oauth.md).
