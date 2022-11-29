@@ -404,7 +404,7 @@ EOF
     # Migrate the device keys to Kubernetes
     ${TV_COMMAND} \
       --project ${GCP_PROJECT_ID} --region ${GCP_REGION} --registry cloud-robotics \
-      --namespace ${BASE_NAMESPACE} \
+      --namespace app-token-vendor \
       --migrate-iot-to-k8s --migrate-k8s-ctx "${KUBE_CONTEXT}"
   fi
 
