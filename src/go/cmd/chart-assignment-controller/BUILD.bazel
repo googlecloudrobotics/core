@@ -28,9 +28,12 @@ load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 genrule(
     name = "helm-config",
     outs = ["helm-config.tar"],
-    # Note: the extra tar flags are use to make builds deterministic
-    cmd = "$(location @kubernetes_helm//:helm) >/dev/null init --client-only --skip-repos " +
-          "&& mkdir -p .helm && tar --owner=root --group=root --numeric-owner --mtime='2010-01-01' --create --file $@ .helm/",
+    # To make the rule deterministic
+    #  - Remove the "generated" timestamp in repositories.yaml.
+    #  - Add some extra tar flags.
+    cmd = "HELM_HOME=$$PWD/.helm $(location @kubernetes_helm//:helm) >/dev/null init --client-only --skip-repos " +
+          "&& sed -i '/generated:/d' .helm/repository/repositories.yaml " +
+          "&& tar --owner=root --group=root --numeric-owner --mtime='2010-01-01' --create --file $@ .helm",
     output_to_bindir = True,
     tools = ["@kubernetes_helm//:helm"],
 )
