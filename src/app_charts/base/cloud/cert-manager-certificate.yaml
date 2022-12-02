@@ -22,6 +22,7 @@ metadata:
   name: selfsigned-ca
 spec:
   isCA: true
+  duration: 8760h # 1year. This needs to be at least 3x 90days
   commonName: {{ .Values.domain }}
   secretName: cluster-authority
   privateKey:
