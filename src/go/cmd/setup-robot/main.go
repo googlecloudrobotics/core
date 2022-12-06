@@ -53,6 +53,7 @@ var (
 	annotations    = flag.String("annotations", "", "Robot annotations. Optional if the robot is already registered.")
 	crSyncer       = flag.Bool("cr-syncer", true, "Set up the cr-syncer, and create a Robot CR in the cloud cluster.")
 	fluentd        = flag.Bool("fluentd", true, "Set up fluentd to upload logs to Stackdriver.")
+	fluentbit      = flag.Bool("fluentbit", false, "Set up fluentbit to upload logs to Stackdriver.")
 	dockerDataRoot = flag.String("docker-data-root", "/var/lib/docker", "This should match data-root in /etc/docker/daemon.json.")
 	podCIDR        = flag.String("pod-cidr", "192.168.9.0/24",
 		"The range of Pod IP addresses in the cluster. This should match the CNI "+
@@ -106,6 +107,11 @@ func parseFlags() {
 	}
 	if *registryID == "" {
 		*registryID = fmt.Sprintf("robot-%s", *robotName)
+	}
+
+	if *fluentd && *fluentbit {
+		flag.Usage()
+		log.Fatal("ERROR: --fluentd and --fluenetbit cannot be enabled at the same time.")
 	}
 }
 
@@ -309,6 +315,7 @@ func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, re
 		"app_management":       strconv.FormatBool(appManagement),
 		"cr_syncer":            strconv.FormatBool(*crSyncer),
 		"fluentd":              strconv.FormatBool(*fluentd),
+		"fluentbit":            strconv.FormatBool(*fluentbit),
 		"docker_data_root":     *dockerDataRoot,
 		"pod_cidr":             *podCIDR,
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
