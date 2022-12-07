@@ -93,19 +93,10 @@ func main() {
 	// The default value of twice the max QPS seems to work well.
 	config.Burst = *maxQPS * 2
 
-	if err := setupAppV2(ctx, config, clusterName); err != nil {
-		log.Fatalln(err)
-	}
-
-	// Run a k8s liveness probe in the main thread.
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte("ok"))
-	})
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(runController(ctx, config, clusterName))
 }
 
-func setupAppV2(ctx context.Context, cfg *rest.Config, cluster string) error {
+func runController(ctx context.Context, cfg *rest.Config, cluster string) error {
 	ctrllog.SetLogger(zap.New())
 
 	sc := runtime.NewScheme()
@@ -113,9 +104,10 @@ func setupAppV2(ctx context.Context, cfg *rest.Config, cluster string) error {
 	apps.AddToScheme(sc)
 
 	mgr, err := manager.New(cfg, manager.Options{
-		Scheme:             sc,
-		Port:               *webhookPort,
-		MetricsBindAddress: "0", // disabled
+		Scheme:                 sc,
+		Port:                   *webhookPort,
+		MetricsBindAddress:     "0", // disabled
+		HealthProbeBindAddress: ":8080",
 	})
 	if err != nil {
 		return errors.Wrap(err, "create controller manager")
@@ -123,6 +115,7 @@ func setupAppV2(ctx context.Context, cfg *rest.Config, cluster string) error {
 	if err := chartassignment.Add(ctx, mgr, *cloudCluster); err != nil {
 		return errors.Wrap(err, "add ChartAssignment controller")
 	}
+	mgr.AddHealthzCheck("trivial", func(_ *http.Request) error { return nil })
 
 	if *webhookEnabled {
 		webhook := chartassignment.NewValidationWebhook(mgr)
@@ -131,10 +124,5 @@ func setupAppV2(ctx context.Context, cfg *rest.Config, cluster string) error {
 		srv.Register("/chartassignment/validate", webhook)
 	}
 
-	go func() {
-		if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
-			log.Fatal(errors.Wrap(err, "start controller manager"))
-		}
-	}()
-	return nil
+	return mgr.Start(signals.SetupSignalHandler())
 }

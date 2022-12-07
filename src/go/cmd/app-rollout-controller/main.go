@@ -63,19 +63,10 @@ func main() {
 		log.Fatalln("invalid Helm parameters:", err)
 	}
 
-	if err := setupAppV2(ctx, kubernetesConfig, helmParams); err != nil {
-		log.Fatalln(err)
-	}
-
-	// Run a k8s liveness probe in the main thread.
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte("ok"))
-	})
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(runController(ctx, kubernetesConfig, helmParams))
 }
 
-func setupAppV2(ctx context.Context, cfg *rest.Config, params map[string]interface{}) error {
+func runController(ctx context.Context, cfg *rest.Config, params map[string]interface{}) error {
 	ctrllog.SetLogger(zap.New())
 
 	sc := runtime.NewScheme()
@@ -84,9 +75,10 @@ func setupAppV2(ctx context.Context, cfg *rest.Config, params map[string]interfa
 	registry.AddToScheme(sc)
 
 	mgr, err := manager.New(cfg, manager.Options{
-		Scheme:             sc,
-		Port:               *webhookPort,
-		MetricsBindAddress: "0", // disabled
+		Scheme:                 sc,
+		Port:                   *webhookPort,
+		MetricsBindAddress:     "0", // disabled
+		HealthProbeBindAddress: ":8080",
 	})
 	if err != nil {
 		return errors.Wrap(err, "create controller manager")
@@ -94,16 +86,12 @@ func setupAppV2(ctx context.Context, cfg *rest.Config, params map[string]interfa
 	if err := approllout.Add(ctx, mgr, chartutil.Values(params)); err != nil {
 		return errors.Wrap(err, "add AppRollout controller")
 	}
+	mgr.AddHealthzCheck("trivial", func(_ *http.Request) error { return nil })
 
 	srv := mgr.GetWebhookServer()
 	srv.CertDir = *certDir
 
 	srv.Register("/approllout/validate", approllout.NewValidationWebhook(mgr))
 
-	go func() {
-		if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
-			log.Fatal(errors.Wrap(err, "start controller manager"))
-		}
-	}()
-	return nil
+	return mgr.Start(signals.SetupSignalHandler())
 }
