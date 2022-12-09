@@ -34,7 +34,12 @@ prometheus:
     ruleNamespaceSelector:
       any: true
     retention: "3d"
+    retentionSize: 200MiB
     logLevel: warn
+    storageSpec:
+      emptyDir:
+        medium: Memory
+        sizeLimit: 256Mi
   serviceMonitor:
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
