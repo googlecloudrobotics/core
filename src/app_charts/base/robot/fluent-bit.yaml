@@ -165,6 +165,7 @@ data:
         Name stackdriver
         Match k8s_node.*
         Resource k8s_node
+        custom_k8s_regex ^(?<node_name>.*)$
         k8s_cluster_name {{ .Values.robot.name }}
         k8s_cluster_location europe-west1-c
         Workers 1
