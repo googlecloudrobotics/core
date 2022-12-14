@@ -54,6 +54,13 @@ data:
     [INPUT]
         Name systemd
         Tag k8s_node.${MY_NODE_NAME}
+        Systemd_Filter  _SYSTEMD_UNIT=containerd.service
+        Systemd_Filter  _SYSTEMD_UNIT=etcd.service
+        Systemd_Filter  _SYSTEMD_UNIT=kube-apiserver.service
+        Systemd_Filter  _SYSTEMD_UNIT=kube-controller-manager.service
+        Systemd_Filter  _SYSTEMD_UNIT=kube-scheduler.service
+        Systemd_Filter  _SYSTEMD_UNIT=kubelet.service
+        Systemd_Filter  _SYSTEMD_UNIT=sshd.service
         Read_From_Tail On
     
     [INPUT]
