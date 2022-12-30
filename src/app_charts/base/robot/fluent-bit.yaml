@@ -301,6 +301,8 @@ spec:
               subPath: fluent-bit.conf
             - mountPath: /var/log
               name: varlog
+            - mountPath: /run/log
+              name: runlog
             - mountPath: /etc/machine-id
               name: etcmachineid
               readOnly: true
@@ -311,6 +313,9 @@ spec:
         - hostPath:
             path: /var/log
           name: varlog
+        - hostPath:
+            path: /run/log
+          name: runlog
         - hostPath:
             path: /etc/machine-id
             type: File
