@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
@@ -62,7 +64,38 @@ func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (stri
 	return tv.repo.LookupKey(ctx, deviceID)
 }
 
+var (
+	tokensRequested = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tokens_requested",
+			Help: "Number of tokens requested",
+		},
+		[]string{"result"},
+	)
+	tokensRequestedDurations = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "tokens_requested_durations",
+			Help: "Time it took to retrieve a token or fail in ms",
+		},
+		[]string{"result"},
+	)
+)
+
 func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk string) (*tokensource.TokenResponse, error) {
+	ts := time.Now()
+	r, err := tv.getOAuth2Token(ctx, jwtk)
+	var state string
+	if err != nil {
+		state = "failed"
+	} else {
+		state = "success"
+	}
+	tokensRequested.WithLabelValues(state).Inc()
+	tokensRequestedDurations.WithLabelValues(state).Observe(float64(time.Since(ts).Milliseconds()))
+	return r, err
+}
+
+func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokensource.TokenResponse, error) {
 	p, err := jwt.PayloadUnsafe(jwtk)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to extract JWT payload")
@@ -120,6 +153,37 @@ func contains(s []string, str string) bool {
 	return false
 }
 
+var (
+	tokensVerified = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tokens_verified",
+			Help: "Number of tokens verified",
+		},
+		[]string{"acl", "result"},
+	)
+	tokensVerifiedDurations = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "tokens_verified_durations",
+			Help: "Time it took to check a token in ms",
+		},
+		[]string{"acl", "result"},
+	)
+)
+
+func init() {
+	// pre-register label values we know
+	for _, acl := range []string{"robot-service", "human-acl"} {
+		for _, result := range []string{"success", "failed"} {
+			tokensVerified.WithLabelValues(acl, result)
+			tokensVerifiedDurations.WithLabelValues(acl, result)
+		}
+	}
+	for _, result := range []string{"success", "failed"} {
+		tokensRequested.WithLabelValues(result)
+		tokensRequestedDurations.WithLabelValues(result)
+	}
+}
+
 func (tv *TokenVendor) VerifyToken(ctx context.Context, token oauth.Token, robots bool) error {
 	var acl string
 	if robots {
@@ -128,7 +192,17 @@ func (tv *TokenVendor) VerifyToken(ctx context.Context, token oauth.Token, robot
 		acl = "human-acl"
 	}
 	log.Debug("Verifying a token against ACL ", acl)
-	return tv.v.Verify(ctx, token, acl)
+	ts := time.Now()
+	err := tv.v.Verify(ctx, token, acl)
+	var state string
+	if err != nil {
+		state = "failed"
+	} else {
+		state = "success"
+	}
+	tokensVerified.WithLabelValues(acl, state).Inc()
+	tokensVerifiedDurations.WithLabelValues(acl, state).Observe(float64(time.Since(ts).Milliseconds()))
+	return err
 }
 
 // Regex for RFC 1123 subdomain format

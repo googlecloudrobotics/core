@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -39,6 +40,7 @@ func (ch constHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Register generic API API handlers functions to the default http.DefaultServeMux
 func Register() error {
 	http.Handle("/healthz", constHandler("ok"))
+	http.Handle("/metrics", promhttp.Handler())
 	return nil
 }
 
