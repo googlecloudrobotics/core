@@ -45,6 +45,13 @@ config:
     [INPUT]
         Name systemd
         Tag k8s_node.${MY_NODE_NAME}
+        Systemd_Filter  _SYSTEMD_UNIT=containerd.service
+        Systemd_Filter  _SYSTEMD_UNIT=etcd.service
+        Systemd_Filter  _SYSTEMD_UNIT=kube-apiserver.service
+        Systemd_Filter  _SYSTEMD_UNIT=kube-controller-manager.service
+        Systemd_Filter  _SYSTEMD_UNIT=kube-scheduler.service
+        Systemd_Filter  _SYSTEMD_UNIT=kubelet.service
+        Systemd_Filter  _SYSTEMD_UNIT=sshd.service
         Read_From_Tail On
 
     [INPUT]
@@ -167,6 +174,7 @@ config:
         Name stackdriver
         Match k8s_node.*
         Resource k8s_node
+        custom_k8s_regex ^(?<node_name>.*)$
         k8s_cluster_name MY_ROBOT
         k8s_cluster_location MY_CLUSTER_LOCATION
         Workers 1
@@ -188,6 +196,9 @@ daemonSetVolumes:
   - name: varlog
     hostPath:
       path: /var/log
+  - name: runlog
+    hostPath:
+      path: /run/log
   - name: etcmachineid
     hostPath:
       path: /etc/machine-id
@@ -196,6 +207,8 @@ daemonSetVolumes:
 daemonSetVolumeMounts:
   - name: varlog
     mountPath: /var/log
+  - name: runlog
+    mountPath: /run/log
   - name: etcmachineid
     mountPath: /etc/machine-id
     readOnly: true
