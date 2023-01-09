@@ -70,5 +70,5 @@ So why was the robot able to drop a file in the non-public bucket? There is a lo
 
 What's next:
 
-* You can experiment with accessing other Google Cloud APIs, such as [Logging](https://cloud.google.com/logging/docs/) or [Pub/Sub](https://cloud.google.com/pubsub/docs/), from the robot programmatically. Also, Python is not the only programming language with Google Cloud client libraries: the APIs can be accessed, e.g., from code written in [Go](https://cloud.google.com/storage/docs/reference/libraries#client-libraries-install-go) and [Java](https://cloud.google.com/storage/docs/reference/libraries#client-libraries-install-java) in a similar configuration-less manner.
+* You can experiment with accessing other Google Cloud APIs, such as [Logging](https://cloud.google.com/logging/docs/) or [Pub/Sub](https://cloud.google.com/pubsub/docs/), from the robot programmatically. Also, Python is not the only programming language with Google Cloud client libraries: the APIs can be accessed, e.g., from code written in [Go](https://cloud.google.com/storage/docs/reference/libraries#client-libraries-install-go) in a similar configuration-less manner.
 * [Write your own service](deploying-service.md) that runs as a container in the cloud and provides an API that can be accessed securely from the robot.

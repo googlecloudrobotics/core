@@ -518,5 +518,5 @@ This is where the app management layer comes in; it provides, among other capabi
 * ways of bundling and parameterizing Kubernetes resources and
 * remote management of Kubernetes resources/workloads on the robot.
 
-Also note that both the server and the client side can be implemented with similar ease in other programming languages, such as [Java](https://developers.google.com/api-client-library/java/) or [Go](https://github.com/googleapis/google-api-go-client).
+Also note that both the server and the client side can be implemented with similar ease in other programming languages, such as [Go](https://github.com/googleapis/google-api-go-client).
 -->

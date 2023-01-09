@@ -23,11 +23,6 @@ load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 
 rules_pkg_dependencies()
 
-# Add Maven dependencies
-load("//third_party:maven_dependencies.bzl", "maven_dependencies")
-
-maven_dependencies()
-
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains")
 
 # Do not call go_rules_dependencies() until after all other go_repository
@@ -105,13 +100,6 @@ load(
 )
 
 _cc_image_repos()
-
-load(
-    "@io_bazel_rules_docker//java:image.bzl",
-    _java_image_repos = "repositories",
-)
-
-_java_image_repos()
 
 # Containerization rules for Go must come after go_rules_dependencies().
 load(

@@ -5,7 +5,6 @@ app_chart(
     name = "token-vendor-cloud",
     images = {
         "token-vendor-go": "//src/go/cmd/token-vendor:token-vendor-go",
-        "token-vendor": "//src/java/com/cloudrobotics/tokenvendor:token_vendor",
     },
 )
 

@@ -31,7 +31,7 @@ or ask Stack Overflow questions with [#google-cloud-robotics](https://stackoverf
 Most interesting bits are under `src`:
 * app_charts: contains kubernetes resources for the core platform and apps
 * bootstrap: provisioning for the cloud (terraform) and the robot (debian package)
-* go/java/proto/python: the code that goes into images referenced from `app_charts`
+* go/: the code that goes into images referenced from `app_charts`
 
 The root directory contains a `deploy.sh` script for building and installing the software. More
 details on that are in the [building from sources](how-to/deploy-from-sources) guide.

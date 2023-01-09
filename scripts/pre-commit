@@ -59,9 +59,7 @@ if [ -n "$py_files" ]; then
 fi
 
 build_files=$(echo "$files" | tr ' ' '\n' \
-  | grep -E "BUILD|WORKSPACE|[.]bzl" \
-  | grep -v "maven_dependencies.bzl" \
-  | grep -v "third_party/java")
+  | grep -E "BUILD|WORKSPACE|[.]bzl")
 
 if [ -n "$build_files" ]; then
   which >/dev/null buildifier || (echo "Please install buildifier"; exit 1)
@@ -91,38 +89,6 @@ for workspace_dir in $(find -name WORKSPACE -printf "%h\n"); do
     fi
   fi
 done
-
-# Check for labels added by the unhelpful buildozer command from Bazel:
-# https://github.com/bazelbuild/bazel/issues/4584
-if [ -n "$build_files" ]; then
-  illegal_jar_label="@\w*//jar"
-  if grep -q "$illegal_jar_label" $build_files; then
-    echo "Illegal JAR references found:"
-    grep -H "$illegal_jar_label" $build_files
-    echo "To fix, please replace them with references to //third_party/java."
-    echo "This ensures that Bazel is aware of the transitive dependencies."
-    echo "For example, instead of:"
-    echo "  @com_google_guava_guava//jar"
-    echo "  @com_google_http_client_google_http_client//jar"
-    echo "Please use:"
-    echo "  //third_party/java/com/google/guava"
-    echo "  //third_party/java/com/google/http_client:google_http_client"
-    result=1
-  fi
-fi
-
-
-java_files=$(echo $(files_matching "\.java$"))
-if [ -n "$java_files" ]; then
-  which >/dev/null google-java-format || (echo "Please install google-java-format"; exit 1)
-  diff=$(diff -u <(cat $java_files) <(google-java-format $java_files))
-  if [ -n "$diff" ]; then
-    echo "$diff"
-    echo "To fix, run:"
-    echo "    google-java-format -i $java_files"
-    result=1
-  fi
-fi
 
 ts_files=$(files_matching "\.ts$")
 
