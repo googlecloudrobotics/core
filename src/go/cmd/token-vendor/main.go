@@ -33,6 +33,7 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/cloudiot"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/k8s"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/memory"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
 )
 
@@ -51,12 +52,12 @@ type KeyStoreOpt string
 
 const (
 	CloudIoT   = "CLOUD_IOT"
-	Kubernetes = "KUBERNETES" // Work in progress
+	Kubernetes = "KUBERNETES"
+	Memory     = "IN_MEMORY"
 )
 
-// Supported public key backends. Kubernetes is WIP and should only be used
-// for testing right now.
-var keyStoreOpts = []string{string(CloudIoT), string(Kubernetes)}
+// Supported public key backends.
+var keyStoreOpts = []string{string(CloudIoT), string(Kubernetes), string(Memory)}
 
 var (
 	verbose = flag.Bool("verbose", false, "Increase log level to DEBUG.")
@@ -136,6 +137,11 @@ func main() {
 			log.Panic(err)
 		}
 		rep, err = k8s.NewK8sRepository(ctx, cs, *namespace)
+		if err != nil {
+			log.Panic(err)
+		}
+	} else if *keyStore == Memory {
+		rep, err = memory.NewMemoryRepository(ctx)
 		if err != nil {
 			log.Panic(err)
 		}

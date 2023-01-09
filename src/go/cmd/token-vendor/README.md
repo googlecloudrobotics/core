@@ -22,12 +22,27 @@ GCP Cloud IoT is deprecated and will be turned off in April 2023.
 The Cloud IoT token vendor backend stores a key as credential.
 To block a device or remove the device completely the GCP UI can be used.
 
-### Kubernetes Configmaps (WIP)
+### Kubernetes Configmaps
 
 The Kubernetes backend uses configmaps to store and lookup public keys.
 The configmaps are stored in a configured namespace with the device identifier as name.
 The public key is stored under a key in the configmap.
 Devices can be removed by deleting the configmap.
+
+### In-Memory
+
+Stores public keys in-memory for testing.
+
+Example:
+
+```
+# Run with memory backend
+bazel run //src/go/cmd/token-vendor -- -verbose --project testproject --accepted_audience test --key-store IN_MEMORY
+# Store test key
+curl --data-binary "@api/v1/testdata/rsa_cert.pem" -H "Content-type: application/x-pem-file" -D - http://127.0.0.1:9090/apis/core.token-vendor/v1/public-key.publish?device-id=robot-dev-testuser
+# Retrieve key
+curl -D - http://127.0.0.1:9090/apis/core.token-vendor/v1/public-key.read?device-id=robot-dev-testuser
+```
 
 #### Migration from IoT to Kubernetes backend
 
