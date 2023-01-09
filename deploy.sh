@@ -353,16 +353,6 @@ function helm_charts {
   ${SYNK} init
   echo "synk init done"
 
-  # Make the go version of the token vendor default but allow
-  # to turn off via CRC_USE_GO_TOKEN_VENDOR=0.
-  if [[ "${CRC_USE_GO_TOKEN_VENDOR}" == 0 ]]; then
-    # only unset values are interpreted as false by our script
-    # needs debugging why
-    unset CRC_USE_GO_TOKEN_VENDOR
-  else
-    CRC_USE_GO_TOKEN_VENDOR=1
-  fi
-
   # Make the K8s backend the default backend for the token vendor.
   # This flag implies the go token version flag.
   if [[ "${CRC_USE_TV_K8S_BACKEND}" == 0 ]]; then
@@ -370,7 +360,6 @@ function helm_charts {
     # needs debugging why
     unset CRC_USE_TV_K8S_BACKEND
   else
-    CRC_USE_GO_TOKEN_VENDOR=1
     CRC_USE_TV_K8S_BACKEND=1
   fi
 
@@ -386,7 +375,6 @@ function helm_charts {
     --set-string oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}
     --set-string oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}
     --set-string oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}
-    --set use_go_token_vendor=${CRC_USE_GO_TOKEN_VENDOR}
     --set use_tv_k8s_backend=${CRC_USE_TV_K8S_BACKEND}
     --set use_tv_verbose=${CRC_USE_TV_VERBOSE}
 EOF

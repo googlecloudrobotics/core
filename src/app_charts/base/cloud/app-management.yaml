@@ -26,7 +26,6 @@ spec:
           registry={{ .Values.registry }},\
           deploy_environment={{ .Values.deploy_environment }},\
           region={{ .Values.region }},\
-          use_go_token_vendor={{ .Values.use_go_token_vendor }},\
           use_tv_k8s_backend={{ .Values.use_tv_k8s_backend }},\
           use_tv_verbose={{ .Values.use_tv_verbose }}"
         - "--webhook-port=9876"

@@ -14,11 +14,7 @@ spec:
     spec:
       containers:
       - name: token-vendor
-{{- if .Values.use_go_token_vendor }}
         image: {{ .Values.registry }}{{ .Values.images.token_vendor_go }}
-{{- else }}
-        image: {{ .Values.registry }}{{ .Values.images.token_vendor }}
-{{- end }}
         ports:
         - name: token-vendor
           containerPort: 9090
@@ -31,26 +27,20 @@ spec:
           # This scope allows GKE RBAC policy bindings to refer to service accounts by email.
           # https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control#forbidden_error_for_service_accounts_on_vm_instances
           "--scope", "https://www.googleapis.com/auth/userinfo.email",
-{{- if not .Values.use_go_token_vendor }}
-          "--region", "{{ .Values.region }}",
-          "--registry", "cloud-robotics",
- {{- if eq .Values.deploy_environment "GCP-testing" }}
-          "--key-store", "IN_MEMORY",
- {{- else }}
-          "--key-store", "CLOUD_IOT",
- {{- end }}
+{{- if .Values.use_tv_verbose }}
+        "--verbose",
+{{- end }}
+{{- if eq .Values.deploy_environment "GCP-testing" }}
+        "--key-store", "IN_MEMORY",
 {{- else }}
- {{- if .Values.use_tv_verbose }}
-          "--verbose",
- {{- end }}
- {{- if .Values.use_tv_k8s_backend }}
+  {{- if .Values.use_tv_k8s_backend }}
           "--key-store", "KUBERNETES",
           "--namespace", "app-token-vendor",
- {{- else }}
+  {{- else }}
           "--key-store", "CLOUD_IOT",
           "--region", "{{ .Values.region }}",
           "--registry", "cloud-robotics",
- {{- end }}
+  {{- end }}
 {{- end }}
         ]
         livenessProbe:

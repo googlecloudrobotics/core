@@ -148,6 +148,7 @@ func main() {
 	} else {
 		log.Panicf("unsupported key store option %q", *keyStore)
 	}
+	log.Infof("Using key store %q", *keyStore)
 
 	verifier, err := oauth.NewTokenVerifier(ctx, &http.Client{}, *project)
 	if err != nil {
