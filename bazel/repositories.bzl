@@ -12,19 +12,6 @@ def cloud_robotics_repositories():
         ],
     )
 
-    # protos for the Google APIs
-    _maybe(
-        http_archive,
-        name = "com_github_googleapis_googleapis",
-        patch_args = ["-p1"],
-        sha256 = "77216f166548374668a0a8ab1502acf3da6502affa826efca58cf6343b5550ed",
-        strip_prefix = "googleapis-58ecdb1f0c0297975e68df5b45200a2d06f6d933",
-        urls = [
-            "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/58ecdb1f0c0297975e68df5b45200a2d06f6d933.tar.gz",
-            "https://github.com/googleapis/googleapis/archive/58ecdb1f0c0297975e68df5b45200a2d06f6d933.tar.gz",
-        ],
-    )
-
     # Binary build of the helm package manager for Kubernetes
     _maybe(
         http_archive,
