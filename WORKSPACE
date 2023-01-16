@@ -1,6 +1,6 @@
 workspace(name = "cloud_robotics")
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("//bazel:repositories.bzl", "cloud_robotics_repositories")
 
 # gazelle:repo bazel_gazelle
@@ -23,7 +23,7 @@ load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 
 rules_pkg_dependencies()
 
-load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains")
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 
 # Do not call go_rules_dependencies() until after all other go_repository
 # calls, or else the top-level definitions may be silently ignored.
@@ -56,8 +56,6 @@ load("//third_party:go_repositories.bzl", "go_repositories")
 
 # gazelle:repository_macro third_party/go_repositories.bzl%go_repositories
 go_repositories()
-
-load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies")
 
 go_rules_dependencies()
 
@@ -94,18 +92,12 @@ container_pull(
     repository = "google-containers/debian-iptables",
 )
 
-load(
-    "@io_bazel_rules_docker//cc:image.bzl",
-    _cc_image_repos = "repositories",
-)
+load("@io_bazel_rules_docker//cc:image.bzl", _cc_image_repos = "repositories")
 
 _cc_image_repos()
 
 # Containerization rules for Go must come after go_rules_dependencies().
-load(
-    "@io_bazel_rules_docker//go:image.bzl",
-    _go_image_repos = "repositories",
-)
+load("@io_bazel_rules_docker//go:image.bzl", _go_image_repos = "repositories")
 
 _go_image_repos()
 
