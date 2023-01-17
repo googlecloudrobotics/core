@@ -109,7 +109,7 @@ if [[ "$REGISTRY" != "gcr.io/cloud-robotics-releases" ]] ; then
       private_registry_enabled=1
     else
       docker logout https://${REGISTRY_DOMAIN}
-      echo "ERROR: failed to pull setup-robot image" >&2
+      echo "WARNING: failed to pull setup-robot image using 'docker pull'" >&2
     fi
     docker logout https://${REGISTRY_DOMAIN}
   fi
@@ -117,7 +117,7 @@ if [[ "$REGISTRY" != "gcr.io/cloud-robotics-releases" ]] ; then
     if crictl pull --creds "oauth2accesstoken:${ACCESS_TOKEN}" "${IMAGE_REFERENCE}" ; then
       private_registry_enabled=1
     else
-      echo "ERROR: failed to pull setup-robot image" >&2
+      echo "WARNING: failed to pull setup-robot image using 'crictl pull'" >&2
     fi
   fi
   if [[ $private_registry_enabled == "0" ]]; then
