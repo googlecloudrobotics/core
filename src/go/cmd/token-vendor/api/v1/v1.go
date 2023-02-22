@@ -259,7 +259,8 @@ func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Reque
 //
 // The token is verified by testing if the token has `iam.serviceAccounts.actAs`
 // authorization on either the `humanacl` or `robot-service` account by
-// calling the GCP testIamPermissions API.
+// calling the GCP testIamPermissions API. This permission can be granted through e.g. the
+// Service Account User (roles/iam.serviceAccountUser) role.
 //
 // Method: GET
 // URL Parameters:
