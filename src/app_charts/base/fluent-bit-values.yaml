@@ -2,10 +2,10 @@ image:
   pullPolicy: IfNotPresent
 
 env:
-   - name: MY_NODE_NAME
-     valueFrom:
-       fieldRef:
-         fieldPath: spec.nodeName
+  - name: MY_NODE_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
 
 ## https://docs.fluentbit.io/manual/administration/configuring-fluent-bit/configuration-file
 config:
@@ -212,3 +212,8 @@ daemonSetVolumeMounts:
   - name: etcmachineid
     mountPath: /etc/machine-id
     readOnly: true
+
+tolerations:
+  - key: "rtpc"
+    operator: "Exists"
+    effect: "NoSchedule"

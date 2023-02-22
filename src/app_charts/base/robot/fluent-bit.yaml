@@ -9,10 +9,10 @@ kind: ServiceAccount
 metadata:
   name: fluent-bit
   labels:
-    helm.sh/chart: fluent-bit-0.20.5
+    helm.sh/chart: fluent-bit-0.24.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "1.9.7"
+    app.kubernetes.io/version: "2.0.9"
     app.kubernetes.io/managed-by: Helm
 ---
 # Source: fluent-bit/templates/configmap.yaml
@@ -21,10 +21,10 @@ kind: ConfigMap
 metadata:
   name: fluent-bit
   labels:
-    helm.sh/chart: fluent-bit-0.20.5
+    helm.sh/chart: fluent-bit-0.24.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "1.9.7"
+    app.kubernetes.io/version: "2.0.9"
     app.kubernetes.io/managed-by: Helm
 data:
   custom_parsers.conf: |
@@ -37,7 +37,7 @@ data:
         Time_Format %H:%M:%S.%L
         Time_Keep   On
         Types       pid:integer
-    
+
   fluent-bit.conf: |
     [SERVICE]
         Daemon Off
@@ -48,7 +48,7 @@ data:
         HTTP_Listen 0.0.0.0
         HTTP_Port 2020
         Health_Check On
-    
+
     [INPUT]
         Name tail
         Path /var/log/containers/*.log
@@ -56,7 +56,7 @@ data:
         Tag kube.*
         Mem_Buf_Limit 5MB
         Skip_Long_Lines On
-    
+
     [INPUT]
         Name systemd
         Tag k8s_node.${MY_NODE_NAME}
@@ -68,12 +68,12 @@ data:
         Systemd_Filter  _SYSTEMD_UNIT=kubelet.service
         Systemd_Filter  _SYSTEMD_UNIT=sshd.service
         Read_From_Tail On
-    
+
     [INPUT]
         name            node_exporter_metrics
         tag             node_metrics
         scrape_interval 10
-    
+
     [FILTER]
         Name kubernetes
         Match kube.*
@@ -81,96 +81,96 @@ data:
         Keep_Log Off
         K8S-Logging.Parser On
         K8S-Logging.Exclude On
-    
+
     # Applies the absl_logs parser to the 'log' field
     [FILTER]
         Name          parser
         Match         kube.*
         Key_Name      log
         Parser        absl_logs
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals level info
         Add severity INFO
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals level warning
         Add severity WARNING
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals level warn
         Add severity WARNING
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals level error
         Add severity ERROR
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_matches log ^.*\[\sinfo\].*$
         Add severity INFO
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_matches log ^.*\[\swarn\].*$
         Add severity WARNING
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_matches log .*\[error\].*
         Add severity ERROR
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_matches log .*(type="Info"|level=info).*
         Add severity INFO
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_matches log .*(type="Warning"|level=warning).*
         Add severity WARNING
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_matches log .*(type="Error"|level=error).*
         Add severity ERROR
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals stream stderr
         Add severity ERROR
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals stream stdout
         Add severity INFO
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Remove _p
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Rename log message
-    
+
     [OUTPUT]
         Name stackdriver
         Match kube.*
@@ -180,7 +180,7 @@ data:
         k8s_cluster_location europe-west1-c
         severity_key severity
         Workers 1
-    
+
     [OUTPUT]
         Name stackdriver
         Match k8s_node.*
@@ -189,7 +189,7 @@ data:
         k8s_cluster_name {{ .Values.robot.name }}
         k8s_cluster_location europe-west1-c
         Workers 1
-    
+
     [OUTPUT]
         name            prometheus_exporter
         match           node_metrics
@@ -201,10 +201,10 @@ kind: ClusterRole
 metadata:
   name: fluent-bit
   labels:
-    helm.sh/chart: fluent-bit-0.20.5
+    helm.sh/chart: fluent-bit-0.24.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "1.9.7"
+    app.kubernetes.io/version: "2.0.9"
     app.kubernetes.io/managed-by: Helm
 rules:
   - apiGroups:
@@ -223,10 +223,10 @@ kind: ClusterRoleBinding
 metadata:
   name: fluent-bit
   labels:
-    helm.sh/chart: fluent-bit-0.20.5
+    helm.sh/chart: fluent-bit-0.24.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "1.9.7"
+    app.kubernetes.io/version: "2.0.9"
     app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -243,10 +243,10 @@ kind: Service
 metadata:
   name: fluent-bit
   labels:
-    helm.sh/chart: fluent-bit-0.20.5
+    helm.sh/chart: fluent-bit-0.24.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "1.9.7"
+    app.kubernetes.io/version: "2.0.9"
     app.kubernetes.io/managed-by: Helm
 spec:
   type: ClusterIP
@@ -265,10 +265,10 @@ kind: DaemonSet
 metadata:
   name: fluent-bit
   labels:
-    helm.sh/chart: fluent-bit-0.20.5
+    helm.sh/chart: fluent-bit-0.24.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "1.9.7"
+    app.kubernetes.io/version: "2.0.9"
     app.kubernetes.io/managed-by: Helm
 spec:
   selector:
@@ -278,7 +278,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 6594d6c0ef4e3309fcdab12e0a689645ec50b267b86d3ff0d07a03cecbe89ac8
+        checksum/config: a104e4858427a7c7de48a2a66d5c3f8edb8f56f31b0788837d8949e47e714529
         checksum/luascripts: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       labels:
         app.kubernetes.io/name: fluent-bit
@@ -289,7 +289,7 @@ spec:
       dnsPolicy: ClusterFirst
       containers:
         - name: fluent-bit
-          image: "cr.fluentbit.io/fluent/fluent-bit:1.9.7"
+          image: "cr.fluentbit.io/fluent/fluent-bit:2.0.9"
           imagePullPolicy: IfNotPresent
           env:
             - name: MY_NODE_NAME
@@ -336,4 +336,8 @@ spec:
             path: /etc/machine-id
             type: File
           name: etcmachineid
+      tolerations:
+        - effect: NoSchedule
+          key: rtpc
+          operator: Exists
 {{ end }}
