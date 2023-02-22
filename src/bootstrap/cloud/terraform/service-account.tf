@@ -26,8 +26,6 @@ data "google_iam_policy" "robot-service" {
 
     members = [
       "serviceAccount:${google_service_account.token_vendor.email}",
-      # TODO(b/175282543): stop using the default compute SA
-      "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com",
     ]
   }
 
@@ -36,8 +34,6 @@ data "google_iam_policy" "robot-service" {
 
     members = [
       "serviceAccount:${google_service_account.token_vendor.email}",
-      # TODO(b/175282543): stop using the default compute SA
-      "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com",
 
       # This seemingly nonsensical binding is necessary for the robot auth
       # path in the K8s relay, which has to work with GCP auth tokens.
@@ -112,17 +108,6 @@ resource "google_project_iam_member" "robot_service_monitoring_viewer" {
   project = data.google_project.project.project_id
   role    = "roles/monitoring.viewer"
   member  = "serviceAccount:${google_service_account.robot-service.email}"
-}
-
-# The name is slightly misleading - this is about the compute service account.
-# However, renaming in Terraform is hard :-(.
-# TODO(b/175282543): stop using the default compute SA
-resource "google_project_iam_member" "robot-service-container-access" {
-  project    = var.private_image_repositories[count.index]
-  count      = length(var.private_image_repositories)
-  role       = "roles/storage.objectViewer"
-  member     = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
-  depends_on = [google_project_service.compute]
 }
 
 resource "google_service_account" "human-acl" {
