@@ -1,10 +1,7 @@
-load("@io_bazel_rules_docker//container:container.bzl", "container_bundle")
 load("@io_bazel_rules_docker//container:providers.bzl", "ImageInfo", "ImportInfo")
-load("@io_bazel_rules_docker//contrib:push-all.bzl", "container_push")
-load("@cloud_robotics//bazel/build_rules:helm_chart.bzl", "helm_chart")
-load("@cloud_robotics//bazel/build_rules/app_chart:cache_gcr_credentials.bzl", "cache_gcr_credentials")
-load("@cloud_robotics//bazel/build_rules/app_chart:push_all.bzl", "push_all")
-load("@cloud_robotics//bazel/build_rules/app_chart:run_sequentially.bzl", "run_sequentially")
+load("//bazel:build_rules/helm_chart.bzl", "helm_chart")
+load("//bazel/build_rules/app_chart:cache_gcr_credentials.bzl", "cache_gcr_credentials")
+load("//bazel/build_rules/app_chart:push_all.bzl", "push_all")
 
 # Simplified version of _assemble_image_digest found in
 # https://github.com/bazelbuild/rules_docker/blob/master/container/image.bzl
@@ -119,7 +116,7 @@ _app_chart_backend = rule(
         ),
         "_digester": attr.label(
             default = "@io_bazel_rules_docker//container/go/cmd/digester:digester",
-            cfg = "host",
+            cfg = "exec",
             executable = True,
         ),
     },

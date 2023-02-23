@@ -1,6 +1,5 @@
 load("//bazel/build_rules/app_chart:cache_gcr_credentials.bzl", "cache_gcr_credentials")
 load("//bazel/build_rules/app_chart:run_parallel.bzl", "run_parallel")
-load("//bazel/build_rules/app_chart:run_sequentially.bzl", "run_sequentially")
 
 # base is not in this list because it's not an app, but installed
 # manually.

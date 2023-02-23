@@ -1,4 +1,4 @@
-load("//bazel/build_rules:helm_template.bzl", "helm_template")
+load("//bazel:build_rules/helm_template.bzl", "helm_template")
 load("//bazel:app_chart.bzl", "app_chart")
 
 app_chart(
