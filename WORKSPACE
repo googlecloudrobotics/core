@@ -1,7 +1,43 @@
 workspace(name = "cloud_robotics")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("//bazel:repositories.bzl", "cloud_robotics_repositories")
+
+git_repository(
+    name = "com_grail_bazel_toolchain",
+    commit = "e4b62c9a4f123cf25701ce0760fe050fc4e293b3",
+    remote = "https://github.com/grailbio/bazel-toolchain.git",
+    shallow_since = "1632296642 -0700",
+)
+
+http_archive(
+    name = "com_googleapis_storage_chrome_linux_amd64_sysroot",
+    build_file = "//bazel:BUILD.sysroot",
+    sha256 = "396ae1bf3482afb624fe96419b89925570110e55a9b49a5a3cc05a933be0dc17",
+    urls = [
+        "https://storage.googleapis.com/chrome-linux-sysroot/toolchain/6f7741c4222de05cd5f2fbb9f02d34f76e5a3134/debian_jessie_amd64_sysroot.tar.xz",
+    ],
+)
+
+load("@com_grail_bazel_toolchain//toolchain:deps.bzl", "bazel_toolchain_dependencies")
+
+bazel_toolchain_dependencies()
+
+load("@com_grail_bazel_toolchain//toolchain:rules.bzl", "llvm_toolchain")
+
+llvm_toolchain(
+    name = "llvm_toolchain",
+    distribution = "clang+llvm-12.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz",
+    llvm_version = "12.0.0",
+    sysroot = {
+        "linux-x86_64": "@com_googleapis_storage_chrome_linux_amd64_sysroot//:all_files",
+    },
+)
+
+load("@llvm_toolchain//:toolchains.bzl", "llvm_register_toolchains")
+
+llvm_register_toolchains()
 
 # gazelle:repo bazel_gazelle
 cloud_robotics_repositories()
