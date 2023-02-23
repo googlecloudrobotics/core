@@ -31,8 +31,8 @@ if is_source_install; then
   # Because this is a non-default build configuration, it results in a separate
   # subdirectory of bazel-out/, which is not as easy to hardcode as
   # bazel-bin/... Instead, we use `bazel run` to locate and execute the binary.
-  SYNK_COMMAND="bazel run //src/go/cmd/synk --"
-  TV_COMMAND="bazel run //src/go/cmd/token-vendor --"
+  SYNK_COMMAND="bazel ${BAZEL_FLAGS} run //src/go/cmd/synk --"
+  TV_COMMAND="bazel ${BAZEL_FLAGS} run //src/go/cmd/token-vendor --"
 else
   TERRAFORM="${DIR}/bin/terraform"
   HELM_COMMAND="${DIR}/bin/helm"
@@ -62,7 +62,8 @@ function kc {
 }
 
 function prepare_source_install {
-  bazel build "@hashicorp_terraform//:terraform" \
+  bazel ${BAZEL_FLAGS} build \
+      "@hashicorp_terraform//:terraform" \
       "@kubernetes_helm//:helm" \
       //src/app_charts/base:base-cloud \
       //src/app_charts/platform-apps:platform-apps-cloud \
@@ -295,7 +296,7 @@ function cleanup_old_cert_manager {
       challenges.certmanager.k8s.io \
       clusterissuers.certmanager.k8s.io \
       issuers.certmanager.k8s.io \
-      orders.certmanager.k8s.io 
+      orders.certmanager.k8s.io
 
     # cleanup apiservices
     kc delete apiservices v1beta1.webhook.certmanager.k8s.io
@@ -429,7 +430,7 @@ function create {
 function delete {
   include_config_and_defaults $1
   if is_source_install; then
-    bazel build "@hashicorp_terraform//:terraform"
+    bazel ${BAZEL_FLAGS} "@hashicorp_terraform//:terraform"
   fi
   clear_iot_devices "cloud-robotics"
   terraform_delete

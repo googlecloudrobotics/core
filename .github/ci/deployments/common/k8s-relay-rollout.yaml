@@ -1,0 +1,12 @@
+apiVersion: apps.cloudrobotics.com/v1alpha1
+kind: AppRollout
+metadata:
+  name: k8s-relay
+  labels:
+    app: k8s-relay
+spec:
+  appName: k8s-relay-dev
+  cloud: {}
+  robots:
+  - selector:
+      any: true

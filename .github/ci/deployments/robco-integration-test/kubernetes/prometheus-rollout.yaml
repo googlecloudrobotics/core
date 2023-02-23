@@ -1,0 +1,12 @@
+apiVersion: apps.cloudrobotics.com/v1alpha1
+kind: AppRollout
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+spec:
+  appName: prometheus-dev
+  cloud: {}
+  robots:
+  - selector:
+      any: true
