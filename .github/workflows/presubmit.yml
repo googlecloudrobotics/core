@@ -1,0 +1,78 @@
+name: Presubmit
+
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# Cancel previous runs if a new one is started.
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup-presubmit:
+    runs-on: ubuntu-20.04
+    outputs:
+      presubmit_digest: ${{ steps.pr-digest.outputs.digest }}
+      presubmit_status: ${{ steps.status.outputs.status }}
+    steps:
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # tag=v3.3.0
+      - name: Get PR digest
+        id: pr-digest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # Get the list of changed files in the PR.
+          gh pr view ${{github.event.number}} --json files -q '.files[].path' > /tmp/changed_files.txt
+
+          # Create a tarball of the changed files and compute its SHA256.
+          # --ignore-failed-read to not fail on deleted files.
+          tar -cvf /tmp/changed_files.tar \
+            --owner=root --group=root --numeric-owner --mtime="2010-01-01" --sort=name \
+            -T /tmp/changed_files.txt \
+            --ignore-failed-read
+          digest=$(cat /tmp/changed_files.txt /tmp/changed_files.tar | sha256sum | cut -d " " -f1)
+          echo "digest=$digest" >> $GITHUB_OUTPUT
+      - uses: actions/cache/restore@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # tag=v3.2.5
+        with:
+          path: ~/PRESUBMITS_SUCCEEDED
+          key: PRESUBMITS_SUCCEEDED-${{ steps.pr-digest.outputs.digest }}
+      - name: Check for previous runs
+        id: status
+        run: |
+          if [ -f ~/PRESUBMITS_SUCCEEDED ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+          fi
+
+  call-check-bazel:
+    needs: [setup-presubmit]
+    if: ${{ needs.setup-presubmit.outputs.presubmit_status != 'success' }}
+    uses: ./.github/workflows/check-bazel.yml
+    secrets:
+      ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY: ${{ secrets.ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY }}
+
+  presubmits-ok:
+    needs: [setup-presubmit, call-check-bazel]
+    runs-on: ubuntu-20.04
+    # To ensure this job always runs even if the "heavy" jobs were skipped.
+    # This allows us to guard merging on this check in Branch Protection.
+    if: ${{ always() }}
+    steps:
+      - name: Fail if tests failed
+        # always() because GitHub requires a status macro to be included or else this gets skipped.
+        # https://github.com/actions/runner/issues/491#issuecomment-850884422
+        if: ${{ always() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
+        run: exit 1
+      - name: Create presubmits succeeded marker
+        run: touch ~/PRESUBMITS_SUCCEEDED
+      - uses: actions/cache/save@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # tag=v3.2.5
+        with:
+          path: ~/PRESUBMITS_SUCCEEDED
+          key: PRESUBMITS_SUCCEEDED-${{ needs.setup-presubmit.outputs.presubmit_digest }}

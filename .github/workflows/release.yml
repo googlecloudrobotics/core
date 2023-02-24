@@ -1,0 +1,75 @@
+name: Create release
+
+on:
+  schedule:
+    - cron: "0 5 * * *" # Once a day at 5am.
+  # Manual runs through Actions tab in the UI
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: read
+
+# Cancel previous runs if a new one is started.
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  create_release:
+    runs-on: ubuntu-20.04
+    steps:
+      # Check out repo at latest green postsubmit commit on the main branch.
+      - name: Get latest passing commit
+        id: latest-green
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          output=$(curl -fsS \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/$REPO/actions/workflows/postsubmit.yml/runs?per_page=1&branch=main&status=success")
+          sha=$(jq -r '.workflow_runs[0].head_sha' <<< $output)
+          echo "latest_green=$sha" >> $GITHUB_OUTPUT
+      - name: Checkout repository
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # tag=v3.2.0
+        with:
+          ref: ${{ steps.latest-green.outputs.latest_green }}
+      - name: Create service account credentials file
+        env:
+          CLOUD_ROBOTICS_RELEASES_GITHUB_ROBOT_JSON_KEY: ${{ secrets.CLOUD_ROBOTICS_RELEASES_GITHUB_ROBOT_JSON_KEY }}
+          ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY: ${{ secrets.ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY }}
+          ROBCO_NAVTEST_GITHUB_ROBOT_JSON_KEY: ${{ secrets.ROBCO_NAVTEST_GITHUB_ROBOT_JSON_KEY }}
+        run: |
+          echo $CLOUD_ROBOTICS_RELEASES_GITHUB_ROBOT_JSON_KEY > cloud_robotics_releases_credentials.json
+          echo $ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY > robco_integration_test_credentials.json
+          echo $ROBCO_NAVTEST_GITHUB_ROBOT_JSON_KEY > robco_navtest_credentials.json
+
+      - name: Deploy Navtest
+        env:
+          USE_BAZEL_VERSION: "5.4.0"
+        run: |
+          set -euo pipefail
+
+          # Set up gke-cloud-auth-plugin in order to allow for
+          # `gcloud container clusters get-credentials`
+          # From https://cloud.google.com/sdk/docs/install#deb
+          echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
+            | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list >/dev/null
+          sudo wget -q https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+            -O /usr/share/keyrings/cloud.google.gpg
+          sudo apt-get update -y
+          sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
+
+          ./.github/ci/deploy_navtest.sh
+
+      # Now we are ready to create the release.
+      - name: Run release_binary.sh
+        env:
+          USE_BAZEL_VERSION: "5.4.0"
+          REPO: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FULL_SHA: ${{ steps.latest-green.outputs.latest_green }}
+        run: ./.github/ci/release_binary.sh

@@ -1,0 +1,29 @@
+name: Check Bazel
+
+on:
+  workflow_call:
+    secrets:
+      ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  check-bazel:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # tag=v3.3.0
+      # We need to authenticate against GCP for remote builds and tests using GCR.
+      # This is done through service account key credentials for the github-robot@$PROJECT
+      # service accounts stored as org secrets.
+      - name: Create service account credentials files
+        env:
+          ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY: ${{ secrets.ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY }}
+        run: |
+          echo "$ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY" > robco_integration_test_credentials.json
+      - name: Run .github/ci/presubmit.sh
+        env:
+          USE_BAZEL_VERSION: "5.4.0"
+        run: ./.github/ci/presubmit.sh

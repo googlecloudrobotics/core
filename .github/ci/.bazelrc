@@ -1,0 +1,18 @@
+# Bazel config for CI/CD builds.
+# This expects robco_integration_test_credentials.json to be available locally for AuthZ.
+
+# Use rbe remote execution and caching on robco-integration-test.
+build --config=remote
+build --remote_instance_name=projects/robco-integration-test/instances/default_instance
+build --google_credentials=robco_integration_test_credentials.json
+# Slightly higher than the numer of available remote workers (10 in default_instance).
+# This has not been tuned a lot.
+build --jobs=12
+# No neeed to download every intermediate output to the local runner.
+build --remote_download_toplevel
+
+# Use Result Store to store Build and Test logs .
+build --bes_backend=buildeventservice.googleapis.com
+build --bes_results_url=https://source.cloud.google.com/results/invocations
+build --bes_timeout=600s
+build --bes_instance_name=robco-integration-test
