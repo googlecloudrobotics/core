@@ -430,7 +430,7 @@ function create {
 function delete {
   include_config_and_defaults $1
   if is_source_install; then
-    bazel ${BAZEL_FLAGS} "@hashicorp_terraform//:terraform"
+    bazel ${BAZEL_FLAGS} build "@hashicorp_terraform//:terraform"
   fi
   clear_iot_devices "cloud-robotics"
   terraform_delete
