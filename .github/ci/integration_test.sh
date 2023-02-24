@@ -84,7 +84,7 @@ fi
 
 DEPLOY_FILES="src/bootstrap/robot/setup_robot.sh \
   src/bootstrap/robot/install_k8s_on_robot.sh \
-  ./bazel-out/../../external/kubernetes_helm/helm"
+  ./bazel-out/../../../external/kubernetes_helm/helm"
 init_robot_sim ${SIM_HOST} "${DEPLOY_FILES}"
 
 # Setup new robot
@@ -116,8 +116,7 @@ run_on_robot_sim ${SIM_HOST} "kubectl delete pod -l app=gcr-credential-refresher
 
 "${SETUP_DEV_BINARY}" --project="${GCP_PROJECT_ID}" --robot-name="${NEW_ROBOT_NAME}"
 
-# Deploy approllouts and configuration
-ls -1 "${DIR}"/deployments/common/*.yaml | xargs printf -- '-f %s\n' | xargs kubectl apply
+# Deploy the k8s relay rollout.
 kubectl apply -f "${DIR}/deployments/robco-integration-test/kubernetes/"
 
 # Output state of cloud and robot k8s context to inspect the health of pods.
