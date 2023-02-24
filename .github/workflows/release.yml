@@ -20,7 +20,7 @@ jobs:
   create_release:
     runs-on: ubuntu-20.04
     steps:
-      # Check out repo at latest green postsubmit commit on the main branch.
+      # Check out repo at latest green postsubmit commit on the master branch.
       - name: Get latest passing commit
         id: latest-green
         env:
@@ -30,7 +30,7 @@ jobs:
           output=$(curl -fsS \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/$REPO/actions/workflows/postsubmit.yml/runs?per_page=1&branch=main&status=success")
+            "https://api.github.com/repos/$REPO/actions/workflows/postsubmit.yml/runs?per_page=1&branch=master&status=success")
           sha=$(jq -r '.workflow_runs[0].head_sha' <<< $output)
           echo "latest_green=$sha" >> $GITHUB_OUTPUT
       - name: Checkout repository
