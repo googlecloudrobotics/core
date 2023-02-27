@@ -73,3 +73,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FULL_SHA: ${{ steps.latest-green.outputs.latest_green }}
         run: ./.github/ci/release_binary.sh
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ failure() }}
+        env:
+          USE_BAZEL_VERSION: "5.4.0"
