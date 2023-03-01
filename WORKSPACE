@@ -28,7 +28,7 @@ load("@com_grail_bazel_toolchain//toolchain:rules.bzl", "llvm_toolchain")
 
 llvm_toolchain(
     name = "llvm_toolchain",
-    distribution = "clang+llvm-12.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz",
+    distribution = "clang+llvm-12.0.0-x86_64-linux-gnu-ubuntu-20.04.tar.xz",
     llvm_version = "12.0.0",
     sysroot = {
         "linux-x86_64": "@com_googleapis_storage_chrome_linux_amd64_sysroot//:all_files",
