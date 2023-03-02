@@ -104,12 +104,16 @@ func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *
 	}); err != nil {
 		return fmt.Errorf("failed to update default/%s: %v", SecretName, err)
 	}
+	// Tell k8s to use this key by pointing the default SA at it.
+	patchData := []byte(`{"imagePullSecrets": [{"name": "` + SecretName + `"}]}`)
+	if err := patchServiceAccount(ctx, k8s, "default", "default", patchData); err != nil {
+		return fmt.Errorf("failed to update kubernetes service account for namespace default: %v", err)
+	}
 
 	nsList, err := k8s.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list namespaces: %v", err)
 	}
-	patchData := []byte(`{"imagePullSecrets": [{"name": "` + SecretName + `"}]}`)
 	haveError := false
 	for _, ns := range nsList.Items {
 		if ns.DeletionTimestamp != nil {
