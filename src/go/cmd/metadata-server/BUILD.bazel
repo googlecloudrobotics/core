@@ -1,12 +1,14 @@
-package(default_visibility = ["//visibility:public"])
-
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "go_default_library",
     srcs = [
         "coredns.go",
         "main.go",
+        "metadata.go"
     ],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/metadata-server",
     visibility = ["//visibility:private"],
@@ -29,6 +31,7 @@ go_test(
     srcs = [
         "coredns_test.go",
         "main_test.go",
+        "metadata_test.go",
     ],
     embed = [":go_default_library"],
     visibility = ["//visibility:private"],
@@ -40,8 +43,6 @@ go_test(
         "@org_golang_x_oauth2//:go_default_library",
     ],
 )
-
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 
 go_image(
     name = "metadata-server",
