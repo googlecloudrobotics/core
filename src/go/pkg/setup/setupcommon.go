@@ -199,7 +199,7 @@ func publishPublicKeyToCloudRegistry(auth *robotauth.RobotAuth, client *http.Cli
 		return err
 	}
 
-	log.Println("Publishing the robot's public key to Cloud IoT Registry")
+	log.Println("Publishing the robot's public key to cloud key registry")
 
 	url := fmt.Sprintf(
 		"https://%s/apis/core.token-vendor/v1/public-key.publish?device-id=%s",
