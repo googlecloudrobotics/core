@@ -48,8 +48,6 @@ var (
 	minTokenExpiry = flag.Int("min_token_expiry", 300, "Minimum time a token needs to be valid for in seconds")
 )
 
-const deprecatedPort = 8080
-
 func detectChangesToFile(filename string) <-chan struct{} {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -95,11 +93,6 @@ func removeIPTablesRule() {
 	if err := runIPTablesCommand(args); err != nil {
 		log.Printf("Warning: iptables invocation failed: %v", err)
 	}
-}
-
-func removeDeprecatedIPTablesRule() error {
-	args := append([]string{"-t", "nat", "-D", "PREROUTING"}, getIPTablesRuleSpec(deprecatedPort)...)
-	return runIPTablesCommand(args)
 }
 
 func getIPTablesRuleSpec(port int) []string {
@@ -194,19 +187,6 @@ func main() {
 		log.Fatalf("failed to create listener on %s: %v", bindAddress, err)
 	}
 	log.Printf("Listening on %s", bindAddress)
-
-	// For some reason, when we change the metadata-server port the old
-	// metadata-servers didn't clean up their firewall rules.
-	// TODO(rodrigoq): remove this after all clusters have been updated.
-	if *port != deprecatedPort {
-		for {
-			// Remove the deprecated rules until removal fails.
-			if err := removeDeprecatedIPTablesRule(); err != nil {
-				break
-			}
-			log.Printf("Removed a deprecated iptables rule.")
-		}
-	}
 
 	if err := addIPTablesRule(); err != nil {
 		log.Fatalf("failed to add iptables rule: %v", err)
