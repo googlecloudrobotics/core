@@ -139,6 +139,14 @@ resource "google_project_iam_member" "human-acl-object-viewer" {
   member  = "serviceAccount:${google_service_account.human-acl.email}"
 }
 
+# Allow pulling setup-robot container image from a private GCR.
+resource "google_project_iam_member" "human-acl-container-access" {
+  project = var.private_image_repositories[count.index]
+  count   = length(var.private_image_repositories)
+  role    = "roles/storage.objectViewer"
+  member  = "serviceAccount:${google_service_account.human-acl.email}"
+}
+
 # Allow robot registration with the token vendor, which checks if the client's
 # token can "act as" the human-acl@ SA. We need this binding even if the
 # client provided a token for the human-acl@ SA itself.
