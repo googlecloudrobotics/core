@@ -96,14 +96,8 @@ resource "google_project_iam_member" "robot-service-kubernetes" {
   member = "serviceAccount:${google_service_account.robot-service.email}"
 }
 
-# The roles above are sufficient for "real robots". The following roles let us
+# The role above are sufficient for "real robots". The following roles let us
 # use robot-service@ for GKE clusters that simulate robots.
-resource "google_project_iam_member" "robot_service_stackdriver_writer" {
-  project = data.google_project.project.project_id
-  role    = "roles/stackdriver.resourceMetadata.writer"
-  member  = "serviceAccount:${google_service_account.robot-service.email}"
-}
-
 resource "google_project_iam_member" "robot_service_monitoring_viewer" {
   project = data.google_project.project.project_id
   role    = "roles/monitoring.viewer"
