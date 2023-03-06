@@ -46,6 +46,7 @@ var (
 	// Mirror gke behavior and return token with at least 5 minutes of remaining time.
 	// https://cloud.google.com/compute/docs/access/create-enable-service-accounts-for-instances#applications
 	minTokenExpiry = flag.Int("min_token_expiry", 300, "Minimum time a token needs to be valid for in seconds")
+	logPeerDetails = flag.Bool("log_peer_details", false, "When enabled details about the peer that requests ADC are logged on the expense of some extra latency")
 )
 
 func detectChangesToFile(filename string) <-chan struct{} {
@@ -113,34 +114,6 @@ func runIPTablesCommand(args []string) error {
 	return cmd.Run()
 }
 
-func patchCorefileInCluster(ctx context.Context) error {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return err
-	}
-	k8s, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	return PatchCorefile(ctx, k8s)
-}
-
-func revertCorefileInCluster(ctx context.Context) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		log.Printf("Warning: failed to create InClusterConfig: %v", err)
-		return
-	}
-	k8s, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Printf("Warning: failed to create ClientSet: %v", err)
-		return
-	}
-	if err := RevertCorefile(ctx, k8s); err != nil {
-		log.Printf("Warning: failed to revert Corefile: %v", err)
-	}
-}
-
 func main() {
 	flag.Parse()
 
@@ -150,7 +123,17 @@ func main() {
 	}
 
 	ctx := context.Background()
-	tokenHandler, err := NewTokenHandler(ctx)
+
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		log.Fatalf("Can't create k8s in-cluster config: %v", err)
+	}
+	k8s, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Fatalf("Can't create k8s client: %v", err)
+	}
+
+	tokenHandler, err := NewTokenHandler(ctx, k8s)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
@@ -192,21 +175,21 @@ func main() {
 		log.Fatalf("failed to add iptables rule: %v", err)
 	}
 
-	if err := patchCorefileInCluster(ctx); err != nil {
+	if err := PatchCorefile(ctx, k8s); err != nil {
 		removeIPTablesRule()
 		log.Fatal(err)
 	}
 
 	go func() {
 		err = http.Serve(ln, nil)
-		revertCorefileInCluster(ctx)
+		RevertCorefile(ctx, k8s)
 		removeIPTablesRule()
 		log.Fatal(err)
 	}()
 
 	go func() {
 		<-detectChangesToFile(*robotIdFile)
-		revertCorefileInCluster(ctx)
+		RevertCorefile(ctx, k8s)
 		removeIPTablesRule()
 		log.Fatalf("%s changed but reloading is not implemented. Crashing...", *robotIdFile)
 	}()
@@ -215,6 +198,6 @@ func main() {
 	signal.Notify(stop, syscall.SIGTERM)
 
 	<-stop
-	revertCorefileInCluster(ctx)
+	RevertCorefile(ctx, k8s)
 	removeIPTablesRule()
 }

@@ -30,6 +30,16 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"golang.org/x/oauth2"
 	cloudresourcemanager "google.golang.org/api/cloudresourcemanager/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+)
+
+const (
+	// getPodByIPRetries configures how often we retry determining the ip for a pod
+	getPodByIPRetries = 10
+	// getPodByIPWait confgured the time to sleep between the retries
+	getPodByIPWait = 500 * time.Millisecond
 )
 
 // ConstHandler serves OK responses with static body content.
@@ -50,6 +60,7 @@ type TokenHandler struct {
 	TokenSource    oauth2.TokenSource
 	Clock          func() time.Time
 	robotAuth      auth
+	k8s            *kubernetes.Clientset
 }
 
 type auth interface {
@@ -76,7 +87,7 @@ type TokenResponse struct {
 	TokenType    string `json:"token_type"`
 }
 
-func NewTokenHandler(ctx context.Context) (*TokenHandler, error) {
+func NewTokenHandler(ctx context.Context, k8s *kubernetes.Clientset) (*TokenHandler, error) {
 	_, allowedSources, err := net.ParseCIDR(*sourceCidr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid source CIDR %s: %w", *sourceCidr, err)
@@ -85,6 +96,7 @@ func NewTokenHandler(ctx context.Context) (*TokenHandler, error) {
 	t := &TokenHandler{
 		AllowedSources: allowedSources,
 		Clock:          time.Now,
+		k8s:            k8s,
 	}
 	if err := t.updateRobotAuth(); err != nil {
 		return nil, err
@@ -135,6 +147,9 @@ func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler
 	}
 }
 
+// Return an access token for the 'robot-service' service account
+// The query might also contain a 'scopes' query param, which we currently don't handle
+// (e.g.: scopes=https://www.googleapis.com/auth/devstorage.full_control,https://www.googleapis.com/auth/cloud-platform HTTP/1.1)
 func (th *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ipPort := strings.Split(r.RemoteAddr, ":")
 	if len(ipPort) != 2 {
@@ -181,12 +196,87 @@ func (th *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Collect some extra data for diagnostics (aka which services rely on ADCs).
+	// User-Agent: "Fluent-Bit", "gcloud-golang/0.1"
+	ua := r.Header.Get("User-Agent")
+	pod := th.getPodNameByIP(r.Context(), ipPort[0])
+
 	w.Header().Set("Metadata-Flavor", "Google")
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	w.Write(bytes)
-	log.Printf("Served access token to %s", r.RemoteAddr)
+	log.Printf("Served access token to %s (ua=%q, pod=%q)", r.RemoteAddr, ua, pod)
+}
+
+func (th *TokenHandler) getPodNameByIP(ctx context.Context, ip string) string {
+	if th.k8s == nil || !*logPeerDetails {
+		// TODO(ensonic): need to add a k8s fake to the tests
+		return ""
+	}
+
+	// Meassure the time it takes to obtain the extra information
+	defer func(start time.Time) {
+		log.Printf("getPodNameByIP() took %s", time.Since(start))
+	}(time.Now())
+
+	// TODO(ensonic): to avoid traversing all ns/pods each time we can
+	// - cache ip->ns/pod mapping
+	// - check first if we can still get a pod by these keys and if the IP still matches
+	// - do the listing otherwise
+	// TODO(ensonic): consider labeling namespaces that participate in ADCs. This will speedup the lookups
+	// and allows us to lock this down.
+
+	podsToRetry := []corev1.Pod{}
+
+	nss, err := th.k8s.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		log.Printf("Failed to list namespaces: %v", err)
+	}
+	for _, ns := range nss.Items {
+		nsName := ns.ObjectMeta.Name
+		pods, err := th.k8s.CoreV1().Pods(nsName).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			log.Printf("Failed to list pods in ns=%q: %v", nsName, err)
+		}
+		for _, pod := range pods.Items {
+			if pod.Status.PodIP == ip {
+				return nsName + "/" + pod.Name
+			}
+			if pod.Status.PodIP == "" {
+				log.Printf("Pod %q has no ip (yet): %q", pod.Name, pod.Status.Message)
+				podsToRetry = append(podsToRetry, pod)
+			}
+		}
+	}
+	// We don't have the resource version from the pod creation (to be used in the ListOptions above). Hence
+	// we need to do this retry logic for cases where a pod just started and right away asked for an ADC.
+	retries := getPodByIPRetries
+	for len(podsToRetry) > 0 && retries > 0 {
+		time.Sleep(getPodByIPWait)
+		log.Printf("Retrying %d pods without ip", len(podsToRetry))
+
+		ptr := podsToRetry
+		podsToRetry = []corev1.Pod{}
+		for _, p := range ptr {
+			nsName := p.ObjectMeta.Namespace
+			podName := p.ObjectMeta.Name
+			pod, err := th.k8s.CoreV1().Pods(nsName).Get(ctx, podName, metav1.GetOptions{})
+			if err != nil {
+				log.Printf("Failed to get pod %q in ns=%q: %v", podName, nsName, err)
+			}
+			if pod.Status.PodIP == ip {
+				return nsName + "/" + pod.Name
+			}
+			if pod.Status.PodIP == "" {
+				log.Printf("Pod %q has no ip (yet): %q", pod.Name, pod.Status.Message)
+				podsToRetry = append(podsToRetry, *pod)
+			}
+		}
+		retries--
+	}
+	log.Printf("No pod found for ip=%q", ip)
+	return ""
 }
 
 // ServiceAccountHandler serves information about the default service account.
