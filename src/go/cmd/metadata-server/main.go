@@ -39,7 +39,7 @@ import (
 )
 
 var (
-	bindIP      string
+	bindIP      = flag.String("bind_ip", "127.0.0.1", "IPv4 address to listen on")
 	port        = flag.Int("port", 80, "Port number to listen on")
 	robotIdFile = flag.String("robot_id_file", "", "robot-id.json file")
 	sourceCidr  = flag.String("source_cidr", "127.0.0.1/32", "CIDR giving allowed source addresses for token retrieval")
@@ -102,7 +102,7 @@ func getIPTablesRuleSpec(port int) []string {
 		"-d", "169.254.169.254",
 		"--dport", "80",
 		"-j", "DNAT",
-		"--to-destination", bindIP + ":" + strconv.Itoa(port),
+		"--to-destination", *bindIP + ":" + strconv.Itoa(port),
 	}
 }
 
@@ -117,9 +117,8 @@ func runIPTablesCommand(args []string) error {
 func main() {
 	flag.Parse()
 
-	bindIP = os.Getenv("BIND_IP")
-	if bindIP == "" {
-		log.Fatal("BIND_IP environment variable not set")
+	if ip := net.ParseIP(*bindIP); ip == nil {
+		log.Fatal("invalid bind_ip flag")
 	}
 
 	ctx := context.Background()
@@ -164,7 +163,7 @@ func main() {
 	// Make sure that the bind is successful before adding the iptables rule as a means of
 	// avoiding a race condition where an old metadata-server instance that has not yet fully
 	// terminated removes the iptables rule again.
-	bindAddress := fmt.Sprintf("%s:%d", bindIP, *port)
+	bindAddress := fmt.Sprintf("%s:%d", *bindIP, *port)
 	ln, err := net.Listen("tcp", bindAddress)
 	if err != nil {
 		log.Fatalf("failed to create listener on %s: %v", bindAddress, err)
