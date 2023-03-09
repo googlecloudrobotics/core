@@ -28,8 +28,8 @@ spec:
           region={{ .Values.region }},\
           use_tv_k8s_backend={{ .Values.use_tv_k8s_backend }},\
           use_tv_verbose={{ .Values.use_tv_verbose }}"
-        - "--webhook-port=9876"
-        - "--cert-dir=/tls"
+        - --webhook-port=9876
+        - --cert-dir=/tls
         env:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}

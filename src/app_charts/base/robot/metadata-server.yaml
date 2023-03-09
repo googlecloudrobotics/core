@@ -28,12 +28,9 @@ spec:
       - name: metadata-server
         image: {{ .Values.registry }}{{ .Values.images.metadata_server }}
         args:
-        - --port
-        - "8965"
-        - --robot_id_file
-        - /credentials/robot-id.json
-        - --source_cidr
-        - "{{ .Values.pod_cidr }}"
+        - --port=8965
+        - --robot_id_file=/credentials/robot-id.json
+        - --source_cidr={{ .Values.pod_cidr }}
         env:
         - name: BIND_IP
           value: "127.0.0.1"

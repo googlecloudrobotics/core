@@ -15,34 +15,33 @@ spec:
       containers:
       - name: token-vendor
         image: {{ .Values.registry }}{{ .Values.images.token_vendor_go }}
+        args:
+        - --project={{ .Values.project }}
+        - --accepted_audience=https://{{ .Values.domain }}/apis/core.token-vendor/v1/token.oauth2
+        - --service_account=robot-service
+        # This scope is for token vendor and for access to GCS/GCR.
+        - --scope=https://www.googleapis.com/auth/cloud-platform
+        # This scope allows GKE RBAC policy bindings to refer to service accounts by email.
+        # https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control#forbidden_error_for_service_accounts_on_vm_instances
+        - --scope=https://www.googleapis.com/auth/userinfo.email
+{{- if .Values.use_tv_verbose }}
+        - --verbose,
+{{- end }}
+{{- if eq .Values.deploy_environment "GCP-testing" }}
+        - --key-store=IN_MEMORY,
+{{- else }}
+  {{- if .Values.use_tv_k8s_backend }}
+        - --key-store=KUBERNETES
+        - --namespace=app-token-vendor
+  {{- else }}
+        - --key-store=CLOUD_IOT
+        - --region={{ .Values.region }}
+        - --registry=cloud-robotics
+  {{- end }}
+{{- end }}
         ports:
         - name: token-vendor
           containerPort: 9090
-        args: [
-          "--project", "{{ .Values.project }}",
-          "--accepted_audience", "https://{{ .Values.domain }}/apis/core.token-vendor/v1/token.oauth2",
-          "--service_account", "robot-service",
-          # This scope is for token vendor and for access to GCS/GCR.
-          "--scope", "https://www.googleapis.com/auth/cloud-platform",
-          # This scope allows GKE RBAC policy bindings to refer to service accounts by email.
-          # https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control#forbidden_error_for_service_accounts_on_vm_instances
-          "--scope", "https://www.googleapis.com/auth/userinfo.email",
-{{- if .Values.use_tv_verbose }}
-        "--verbose",
-{{- end }}
-{{- if eq .Values.deploy_environment "GCP-testing" }}
-        "--key-store", "IN_MEMORY",
-{{- else }}
-  {{- if .Values.use_tv_k8s_backend }}
-          "--key-store", "KUBERNETES",
-          "--namespace", "app-token-vendor",
-  {{- else }}
-          "--key-store", "CLOUD_IOT",
-          "--region", "{{ .Values.region }}",
-          "--registry", "cloud-robotics",
-  {{- end }}
-{{- end }}
-        ]
         livenessProbe:
           httpGet:
             path: /healthz
