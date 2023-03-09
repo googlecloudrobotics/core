@@ -15,15 +15,12 @@ spec:
     spec:
       containers:
       - name: cr-syncer
-        args:
-        - -remote-server
-        - {{ .Values.domain }}
-        - --robot-name
-        - "{{ .Values.robot.name }}"
-        - -alsologtostderr
-        - --verbose=false
-        - --listen-address=:8080
         image: {{ .Values.registry }}{{ .Values.images.cr_syncer }}
+        args:
+        - --listen-address=:8080
+        - --remote-server={{ .Values.domain }}
+        - --robot-name={{ .Values.robot.name }}
+        - --verbose=false
         ports:
         - name: http
           containerPort: 8080

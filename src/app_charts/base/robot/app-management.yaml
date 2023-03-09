@@ -17,11 +17,11 @@ spec:
       - name: chart-assignment-controller
         image: {{ .Values.registry }}{{ .Values.images.chart_assignment_controller }}
         args:
-        - "--cloud-cluster=false"
-        - "--webhook-enabled={{ .Values.webhook.enabled }}"
-        - "--webhook-port=9876"
-        - "--cert-dir=/tls"
-        - "--trace-stackdriver-project-id={{ .Values.project }}"
+        - --cloud-cluster=false
+        - --webhook-enabled={{ .Values.webhook.enabled }}
+        - --webhook-port=9876
+        - --cert-dir=/tls
+        - --trace-stackdriver-project-id={{ .Values.project }}
         env:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}
