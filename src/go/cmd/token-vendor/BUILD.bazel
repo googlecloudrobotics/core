@@ -6,7 +6,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "main.go",
-        "migrate.go",
     ],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor",
     visibility = ["//visibility:private"],
