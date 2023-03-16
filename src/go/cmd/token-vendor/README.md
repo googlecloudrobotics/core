@@ -7,7 +7,7 @@ The token vendor itself is stateless and all data is stored in GCP.
 
 The following workflows are covered by the token vendor:
 
-* Register a robot by its public key and a unique device identifier. The public key is stored in a cloud backend (currently Cloud IoT Core device registry)
+* Register a robot by its public key and a unique device identifier. The public key is stored in a cloud backend.
 * Retrieve a robot's public key through the device identifier
 * Generate an scoped and time-limited IAM access token for access to GCP resources
 * Validate a given IAM access token 
@@ -15,12 +15,6 @@ The following workflows are covered by the token vendor:
 ## Public Key Backends
 
 The token vendor supports multiple backends for storage of public keys for registered devices.
-
-### Cloud IoT Backend
-
-GCP Cloud IoT is deprecated and will be turned off in April 2023.
-The Cloud IoT token vendor backend stores a key as credential.
-To block a device or remove the device completely the GCP UI can be used.
 
 ### Kubernetes Configmaps
 
@@ -42,23 +36,6 @@ bazel run //src/go/cmd/token-vendor -- -verbose --project testproject --accepted
 curl --data-binary "@api/v1/testdata/rsa_cert.pem" -H "Content-type: application/x-pem-file" -D - http://127.0.0.1:9090/apis/core.token-vendor/v1/public-key.publish?device-id=robot-dev-testuser
 # Retrieve key
 curl -D - http://127.0.0.1:9090/apis/core.token-vendor/v1/public-key.read?device-id=robot-dev-testuser
-```
-
-#### Migration from IoT to Kubernetes backend
-
-You can run the Token Vendor with `--migrate-iot-to-k8s` to migrate all public keys
-from the IoT backend to the Kubernetes backend. For this you have to set all relevant
-CLI flags for both backends. Example:
-
-```sh
-bazel run //src/go/cmd/token-vendor -- --verbose --project testproject --region europe-west1 --registry cloud-robotics --namespace default --migrate-iot-to-k8s --migrate-k8s-ctx KUBECONTEXT
-```
-
-Before the migration you should run `--validate-iot-identifiers` to validate the
-identifiers currently on the registry to confirm that they are valid K8s identifiers. Example:
-
-```sh
-bazel run //src/go/cmd/token-vendor -- -verbose --project testproject --region europe-west1 --registry cloud-robotics --validate-iot-identifiers
 ```
 
 ## API

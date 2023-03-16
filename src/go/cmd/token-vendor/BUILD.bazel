@@ -6,7 +6,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "main.go",
-        "migrate.go",
     ],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor",
     visibility = ["//visibility:private"],
@@ -15,7 +14,6 @@ go_library(
         "//src/go/cmd/token-vendor/api/v1:go_default_library",
         "//src/go/cmd/token-vendor/app:go_default_library",
         "//src/go/cmd/token-vendor/oauth:go_default_library",
-        "//src/go/cmd/token-vendor/repository/cloudiot:go_default_library",
         "//src/go/cmd/token-vendor/repository/k8s:go_default_library",
         "//src/go/cmd/token-vendor/repository/memory:go_default_library",
         "//src/go/cmd/token-vendor/tokensource:go_default_library",
@@ -40,19 +38,4 @@ go_image(
 go_binary(
     name = "token-vendor",
     embed = [":go_default_library"],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = ["migrate_test.go"],
-    data = glob(["testdata/**"]),
-    embed = [":go_default_library"],
-    deps = [
-        "//src/go/cmd/token-vendor/repository/cloudiot:go_default_library",
-        "//src/go/cmd/token-vendor/repository/k8s:go_default_library",
-        "@com_github_google_go_cmp//cmp:go_default_library",
-        "@io_k8s_api//core/v1:go_default_library",
-        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
-        "@io_k8s_client_go//kubernetes/fake:go_default_library",
-    ],
 )

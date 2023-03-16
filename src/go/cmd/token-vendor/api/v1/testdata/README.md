@@ -2,7 +2,7 @@
 
 ## RSA Keys
 
-These files were generated according to [Cloud IoT key generation instructions](https://cloud.google.com/iot/docs/how-tos/credentials/keys):
+These files were generated like this:
 
 ```shell
 openssl genrsa -out rsa_private.pem 2048

@@ -108,7 +108,6 @@ token-vendor-xxx    1/1     Running            0          1m
 
 In addition to the cluster, `deploy.sh` also created:
 
-* the [cloud-robotics IoT Core Registry](https://console.cloud.google.com/iot/registries) that will be used to manage the list of authorized robots,
 * the [[PROJECT_ID]-robot Cloud Storage bucket](https://console.cloud.google.com/storage/browser), containing the scripts that connect robots to the cloud, and
 * the [Identity & Access Management policies](https://console.cloud.google.com/iam-admin/iam) that authorize robots and humans to communicate with GCP.
 
@@ -127,7 +126,6 @@ To apply changes made in the source code, run:
 The following command will delete:
 
 * the [cloud-robotics Kubernetes cluster](https://console.cloud.google.com/kubernetes/list)
-* the [cloud-robotics IoT Core Registry](https://console.cloud.google.com/iot/registries)
 
 This can be useful if the cluster is in a broken state.
 Be careful with this invocation, since you'll have to redeploy the project and reconnect any robots afterwards.

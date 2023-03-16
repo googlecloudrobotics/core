@@ -43,7 +43,7 @@ import (
 	clientapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-const iotPrefix = "dev-"
+const robotPrefix = "dev-"
 
 var (
 	project   = flag.String("project", "", "Project ID for the Google Cloud Platform")
@@ -137,7 +137,7 @@ func createKubeRelayEntry(projectID string, domain string, robotName string) err
 	return nil
 }
 
-// setupDevCredentials generates a workstation ID for use with Cloud IoT then
+// setupDevCredentials generates a workstation ID for use with the Token Vendor then
 // calls in to CreateAndPublishCredentialsToCloud to create and publish a private key.
 func setupDevCredentials(client *http.Client, domain string, robotName string) error {
 	hostname, err := os.Hostname()
@@ -163,14 +163,14 @@ func setupDevCredentials(client *http.Client, domain string, robotName string) e
 	return nil
 }
 
-// makeIdentifier converts a string to a valid Cloud IoT ID by adding a prefix
+// makeIdentifier converts a string to a valid robot identifier by adding a prefix
 // and removing invalid characters.
 func makeIdentifier(base string) string {
 	invalid, err := regexp.Compile("[^a-zA-Z0-9_.~+%-]+")
 	if err != nil {
 		log.Fatalln("makeValidIdentifier: failed to compile regex:", err)
 	}
-	return iotPrefix + invalid.ReplaceAllString(base, "")
+	return robotPrefix + invalid.ReplaceAllString(base, "")
 }
 
 func containerExists(container string) (bool, error) {

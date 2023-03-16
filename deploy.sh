@@ -88,27 +88,6 @@ function prepare_source_install {
   TAG="latest" ${DIR}/bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
 }
 
-function clear_iot_devices {
-  local iot_registry_name="$1"
-  local devices
-  devices=$(gcloud beta iot devices list \
-    --project "${GCP_PROJECT_ID}" \
-    --region "${GCP_REGION}" \
-    --registry "${iot_registry_name}" \
-    --format='value(id)')
-  if [[ -n "${devices}" ]] ; then
-    echo "Clearing IoT devices from ${iot_registry_name}" 1>&2
-    for dev in ${devices}; do
-      gcloud beta iot devices delete \
-        --quiet \
-        --project "${GCP_PROJECT_ID}" \
-        --region "${GCP_REGION}" \
-        --registry "${iot_registry_name}" \
-        ${dev}
-    done
-  fi
-}
-
 function terraform_exec {
   ( cd "${TERRAFORM_DIR}" && ${TERRAFORM} "$@" )
 }
@@ -177,12 +156,6 @@ EOF
   if [[ -n "${PRIVATE_DOCKER_PROJECTS:-}" ]]; then
     cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
 private_image_repositories = ["${PRIVATE_DOCKER_PROJECTS// /\", \"}"]
-EOF
-  fi
-
-  if [[ "${CRC_USE_TV_K8S_BACKEND}" != 1 ]]; then
-    cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
-use_cloudiot = true
 EOF
   fi
 
@@ -354,17 +327,7 @@ function helm_charts {
   ${SYNK} init
   echo "synk init done"
 
-  # Make the K8s backend the default backend for the token vendor.
-  # This flag implies the go token version flag.
-  if [[ "${CRC_USE_TV_K8S_BACKEND}" == 0 ]]; then
-    # only unset values are interpreted as false by our script
-    # needs debugging why
-    unset CRC_USE_TV_K8S_BACKEND
-  else
-    CRC_USE_TV_K8S_BACKEND=1
-  fi
-
-  values=$(cat <<EOF
+    values=$(cat <<EOF
     --set-string domain=${CLOUD_ROBOTICS_DOMAIN}
     --set-string ingress_ip=${INGRESS_IP}
     --set-string project=${GCP_PROJECT_ID}
@@ -376,26 +339,9 @@ function helm_charts {
     --set-string oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}
     --set-string oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}
     --set-string oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}
-    --set use_tv_k8s_backend=${CRC_USE_TV_K8S_BACKEND}
     --set use_tv_verbose=${CRC_USE_TV_VERBOSE}
 EOF
 )
-
-  # If the K8s Token Vendor backend is selected, we migrate all
-  # device keys found on IoT Core to Kubernetes. It is safe to
-  # run the migration multiple times.
-  if [[ "${CRC_USE_TV_K8S_BACKEND}" == 1 ]]; then
-    echo "running migration from IoT Core to Kubernetes backend"
-    # First run a validation of the existing IoT Core device identifiers
-    ${TV_COMMAND} \
-      --project ${GCP_PROJECT_ID} --region ${GCP_REGION} --registry cloud-robotics \
-      --validate-iot-identifiers
-    # Migrate the device keys to Kubernetes
-    ${TV_COMMAND} \
-      --project ${GCP_PROJECT_ID} --region ${GCP_REGION} --registry cloud-robotics \
-      --namespace app-token-vendor \
-      --migrate-iot-to-k8s --migrate-k8s-ctx "${KUBE_CONTEXT}"
-  fi
 
   echo "installing base-cloud to ${KUBE_CONTEXT}..."
   ${HELM} template -n base-cloud --namespace=${BASE_NAMESPACE} ${values} \
@@ -432,7 +378,6 @@ function delete {
   if is_source_install; then
     bazel ${BAZEL_FLAGS} build "@hashicorp_terraform//:terraform"
   fi
-  clear_iot_devices "cloud-robotics"
   terraform_delete
 }
 
