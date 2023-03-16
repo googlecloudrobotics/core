@@ -5,5 +5,4 @@ registry: "gcr.io/my-gcp-project"
 robots: []
 region: example-gcp-region
 # Token Vendor feature flags
-use_tv_k8s_backend: false
 use_tv_k8s_verbose: false

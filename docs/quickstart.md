@@ -80,7 +80,6 @@ token-vendor-xxx    1/1     Running            0          1m
 
 In addition to the cluster, the install script also created:
 
-* the [cloud-robotics IoT Core Registry][iot-registry] that will be used to manage the list of authorized robots,
 * the [[PROJECT_ID]-cloud-robotics-config bucket][storage-bucket], containing a `config.sh` and a Terraform state which are necessary to update your cloud project later,
 * the [[PROJECT_ID]-robot Cloud Storage bucket][storage-bucket], containing the scripts that connect robots to the cloud, and
 * the [Identity & Access Management policies][iam] that authorize robots and humans to communicate with GCP.
@@ -112,7 +111,6 @@ curl -fS "https://storage.googleapis.com/cloud-robotics-releases/run-install.sh"
 The following command will delete:
 
 * the [cloud-robotics Kubernetes cluster](https://console.cloud.google.com/kubernetes/list)
-* the [cloud-robotics IoT Core Registry](https://console.cloud.google.com/iot/registries)
 
 This can be useful if the cluster is in a broken state.
 Be careful with this invocation, since you'll have to redeploy the project and reconnect any robots afterwards.
@@ -137,7 +135,6 @@ If you want to completely shut down the project, see [the Resource Manager docum
 [modify-project]: https://cloud.google.com/billing/docs/how-to/modify-project
 [cloud-sdk]: https://cloud.google.com/sdk/docs/
 [workloads]: https://console.cloud.google.com/kubernetes/workload
-[iot-registry]: https://console.cloud.google.com/iot/registries
 [storage-bucket]: https://console.cloud.google.com/storage/browser
 [iam]: https://console.cloud.google.com/iam-admin/iam
 [undelete-service]: https://cloud.google.com/sdk/gcloud/reference/endpoints/services/undelete

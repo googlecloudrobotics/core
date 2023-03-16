@@ -30,14 +30,8 @@ spec:
 {{- if eq .Values.deploy_environment "GCP-testing" }}
         - --key-store=IN_MEMORY
 {{- else }}
-  {{- if .Values.use_tv_k8s_backend }}
         - --key-store=KUBERNETES
         - --namespace=app-token-vendor
-  {{- else }}
-        - --key-store=CLOUD_IOT
-        - --region={{ .Values.region }}
-        - --registry=cloud-robotics
-  {{- end }}
 {{- end }}
         ports:
         - name: token-vendor
