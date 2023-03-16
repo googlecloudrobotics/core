@@ -63,7 +63,7 @@ Normally, to access a private Cloud Storage bucket from a robot, you'd need to m
 
 So why was the robot able to drop a file in the non-public bucket? There is a lot going on in the background that enabled the configuration-less secure API access:
 
-* When the robot was connected to the cloud, it generated a new private key and registered the corresponding public key in a Cloud IoT device registry.
+* When the robot was connected to the cloud, it generated a new private key and registered the corresponding public key in a device registry, e.g., as Kubernetes configmaps.
 * The setup-robot command also started a Metadata Server as a workload in the robot's Kubernetes cluster. You can verify it is running with `kubectl get pods`. The Metadata Server identifies itself to the cloud using the robot's private key and obtains short-lived access tokens in the background.
 * Every time a client library performs a call to a Google Cloud API, it asks the local Metadata Server for an access token.
 * The permissions of the robot can be inspected and managed in the Cloud Console under "IAM &amp; admin"; you will notice that there is a service account called `robot-service@[PROJECT_ID].iam.gserviceaccount.com`, which has "Storage Admin" permissions. These permissions allowed the robot to write to the private bucket.

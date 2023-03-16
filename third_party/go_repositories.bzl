@@ -1932,12 +1932,6 @@ def go_repositories():
         version = "v1.1.0",
     )
     go_repository(
-        name = "com_google_cloud_go_iot",
-        importpath = "cloud.google.com/go/iot",
-        sum = "h1:thTIvR3CovF4c2mY8H9A/vantRJADy2ih5/S1FIZzcE=",
-        version = "v1.3.0",
-    )
-    go_repository(
         name = "com_google_cloud_go_kms",
         importpath = "cloud.google.com/go/kms",
         sum = "h1:uc58n3b/n/F2yDMJzHMbXORkJSh3fzO4/+jju6eR7Zg=",

@@ -31,7 +31,6 @@ import (
 	apiv1 "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api/v1"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
-	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/cloudiot"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/k8s"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/memory"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
@@ -51,20 +50,19 @@ func (i *scopeFlags) Set(value string) error {
 type KeyStoreOpt string
 
 const (
-	CloudIoT   = "CLOUD_IOT"
 	Kubernetes = "KUBERNETES"
 	Memory     = "IN_MEMORY"
 )
 
 // Supported public key backends.
-var keyStoreOpts = []string{string(CloudIoT), string(Kubernetes), string(Memory)}
+var keyStoreOpts = []string{string(Kubernetes), string(Memory)}
 
 var (
 	verbose = flag.Bool("verbose", false, "Increase log level to DEBUG.")
 	// Backend options
 	keyStore = flag.String(
 		"key-store",
-		string(CloudIoT),
+		string(Kubernetes),
 		"Public key repository implementation to use. Options: "+strings.Join(keyStoreOpts, ","))
 
 	// API options
@@ -77,10 +75,6 @@ var (
 	// GCP Cloud options
 	project = flag.String("project", "", "The cloud project")
 
-	// GCP Cloud IoT core options
-	registry = flag.String("registry", "", "The cloud registry (Cloud IoT)")
-	region   = flag.String("region", "", "The cloud region (Cloud IoT)")
-
 	// Kubernetes backend options
 	namespace = flag.String("namespace", "default",
 		"The namespace where to store the device keys. (Kubernetes)")
@@ -91,14 +85,6 @@ var (
 	scopes    = scopeFlags{}
 	robotName = flag.String("service_account", "robot-service",
 		"Name of the service account to generate cloud access tokens for.")
-
-	// Other run modes
-	migrateIoT = flag.Bool("migrate-iot-to-k8s", false,
-		"Migrate the public keys stored in Cloud IoT to the Kubernetes backend and quit.")
-	migrateK8sCtx = flag.String("migrate-k8s-ctx", "",
-		"Local K8s context to use as target cluster for migration.")
-	validateIoTidentifiers = flag.Bool("validate-iot-identifiers", false,
-		"Validate IoT identifiers. Returns non-zero if incompatible identifiers are detected.")
 )
 
 func main() {
@@ -109,25 +95,11 @@ func main() {
 	} else {
 		log.SetLevel(log.InfoLevel)
 	}
-	// Run a scan of the Cloud IoT device identifiers if they can be migrated to K8s
-	if *validateIoTidentifiers {
-		runValidation()
-	}
-	// Run the migration from Cloud IoT to Kubernetes backend if flag is set
-	if *migrateIoT {
-		runMigration()
-	}
 	// init components
 	ctx := context.Background()
 	var rep app.PubKeyRepository
 	var err error
-	if *keyStore == CloudIoT {
-		r := cloudiot.Registry{Project: *project, Region: *region, Registry: *registry}
-		rep, err = cloudiot.NewCloudIoTRepository(ctx, r, nil)
-		if err != nil {
-			log.Panic(err)
-		}
-	} else if *keyStore == Kubernetes {
+	if *keyStore == Kubernetes {
 		config, err := rest.InClusterConfig()
 		if err != nil {
 			log.Panic(err)

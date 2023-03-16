@@ -16,7 +16,6 @@ import (
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
-	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/cloudiot"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/k8s"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
 	corev1 "k8s.io/api/core/v1"
@@ -25,7 +24,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-const testDataPath = "testdata/cloudiot"
 const testPubKey = "testdata/rsa_cert.pem"
 
 type RoundTripFunc func(req *http.Request) *http.Response
@@ -152,77 +150,12 @@ func runPublicKeyReadHandlerWithK8sCase(t *testing.T, test *publicKeyReadHandler
 	}
 }
 
-type publicKeyReadHandlerIoTTest struct {
-	desc           string
-	isCalledUrl    string
-	isResponseBody io.ReadCloser
-	isKey          string
-}
-
 func mustRespBodyFromFile(t *testing.T, file string) io.ReadCloser {
 	isResponseBody, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	return io.NopCloser(bytes.NewBuffer(isResponseBody))
-}
-
-// Test publicKeyReadHandler with IoT repository using test http.Client.
-//
-// Only the happy path of receiving a single key or no key is tested right now.
-func TestPublicKeyReadHandlerWithIoT(t *testing.T) {
-	var cases = []publicKeyReadHandlerIoTTest{
-		{
-			"happy_path",
-			"https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices/testid?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false",
-			mustRespBodyFromFile(t, path.Join(testDataPath, "describe_device.json")),
-			mustFileToString(t, testPubKey),
-		},
-		{
-			"happy_path_expired_key",
-			"https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices/testid?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false",
-			mustRespBodyFromFile(t, path.Join(testDataPath, "describe_device_expired_key.json")),
-			"",
-		},
-	}
-
-	for _, test := range cases {
-		t.Run(test.desc, func(t *testing.T) {
-			runPublicKeyReadHandlerWithIoTCase(t, &test)
-		})
-	}
-}
-
-func runPublicKeyReadHandlerWithIoTCase(t *testing.T, test *publicKeyReadHandlerIoTTest) {
-	fakeIoTHandler := func(req *http.Request) *http.Response {
-		gotCalledUrl := req.URL.String()
-		if gotCalledUrl != test.isCalledUrl {
-			t.Errorf("request URL missmatch, is %q, got %q", gotCalledUrl, test.isCalledUrl)
-		}
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       test.isResponseBody,
-			Header:     make(http.Header),
-		}
-	}
-	client := NewTestHTTPClient(fakeIoTHandler)
-	reg := cloudiot.Registry{Project: "testproject", Region: "testregion", Registry: "testregistry"}
-	r, err := cloudiot.NewCloudIoTRepository(context.TODO(), reg, client)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	tv, err := app.NewTokenVendor(context.TODO(), r, nil, nil, "aud")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	key, err := tv.ReadPublicKey(context.TODO(), "testid")
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-	if strings.ReplaceAll(key, "\n", "") != strings.ReplaceAll(test.isKey, "\n", "") {
-		t.Errorf("public key response does not match with the test data, is %q, got %q",
-			test.isKey, key)
-	}
 }
 
 func mustNewRequest(t *testing.T, method, url string, body io.Reader) *http.Request {
@@ -248,19 +181,6 @@ func mustFileToString(t *testing.T, name string) string {
 		t.Fatalf(err.Error())
 	}
 	return string(bytes)
-}
-
-func mustSetupAppHandlerWithIoT(t *testing.T, client *http.Client) *HandlerContext {
-	reg := cloudiot.Registry{Project: "testproject", Region: "testregion", Registry: "testregistry"}
-	r, err := cloudiot.NewCloudIoTRepository(context.TODO(), reg, client)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	tv, err := app.NewTokenVendor(context.TODO(), r, nil, nil, "aud")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	return &HandlerContext{tv: tv}
 }
 
 type publicKeyPublishHandlerK8sTest struct {
@@ -379,76 +299,6 @@ func runPublicKeyPublishHandlerWithK8sCase(t *testing.T, test *publicKeyPublishH
 	if gotKey != test.wantKey {
 		t.Errorf("after update,publicKeyReadHandler(..): wrong key, got %v, want %v",
 			gotKey, test.wantKey)
-	}
-}
-
-func TestPublicKeyPublishHandlerWithIoT(t *testing.T) {
-	t.Run("happy path with IoT", func(t *testing.T) {
-		runPublicKeyPublishHandlerWithIoTHappyPath(t)
-	})
-}
-
-func runPublicKeyPublishHandlerWithIoTHappyPath(t *testing.T) {
-	// fake Cloud IoT responses
-	// two calls are faked:
-	// 1st call: get the device from the registry (GET)
-	// 2st call: update the public key (PATCH)
-	fakeIoTHandler := func(req *http.Request) *http.Response {
-		// 1st call: GET is used by get device
-		if req.Method == http.MethodGet {
-			const isUrl = "https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices/testdevice?alt=json&fieldMask=blocked&prettyPrint=false"
-			if req.URL.String() != isUrl {
-				t.Errorf("wrong get device URL, is %q, got %q", isUrl, req.URL)
-			}
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       mustRespBodyFromFile(t, path.Join(testDataPath, "describe_device.json")),
-				Header:     make(http.Header),
-			}
-		}
-		// 2nd call: PATCH is used to update the public key
-		if req.Method == http.MethodPatch {
-			const isUrl = "https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices/testdevice?alt=json&prettyPrint=false&updateMask=credentials"
-			if req.URL.String() != isUrl {
-				t.Errorf("wrong patch device URL, is %q, got %q", isUrl, req.URL)
-			}
-			// body of request should contain the public key of the device
-			body, err := io.ReadAll(req.Body)
-			if err != nil {
-				t.Fatalf(err.Error())
-			}
-			// remove encoded and non-encoded new line characters for string match
-			bodyStr := strings.ReplaceAll(string(body), "\\n", "")
-			pem := mustFileToString(t, testPubKey)
-			pem = strings.ReplaceAll(pem, "\n", "")
-			// only check if it is in the request body and not unmarshal the whole json
-			if !strings.Contains(bodyStr, pem) {
-				t.Errorf("response does not contain expected public key")
-			}
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader("{}")),
-				Header:     make(http.Header),
-			}
-		}
-		t.Fatalf("unexpected request method %q", req.Method)
-		return nil
-	}
-	client := NewTestHTTPClient(fakeIoTHandler)
-	h := mustSetupAppHandlerWithIoT(t, client)
-
-	rr := httptest.NewRecorder()
-	req := mustNewRequest(t, "POST", "/anything", mustFileOpen(t, testPubKey))
-	q := req.URL.Query()
-	q.Add("device-id", "testdevice")
-	req.URL.RawQuery = q.Encode()
-
-	// call handler
-	h.publicKeyPublishHandler(rr, req)
-
-	// check response
-	if rr.Code != http.StatusOK {
-		t.Errorf("wrong status code, is %d, got %d", http.StatusOK, rr.Code)
 	}
 }
 
@@ -735,9 +585,6 @@ var TokenOAuth2HandlerTestHappyPath = TokenOAuth2HandlerTest{
 }
 
 func TestTokenOAuth2HandlerHapyPath(t *testing.T) {
-	t.Run("with_iot", func(t *testing.T) {
-		runTokenOAuth2HandlerTestWithIoT(t, TokenOAuth2HandlerTestHappyPath)
-	})
 	t.Run("with_k8s", func(t *testing.T) {
 		runTokenOAuth2HandlerTestWithK8s(t, TokenOAuth2HandlerTestHappyPath)
 	})
@@ -750,9 +597,6 @@ func TestTokenOAuth2HandlerDifferentPrivateKey(t *testing.T) {
 	// the one returned from the registry for the given device
 	test.body = "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZXN0YXVkIiwiaXNzIjoicm9ib3QtZGV2LXRlc3R1c2VyIiwiZXhwIjoxOTEzMzczMDEwLCJzY29wZXMiOiIuLi4iLCJjbGFpbXMiOiIuLi4ifQ.krAYHjkConzVudfXJUMiDNbVHF3RwkvOAhSCyTvOaJdlJ6sxh-TjPXo6W0yVT31qjLwhl1NYI-JlhcHX7TLiZbLCbGVXlQN2Nn4LvpbGdAH0KvSJkthqX7ld9tlVQGdlOUHCE5bBDG_9uBtpdOAv1zKUTquhyDM0qWVrQV1qUVOtwBCO6nt21l1eXgTwz50FVN33f1ZmhZfHW1u7Dq_XwBJmHFwN3aiD0NZohU7MpQiz-0u94Q9yZ588IjdZEUhSEUKrVtJjoPcxDhrXxoRMA8iP8_bMeOHteiAdYeBVBwFhu1d8pfcn6uoZROYD1xB1LWDTJx4GfQh6v3wtAwFu7Q"
 	test.wantStatusCode = 403
-	t.Run("with_iot", func(t *testing.T) {
-		runTokenOAuth2HandlerTestWithIoT(t, test)
-	})
 	t.Run("with_k8s", func(t *testing.T) {
 		runTokenOAuth2HandlerTestWithK8s(t, test)
 	})
@@ -764,96 +608,9 @@ func TestTokenOAuth2HandlerWrongAud(t *testing.T) {
 	// JWT "aud" is changed to "abc"
 	test.body = "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhYmMiLCJpc3MiOiJyb2JvdC1kZXYtdGVzdHVzZXIiLCJleHAiOjE5MTMzNzMwMTAsInNjb3BlcyI6Ii4uLiIsImNsYWltcyI6Ii4uLiJ9.XIoSfJl7QE51XUt7XHvZTomuXAAjVKWhnBhCgZl91-dGO9aF_pVu9sc_kR-MODoZci9pUKaLfqLTbZkNgkwGvApXF4GZ1DBu0uG6ewbNzIA-2l67xztnGw_M5DrQpLnq31HT1hRlvB9cXOYj2qtVfQaOhZtSPeHviYXj1NiPzHIWdyZKGIYu-gofkAZACEKKDd8HBRv6bLOzgrJ9sxlsyIB_O-FzpgoGSH-bKj9QEbSazx1j7AdICq1pJ_ER9ovb0qcYqg1JPToeEB1L-GFGwZp2JAnVp2rbbwPfjQTVlGmmAu-NUA5SjbjrNSjwDnQZDBBhmx75uToptJsnC_xZAw"
 	test.wantStatusCode = 403
-	t.Run("with_iot", func(t *testing.T) {
-		runTokenOAuth2HandlerTestWithIoT(t, test)
-	})
 	t.Run("with_k8s", func(t *testing.T) {
 		runTokenOAuth2HandlerTestWithK8s(t, test)
 	})
-}
-
-func runTokenOAuth2HandlerTestWithIoT(t *testing.T, test TokenOAuth2HandlerTest) {
-	// fake Cloud IoT responses
-	fakeIoTHandler := func(req *http.Request) *http.Response {
-		const wantUrl = "https://cloudiot.googleapis.com/v1/projects/testproject/locations/testregion/registries/testregistry/devices/robot-dev-testuser?alt=json&fieldMask=credentials%2Cblocked&prettyPrint=false"
-		if req.URL.String() != wantUrl {
-			t.Fatalf("wrong get device URL, got %q, want %q", req.URL, wantUrl)
-		}
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       mustRespBodyFromFile(t, path.Join(testDataPath, "describe_device.json")),
-			Header:     make(http.Header),
-		}
-	}
-	// fake GCP IAM response for an access token
-	fakeIAMAPI := func(req *http.Request) *http.Response {
-		const wantUrl = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/testsa@testproject.iam.gserviceaccount.com:generateAccessToken?alt=json&prettyPrint=false"
-		if req.URL.String() != wantUrl {
-			t.Fatalf("wrong IAM URL, got %q, want %q", req.URL, wantUrl)
-		}
-		body := `{
-			"accessToken": "` + test.token + `",
-			"expireTime": "` + test.expire + `"
-		  }`
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(strings.NewReader(body)),
-			Header:     make(http.Header),
-		}
-	}
-	// setup app and http client
-	clientIAM := NewTestHTTPClient(fakeIAMAPI)
-	clientIoT := NewTestHTTPClient(fakeIoTHandler)
-	rep, err := cloudiot.NewCloudIoTRepository(context.TODO(),
-		cloudiot.Registry{Project: "testproject", Region: "testregion", Registry: "testregistry"},
-		clientIoT)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ts, err := tokensource.NewGCPTokenSource(context.TODO(), clientIAM, "testproject", "testsa",
-		test.scopes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tv, err := app.NewTokenVendor(context.TODO(), rep, nil, ts, test.acceptedAud)
-	if err != nil {
-		t.Fatal(err)
-	}
-	h := &HandlerContext{tv: tv}
-
-	// make request to the handler
-	rr := httptest.NewRecorder()
-	req := mustNewRequest(t, "POST", "/anything", io.NopCloser(strings.NewReader(test.body)))
-	h.tokenOAuth2Handler(rr, req)
-
-	// check response
-	if rr.Code != test.wantStatusCode {
-		t.Fatalf("wrong status code, got %d, want %d", rr.Code, test.wantStatusCode)
-	}
-	// no body is provided in case of bad requests
-	if test.wantStatusCode != 200 {
-		return
-	}
-	var resp tokensource.TokenResponse
-	err = json.Unmarshal(rr.Body.Bytes(), &resp)
-	if err != nil {
-		t.Fatalf("failed to unmarshal response body, got body %q", rr.Body)
-	}
-	if resp.AccessToken != test.token {
-		t.Fatalf("Token(..) access token: got %q, want %q", resp.AccessToken, test.token)
-	}
-	wantScopes := strings.Join(test.scopes, " ")
-	if resp.Scope != wantScopes {
-		t.Fatalf("Token(..) scopes: got %v, want %v", resp.Scope, wantScopes)
-	}
-	if resp.TokenType != "Bearer" {
-		t.Fatalf("Token(..) token type: got %q, want %q", resp.TokenType, "Bearer")
-	}
-	// test will fail in the year 2070
-	if resp.ExpiresIn < 1_507_248_000 || resp.ExpiresIn > 2_453_852_873 {
-		t.Fatalf("Token(..) expires in wrong, got %d, wanted far in the future, but not too far",
-			resp.ExpiresIn)
-	}
 }
 
 func runTokenOAuth2HandlerTestWithK8s(t *testing.T, test TokenOAuth2HandlerTest) {

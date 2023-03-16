@@ -6,7 +6,7 @@ services to integrate those identities into a cloud based IAM system.
 The following components are part of the whole setup:
 * Cloud:
   * `IAM`: Cloud Identity and Access Management
-  * `IoT Core`: used as a Key Management Service
+  * `Kubernetes configmaps`: used as a Key Management Service
   * `Token Vendor`: token exchange service for OAuth2 service accounts
   * `robot service-account`: a GCP IAM service account that has the union of
     permissions that applications running on the robot cluster require
@@ -28,7 +28,7 @@ The setup flow is used to register a new robot cluster to a cloud project.
 * (1) (Admin-)user runs `Setup`, which generates a RSA key-pair and stores it as
   a K8S secret
 * (2) `Setup` uploads the public key to `Token Vendor`
-* (3) `Token Vendor` stores key in `IoT Core` device registry
+* (3) `Token Vendor` stores key in `Kubernetes`
 
 
 ## Authentication
@@ -44,7 +44,7 @@ on-prem robot clusters.
 * (2) `Metadata Server` talks to `Token Vendor` get an Access Token for the
   `robot service-account`
 * (3) `Token Vendor` verifies the key the request has been signed with against
-  the `IoT Core` device registry
+  the device registry
 * (4) `Token Vendor` gets an Access Token for the `robot service-account` from
   `IAM`
 * `Token Vendor` returns Access Token through `Metadata Server` to the
