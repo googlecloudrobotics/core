@@ -71,7 +71,7 @@ data "google_iam_policy" "google-cas-issuer" {
   binding {
     role = "roles/iam.workloadIdentityUser"
     members = [
-      "serviceAccount:${data.google_project.project.project_id}.svc.id.goog[default/cert-manager]",
+      "serviceAccount:${data.google_project.project.project_id}.svc.id.goog[default/cert-manager-google-cas-issuer]",
     ]
   }
 }
