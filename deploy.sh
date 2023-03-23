@@ -469,13 +469,17 @@ function fast_push {
   if is_source_install; then
     prepare_source_install
   fi
-  helm_cleanup
-  echo "helm_cleanup done"
   helm_charts
 }
 
+# This is a shortcut for skipping building and applying Terraform configs if you know the build has not changed.
+function update_infra {
+  include_config_and_defaults $1
+  terraform_apply
+}
+
 # main
-if [[ "$#" -lt 2 ]] || [[ ! "$1" =~ ^(set_config|create|delete|update|fast_push)$ ]]; then
+if [[ "$#" -lt 2 ]] || [[ ! "$1" =~ ^(set_config|create|delete|update|fast_push|update_infra)$ ]]; then
   die "Usage: $0 {set_config|create|delete|update|fast_push} <project id>"
 fi
 
