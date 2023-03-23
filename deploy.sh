@@ -172,7 +172,24 @@ shared_owner_group = "${CLOUD_ROBOTICS_SHARED_OWNER_GROUP}"
 robot_image_reference = "${SOURCE_CONTAINER_REGISTRY}/setup-robot@${ROBOT_IMAGE_DIGEST}"
 crc_version = "${CRC_VERSION}"
 cr_syncer_rbac = "${CR_SYNCER_RBAC}"
+certificate_provider = "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
 EOF
+
+# Add certificate information if the configured provider requires it
+  if [[ ! "none self-signed" =~ (" "|^)"${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"(" "|$) ]]; then
+    cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
+certificate_subject_common_name = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME}"
+certificate_subject_organization = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION}"
+EOF
+
+  if [[ -n "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}" ]]; then
+      cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
+certificate_subject_organizational_unit = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}"
+EOF
+    fi
+  fi
+
+# Docker private projects
 
   if [[ -n "${PRIVATE_DOCKER_PROJECTS:-}" ]]; then
     cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
@@ -180,11 +197,15 @@ private_image_repositories = ["${PRIVATE_DOCKER_PROJECTS// /\", \"}"]
 EOF
   fi
 
+# Token vendor
+
   if [[ "${CRC_USE_TV_K8S_BACKEND}" != 1 ]]; then
     cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
 use_cloudiot = true
 EOF
   fi
+
+# Terraform bucket
 
   if [[ -n "${TERRAFORM_GCS_BUCKET:-}" ]]; then
     cat > "${TERRAFORM_DIR}/backend.tf" <<EOF
@@ -346,7 +367,7 @@ function helm_charts {
     kc delete secrets cluster-authority 2> /dev/null || true
   fi
 
-  # Delete permissive binding if it exists because from previous deployments
+  # Delete permissive binding if it exists from previous deployments
   if kc get clusterrolebinding permissive-binding &>/dev/null; then
     kc delete clusterrolebinding permissive-binding
   fi
@@ -372,6 +393,7 @@ function helm_charts {
     --set-string registry=${SOURCE_CONTAINER_REGISTRY}
     --set-string owner_email=${CLOUD_ROBOTICS_OWNER_EMAIL}
     --set-string app_management=${APP_MANAGEMENT}
+    --set-string certificate_provider=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}
     --set-string deploy_environment=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT}
     --set-string oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}
     --set-string oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}
@@ -441,12 +463,14 @@ function update {
   create $1
 }
 
-# This is a shortcut for skipping Terrafrom configs checks if you know the config has not changed.
+# This is a shortcut for skipping Terraform config checks if you know the config has not changed.
 function fast_push {
   include_config_and_defaults $1
   if is_source_install; then
     prepare_source_install
   fi
+  helm_cleanup
+  echo "helm_cleanup done"
   helm_charts
 }
 

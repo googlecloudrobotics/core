@@ -1,0 +1,14 @@
+# Configuration for the cert-manager chart.
+# Reference: https://github.com/jetstack/google-cas-issuer/blob/main/deploy/charts/google-cas-issuer/values.yaml
+
+# No values are required for now.
+# This was put in place to add values in the future without requiring additional configuration in other files.
+# If values are added this disclaimer should be removed.
+
+app:
+  approval:
+    subjects:
+    - kind: ServiceAccount
+      name: cert-manager
+      # TODO(alejoasd): this should be set from configuration dynamically
+      namespace: default

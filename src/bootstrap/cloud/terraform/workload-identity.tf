@@ -36,3 +36,48 @@ resource "google_project_iam_member" "token_vendor_cloudiot_provisioner" {
 
 # Note: the policy in service-account.tf allows the token-vendor to create
 # new tokens for the robot-service@ service account.
+
+# cert-manager-google-cas-issuer
+################################
+
+###
+# The following resources enable Google's Certificate Authority Service (CAS) support.
+# They are required to access the CAS service to generate certificates for cluster resources.
+###
+
+resource "google_service_account" "google-cas-issuer" {
+  count        = var.certificate_provider == "google-cas" ? 1 : 0
+  account_id   = "sa-google-cas-issuer"
+  display_name = "sa-google-cas-issuer"
+  description  = "Service account used by GKE cert-manager's google-cas-issuer to emit certificates using Google's Certificate Authority Service (CAS)."
+}
+
+# Bind IAM policies to the "sa-google-cas-issuer" service account.
+
+# Allow the SA to create private CA pool certificates.
+resource "google_privateca_ca_pool_iam_member" "ca-pool-workload-identity" {
+  count   = var.certificate_provider == "google-cas" ? 1 : 0
+
+  ca_pool = google_privateca_ca_pool.ca_pool[0].id
+  role = "roles/privateca.certificateManager"
+  member = "serviceAccount:${google_service_account.google-cas-issuer[0].email}"
+}
+
+# Define IAM policy for the workload identity user.
+# This allows the Kubernetes service account to act as the GKE service account.
+data "google_iam_policy" "google-cas-issuer" {
+  count   = var.certificate_provider == "google-cas" ? 1 : 0
+
+  binding {
+    role = "roles/iam.workloadIdentityUser"
+    members = [
+      "serviceAccount:${data.google_project.project.project_id}.svc.id.goog[default/cert-manager]",
+    ]
+  }
+}
+
+resource "google_service_account_iam_policy" "google-cas-issuer" {
+  count              = var.certificate_provider == "google-cas" ? 1 : 0
+  service_account_id = google_service_account.google-cas-issuer[0].id
+  policy_data        = data.google_iam_policy.google-cas-issuer[0].policy_data
+}
