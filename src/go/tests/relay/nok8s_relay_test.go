@@ -152,7 +152,7 @@ func TestHttpRelay(t *testing.T) {
 			desc:       "invalid client",
 			urlPath:    "/client/wrong/",
 			statusCode: http.StatusInternalServerError,
-			body:       "doesn't appear to be running the relay client",
+			body:       "Cannot reach the client",
 		},
 	}
 

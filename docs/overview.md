@@ -43,7 +43,7 @@ How-to Guide.
 ### Layer 1: Robot Fleet Connectivity and Security
 
 Layer 1 provides secure communication and access control. Every robot is identified by a unique
-keypair. The public key is managed in a [Cloud IoT device registry](https://cloud.google.com/iot/docs/concepts/devices).
+keypair. The public key is managed in as Kubernetes configmap.
 A cloud-based authorization service uses these keys to authenticate robots and generate short-lived
 OAuth access tokens.
 

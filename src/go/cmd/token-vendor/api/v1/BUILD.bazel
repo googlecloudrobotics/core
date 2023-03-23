@@ -21,7 +21,6 @@ go_test(
     deps = [
         "//src/go/cmd/token-vendor/app:go_default_library",
         "//src/go/cmd/token-vendor/oauth:go_default_library",
-        "//src/go/cmd/token-vendor/repository/cloudiot:go_default_library",
         "//src/go/cmd/token-vendor/repository/k8s:go_default_library",
         "//src/go/cmd/token-vendor/tokensource:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
