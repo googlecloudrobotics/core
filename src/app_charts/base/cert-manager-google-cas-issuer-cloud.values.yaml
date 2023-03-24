@@ -5,6 +5,11 @@
 # This was put in place to add values in the future without requiring additional configuration in other files.
 # If values are added this disclaimer should be removed.
 
+# The Kubernetes service account must be annotated in order to impersonate a GCP service account using workload identity.
+serviceAccount:
+  annotations:
+    iam.gke.io/gcp-service-account: sa-google-cas-issuer@robco-ensonic.iam.gserviceaccount.com
+
 app:
   approval:
     subjects:

@@ -80,4 +80,5 @@ resource "google_service_account_iam_policy" "google-cas-issuer" {
   count              = var.certificate_provider == "google-cas" ? 1 : 0
   service_account_id = google_service_account.google-cas-issuer[0].id
   policy_data        = data.google_iam_policy.google-cas-issuer[0].policy_data
+  depends_on         = [google_container_cluster.cloud-robotics]
 }

@@ -22,7 +22,7 @@ metadata:
   name: cloud-robotics
 spec:
   commonName: {{ .Values.domain }}
-  secretName: cloud-robotics-tls
+  secretName: tls
   dnsNames:
     - {{ .Values.domain }}
 {{ if eq .Values.certificate_provider "lets-encrypt" }}

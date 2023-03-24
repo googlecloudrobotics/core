@@ -127,7 +127,7 @@ function terraform_init {
   # This variable is set by src/bootstrap/cloud/run-install.sh for binary installs
   local CRC_VERSION
   if [[ -z "${TARGET}" ]]; then
-    # TODO(ensonic): keep this in sync with the nighly release script
+    # TODO(ensonic): keep this in sync with the nightly release script
     VERSION=${VERSION:-"0.1.0"}
     if [[ -d .git ]]; then
       SHA=$(git rev-parse --short HEAD)
