@@ -1,0 +1,64 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: configurations.akri.sh
+spec:
+  group: akri.sh
+  versions:
+    - name: v0
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                discoveryHandler: # {{DiscoveryHandlerInfo}}
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    discoveryDetails:
+                      type: string
+                capacity:
+                  type: integer
+                brokerSpec: # {{BrokerSpec}}
+                  type: object
+                  properties: 
+                    brokerJobSpec: # {{JobSpec}}
+                      x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                      nullable: true
+                    brokerPodSpec: # {{PodSpec}}
+                      x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                      nullable: true
+                instanceServiceSpec: # {{ServiceSpec}}
+                  x-kubernetes-preserve-unknown-fields: true
+                  type: object
+                  nullable: true
+                configurationServiceSpec: # {{ServiceSpec}}
+                  x-kubernetes-preserve-unknown-fields: true
+                  type: object
+                  nullable: true
+                brokerProperties: # map<string, string>
+                  additionalProperties:
+                    type: string
+                  type: object
+      additionalPrinterColumns:
+      - name: Capacity
+        type: string
+        description: The capacity for each Instance discovered
+        jsonPath: .spec.capacity
+      - name: Age
+        type: date
+        jsonPath: .metadata.creationTimestamp
+  scope: Namespaced
+  names:
+    plural: configurations
+    singular: configuration
+    kind: Configuration
+    shortNames:
+      - akric

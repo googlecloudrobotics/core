@@ -1,0 +1,126 @@
+{{- if .Values.agent.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: akri-agent-daemonset
+spec:
+  selector:
+    matchLabels:
+      name: akri-agent
+  template:
+    metadata:
+      labels:
+        name: akri-agent
+    spec:
+      {{- /* hostNetwork is only needed for embedded ONVIF discovery */}}
+      {{- if .Values.agent.full }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
+      {{- if .Values.agent.linuxOnly }}
+      nodeSelector:
+        "kubernetes.io/os": linux
+      {{- end }}
+      {{- if .Values.rbac.enabled }}
+      serviceAccountName: 'akri-agent-sa'
+      {{- end }}
+      containers:
+        - name: akri-agent
+          {{- $repository := ternary .Values.agent.image.fullRepository .Values.agent.image.repository .Values.agent.full -}}
+          {{- if .Values.useDevelopmentContainers }}
+          {{- if .Values.useLatestContainers }}
+          image: {{ printf "%s:%s" $repository (default "latest-dev" .Values.agent.image.tag) | quote }}
+          {{- else }}
+          image: {{ printf "%s:%s" $repository (default (printf "v%s-dev" .Values.akriAppVersion) .Values.agent.image.tag) | quote }}
+          {{- end }}
+          {{- else }}
+          {{- if .Values.useLatestContainers }}
+          image: {{ printf "%s:%s" $repository (default "latest" .Values.agent.image.tag) | quote }}
+          {{- else }}
+          image: {{ printf "%s:%s" $repository (default (printf "v%s" .Values.akriAppVersion) .Values.agent.image.tag) | quote }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.agent.image.pullPolicy }}
+          imagePullPolicy: {{ . }}
+          {{- end }}
+          resources:
+            requests:
+              memory: {{ .Values.agent.resources.memoryRequest }}
+              cpu: {{ .Values.agent.resources.cpuRequest }}
+            limits:
+              memory: {{ .Values.agent.resources.memoryLimit }}
+              cpu: {{ .Values.agent.resources.cpuLimit }}
+          {{- if .Values.agent.securityContext }}
+          securityContext:
+          {{- toYaml .Values.agent.securityContext | nindent 10 }}
+          {{- end}}
+          env:
+            {{- if .Values.agent.allowDebugEcho }}
+            - name: ENABLE_DEBUG_ECHO
+              value: "1"
+            {{- /* environment variable to tell the Agent's embedded debug echo Discovery Handler whether its instances are shared */}}
+            - name: DEBUG_ECHO_INSTANCES_SHARED
+              value: {{ .Values.debugEcho.configuration.shared | quote }}
+            {{- end }}
+            - name: HOST_CRICTL_PATH
+              value: /usr/local/bin/crictl
+            - name: HOST_RUNTIME_ENDPOINT
+              value: unix:///host/run/containerd/containerd.sock
+            - name: HOST_IMAGE_ENDPOINT
+              value: unix:///host/run/containerd/containerd.sock
+            - name: AGENT_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: DISCOVERY_HANDLERS_DIRECTORY
+              value: /var/lib/akri
+          volumeMounts:
+            - name: discovery-handlers
+              mountPath: /var/lib/akri
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: var-run-dockershim
+              mountPath: /host/run/containerd/containerd.sock
+            {{- if .Values.agent.host.udev }}
+            - name: devices
+              mountPath: /run/udev
+            {{- end }}
+          {{- if .Values.prometheus.enabled }}
+          ports:
+            - name: {{ .Values.prometheus.portName | quote }}
+              containerPort: {{ .Values.prometheus.port }}
+          {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: discovery-handlers
+          hostPath:
+            path: {{ .Values.agent.host.discoveryHandlers }}
+        - name: device-plugin
+          hostPath:
+            path: "{{ .Values.agent.host.kubeletDevicePlugins }}"
+        - name: var-run-dockershim
+          hostPath:
+            {{- if ne "" .Values.agent.host.containerRuntimeSocket }}
+            path: {{.Values.agent.host.containerRuntimeSocket }}
+            {{- else if eq .Values.kubernetesDistro "microk8s" }}
+            path: "/var/snap/microk8s/common/run/containerd.sock"
+            {{- else if eq .Values.kubernetesDistro "k3s" }}
+            path: "/run/k3s/containerd/containerd.sock"
+            {{- else if eq .Values.kubernetesDistro "k8s" }}
+            path: "/run/containerd/containerd.sock"
+            {{- else }}
+            # Please set container runtime socket by either selecting the appropriate K8s distro `kubernetesDistro=<k8s|k3s|microk8s>` 
+            # or setting `agent.host.containerRuntimeSocket=/container/runtime.sock`. 
+            # See https://docs.akri.sh/user-guide/cluster-setup for more information.
+            # Using K8s default "/run/containerd/containerd.sock" for now.
+            path: "/run/containerd/containerd.sock"
+            {{- end }}
+      {{- if .Values.agent.host.udev }}
+        - name: devices
+          hostPath:
+            path: "{{ .Values.agent.host.udev }}"
+      {{- end }}
+{{- end }}
