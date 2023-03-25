@@ -30,6 +30,15 @@ helm_template(
     values = "cert-manager-robot.values.yaml",
 )
 
+helm_template(
+    name = "akri-chart.robot",
+    chart = "//third_party/akri:Chart.yaml",
+    # The namespace will later be replaced with the actual one.
+    namespace = "HELM-NAMESPACE",
+    release_name = "akri",
+    values = "//third_party/akri:values.yaml",
+)
+
 app_chart(
     name = "base-robot",
     extra_templates = [
@@ -37,9 +46,12 @@ app_chart(
         ":cloud/registry-crd.yaml",
         ":cloud/apps-crd.yaml",
         "//third_party/kube-prometheus-stack:01-crds.yaml",
+        "//third_party/akri/crds/akri-configuration-crd.yaml",
+        "//third_party/akri/crds/akri-instance-crd.yaml",
     ],
     files = [
         ":cert-manager-chart.robot",
+        ":akri-chart.robot"
         "//third_party/fluentd_gcp_addon",
     ],
     images = {
@@ -51,6 +63,7 @@ app_chart(
     values = "values-robot.yaml",
     visibility = ["//visibility:public"],
 )
+
 
 helm_template(
     name = "cert-manager-chart.cloud",
