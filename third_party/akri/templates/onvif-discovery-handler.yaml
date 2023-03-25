@@ -20,13 +20,13 @@ spec:
         {{- if .Values.useLatestContainers }}
         image: {{ printf "%s:%s" .Values.onvif.discovery.image.repository (default "latest-dev" .Values.onvif.discovery.image.tag) | quote }}
         {{- else }}
-        image: {{ printf "%s:%s" .Values.onvif.discovery.image.repository (default (printf "v%s-dev" .Chart.AppVersion) .Values.onvif.discovery.image.tag) | quote }}
+        image: {{ printf "%s:%s" .Values.onvif.discovery.image.repository (default (printf "v%s-dev" .Values.akriAppVersion) .Values.onvif.discovery.image.tag) | quote }}
         {{- end }}
         {{- else }}
         {{- if .Values.useLatestContainers }}
         image: {{ printf "%s:%s" .Values.onvif.discovery.image.repository (default "latest" .Values.onvif.discovery.image.tag) | quote }}
         {{- else }}
-        image: {{ printf "%s:%s" .Values.onvif.discovery.image.repository (default (printf "v%s" .Chart.AppVersion) .Values.onvif.discovery.image.tag) | quote }}
+        image: {{ printf "%s:%s" .Values.onvif.discovery.image.repository (default (printf "v%s" .Values.akriAppVersion) .Values.onvif.discovery.image.tag) | quote }}
         {{- end }}
         {{- end }}
         {{- with .Values.onvif.discovery.image.pullPolicy }}
