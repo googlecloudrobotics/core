@@ -2,9 +2,9 @@ licenses(["notice"])
 
 exports_files(
     glob([
-    "values.yaml",
-    "templates/*.yaml",
-    "crds/*.yaml",
+        "values.yaml",
+        "crds/*.yaml",
+        "*.tgz",
     ]),
     visibility = ["//visibility:public"],
 )

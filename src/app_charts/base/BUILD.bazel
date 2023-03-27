@@ -32,7 +32,7 @@ helm_template(
 
 helm_template(
     name = "akri-chart.robot",
-    chart = "//third_party/akri:Chart.yaml",
+    chart = "//third_party/akri:akri-0.8.23.tgz",
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
     release_name = "akri",
@@ -63,7 +63,6 @@ app_chart(
     values = "values-robot.yaml",
     visibility = ["//visibility:public"],
 )
-
 
 helm_template(
     name = "cert-manager-chart.cloud",
