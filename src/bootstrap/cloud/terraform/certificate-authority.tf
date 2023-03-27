@@ -15,12 +15,28 @@ resource "google_privateca_ca_pool" "ca_pool" {
     publish_ca_cert = true
     publish_crl     = true
   }
+  issuance_policy {
+    baseline_values {
+      ca_options {
+        is_ca = false
+      }
+      key_usage {
+        base_key_usage {
+          digital_signature = true
+          key_encipherment  = true
+        }
+        extended_key_usage {
+          server_auth = true
+        }
+      }
+    }
+  }
 }
 
 resource "google_privateca_certificate_authority" "ca" {
   project = data.google_project.project.project_id
   count   = var.certificate_provider == "google-cas" ? 1 : 0
-  certificate_authority_id = "${data.google_project.project.project_id}-authority"
+  certificate_authority_id = "${data.google_project.project.project_id}-certificate-authority"
   location                 = var.region
   pool                     = google_privateca_ca_pool.ca_pool[0].name
   config {
@@ -40,9 +56,12 @@ resource "google_privateca_certificate_authority" "ca" {
         base_key_usage {
           cert_sign = true
           crl_sign  = true
+          key_encipherment = true
+          digital_signature = true
         }
         extended_key_usage {
           server_auth = true
+          client_auth = true
         }
       }
     }

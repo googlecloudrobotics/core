@@ -56,19 +56,16 @@ variable "use_cloudiot" {
 variable "certificate_provider" {
   description = "Certificate provider to use to generate certificates for in-cluster services. Should be one of: lets-encrypt, google-cas."
   type = string
-  default = null
 }
 
 variable "certificate_subject_common_name" {
   description = "Certificate Common Name (CN) field"
   type = string
-  default = null
 }
 
 variable "certificate_subject_organization" {
   description = "Certificate Subject Organization (O) field"
   type = string
-  default = null
 }
 
 variable "certificate_subject_organizational_unit" {

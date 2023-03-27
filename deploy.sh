@@ -50,6 +50,11 @@ function include_config_and_defaults {
   CLOUD_ROBOTICS_DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
   APP_MANAGEMENT=${APP_MANAGEMENT:-false}
 
+  # lets-encrypt is used as the default certificate provider for backwards compatibility purposes
+  CLOUD_ROBOTICS_CERTIFICATE_PROVIDER=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER:-lets-encrypt}
+  CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME=${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME:-GCP_PROJECT_ID}
+  CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION=${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION:-GCP_PROJECT_ID}
+
   CLOUD_ROBOTICS_OWNER_EMAIL=${CLOUD_ROBOTICS_OWNER_EMAIL:-$(gcloud config get-value account)}
   KUBE_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"
 
@@ -203,6 +208,13 @@ function terraform_apply {
   # We've stopped managing Google Cloud projects in Terraform, make sure they
   # aren't deleted.
   terraform_exec state rm google_project.project 2>/dev/null || true
+#  echo "Importing CA resources"
+#  echo -n "CA: "
+  terraform_exec state rm google_privateca_certificate_authority.ca
+#  terraform_exec import google_privateca_certificate_authority.ca robco-ensonic/europe-west1/robco-ensonic-ca-pool/robco-ensonic-ca
+#  echo -n "CA Pool: "
+#  terraform_exec state rm google_privateca_ca_pool.ca_pool
+#  terraform_exec import google_privateca_ca_pool.ca_pool robco-ensonic/europe-west1/robco-ensonic-ca-pool
 
   terraform_exec apply ${TERRAFORM_APPLY_FLAGS} \
     || die "terraform apply failed"
@@ -423,7 +435,7 @@ function update_infra {
 
 # main
 if [[ "$#" -lt 2 ]] || [[ ! "$1" =~ ^(set_config|create|delete|update|fast_push|update_infra)$ ]]; then
-  die "Usage: $0 {set_config|create|delete|update|fast_push} <project id>"
+  die "Usage: $0 {set_config|create|delete|update|fast_push|update_infra} <project id>"
 fi
 
 # call arguments verbatim:
