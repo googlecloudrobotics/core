@@ -8,7 +8,8 @@
 # The Kubernetes service account must be annotated in order to impersonate a GCP service account using workload identity.
 serviceAccount:
   annotations:
-    iam.gke.io/gcp-service-account: sa-google-cas-issuer@robco-ensonic.iam.gserviceaccount.com
+    # PROJECT-ID will be replaced by a script in a future step with the contents of the `PROJECT_ID` env var.
+    iam.gke.io/gcp-service-account: sa-google-cas-issuer@PROJECT-ID.iam.gserviceaccount.com
 
 app:
   approval:
