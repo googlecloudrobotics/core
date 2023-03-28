@@ -1,0 +1,6 @@
+{{ if eq .Values.certificate_provider "google-cas" }}
+# This includes all resources expanded from the cert-manager chart using
+# the values in ../cert-manager-cloud.values.yaml.
+# Some pseudo-variables that were inserted there are replaced with actual runtime values.
+{{ .Files.Get "files/cert-manager-google-cas-issuer-chart.cloud.yaml" | replace "HELM-NAMESPACE" .Release.Namespace | replace "PROJECT-ID" .Values.project }}
+{{ end }}

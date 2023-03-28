@@ -50,6 +50,11 @@ function include_config_and_defaults {
   CLOUD_ROBOTICS_DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
   APP_MANAGEMENT=${APP_MANAGEMENT:-false}
 
+  # lets-encrypt is used as the default certificate provider for backwards compatibility purposes
+  CLOUD_ROBOTICS_CERTIFICATE_PROVIDER=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER:-lets-encrypt}
+  CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME=${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME:-GCP_PROJECT_ID}
+  CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION=${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION:-GCP_PROJECT_ID}
+
   CLOUD_ROBOTICS_OWNER_EMAIL=${CLOUD_ROBOTICS_OWNER_EMAIL:-$(gcloud config get-value account)}
   KUBE_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"
 
@@ -127,7 +132,7 @@ function terraform_init {
   # This variable is set by src/bootstrap/cloud/run-install.sh for binary installs
   local CRC_VERSION
   if [[ -z "${TARGET}" ]]; then
-    # TODO(ensonic): keep this in sync with the nighly release script
+    # TODO(ensonic): keep this in sync with the nightly release script
     VERSION=${VERSION:-"0.1.0"}
     if [[ -d .git ]]; then
       SHA=$(git rev-parse --short HEAD)
@@ -151,13 +156,32 @@ shared_owner_group = "${CLOUD_ROBOTICS_SHARED_OWNER_GROUP}"
 robot_image_reference = "${SOURCE_CONTAINER_REGISTRY}/setup-robot@${ROBOT_IMAGE_DIGEST}"
 crc_version = "${CRC_VERSION}"
 cr_syncer_rbac = "${CR_SYNCER_RBAC}"
+certificate_provider = "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
 EOF
+
+# Add certificate information if the configured provider requires it
+  if [[ ! "none self-signed" =~ (" "|^)"${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"(" "|$) ]]; then
+    cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
+certificate_subject_common_name = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME}"
+certificate_subject_organization = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION}"
+EOF
+
+  if [[ -n "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}" ]]; then
+      cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
+certificate_subject_organizational_unit = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}"
+EOF
+    fi
+  fi
+
+# Docker private projects
 
   if [[ -n "${PRIVATE_DOCKER_PROJECTS:-}" ]]; then
     cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
 private_image_repositories = ["${PRIVATE_DOCKER_PROJECTS// /\", \"}"]
 EOF
   fi
+
+# Terraform bucket
 
   if [[ -n "${TERRAFORM_GCS_BUCKET:-}" ]]; then
     cat > "${TERRAFORM_DIR}/backend.tf" <<EOF
@@ -184,6 +208,13 @@ function terraform_apply {
   # We've stopped managing Google Cloud projects in Terraform, make sure they
   # aren't deleted.
   terraform_exec state rm google_project.project 2>/dev/null || true
+#  echo "Importing CA resources"
+#  echo -n "CA: "
+  terraform_exec state rm google_privateca_certificate_authority.ca
+#  terraform_exec import google_privateca_certificate_authority.ca robco-ensonic/europe-west1/robco-ensonic-ca-pool/robco-ensonic-ca
+#  echo -n "CA Pool: "
+#  terraform_exec state rm google_privateca_ca_pool.ca_pool
+#  terraform_exec import google_privateca_ca_pool.ca_pool robco-ensonic/europe-west1/robco-ensonic-ca-pool
 
   terraform_exec apply ${TERRAFORM_APPLY_FLAGS} \
     || die "terraform apply failed"
@@ -319,7 +350,7 @@ function helm_charts {
     kc delete secrets cluster-authority 2> /dev/null || true
   fi
 
-  # Delete permissive binding if it exists because from previous deployments
+  # Delete permissive binding if it exists from previous deployments
   if kc get clusterrolebinding permissive-binding &>/dev/null; then
     kc delete clusterrolebinding permissive-binding
   fi
@@ -335,6 +366,7 @@ function helm_charts {
     --set-string registry=${SOURCE_CONTAINER_REGISTRY}
     --set-string owner_email=${CLOUD_ROBOTICS_OWNER_EMAIL}
     --set-string app_management=${APP_MANAGEMENT}
+    --set-string certificate_provider=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}
     --set-string deploy_environment=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT}
     --set-string oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}
     --set-string oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}
@@ -386,7 +418,7 @@ function update {
   create $1
 }
 
-# This is a shortcut for skipping Terrafrom configs checks if you know the config has not changed.
+# This is a shortcut for skipping Terraform config checks if you know the config has not changed.
 function fast_push {
   include_config_and_defaults $1
   if is_source_install; then
@@ -395,9 +427,15 @@ function fast_push {
   helm_charts
 }
 
+# This is a shortcut for skipping building and applying Terraform configs if you know the build has not changed.
+function update_infra {
+  include_config_and_defaults $1
+  terraform_apply
+}
+
 # main
-if [[ "$#" -lt 2 ]] || [[ ! "$1" =~ ^(set_config|create|delete|update|fast_push)$ ]]; then
-  die "Usage: $0 {set_config|create|delete|update|fast_push} <project id>"
+if [[ "$#" -lt 2 ]] || [[ ! "$1" =~ ^(set_config|create|delete|update|fast_push|update_infra)$ ]]; then
+  die "Usage: $0 {set_config|create|delete|update|fast_push|update_infra} <project id>"
 fi
 
 # call arguments verbatim:

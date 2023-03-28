@@ -1,0 +1,19 @@
+# https://github.com/jetstack/google-cas-issuer/blob/main/LICENSE.txt
+# Apache 2.0 license
+licenses(["notice"])
+
+# files downloaded by running:
+# cert_manager_version="v0.6.2"
+# curl -o third_party/cert-manager/cert-manager-${cert_manager_version}.tgz https://charts.jetstack.io/charts/cert-manager-google-cas-issuer-${cert_manager_version}.tgz
+
+# alternatively, files can be downloaded using helm
+# cert_manager_version="v0.6.2"
+# helm repo add cert-manager https://charts.jetstack.io
+# helm pull cert-manager/cert-manager-google-cas-issuer --version ${cert_manager_version}
+
+exports_files(
+    glob([
+        "*.tgz",
+    ]),
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,20 @@
+# Configuration for the cert-manager chart.
+# Reference: https://github.com/jetstack/google-cas-issuer/blob/main/deploy/charts/google-cas-issuer/values.yaml
+
+# No values are required for now.
+# This was put in place to add values in the future without requiring additional configuration in other files.
+# If values are added this disclaimer should be removed.
+
+# The Kubernetes service account must be annotated in order to impersonate a GCP service account using workload identity.
+serviceAccount:
+  annotations:
+    # PROJECT-ID will be replaced by a script in a future step with the contents of the `PROJECT_ID` env var.
+    iam.gke.io/gcp-service-account: sa-google-cas-issuer@PROJECT-ID.iam.gserviceaccount.com
+
+app:
+  approval:
+    subjects:
+    - kind: ServiceAccount
+      name: cert-manager
+      # TODO(alejoasd): this should be set from configuration dynamically
+      namespace: default
