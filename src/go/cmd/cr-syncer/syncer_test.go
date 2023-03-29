@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -124,40 +125,11 @@ func (f *fixture) verifyWriteActions() {
 		localWrites  = filterReadActions(f.local.Actions())
 		remoteWrites = filterReadActions(f.remote.Actions())
 	)
-	if !reflect.DeepEqual(localWrites, f.localActions) {
-		f.Errorf("local writes did not match")
-		f.Logf("received:")
-		for i, a := range localWrites {
-			f.Logf("%d: %s", i, sprintAction(a))
-		}
-		f.Logf("expected:")
-		for i, a := range f.localActions {
-			f.Logf("%d: %s", i, sprintAction(a))
-		}
+	if diff := cmp.Diff(localWrites, f.localActions); diff != "" {
+		f.Errorf("local writes did not match (-want +got):\n%s", diff)
 	}
-	if !reflect.DeepEqual(remoteWrites, f.remoteActions) {
-		f.Errorf("remote writes did not match")
-		f.Logf("received:")
-		for i, a := range remoteWrites {
-			f.Logf("%d: %s", i, sprintAction(a))
-		}
-		f.Logf("expected:")
-		for i, a := range f.remoteActions {
-			f.Logf("%d: %s", i, sprintAction(a))
-		}
-	}
-}
-
-func sprintAction(a k8stest.Action) string {
-	switch v := a.(type) {
-	case k8stest.DeleteActionImpl:
-		return fmt.Sprintf("DELETE %s/%s %s/%s", v.Resource, v.Subresource, v.Namespace, v.Name)
-	case k8stest.CreateActionImpl:
-		return fmt.Sprintf("CREATE %s/%s %s/%s: %v", v.Resource, v.Subresource, v.Namespace, v.Name, v.Object.(*unstructured.Unstructured))
-	case k8stest.UpdateActionImpl:
-		return fmt.Sprintf("UPDATE %s/%s %s: %v", v.Resource, v.Subresource, v.Namespace, v.Object.(*unstructured.Unstructured))
-	default:
-		return fmt.Sprintf("<UNKNOWN ACTION %T>", a)
+	if diff := cmp.Diff(remoteWrites, f.remoteActions); diff != "" {
+		f.Errorf("remote writes did not match (-want +got):\n%s", diff)
 	}
 }
 
@@ -368,6 +340,45 @@ func TestSyncDownstream_statusFull(t *testing.T) {
 	}
 
 	tcrRemoteNew := newTestCR("resource1", "spec1", "status2")
+	tcrRemoteNew.SetAnnotations(map[string]string{
+		annotationResourceVersion: "123",
+	})
+
+	f.expectRemoteActions(k8stest.NewUpdateAction(gvr, "default", tcrRemoteNew))
+	f.verifyWriteActions()
+}
+
+func TestSyncDownstream_statusWithObservedGeneration(t *testing.T) {
+	crd := testCRD(crdtypes.NamespaceScoped)
+	f := newFixture(t)
+
+	// If (and only if) generation==observedGeneration for the local resource,
+	// the cr-syncer should adjust observedGeneration to match for the remote
+	// resource:
+	// -                local: generation = 3, observedGeneration = 3
+	// - remote (before test): generation = 2, observedGeneration = 1
+	// - remote  (after test): generation = 2, observedGeneration = 2
+	tcrLocal := newTestCR("resource1", "spec1", map[string]any{"observedGeneration": int64(3)})
+	tcrRemote := newTestCR("resource1", "spec1", map[string]any{"observedGeneration": int64(1)})
+	tcrLocal.SetResourceVersion("123")
+	tcrLocal.SetGeneration(3)
+	tcrRemote.SetGeneration(2)
+
+	f.addLocalObjects(tcrLocal)
+	f.addRemoteObjects(tcrRemote)
+
+	crs, gvr := f.newCRSyncer(crd, "")
+	defer crs.stop()
+
+	crs.startInformers()
+	if err := crs.syncDownstream("default/resource1"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Expect that tcrRemoteNew's observedGeneration is changed to match its
+	// generation.
+	tcrRemoteNew := newTestCR("resource1", "spec1", map[string]any{"observedGeneration": int64(2)})
+	tcrRemoteNew.SetGeneration(2)
 	tcrRemoteNew.SetAnnotations(map[string]string{
 		annotationResourceVersion: "123",
 	})

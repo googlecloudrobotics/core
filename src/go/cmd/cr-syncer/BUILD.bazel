@@ -51,6 +51,7 @@ go_test(
     embed = [":go_default_library"],
     visibility = ["//visibility:private"],
     deps = [
+        "@com_github_google_go_cmp//cmp:go_default_library",
         "@com_github_onsi_gomega//:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/apis/apiextensions/v1:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/client/clientset/clientset/fake:go_default_library",
