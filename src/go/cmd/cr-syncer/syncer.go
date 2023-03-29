@@ -652,7 +652,7 @@ func deleteAnnotation(o *unstructured.Unstructured, key string) {
 func copyStatus(dst, src *unstructured.Unstructured) {
 	dst.Object["status"] = src.DeepCopy().Object["status"]
 	// If this CR uses the observedGeneration convention, ensure that we
-	// preserve the **difference** between generation and observedGeneration,
+	// preserve the **equality** between generation and observedGeneration,
 	// since the generations themselves will differ between local and remote.
 	srcStatus, ok := src.Object["status"].(map[string]interface{})
 	if !ok {
@@ -661,10 +661,11 @@ func copyStatus(dst, src *unstructured.Unstructured) {
 	}
 	dstStatus := dst.Object["status"].(map[string]interface{})
 	if srcOG, ok := srcStatus["observedGeneration"].(int64); ok {
-		dstOG := dst.GetGeneration() - (src.GetGeneration() - srcOG)
-		if dstOG < 0 {
-			dstOG = 0
+		if src.GetGeneration() == srcOG {
+			dstStatus["observedGeneration"] = dst.GetGeneration()
+		} else {
+			// The controller of this CR has not observed the latest generation.
+			dstStatus["observedGeneration"] = 0
 		}
-		dstStatus["observedGeneration"] = dstOG
 	}
 }
