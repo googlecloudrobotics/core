@@ -22,11 +22,32 @@ config:
 
   ## https://docs.fluentbit.io/manual/pipeline/parsers
   customParsers: |
+    # Merges multi-line Abseil logs. The regexs assume that any line which does not start
+    # with an Abseil log preamble is part of the previous log message. No assumptions on
+    # indentation or similar are made.
+    [MULTILINE_PARSER]
+        Name          absl_logs_multiline
+        Type          regex
+        Flush_timeout 1000
+        #
+        # Regex rules for multiline parsing
+        # ---------------------------------
+        #
+        # configuration hints:
+        #
+        #  - first state always has the name: start_state
+        #  - every field in the rule must be inside double quotes
+        #
+        # rules |   state name  | regex pattern                                                         | next state
+        # ------|---------------|---------------------------------------------------------------------------------------------
+        Rule      "start_state"   "/^((W|I|E|F))([0-9]{4}) ([^ ]+)\s+([-0-9]+) (\S+:\d+)] (.*)$/"           "cont"
+        Rule      "cont"          "/^(?!(((W|I|E|F))([0-9]{4}) ([^ ]+)\s+([-0-9]+) (\S+:\d+)]))(.*)$/"      "cont"
+
     # A parser for Abseil log files: https://abseil.io/docs/cpp/guides/logging#prefix
     [PARSER]
         Name        absl_logs
         Format      regex
-        Regex       ^(?<severity>(W|I|E|F))([0-9]{4}) (?<time>[^ ]+)\s+(?<pid>[-0-9]+) (?<source>\S+:\d+)] (?<message>.*)$
+        Regex       ^(?<severity>(W|I|E|F))([0-9]{4}) (?<time>[^ ]+)\s+(?<pid>[-0-9]+) (?<source>\S+:\d+)] (?<message>[\s\S]*)$
         Time_Key    time
         Time_Format %H:%M:%S.%L
         Time_Keep   On
@@ -37,7 +58,9 @@ config:
     [INPUT]
         Name tail
         Path /var/log/containers/*.log
-        multiline.parser docker, cri
+        # Adding the 'absl_logs_multiline' does not work as intended.
+        # It must be specified as a dedicated filter (see below).
+        Multiline.Parser docker, cri, go, python
         Tag kube.*
         Mem_Buf_Limit 5MB
         Skip_Long_Lines On
@@ -55,9 +78,9 @@ config:
         Read_From_Tail On
 
     [INPUT]
-        name            node_exporter_metrics
-        tag             node_metrics
-        scrape_interval 10
+        Name            node_exporter_metrics
+        Tag             node_metrics
+        Scrape_interval 10
 
   ## https://docs.fluentbit.io/manual/pipeline/filters
   filters: |
@@ -69,7 +92,14 @@ config:
         K8S-Logging.Parser On
         K8S-Logging.Exclude On
 
-    # Applies the absl_logs parser to the 'log' field
+    # Joins multiple Abseil logs into a single line.
+    [FILTER]
+        Name                    multiline
+        Match                   kube.*
+        Multiline.Key_content   log
+        Multiline.Parser        absl_logs_multiline
+
+    # Applies the absl_logs parser to the 'log' field.
     [FILTER]
         Name          parser
         Match         kube.*
