@@ -8,14 +8,14 @@ helm_template(
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
     release_name = "akri",
-    values = "//third_party/akri:values.yaml",
+    values = "//src/app_charts/akri:values.yaml",
 )
 
 app_chart(
     name = "akri-robot",
     extra_templates = [
-        "//third_party/akri/crds/akri-configuration-crd.yaml",
-        "//third_party/akri/crds/akri-instance-crd.yaml",
+        "//third_party/akri:akri-configuration-crd.yaml",
+        "//third_party/akri:akri-instance-crd.yaml",
     ],
     files = [
         ":akri-chart.robot",
