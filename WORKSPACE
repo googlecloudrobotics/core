@@ -1,22 +1,35 @@
 workspace(name = "cloud_robotics")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("//bazel:repositories.bzl", "cloud_robotics_repositories")
 
-git_repository(
+BAZEL_TOOLCHAIN_TAG = "0.8.1"
+
+BAZEL_TOOLCHAIN_SHA = "751bbe30bcaa462aef792b18bbd16c401af42fc937c42ad0ae463f099dc04ea2"
+
+http_archive(
     name = "com_grail_bazel_toolchain",
-    commit = "e4b62c9a4f123cf25701ce0760fe050fc4e293b3",
-    remote = "https://github.com/grailbio/bazel-toolchain.git",
-    shallow_since = "1632296642 -0700",
+    canonical_id = BAZEL_TOOLCHAIN_TAG,
+    sha256 = BAZEL_TOOLCHAIN_SHA,
+    strip_prefix = "bazel-toolchain-{tag}".format(tag = BAZEL_TOOLCHAIN_TAG),
+    url = "https://github.com/grailbio/bazel-toolchain/archive/{tag}.tar.gz".format(tag = BAZEL_TOOLCHAIN_TAG),
 )
 
+# Sysroot and libc
+# How to upgrade:
+# - Find image in https://storage.googleapis.com/chrome-linux-sysroot/ for amd64 for
+#   a stable Linux (here: Debian stretch), of this pick a current build.
+# - Verify the image contains expected /lib/x86_64-linux-gnu/libc* and defines correct
+#   __GLIBC_MINOR__ in /usr/include/features.h
+# - If system files are not found, add them in ../BUILD.sysroot
 http_archive(
     name = "com_googleapis_storage_chrome_linux_amd64_sysroot",
     build_file = "//bazel:BUILD.sysroot",
-    sha256 = "396ae1bf3482afb624fe96419b89925570110e55a9b49a5a3cc05a933be0dc17",
+    sha256 = "66bed6fb2617a50227a824b1f9cfaf0a031ce33e6635edaa2148f71a5d50be48",
     urls = [
-        "https://storage.googleapis.com/chrome-linux-sysroot/toolchain/6f7741c4222de05cd5f2fbb9f02d34f76e5a3134/debian_jessie_amd64_sysroot.tar.xz",
+        # features.h defines GLIBC 2.24. Contains /lib/x86_64-linux-gnu/libc-2.24.so,
+        # last modified by Chrome 2018-02-22.
+        "https://storage.googleapis.com/chrome-linux-sysroot/toolchain/15b7efb900d75f7316c6e713e80f87b9904791b1/debian_stretch_amd64_sysroot.tar.xz",
     ],
 )
 
@@ -26,10 +39,16 @@ bazel_toolchain_dependencies()
 
 load("@com_grail_bazel_toolchain//toolchain:rules.bzl", "llvm_toolchain")
 
+# How to upgrade:
+# - Pick a new version that runs on a stable OS similar enough to our sysroot from
+#   https://releases.llvm.org/download.html
+# - Documentation is in
+#   https://github.com/grailbio/bazel-toolchain/blob/master/toolchain/rules.bzl
+# - If system files are not found, add them in bazel/BUILD.sysroot
 llvm_toolchain(
     name = "llvm_toolchain",
-    distribution = "clang+llvm-12.0.0-x86_64-linux-gnu-ubuntu-20.04.tar.xz",
-    llvm_version = "12.0.0",
+    distribution = "clang+llvm-14.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz",
+    llvm_version = "14.0.0",
     sysroot = {
         "linux-x86_64": "@com_googleapis_storage_chrome_linux_amd64_sysroot//:all_files",
     },
