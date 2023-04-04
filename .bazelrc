@@ -1,6 +1,6 @@
 # Toolchain flags
-build --host_crosstool_top=@llvm_toolchain//:toolchain
-build --crosstool_top=@llvm_toolchain//:toolchain
+# Recommended by https://github.com/grailbio/bazel-toolchain/blob/0.7.2/README.md
+build --incompatible_enable_cc_toolchain_resolution
 
 # Enforce stricter environment rules, which eliminates some non-hermetic
 # behavior and therefore improves both the remote_cache cache hit rate and the
