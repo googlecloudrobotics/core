@@ -9,8 +9,6 @@ helm pull akri-helm-charts/akri --untar
 cp -r ./akri/crds/* .
 
 # Edit helm-charts
-sed -i 's/v2/v1/' ./akri/Chart.yaml
-
 sed -i 's/.Chart.AppVersion/.Values.akriAppVersion/g' ./akri/templates/agent.yaml
 sed -i '28,92s/^/  /' akri/templates/agent.yaml
 sed -i '98,120s/^/  /' akri/templates/agent.yaml
