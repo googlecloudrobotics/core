@@ -36,7 +36,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//
 	// If this becomes a problem, we could do the requests in the
 	// background and just check the status of the latest request here.
-	if _, err := h.client.Resource(gvr).List(h.ctx, metav1.ListOptions{}); k8serrors.IsUnauthorized(err) {
+	if _, err := h.client.Resource(gvr).List(h.ctx, metav1.ListOptions{Limit: 1}); k8serrors.IsUnauthorized(err) {
 		log.Printf("failed health check: %v", err)
 		http.Error(w, "unhealthy", http.StatusInternalServerError)
 		return
