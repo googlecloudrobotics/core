@@ -445,7 +445,7 @@ func (s *crSyncer) syncDownstream(key string) error {
 
 	// Copy full status or subtree from src to dst.
 	if s.subtree == "" {
-		dst.Object["status"] = src.Object["status"]
+		copyStatus(dst, src)
 	} else if src.Object["status"] != nil {
 		srcStatus, ok := src.Object["status"].(map[string]interface{})
 		if !ok {
@@ -647,4 +647,25 @@ func deleteAnnotation(o *unstructured.Unstructured, key string) {
 		o.SetAnnotations(nil)
 	}
 
+}
+
+func copyStatus(dst, src *unstructured.Unstructured) {
+	dst.Object["status"] = src.DeepCopy().Object["status"]
+	// If this CR uses the observedGeneration convention, ensure that we
+	// preserve the **equality** between generation and observedGeneration,
+	// since the generations themselves will differ between local and remote.
+	srcStatus, ok := src.Object["status"].(map[string]interface{})
+	if !ok {
+		// Status is not a dict => no observedGeneration.
+		return
+	}
+	dstStatus := dst.Object["status"].(map[string]interface{})
+	if srcOG, ok := srcStatus["observedGeneration"].(int64); ok {
+		if src.GetGeneration() == srcOG {
+			dstStatus["observedGeneration"] = dst.GetGeneration()
+		} else {
+			// The controller of this CR has not observed the latest generation.
+			dstStatus["observedGeneration"] = 0
+		}
+	}
 }

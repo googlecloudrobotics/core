@@ -1,6 +1,8 @@
 load("//bazel:build_rules/helm_template.bzl", "helm_template")
 load("//bazel:app_chart.bzl", "app_chart")
 
+# Tests
+
 app_chart(
     name = "base-test",
     extra_templates = [
@@ -20,6 +22,18 @@ app_chart(
     values = ":values-robot.yaml",
     visibility = ["//visibility:public"],
 )
+
+sh_test(
+    name = "app_management_test",
+    srcs = ["app_management_test.sh"],
+    data = [
+        ":base-cloud",
+        ":base-robot",
+        "@kubernetes_helm//:helm",
+    ],
+)
+
+# Robot
 
 helm_template(
     name = "cert-manager-chart.robot",
@@ -52,6 +66,8 @@ app_chart(
     visibility = ["//visibility:public"],
 )
 
+# Cloud
+
 helm_template(
     name = "cert-manager-chart.cloud",
     chart = "//third_party/cert-manager:cert-manager-v1.7.2.tgz",
@@ -59,6 +75,15 @@ helm_template(
     namespace = "HELM-NAMESPACE",
     release_name = "cert-manager",
     values = "cert-manager-cloud.values.yaml",
+)
+
+helm_template(
+    name = "cert-manager-google-cas-issuer-chart.cloud",
+    chart = "//third_party/cert-manager-google-cas-issuer:cert-manager-google-cas-issuer-v0.6.2.tgz",
+    # The namespace will later be replaced with the actual one.
+    namespace = "HELM-NAMESPACE",
+    release_name = "cert-manager-google-cas-issuer",
+    values = "cert-manager-google-cas-issuer-cloud.values.yaml",
 )
 
 app_chart(
@@ -70,6 +95,7 @@ app_chart(
     files = [
         "relay-dashboard.json",
         ":cert-manager-chart.cloud",
+        ":cert-manager-google-cas-issuer-chart.cloud",
         "@ingress-nginx//:ingress-nginx-dashboards",
     ],
     images = {
@@ -78,14 +104,4 @@ app_chart(
     },
     values = "values-cloud.yaml",
     visibility = ["//visibility:public"],
-)
-
-sh_test(
-    name = "app_management_test",
-    srcs = ["app_management_test.sh"],
-    data = [
-        ":base-cloud",
-        ":base-robot",
-        "@kubernetes_helm//:helm",
-    ],
 )

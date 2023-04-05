@@ -14,6 +14,10 @@ oauth2_proxy:
   client_id: ""
   client_secret: ""
 
+# Certificate provider
+# This configures different cert-manager templates to emit certificates using the chosen authority.
+certificate_provider: ""
+
 # Certificate authority used to sign in-cluster certificates.
 certificate_authority:
   key: ""

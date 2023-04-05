@@ -12,6 +12,15 @@ resource "google_project_iam_member" "owner_group" {
 # We can't use google_project_services because Endpoints adds services
 # dynamically.
 
+# This is needed to allow creating certificates in GCP.
+resource "google_project_service" "certificateauthority" {
+  project            = data.google_project.project.project_id
+  # Only enable if Google CAS is the Certificate Authority
+  count              = var.certificate_provider == "google-cas" ? 1 : 0
+  service            = "privateca.googleapis.com"
+  disable_on_destroy = false
+}
+
 # This is needed for Terraform's data.google_project.project.resource to work.
 resource "google_project_service" "cloudbilling" {
   project            = data.google_project.project.project_id
