@@ -235,6 +235,27 @@ function cleanup_helm_data {
   kc -n kube-system delete cm -l OWNER=TILLER 2> /dev/null || true
 }
 
+function cleanup_iot_devices {
+  local iot_registry_name="$1"
+  local devices
+  devices=$(gcloud beta iot devices list \
+    --project "${GCP_PROJECT_ID}" \
+    --region "${GCP_REGION}" \
+    --registry "${iot_registry_name}" \
+    --format='value(id)')
+  if [[ -n "${devices}" ]] ; then
+    echo "Clearing IoT devices from ${iot_registry_name}" 1>&2
+    for dev in ${devices}; do
+      gcloud beta iot devices delete \
+        --quiet \
+        --project "${GCP_PROJECT_ID}" \
+        --region "${GCP_REGION}" \
+        --registry "${iot_registry_name}" \
+        ${dev}
+    done
+  fi
+}
+
 function cleanup_old_cert_manager {
   # Uninstall and cleanup older versions of cert-manager if needed
 
@@ -400,6 +421,8 @@ function create {
   if is_source_install; then
     prepare_source_install
   fi
+  # required so that terraform can delete the IoT registry
+  cleanup_iot_devices || true
   terraform_apply
   helm_cleanup
   helm_charts
