@@ -10,4 +10,5 @@ resource "google_cloudiot_registry" "cloud-robotics" {
     # Registry can be safely created without triggering the bug.
     google_container_cluster.cloud-robotics,
   ]
+  count = var.use_cloudiot ? 1 : 0
 }

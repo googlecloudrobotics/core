@@ -32,6 +32,7 @@ resource "google_project_iam_member" "token_vendor_cloudiot_provisioner" {
   project = data.google_project.project.project_id
   role    = "roles/cloudiot.provisioner"
   member  = "serviceAccount:${google_service_account.token_vendor.email}"
+  count = var.use_cloudiot ? 1 : 0
 }
 
 # Note: the policy in service-account.tf allows the token-vendor to create
