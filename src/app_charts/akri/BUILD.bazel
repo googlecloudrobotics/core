@@ -1,0 +1,33 @@
+load("//bazel:build_rules/helm_template.bzl", "helm_template")
+load("//bazel:app_chart.bzl", "app_chart")
+load("//bazel:app.bzl", "app")
+
+helm_template(
+    name = "akri-chart.robot",
+    chart = "//third_party/akri:akri-0.8.23.tgz",
+    helm_version = 3,
+    # The namespace will later be replaced with the actual one.
+    namespace = "HELM-NAMESPACE",
+    release_name = "akri",
+    values = "//src/app_charts/akri:values.yaml",
+)
+
+app_chart(
+    name = "akri-robot",
+    extra_templates = [
+        "//third_party/akri:akri-configuration-crd.yaml",
+        "//third_party/akri:akri-instance-crd.yaml",
+    ],
+    files = [
+        ":akri-chart.robot",
+    ],
+    images = {"http-relay-client": "//src/go/cmd/http-relay-client"},
+)
+
+app(
+    name = "akri",
+    charts = [
+        ":akri-robot",
+    ],
+    visibility = ["//visibility:public"],
+)
