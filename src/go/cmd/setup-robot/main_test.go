@@ -210,108 +210,127 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 	*robotName = "robot_name"
 
 	tests := []struct {
-		desc       string
-		labels     map[string]string
-		robot      *registry.Robot
-		wantLabels map[string]string
+		desc            string
+		labels          map[string]string
+		annotations     map[string]string
+		robot           *registry.Robot
+		wantLabels      map[string]string
+		wantAnnotations map[string]string
 	}{
 		{
-			"other robot",
-			map[string]string{},
-			&registry.Robot{
+			desc:        "other robot",
+			labels:      map[string]string{},
+			annotations: map[string]string{},
+			robot: &registry.Robot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "other_robot",
 					Namespace: "default",
 				},
 			},
-			map[string]string{
+			wantLabels: map[string]string{
+				"cloudrobotics.com/robot-name": "robot_name",
+			},
+			wantAnnotations: map[string]string{
 				"cloudrobotics.com/master-host": hostname,
-				"cloudrobotics.com/robot-name":  "robot_name",
 			},
 		},
 		{
-			"robot without label",
-			map[string]string{},
-			&registry.Robot{
+			desc:        "robot without label",
+			labels:      map[string]string{},
+			annotations: map[string]string{},
+			robot: &registry.Robot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      *robotName,
 					Namespace: "default",
 				},
 			},
-			map[string]string{
+			wantLabels: map[string]string{
+				"cloudrobotics.com/robot-name": "robot_name",
+			},
+			wantAnnotations: map[string]string{
 				"cloudrobotics.com/master-host": hostname,
-				"cloudrobotics.com/robot-name":  "robot_name",
 			},
 		},
 		{
-			"robot with other label",
-			map[string]string{},
-			&registry.Robot{
+			desc:        "robot with other label",
+			labels:      map[string]string{},
+			annotations: map[string]string{},
+			robot: &registry.Robot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      *robotName,
 					Namespace: "default",
 					Labels:    map[string]string{"cloudrobotics.com/ssh-port": "22"},
 				},
 			},
-			map[string]string{
+			wantLabels: map[string]string{
+				"cloudrobotics.com/robot-name": "robot_name",
+				"cloudrobotics.com/ssh-port":   "22",
+			},
+			wantAnnotations: map[string]string{
 				"cloudrobotics.com/master-host": hostname,
-				"cloudrobotics.com/robot-name":  "robot_name",
-				"cloudrobotics.com/ssh-port":    "22",
 			},
 		},
 		{
-			"robot with same hostname",
-			map[string]string{},
-			&registry.Robot{
+			desc:        "robot with same hostname",
+			labels:      map[string]string{},
+			annotations: map[string]string{},
+			robot: &registry.Robot{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      *robotName,
-					Namespace: "default",
-					Labels:    map[string]string{"cloudrobotics.com/master-host": hostname},
+					Name:        *robotName,
+					Namespace:   "default",
+					Annotations: map[string]string{"cloudrobotics.com/master-host": hostname},
 				},
 			},
-			map[string]string{
+			wantLabels: map[string]string{
+				"cloudrobotics.com/robot-name": "robot_name",
+			},
+			wantAnnotations: map[string]string{
 				"cloudrobotics.com/master-host": hostname,
-				"cloudrobotics.com/robot-name":  "robot_name",
 			},
 		},
 		{
-			"robot with different hostname",
-			map[string]string{},
-			&registry.Robot{
+			desc:        "robot with different hostname",
+			labels:      map[string]string{},
+			annotations: map[string]string{},
+			robot: &registry.Robot{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      *robotName,
-					Namespace: "default",
-					Labels:    map[string]string{"cloudrobotics.com/master-host": "other-host"},
+					Name:        *robotName,
+					Namespace:   "default",
+					Annotations: map[string]string{"cloudrobotics.com/master-host": "other-host"},
 				},
 			},
-			map[string]string{
+			wantLabels: map[string]string{
+				"cloudrobotics.com/robot-name": "robot_name",
+			},
+			wantAnnotations: map[string]string{
 				"cloudrobotics.com/master-host": hostname,
-				"cloudrobotics.com/robot-name":  "robot_name",
 			},
 		},
 		{
-			"master-host given as input",
-			map[string]string{
+			desc:   "master-host given as input",
+			labels: map[string]string{},
+			annotations: map[string]string{
 				"cloudrobotics.com/master-host": "correct-host",
 			},
-			&registry.Robot{
+			robot: &registry.Robot{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      *robotName,
-					Namespace: "default",
-					Labels:    map[string]string{"cloudrobotics.com/master-host": "other-host"},
+					Name:        *robotName,
+					Namespace:   "default",
+					Annotations: map[string]string{"cloudrobotics.com/master-host": "other-host"},
 				},
 			},
-			map[string]string{
+			wantLabels: map[string]string{
+				"cloudrobotics.com/robot-name": "robot_name",
+			},
+			wantAnnotations: map[string]string{
 				"cloudrobotics.com/master-host": "correct-host",
-				"cloudrobotics.com/robot-name":  "robot_name",
 			},
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			c := dynfake.NewSimpleDynamicClient(sc, tc.robot)
-			annotations := map[string]string{}
-			if err := createOrUpdateRobot(ctx, c, tc.labels, annotations); err != nil {
+			if err := createOrUpdateRobot(ctx, c, tc.labels, tc.annotations); err != nil {
 				t.Fatalf("createOrUpdateRobot() failed unexpectedly:  %v", err)
 			}
 
@@ -325,10 +344,20 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 				t.Fatalf("failed parsing robot labels: %v", err)
 			}
 			if !ok {
-				t.Fatalf("robot %q is missing the master host label", *robotName)
+				t.Fatalf("robot %q is missing the label map", *robotName)
 			}
 			if !reflect.DeepEqual(got, tc.wantLabels) {
 				t.Errorf("labels:\n%q\nwant:\n%q", got, tc.wantLabels)
+			}
+			got, ok, err = unstructured.NestedStringMap(robot.Object, "metadata", "annotations")
+			if err != nil {
+				t.Fatalf("failed parsing robot labels: %v", err)
+			}
+			if !ok {
+				t.Fatalf("robot %q is missing the annotation map", *robotName)
+			}
+			if !reflect.DeepEqual(got, tc.wantAnnotations) {
+				t.Errorf("annotations:\n%q\nwant:\n%q", got, tc.wantAnnotations)
 			}
 		})
 	}
