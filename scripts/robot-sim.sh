@@ -72,13 +72,9 @@ function create {
   gcloud container clusters get-credentials "${ROBOT_NAME}" \
     --zone=${GCP_ZONE} --project=${GCP_PROJECT_ID}
 
-  # This ensures the 'cloudrobotics.com/master-host' label will point to the VM
-  local CLUSTER_IP
-  CLUSTER_IP=$(gcloud compute instances list --project="${GCP_PROJECT_ID}" --filter "name~gke-${ROBOT_NAME}-default-pool.*" --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
-
   # shellcheck disable=2097 disable=2098
   KUBE_CONTEXT=${GKE_SIM_CONTEXT} \
-  HOST_HOSTNAME=${CLUSTER_IP} \
+  HOST_HOSTNAME="nic0.${ROBOT_NAME}${GCP_ZONE}.c.${GCP_PROJECT_ID}.internal.gcpnode.com" \
   ACCESS_TOKEN=$(gcloud auth application-default print-access-token) \
     $DIR/../src/bootstrap/robot/setup_robot.sh \
     ${ROBOT_NAME} \

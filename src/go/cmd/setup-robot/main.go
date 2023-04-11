@@ -351,10 +351,11 @@ func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, re
 }
 
 func createOrUpdateRobot(ctx context.Context, k8sDynamicClient dynamic.Interface, labels map[string]string, annotations map[string]string) error {
+	const masterHost = "cloudrobotics.com/master-host"
 	labels["cloudrobotics.com/robot-name"] = *robotName
 	host := os.Getenv("HOST_HOSTNAME")
-	if host != "" && labels["cloudrobotics.com/master-host"] == "" {
-		labels["cloudrobotics.com/master-host"] = host
+	if host != "" && annotations[masterHost] == "" {
+		annotations[masterHost] = host
 	}
 	crc_version := os.Getenv("CRC_VERSION")
 	if crc_version != "" {
