@@ -238,6 +238,7 @@ function cleanup_helm_data {
 }
 
 function cleanup_iot_devices {
+  gcloud services list --project="${GCP_PROJECT_ID}" | grep -q cloudiot.googleapis.com || return
   local iot_registry_name="cloud-robotics"
   local devices
   devices=$(gcloud beta iot devices list \
