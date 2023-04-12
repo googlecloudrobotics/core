@@ -32,12 +32,10 @@ if is_source_install; then
   # subdirectory of bazel-out/, which is not as easy to hardcode as
   # bazel-bin/... Instead, we use `bazel run` to locate and execute the binary.
   SYNK_COMMAND="bazel ${BAZEL_FLAGS} run //src/go/cmd/synk --"
-  TV_COMMAND="bazel ${BAZEL_FLAGS} run //src/go/cmd/token-vendor --"
 else
   TERRAFORM="${DIR}/bin/terraform"
   HELM_COMMAND="${DIR}/bin/helm"
   SYNK_COMMAND="${DIR}/bin/synk"
-  TV_COMMAND="${DIR}/bin/token-vendor"
 fi
 
 TERRAFORM_DIR="${DIR}/src/bootstrap/cloud/terraform"
@@ -236,7 +234,7 @@ function cleanup_helm_data {
 }
 
 function cleanup_iot_devices {
-  local iot_registry_name="$1"
+  local iot_registry_name="cloud-robotics"
   local devices
   devices=$(gcloud beta iot devices list \
     --project "${GCP_PROJECT_ID}" \
