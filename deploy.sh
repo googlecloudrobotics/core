@@ -32,12 +32,10 @@ if is_source_install; then
   # subdirectory of bazel-out/, which is not as easy to hardcode as
   # bazel-bin/... Instead, we use `bazel run` to locate and execute the binary.
   SYNK_COMMAND="bazel ${BAZEL_FLAGS} run //src/go/cmd/synk --"
-  TV_COMMAND="bazel ${BAZEL_FLAGS} run //src/go/cmd/token-vendor --"
 else
   TERRAFORM="${DIR}/bin/terraform"
   HELM_COMMAND="${DIR}/bin/helm"
   SYNK_COMMAND="${DIR}/bin/synk"
-  TV_COMMAND="${DIR}/bin/token-vendor"
 fi
 
 TERRAFORM_DIR="${DIR}/src/bootstrap/cloud/terraform"
@@ -202,6 +200,10 @@ EOF
 }
 
 function terraform_apply {
+
+  # Required or terraform will fail deleting the IoT registry
+  cleanup_iot_devices || true
+
   terraform_cleanup
   terraform_init
 
@@ -233,6 +235,27 @@ function cleanup_helm_data {
   kc -n kube-system delete deploy tiller-deploy 2> /dev/null || true
   kc -n kube-system delete service tiller-deploy 2> /dev/null || true
   kc -n kube-system delete cm -l OWNER=TILLER 2> /dev/null || true
+}
+
+function cleanup_iot_devices {
+  local iot_registry_name="cloud-robotics"
+  local devices
+  devices=$(gcloud beta iot devices list \
+    --project "${GCP_PROJECT_ID}" \
+    --region "${GCP_REGION}" \
+    --registry "${iot_registry_name}" \
+    --format='value(id)')
+  if [[ -n "${devices}" ]] ; then
+    echo "Clearing IoT devices from ${iot_registry_name}" 1>&2
+    for dev in ${devices}; do
+      gcloud beta iot devices delete \
+        --quiet \
+        --project "${GCP_PROJECT_ID}" \
+        --region "${GCP_REGION}" \
+        --registry "${iot_registry_name}" \
+        ${dev}
+    done
+  fi
 }
 
 function cleanup_old_cert_manager {
