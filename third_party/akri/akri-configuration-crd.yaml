@@ -15,7 +15,7 @@ spec:
             spec:
               type: object
               properties:
-                discoveryHandler: # {{DiscoveryHandlerInfo}}
+                discoveryHandler: 
                   type: object
                   properties:
                     name:
@@ -24,26 +24,26 @@ spec:
                       type: string
                 capacity:
                   type: integer
-                brokerSpec: # {{BrokerSpec}}
+                brokerSpec: 
                   type: object
                   properties: 
-                    brokerJobSpec: # {{JobSpec}}
+                    brokerJobSpec: 
                       x-kubernetes-preserve-unknown-fields: true
                       type: object
                       nullable: true
-                    brokerPodSpec: # {{PodSpec}}
+                    brokerPodSpec: 
                       x-kubernetes-preserve-unknown-fields: true
                       type: object
                       nullable: true
-                instanceServiceSpec: # {{ServiceSpec}}
+                instanceServiceSpec: 
                   x-kubernetes-preserve-unknown-fields: true
                   type: object
                   nullable: true
-                configurationServiceSpec: # {{ServiceSpec}}
+                configurationServiceSpec: 
                   x-kubernetes-preserve-unknown-fields: true
                   type: object
                   nullable: true
-                brokerProperties: # map<string, string>
+                brokerProperties: 
                   additionalProperties:
                     type: string
                   type: object
