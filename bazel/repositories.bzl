@@ -46,11 +46,14 @@ def cloud_robotics_repositories():
     )
 
     # Rules for building and handling Docker images with Bazel and define base images
+    # From 2023-03, which is >v0.25.0 (they are not doing any new releases at the time of
+    # writing).
     _maybe(
         http_archive,
         name = "io_bazel_rules_docker",
-        sha256 = "b1e80761a8a8243d03ebca8845e9cc1ba6c82ce7c5179ce2b295cd36f7e394bf",
-        urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.25.0/rules_docker-v0.25.0.tar.gz"],
+        sha256 = "f6d71a193ff6df39900417b50e67a5cf0baad2e90f83c8aefe66902acce4c34d",
+        strip_prefix = "rules_docker-ca2f3086ead9f751975d77db0255ffe9ee07a781",
+        urls = ["https://github.com/bazelbuild/rules_docker/archive/ca2f3086ead9f751975d77db0255ffe9ee07a781.tar.gz"],
     )
 
     # Go rules and proto support
