@@ -46,6 +46,8 @@ def cloud_robotics_repositories():
     )
 
     # Rules for building and handling Docker images with Bazel and define base images
+    # From 2023-03, which is >v0.25.0 (they are not doing any new releases at the time of
+    # writing).
     _maybe(
         http_archive,
         name = "io_bazel_rules_docker",
