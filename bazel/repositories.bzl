@@ -84,6 +84,20 @@ def cloud_robotics_repositories():
         urls = ["https://github.com/bazelbuild/buildtools/archive/5.1.0.tar.gz"],
     )
 
+    # Rules to perform OCI operations.
+    # This is currently only used to pulled base images to build images with. rules_docker and rules_go are the ones
+    # that actually do the heavy lifting when building images.
+    _maybe(
+        http_archive,
+        name = "rules_oci",
+        sha256 = "f6125c9a123a2ac58fb6b13b4b8d4631827db9cfac025f434bbbefbd97953f7c",
+        strip_prefix = "rules_oci-0.3.9",
+        urls = ["https://github.com/bazel-contrib/rules_oci/releases/download/v0.3.9/rules_oci-v0.3.9.tar.gz"],
+    )
+
 def _maybe(repo_rule, name, **kwargs):
+    """
+    Runs a named rule if a target with the rule name hasn't already been defined.
+    """
     if name not in native.existing_rules():
         repo_rule(name = name, **kwargs)

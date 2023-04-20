@@ -151,10 +151,27 @@ load("@io_bazel_rules_docker//cc:image.bzl", _cc_image_repos = "repositories")
 
 _cc_image_repos()
 
-# Containerization rules for Go must come after go_rules_dependencies().
-load("@io_bazel_rules_docker//go:image.bzl", _go_image_repos = "repositories")
+# oci_rules is configured to pull rules_docker go base images
+# The configuration was copied from the release documentation at
+# https://github.com/bazel-contrib/rules_oci/releases/tag/v0.3.9 and then slightly
+# modified to remove duplicate calls already present in this file.
+load("@rules_oci//oci:dependencies.bzl", "rules_oci_dependencies")
 
-_go_image_repos()
+rules_oci_dependencies()
+
+load("@rules_oci//oci:repositories.bzl", "LATEST_CRANE_VERSION", "LATEST_ZOT_VERSION", "oci_register_toolchains")
+
+oci_register_toolchains(
+    name = "oci",
+    crane_version = LATEST_CRANE_VERSION,
+)
+
+# This section replaces the standard @io_bazel_rules_docker//go:image.bzl `repositories` macro to be able
+# to define base image versions independent of rules_docker version.
+# Containerization rules for Go must come after go_rules_dependencies().
+load("//bazel:base_images.bzl", _go_base_images = "go_base_images")
+
+_go_base_images()
 
 # grafana dashboards for nginx ingress controller
 
