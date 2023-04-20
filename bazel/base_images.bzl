@@ -12,10 +12,14 @@ def go_base_images():
     # once.
     _go_deps()
 
-    # In order to get the digest you can:
-    # 1. Run `docker pull <image>` and copy the digest returned.
+    # Images from the `gcr.io/distroless` repository are used. These are the same images used by `rules_docker`.
+    #
+    # In order to change the image versions you will need to update the digests in this file.
+    # There are different ways you can get digests for images:
+    #
+    # 1. Run `docker pull <image>`, and copy the digest it returns.
     # 2. If you have downloaded the image, you can run
-    #    `docker inspect gcr.io/distroless/base:latest | grep RepoDigests -A2`
+    #    `docker inspect <image> | grep RepoDigests -A2`
     #    and copy the digest.
     # 3. Go to `gcr.io/distroless/base` in a browser and select the image you want. The digest will be listed along
     #    some other fields.
