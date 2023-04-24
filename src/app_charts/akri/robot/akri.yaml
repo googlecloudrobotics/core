@@ -1,4 +1,4 @@
 # This includes all resources expanded from the akri chart using
 # the values in ../values.yaml.
 # Some pseudo-variables that were inserted there are replaced with actual runtime values.
-{{ .Files.Get "files/akri-chart.robot.yaml" | replace "HELM-NAMESPACE" .Release.Namespace }}
+{{ .Files.Get "files/akri-chart.robot.yaml" | replace "HELM-NAMESPACE" .Release.Namespace | replace "${UDEV_RULES}" (toJson .Values.udev.rules) }}
