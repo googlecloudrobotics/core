@@ -15,7 +15,7 @@ function bazel_ci {
       echo "Failed to parse RBE credentials, this is expected iff this is a PR from an external contributor/bot" >&2
       BAZELRC="/dev/null"
   fi
-  bazel --bazelrc="/dev/null" "$@"
+  bazel --bazelrc="${DIR}/rbe.bazelrc" "$@"
 }
 
 function generate_build_id() {
