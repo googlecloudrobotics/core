@@ -9,7 +9,7 @@ helm_template(
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
     release_name = "akri",
-    values = "values.yaml",
+    values = "akri-robot.values.yaml",
 )
 
 app_chart(
@@ -21,6 +21,7 @@ app_chart(
     files = [
         ":akri-chart.robot",
     ],
+    values = "values-robot.yaml",
 )
 
 app(

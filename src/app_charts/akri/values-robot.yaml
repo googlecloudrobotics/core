@@ -1,0 +1,7 @@
+domain: "example.com"
+project: "my-gcp-project"
+registry: "gcr.io/my-gcp-project"
+robots: []
+
+udev:
+  rules: []

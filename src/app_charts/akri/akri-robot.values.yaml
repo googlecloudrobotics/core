@@ -1,0 +1,13 @@
+# kubernetesDistro describes the Kubernetes distro Akri is running on. It is used to conditionally set
+# distribution specific values such as container runtime socket. Options: microk8s | k3s | k8s
+kubernetesDistro: k8s
+
+# enable udev support for usb devices
+udev:
+  discovery:
+    enabled: true
+  configuration:
+    enabled: true
+    name: akri-udev
+    discoveryDetails:
+      udevRules: ${UDEV_RULES}
