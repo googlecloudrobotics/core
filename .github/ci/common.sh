@@ -8,6 +8,13 @@ set -o xtrace    # print command traces before executing command
 
 # Wraps the common Bazel flags for CI for brevity.
 function bazel_ci {
+  BAZELRC="${DIR}/rbe.bazelrc"
+  # GitHub does not give non-org members access to repo secrets.
+  # If that is the case, fall back to a non-RBE (ie slow) build.
+  if ! jq -e . >/dev/null 2>&1 < robco_integration_test_credentials.json; then
+      echo "Failed to parse RBE credentials, this is expected iff this is a PR from an external contributor/bot" >&2
+      BAZELRC="/dev/null"
+  fi
   bazel --bazelrc="/dev/null" "$@"
 }
 
