@@ -56,7 +56,6 @@ function include_config_and_defaults {
   CLOUD_ROBOTICS_OWNER_EMAIL=${CLOUD_ROBOTICS_OWNER_EMAIL:-$(gcloud config get-value account)}
   KUBE_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"
 
-  HELM="${HELM_COMMAND} --kube-context ${KUBE_CONTEXT}"
   SYNK="${SYNK_COMMAND} --context ${KUBE_CONTEXT}"
 }
 
@@ -170,6 +169,25 @@ certificate_subject_organizational_unit = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_
 EOF
     fi
   fi
+
+    cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
+    additional_regions = {
+EOF
+  local AR
+  for AR in "${ADDITIONAL_REGIONS[@]}"; do
+    local AR_NAME
+    local AR_REGION
+    local AR_ZONE
+
+    AR_NAME=$(jq -r .name <<<"${AR}")
+    AR_REGION=$(jq -r .region <<<"${AR}")
+    AR_ZONE=$(jq -r .zone <<<"${AR}")
+
+    cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
+    ${AR_NAME} = { region: "${AR_REGION}", zone: "${AR_ZONE}" },
+EOF
+  done
+  echo '}' >> "${TERRAFORM_DIR}/terraform.tfvars"
 
 # Docker private projects
 
@@ -340,28 +358,38 @@ function helm_cleanup {
   cleanup_old_cert_manager
 }
 
-function helm_charts {
+function helm_region_shared {
+  local CLUSTER_CONTEXT
+  local CLUSTER_DOMAIN
   local INGRESS_IP
-  INGRESS_IP=$(terraform_exec output ingress-ip)
+  local CLUSTER_REGION
+  local CLUSTER_ZONE
+  local CLUSTER_NAME
+
+  CLUSTER_CONTEXT="${1}"
+  CLUSTER_DOMAIN="${2}"
+  INGRESS_IP="${3}"
+  CLUSTER_REGION="${4}"
+  CLUSTER_ZONE="${5}"
+  CLUSTER_NAME="${6}"
 
   local CURRENT_CONTEXT
   CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null) \
     || CURRENT_CONTEXT=""
-  gcloud container clusters get-credentials "${PROJECT_NAME}" \
-    --zone ${GCP_ZONE} \
-    --project ${GCP_PROJECT_ID} \
+  gcloud container clusters get-credentials "${CLUSTER_NAME}" \
+    --zone "${CLUSTER_ZONE}" \
+    --project "${GCP_PROJECT_ID}" \
     || die "create: failed to get cluster credentials"
   [[ -n "${CURRENT_CONTEXT}" ]] && kubectl config use-context "${CURRENT_CONTEXT}"
 
-
   # Wait for the GKE cluster to be reachable.
   i=0
-  until kc get serviceaccount default &>/dev/null; do
+  until kubectl --context "${CLUSTER_CONTEXT}" get serviceaccount default &>/dev/null; do
     sleep 1
     i=$((i + 1))
     if ((i >= 60)) ; then
       # Try again, without suppressing stderr this time.
-      if ! kc get serviceaccount default >/dev/null; then
+      if ! kubectl --context "${CLUSTER_CONTEXT}" get serviceaccount default >/dev/null; then
         die "'kubectl get serviceaccount default' failed"
       fi
     fi
@@ -371,46 +399,99 @@ function helm_charts {
   BASE_NAMESPACE="default"
 
   # Remove old unmanaged cert
-  if ! kc get secrets cluster-authority -o yaml | grep -q "cert-manager.io/certificate-name: selfsigned-ca"; then
-    kc delete secrets cluster-authority 2> /dev/null || true
+  if ! kubectl --context "${CLUSTER_CONTEXT}" get secrets cluster-authority -o yaml | grep -q "cert-manager.io/certificate-name: selfsigned-ca"; then
+    kubectl --context "${CLUSTER_CONTEXT}" delete secrets cluster-authority 2> /dev/null || true
   fi
 
   # Delete permissive binding if it exists from previous deployments
-  if kc get clusterrolebinding permissive-binding &>/dev/null; then
-    kc delete clusterrolebinding permissive-binding
+  if kubectl --context "${CLUSTER_CONTEXT}" get clusterrolebinding permissive-binding &>/dev/null; then
+    kubectl --context "${CLUSTER_CONTEXT}" delete clusterrolebinding permissive-binding
   fi
 
-  ${SYNK} init
+
+  local values
+  values=(
+    --set-string "domain=${CLUSTER_DOMAIN}"
+    --set-string "ingress_ip=${INGRESS_IP}"
+    --set-string "project=${GCP_PROJECT_ID}"
+    --set-string "region=${CLUSTER_REGION}"
+    --set-string "registry=${SOURCE_CONTAINER_REGISTRY}"
+    --set-string "owner_email=${CLOUD_ROBOTICS_OWNER_EMAIL}"
+    --set-string "app_management=${APP_MANAGEMENT}"
+    --set-string "certificate_provider=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
+    --set-string "deploy_environment=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT}"
+    --set-string "oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
+    --set-string "oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
+    --set-string "oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}"
+    --set "use_tv_verbose=${CRC_USE_TV_VERBOSE}"
+  )
+
+  ${SYNK_COMMAND} --context "${CLUSTER_CONTEXT}" init
   echo "synk init done"
 
-    values=$(cat <<EOF
-    --set-string domain=${CLOUD_ROBOTICS_DOMAIN}
-    --set-string ingress_ip=${INGRESS_IP}
-    --set-string project=${GCP_PROJECT_ID}
-    --set-string region=${GCP_REGION}
-    --set-string registry=${SOURCE_CONTAINER_REGISTRY}
-    --set-string owner_email=${CLOUD_ROBOTICS_OWNER_EMAIL}
-    --set-string app_management=${APP_MANAGEMENT}
-    --set-string certificate_provider=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}
-    --set-string deploy_environment=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT}
-    --set-string oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}
-    --set-string oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}
-    --set-string oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}
-    --set use_tv_verbose=${CRC_USE_TV_VERBOSE}
-EOF
-)
-
-  echo "installing base-cloud to ${KUBE_CONTEXT}..."
-  ${HELM} template -n base-cloud --namespace=${BASE_NAMESPACE} ${values} \
+  echo "installing base-cloud to ${CLUSTER_CONTEXT}..."
+  ${HELM_COMMAND} --kube-context "${CLUSTER_CONTEXT}" template -n base-cloud --namespace=${BASE_NAMESPACE} "${values[@]}" \
       ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz \
-    | ${SYNK} apply base-cloud -n ${BASE_NAMESPACE} -f - \
+    | ${SYNK_COMMAND} --context "${CLUSTER_CONTEXT}" apply base-cloud -n ${BASE_NAMESPACE} -f - \
     || die "Synk failed for base-cloud"
 
-  echo "installing platform-apps-cloud to ${KUBE_CONTEXT}..."
-  ${HELM} template -n platform-apps-cloud ${values} \
-      ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz \
-    | ${SYNK} apply platform-apps-cloud -f - \
-    || die "Synk failed for platform-apps-cloud"
+  # This is the main region. Only run this here!
+  if [[ "${CLUSTER_NAME}" = "${PROJECT_NAME}" ]]; then
+    echo "installing platform-apps-cloud to ${KUBE_CONTEXT}..."
+    ${HELM_COMMAND} --kube-context "${CLUSTER_CONTEXT}" template -n platform-apps-cloud "${values[@]}" \
+        ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz \
+      | ${SYNK_COMMAND} --context "${CLUSTER_CONTEXT}" apply platform-apps-cloud -f - \
+      || die "Synk failed for platform-apps-cloud"
+  fi
+}
+
+function helm_main_region {
+  local INGRESS_IP
+  INGRESS_IP=$(terraform_exec output ingress-ip)
+
+  helm_region_shared \
+    "${KUBE_CONTEXT}" \
+    "${CLOUD_ROBOTICS_DOMAIN}" \
+    "${INGRESS_IP}" \
+    "${GCP_REGION}" \
+    "${GCP_ZONE}" \
+    "${PROJECT_NAME}"
+}
+
+function helm_additional_region {
+  local ar_description
+  ar_description="${1}"
+
+  local AR_NAME
+  local AR_REGION
+  local AR_ZONE
+
+  AR_NAME=$(jq -r .name <<<"${ar_description}")
+  AR_REGION=$(jq -r .region <<<"${ar_description}")
+  AR_ZONE=$(jq -r .zone <<<"${ar_description}")
+
+  local CLUSTER_NAME
+  CLUSTER_NAME="${AR_NAME}-ar-cloud-robotics"
+
+  local INGRESS_IP
+  INGRESS_IP=$(terraform_exec output -json ingress-ip-ar | jq -r ."\"${CLUSTER_NAME}\"")
+
+  helm_region_shared \
+    "gke_${GCP_PROJECT_ID}_${AR_ZONE}_${CLUSTER_NAME}" \
+    "${AR_NAME}.${CLOUD_ROBOTICS_DOMAIN}" \
+    "${INGRESS_IP}" \
+    "${AR_REGION}" \
+    "${AR_ZONE}" \
+    "${CLUSTER_NAME}"
+}
+
+function helm_charts {
+  helm_main_region
+
+  local AR
+  for AR in "${ADDITIONAL_REGIONS[@]}"; do
+    helm_additional_region "${AR}"
+  done
 }
 
 # commands
