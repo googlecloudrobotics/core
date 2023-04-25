@@ -63,7 +63,7 @@ lock
 # `set +x` avoids log spam and makes error messages more obvious.
 trap 'set +x; finalize_and_unlock' EXIT
 
-export BAZEL_FLAGS="--bazelrc=${DIR}/.bazelrc"
+export BAZEL_FLAGS="--bazelrc=${DIR}/rbe.bazelrc"
 bash -x .//deploy.sh update robco-integration-test
 
 DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
