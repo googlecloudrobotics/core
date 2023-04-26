@@ -17,3 +17,17 @@ resource "google_dns_record_set" "www-entry" {
   managed_zone = google_dns_managed_zone.external-dns[0].name
   project      = google_dns_managed_zone.external-dns[0].project
 }
+
+
+resource "google_dns_record_set" "www-entry-ar" {
+  for_each = var.domain == "" ? {} : var.additional_regions
+
+  name = "${each.key}.${var.domain}."
+  type = "A"
+
+  ttl = 300
+
+  rrdatas      = [google_compute_address.cloud_robotics_ar[each.key].address]
+  managed_zone = google_dns_managed_zone.external-dns[0].name
+  project      = google_dns_managed_zone.external-dns[0].project
+}

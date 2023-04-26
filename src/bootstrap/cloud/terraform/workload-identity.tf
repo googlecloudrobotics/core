@@ -57,17 +57,17 @@ resource "google_service_account" "google-cas-issuer" {
 
 # Allow the SA to create private CA pool certificates.
 resource "google_privateca_ca_pool_iam_member" "ca-pool-workload-identity" {
-  count   = var.certificate_provider == "google-cas" ? 1 : 0
+  count = var.certificate_provider == "google-cas" ? 1 : 0
 
   ca_pool = google_privateca_ca_pool.ca_pool[0].id
-  role = "roles/privateca.certificateManager"
-  member = "serviceAccount:${google_service_account.google-cas-issuer[0].email}"
+  role    = "roles/privateca.certificateManager"
+  member  = "serviceAccount:${google_service_account.google-cas-issuer[0].email}"
 }
 
 # Define IAM policy for the workload identity user.
 # This allows the Kubernetes service account to act as the GKE service account.
 data "google_iam_policy" "google-cas-issuer" {
-  count   = var.certificate_provider == "google-cas" ? 1 : 0
+  count = var.certificate_provider == "google-cas" ? 1 : 0
 
   binding {
     role = "roles/iam.workloadIdentityUser"

@@ -18,6 +18,12 @@ variable "region" {
   description = "Cloud region to deploy to (europe-west1)"
 }
 
+variable "additional_regions" {
+  description = "Cloud regions to deploy additional relays to"
+  type        = map
+  default     = {}
+}
+
 variable "shared_owner_group" {
   description = "Name of a group to be added as a owner. Leave empty to not use group sharing."
   default     = ""
@@ -55,21 +61,21 @@ variable "use_cloudiot" {
 
 variable "certificate_provider" {
   description = "Certificate provider to use to generate certificates for in-cluster services. Should be one of: lets-encrypt, google-cas."
-  type = string
+  type        = string
 }
 
 variable "certificate_subject_common_name" {
   description = "Certificate Common Name (CN) field"
-  type = string
+  type        = string
 }
 
 variable "certificate_subject_organization" {
   description = "Certificate Subject Organization (O) field"
-  type = string
+  type        = string
 }
 
 variable "certificate_subject_organizational_unit" {
   description = "Certificate Subject Organizational Unit (OU) field"
-  type = string
-  default = null
+  type        = string
+  default     = null
 }
