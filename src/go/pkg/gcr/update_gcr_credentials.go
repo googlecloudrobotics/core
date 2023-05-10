@@ -73,7 +73,13 @@ func patchServiceAccount(ctx context.Context, k8s *kubernetes.Clientset, name st
 			}
 			return err
 		},
-		backoff.NewConstantBackOff(time.Second),
+		// Wait up to a minute for kube-controller-manager to create
+		// the SA in new namespaces. I suspect there's a race condition
+		// if the namespace is created and then quickly deleted
+		// (b/281647304) which might cause this to time out - if we see
+		// this error showing up a lot, we could check for namespace
+		// deletion instead.
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 60),
 	)
 }
 
