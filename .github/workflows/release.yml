@@ -49,7 +49,7 @@ jobs:
 
       - name: Deploy Navtest
         env:
-          USE_BAZEL_VERSION: "5.4.0"
+          USE_BAZEL_VERSION: "6.2.0"
         run: |
           set -euo pipefail
 
@@ -68,7 +68,7 @@ jobs:
       # Now we are ready to create the release.
       - name: Run release_binary.sh
         env:
-          USE_BAZEL_VERSION: "5.4.0"
+          USE_BAZEL_VERSION: "6.2.0"
           REPO: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FULL_SHA: ${{ steps.latest-green.outputs.latest_green }}
