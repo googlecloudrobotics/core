@@ -12,13 +12,13 @@ RUN \
 
     apt-get update && \
     apt-get install -y \
-      bazel-5.4.0 \
+      bazel-6.2.0 \
       git \
       jq && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
 
-    ln -s /usr/bin/bazel-5.4.0 /usr/bin/bazel && \
+    ln -s /usr/bin/bazel-6.2.0 /usr/bin/bazel && \
     # Unpack Bazel for future use.
     bazel version
 
