@@ -54,6 +54,7 @@ var (
 	crSyncer       = flag.Bool("cr-syncer", true, "Set up the cr-syncer, and create a Robot CR in the cloud cluster.")
 	fluentd        = flag.Bool("fluentd", true, "Set up fluentd to upload logs to Stackdriver.")
 	fluentbit      = flag.Bool("fluentbit", false, "Set up fluentbit to upload logs to Stackdriver.")
+	log_prefix_subdomain = flag.String("log-prefix-subdomain", "", "Subdomain to prepend to Fluentbit log tag prefix.")
 	dockerDataRoot = flag.String("docker-data-root", "/var/lib/docker", "This should match data-root in /etc/docker/daemon.json.")
 	podCIDR        = flag.String("pod-cidr", "192.168.9.0/24",
 		"The range of Pod IP addresses in the cluster. This should match the CNI "+
@@ -316,6 +317,7 @@ func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, re
 		"cr_syncer":            strconv.FormatBool(*crSyncer),
 		"fluentd":              strconv.FormatBool(*fluentd),
 		"fluentbit":            strconv.FormatBool(*fluentbit),
+		"log_prefix_subdomain": *log_prefix_subdomain,
 		"docker_data_root":     *dockerDataRoot,
 		"pod_cidr":             *podCIDR,
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
