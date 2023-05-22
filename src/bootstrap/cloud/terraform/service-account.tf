@@ -49,12 +49,6 @@ resource "google_service_account_iam_policy" "robot-service" {
   policy_data        = data.google_iam_policy.robot-service.policy_data
 }
 
-resource "google_project_iam_member" "robot-service-storage" {
-  project = data.google_project.project.project_id
-  role    = "roles/storage.objectAdmin"
-  member  = "serviceAccount:${google_service_account.robot-service.email}"
-}
-
 resource "google_project_iam_member" "robot-service-account-container-access" {
   project = var.private_image_repositories[count.index]
   count   = length(var.private_image_repositories)
@@ -62,29 +56,19 @@ resource "google_project_iam_member" "robot-service-account-container-access" {
   member  = "serviceAccount:${google_service_account.robot-service.email}"
 }
 
-# Unused by the cloud-robotics stack, but existing users might need to carefully migrate
-resource "google_project_iam_member" "robot-service-datastore" {
-  project = data.google_project.project.project_id
-  role    = "roles/datastore.user"
-  member  = "serviceAccount:${google_service_account.robot-service.email}"
-}
-
-resource "google_project_iam_member" "robot-service-monitoring" {
-  project = data.google_project.project.project_id
-  role    = "roles/monitoring.metricWriter"
-  member  = "serviceAccount:${google_service_account.robot-service.email}"
-}
-
-resource "google_project_iam_member" "robot-service-tracing" {
-  project = data.google_project.project.project_id
-  role    = "roles/cloudtrace.agent"
-  member  = "serviceAccount:${google_service_account.robot-service.email}"
-}
-
-resource "google_project_iam_member" "robot-service-logging" {
-  project = data.google_project.project.project_id
-  role    = "roles/logging.logWriter"
-  member  = "serviceAccount:${google_service_account.robot-service.email}"
+resource "google_project_iam_member" "robot-service-roles" {
+  project  = data.google_project.project.project_id
+  member   = "serviceAccount:${google_service_account.robot-service.email}"
+  for_each = toset([
+    "roles/cloudtrace.agent",      # Upload cloud traces
+    # Unused by the cloud-robotics stack, but existing users might need to carefully migrate
+    "roles/datastore.user",
+    "roles/logging.logWriter",      # Upload text logs to Cloud logging
+    # Required to use robot-service@ for GKE clusters that simulate robots
+    "roles/monitoring.viewer",      
+    "roles/storage.objectAdmin",
+  ])
+  role     = each.value
 }
 
 resource "google_project_iam_member" "robot-service-kubernetes" {
@@ -94,14 +78,6 @@ resource "google_project_iam_member" "robot-service-kubernetes" {
   role = var.cr_syncer_rbac == "true" ? "roles/container.clusterViewer" : "roles/container.developer"
 
   member = "serviceAccount:${google_service_account.robot-service.email}"
-}
-
-# The role above are sufficient for "real robots". The following roles let us
-# use robot-service@ for GKE clusters that simulate robots.
-resource "google_project_iam_member" "robot_service_monitoring_viewer" {
-  project = data.google_project.project.project_id
-  role    = "roles/monitoring.viewer"
-  member  = "serviceAccount:${google_service_account.robot-service.email}"
 }
 
 resource "google_service_account" "human-acl" {
