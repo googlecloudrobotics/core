@@ -14,7 +14,7 @@ sed -i 's/MY_ROBOT/{{ .Values.robot.name }}/' ${OUTPUT}
 # Add a template expression for prepending a subdomain to the fluentbit Tag_Prefix
 # If no subdomain is supplied, the Tag_Prefix will resolve to "kube.var.log.containers."
 # Otherwise, if subdomain is supplied (without the "." at the end), the Tag_Prefix will be "<subdomain>.kube.var.log.containers."
-sed -i 's/Tag_Prefix kube.var.log.containers./Tag_Prefix {{ empty .Values.log_prefix_subdomain | ternary "" (print $.Values.log_prefix_subdomain "." ) -}} kube.var.log.containers./' ${OUTPUT}
+sed -i 's/Tag_Prefix kube.var.log.containers./Tag_Prefix {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.var.log.containers./' ${OUTPUT}
 
 # This needs to be an actual Cloud zone so that it can be mapped
 # to a Monarch/Stackdriver region. TODO(swolter): We should make
