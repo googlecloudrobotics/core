@@ -21,7 +21,7 @@ def go_base_images():
     # 2. If you have downloaded the image, you can run
     #    `docker inspect <image> | grep RepoDigests -A2`
     #    and copy the digest.
-    # 3. Go to `gcr.io/distroless/base` in a browser and select the image you want. The digest will be listed along
+    # 3. Go to `<image>` in a browser and select the image you want. The digest will be listed along
     #    some other fields.
     #
     # Note that `oci_pull` supports tags if we ever want to use them.
