@@ -45,18 +45,18 @@ import (
 )
 
 var (
-	robotName      = new(string)
-	project        = flag.String("project", "", "Project ID for the Google Cloud Platform")
-	robotType      = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
-	registryID     = flag.String("registry-id", "", "The ID used when writing the public key to the cloud registry. Default: robot-<robot-name>.")
-	labels         = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
-	annotations    = flag.String("annotations", "", "Robot annotations. Optional if the robot is already registered.")
-	crSyncer       = flag.Bool("cr-syncer", true, "Set up the cr-syncer, and create a Robot CR in the cloud cluster.")
-	fluentd        = flag.Bool("fluentd", true, "Set up fluentd to upload logs to Stackdriver.")
-	fluentbit      = flag.Bool("fluentbit", false, "Set up fluentbit to upload logs to Stackdriver.")
+	robotName            = new(string)
+	project              = flag.String("project", "", "Project ID for the Google Cloud Platform")
+	robotType            = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
+	registryID           = flag.String("registry-id", "", "The ID used when writing the public key to the cloud registry. Default: robot-<robot-name>.")
+	labels               = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
+	annotations          = flag.String("annotations", "", "Robot annotations. Optional if the robot is already registered.")
+	crSyncer             = flag.Bool("cr-syncer", true, "Set up the cr-syncer, and create a Robot CR in the cloud cluster.")
+	fluentd              = flag.Bool("fluentd", true, "Set up fluentd to upload logs to Stackdriver.")
+	fluentbit            = flag.Bool("fluentbit", false, "Set up fluentbit to upload logs to Stackdriver.")
 	log_prefix_subdomain = flag.String("log-prefix-subdomain", "", "Subdomain to prepend to Fluentbit log tag prefix.")
-	dockerDataRoot = flag.String("docker-data-root", "/var/lib/docker", "This should match data-root in /etc/docker/daemon.json.")
-	podCIDR        = flag.String("pod-cidr", "192.168.9.0/24",
+	dockerDataRoot       = flag.String("docker-data-root", "/var/lib/docker", "This should match data-root in /etc/docker/daemon.json.")
+	podCIDR              = flag.String("pod-cidr", "192.168.9.0/24",
 		"The range of Pod IP addresses in the cluster. This should match the CNI "+
 			"configuration (eg Cilium's clusterPoolIPv4PodCIDR). If this is incorrect, "+
 			"pods will get 403 Forbidden when trying to reach the metadata server.")
