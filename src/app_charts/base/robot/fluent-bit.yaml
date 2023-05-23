@@ -48,7 +48,7 @@ data:
         # ------|---------------|---------------------------------------------------------------------------------------------
         Rule      "start_state"   "/^((W|I|E|F))([0-9]{4}) ([^ ]+)\s+([-0-9]+) (\S+:\d+)] (.*)$/"           "cont"
         Rule      "cont"          "/^(?!(((W|I|E|F))([0-9]{4}) ([^ ]+)\s+([-0-9]+) (\S+:\d+)]))(.*)$/"      "cont"
-    
+
     # A parser for Abseil log files: https://abseil.io/docs/cpp/guides/logging#prefix
     [PARSER]
         Name        absl_logs
@@ -58,7 +58,7 @@ data:
         Time_Format %H:%M:%S.%L
         Time_Keep   On
         Types       pid:integer
-    
+
   fluent-bit.conf: |
     [SERVICE]
         Daemon Off
@@ -69,7 +69,7 @@ data:
         HTTP_Listen 0.0.0.0
         HTTP_Port 2020
         Health_Check On
-    
+
     [INPUT]
         Name tail
         Path /var/log/containers/*.log
@@ -79,7 +79,7 @@ data:
         Tag kube.*
         Mem_Buf_Limit 5MB
         Skip_Long_Lines On
-    
+
     [INPUT]
         Name systemd
         Tag k8s_node.${MY_NODE_NAME}
@@ -91,18 +91,18 @@ data:
         Systemd_Filter  _SYSTEMD_UNIT=kubelet.service
         Systemd_Filter  _SYSTEMD_UNIT=sshd.service
         Read_From_Tail On
-    
+
     [INPUT]
         Name systemd
         Tag kernel.${MY_NODE_NAME}
         Systemd_Filter _TRANSPORT=kernel
         Read_From_Tail On
-    
+
     [INPUT]
         Name            node_exporter_metrics
         Tag             node_metrics
         Scrape_interval 10
-    
+
     [FILTER]
         Name kubernetes
         Match kube.*
@@ -110,103 +110,103 @@ data:
         Keep_Log Off
         K8S-Logging.Parser On
         K8S-Logging.Exclude On
-    
+
     # Joins multiple Abseil logs into a single line.
     [FILTER]
         Name                    multiline
         Match                   kube.*
         Multiline.Key_content   log
         Multiline.Parser        absl_logs_multiline
-    
+
     # Applies the absl_logs parser to the 'log' field.
     [FILTER]
         Name          parser
         Match         kube.*
         Key_Name      log
         Parser        absl_logs
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals level info
         Add severity INFO
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals level warning
         Add severity WARNING
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals level warn
         Add severity WARNING
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals level error
         Add severity ERROR
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_matches log ^.*\[\sinfo\].*$
         Add severity INFO
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_matches log ^.*\[\swarn\].*$
         Add severity WARNING
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_matches log .*\[error\].*
         Add severity ERROR
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_matches log .*(type="Info"|level=info).*
         Add severity INFO
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_matches log .*(type="Warning"|level=warning).*
         Add severity WARNING
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_matches log .*(type="Error"|level=error).*
         Add severity ERROR
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals stream stderr
         Add severity ERROR
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals stream stdout
         Add severity INFO
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Remove _p
-    
+
     [FILTER]
         Name          modify
         Match         kube.*
         Rename log message
-    
+
     [OUTPUT]
         Name stackdriver
         Match kube.*
@@ -216,7 +216,7 @@ data:
         k8s_cluster_location europe-west1-c
         severity_key severity
         Workers 1
-    
+
     [OUTPUT]
         Name stackdriver
         Match k8s_node.*
@@ -225,7 +225,7 @@ data:
         k8s_cluster_name {{ .Values.robot.name }}
         k8s_cluster_location europe-west1-c
         Workers 1
-    
+
     [OUTPUT]
         Name stackdriver
         Match kernel.*
@@ -235,7 +235,7 @@ data:
         k8s_cluster_name {{ .Values.robot.name }}
         k8s_cluster_location europe-west1-c
         Workers 1
-    
+
     [OUTPUT]
         name            prometheus_exporter
         match           node_metrics
