@@ -78,6 +78,12 @@ config:
         Read_From_Tail On
 
     [INPUT]
+        Name systemd
+        Tag kernel.${MY_NODE_NAME}
+        Systemd_Filter _TRANSPORT=kernel
+        Read_From_Tail On
+
+    [INPUT]
         Name            node_exporter_metrics
         Tag             node_metrics
         Scrape_interval 10
@@ -204,6 +210,16 @@ config:
         Name stackdriver
         Match k8s_node.*
         Resource k8s_node
+        custom_k8s_regex ^(?<node_name>.*)$
+        k8s_cluster_name MY_ROBOT
+        k8s_cluster_location MY_CLUSTER_LOCATION
+        Workers 1
+
+    [OUTPUT]
+        Name stackdriver
+        Match kernel.*
+        Resource k8s_node
+        tag_prefix kernel.
         custom_k8s_regex ^(?<node_name>.*)$
         k8s_cluster_name MY_ROBOT
         k8s_cluster_location MY_CLUSTER_LOCATION
