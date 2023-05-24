@@ -27,3 +27,6 @@ jobs:
         env:
           USE_BAZEL_VERSION: "6.2.0"
         run: ./.github/ci/presubmit.sh
+      - name: Get bazel server logs
+        if: success() || failure()
+        run: cat ~/.cache/bazel/_bazel_*/*/java.log
