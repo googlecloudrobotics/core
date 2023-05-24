@@ -28,11 +28,32 @@ metadata:
     app.kubernetes.io/managed-by: Helm
 data:
   custom_parsers.conf: |
+    # Merges multi-line Abseil logs. The regexs assume that any line which does not start
+    # with an Abseil log preamble is part of the previous log message. No assumptions on
+    # indentation or similar are made.
+    [MULTILINE_PARSER]
+        Name          absl_logs_multiline
+        Type          regex
+        Flush_timeout 1000
+        #
+        # Regex rules for multiline parsing
+        # ---------------------------------
+        #
+        # configuration hints:
+        #
+        #  - first state always has the name: start_state
+        #  - every field in the rule must be inside double quotes
+        #
+        # rules |   state name  | regex pattern                                                         | next state
+        # ------|---------------|---------------------------------------------------------------------------------------------
+        Rule      "start_state"   "/^((W|I|E|F))([0-9]{4}) ([^ ]+)\s+([-0-9]+) (\S+:\d+)] (.*)$/"           "cont"
+        Rule      "cont"          "/^(?!(((W|I|E|F))([0-9]{4}) ([^ ]+)\s+([-0-9]+) (\S+:\d+)]))(.*)$/"      "cont"
+
     # A parser for Abseil log files: https://abseil.io/docs/cpp/guides/logging#prefix
     [PARSER]
         Name        absl_logs
         Format      regex
-        Regex       ^(?<severity>(W|I|E|F))([0-9]{4}) (?<time>[^ ]+)\s+(?<pid>[-0-9]+) (?<source>\S+:\d+)] (?<message>.*)$
+        Regex       ^(?<severity>(W|I|E|F))([0-9]{4}) (?<time>[^ ]+)\s+(?<pid>[-0-9]+) (?<source>\S+:\d+)] (?<message>[\s\S]*)$
         Time_Key    time
         Time_Format %H:%M:%S.%L
         Time_Keep   On
@@ -52,7 +73,9 @@ data:
     [INPUT]
         Name tail
         Path /var/log/containers/*.log
-        multiline.parser docker, cri
+        # Adding the 'absl_logs_multiline' does not work as intended.
+        # It must be specified as a dedicated filter (see below).
+        Multiline.Parser docker, cri, go, python
         Tag kube.*
         Mem_Buf_Limit 5MB
         Skip_Long_Lines On
@@ -70,9 +93,15 @@ data:
         Read_From_Tail On
 
     [INPUT]
-        name            node_exporter_metrics
-        tag             node_metrics
-        scrape_interval 10
+        Name systemd
+        Tag kernel.${MY_NODE_NAME}
+        Systemd_Filter _TRANSPORT=kernel
+        Read_From_Tail On
+
+    [INPUT]
+        Name            node_exporter_metrics
+        Tag             node_metrics
+        Scrape_interval 10
 
     [FILTER]
         Name kubernetes
@@ -82,7 +111,14 @@ data:
         K8S-Logging.Parser On
         K8S-Logging.Exclude On
 
-    # Applies the absl_logs parser to the 'log' field
+    # Joins multiple Abseil logs into a single line.
+    [FILTER]
+        Name                    multiline
+        Match                   kube.*
+        Multiline.Key_content   log
+        Multiline.Parser        absl_logs_multiline
+
+    # Applies the absl_logs parser to the 'log' field.
     [FILTER]
         Name          parser
         Match         kube.*
@@ -191,6 +227,16 @@ data:
         Workers 1
 
     [OUTPUT]
+        Name stackdriver
+        Match kernel.*
+        Resource k8s_node
+        tag_prefix kernel.
+        custom_k8s_regex ^(?<node_name>.*)$
+        k8s_cluster_name {{ .Values.robot.name }}
+        k8s_cluster_location europe-west1-c
+        Workers 1
+
+    [OUTPUT]
         name            prometheus_exporter
         match           node_metrics
         port            24231
@@ -278,7 +324,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: a104e4858427a7c7de48a2a66d5c3f8edb8f56f31b0788837d8949e47e714529
+        checksum/config: 177912df2f38a287973a348d0e58b18a3752e5311996b630ab78fd2222d3cdaa
         checksum/luascripts: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       labels:
         app.kubernetes.io/name: fluent-bit
