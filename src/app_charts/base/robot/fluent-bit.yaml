@@ -76,7 +76,7 @@ data:
         # Adding the 'absl_logs_multiline' does not work as intended.
         # It must be specified as a dedicated filter (see below).
         Multiline.Parser docker, cri, go, python
-        Tag kube.*
+        Tag {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Mem_Buf_Limit 5MB
         Skip_Long_Lines On
 
@@ -105,7 +105,7 @@ data:
 
     [FILTER]
         Name kubernetes
-        Match kube.*
+        Match {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Merge_Log On
         Keep_Log Off
         K8S-Logging.Parser On
@@ -114,103 +114,103 @@ data:
     # Joins multiple Abseil logs into a single line.
     [FILTER]
         Name                    multiline
-        Match                   kube.*
+        Match                   {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Multiline.Key_content   log
         Multiline.Parser        absl_logs_multiline
 
     # Applies the absl_logs parser to the 'log' field.
     [FILTER]
         Name          parser
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Key_Name      log
         Parser        absl_logs
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals level info
         Add severity INFO
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals level warning
         Add severity WARNING
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals level warn
         Add severity WARNING
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals level error
         Add severity ERROR
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_matches log ^.*\[\sinfo\].*$
         Add severity INFO
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_matches log ^.*\[\swarn\].*$
         Add severity WARNING
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_matches log .*\[error\].*
         Add severity ERROR
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_matches log .*(type="Info"|level=info).*
         Add severity INFO
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_matches log .*(type="Warning"|level=warning).*
         Add severity WARNING
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_matches log .*(type="Error"|level=error).*
         Add severity ERROR
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals stream stderr
         Add severity ERROR
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals stream stdout
         Add severity INFO
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Remove _p
 
     [FILTER]
         Name          modify
-        Match         kube.*
+        Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Rename log message
 
     [OUTPUT]
         Name stackdriver
-        Match kube.*
-        Tag_Prefix kube.var.log.containers.
+        Match {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
+        Tag_Prefix {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.var.log.containers.
         Resource k8s_container
         k8s_cluster_name {{ .Values.robot.name }}
         k8s_cluster_location europe-west1-c

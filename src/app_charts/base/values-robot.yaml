@@ -15,6 +15,10 @@ fluentd: "true"
 # Setting fluentbit to "true" will enable the fluentbit stackdriver integration.
 fluentbit: "false"
 
+# Setting log_prefix_subdomain to any non-empty string will prepend a subdomain to the
+# `Tag_Prefix` configured on fluentbit (don't add a "." at the end to the subdomain)
+log_prefix_subdomain: ""
+
 # docker_data_root should match "data-root" in /etc/docker/daemon.json.
 docker_data_root: "/var/lib/docker"
 
