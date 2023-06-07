@@ -3,7 +3,7 @@ module github.com/googlecloudrobotics/core/src
 go 1.18
 
 require (
-	cloud.google.com/go v0.105.0 // indirect
+	cloud.google.com/go v0.110.2 // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.14
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -16,7 +16,7 @@ require (
 	github.com/getlantern/mockconn v0.0.0-20190403061815-a8ffa60494a6 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang/mock v1.6.0
-	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/huandu/xstrings v1.3.3 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
@@ -28,14 +28,14 @@ require (
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
-	go.opencensus.io v0.23.0
-	golang.org/x/crypto v0.1.0
-	golang.org/x/net v0.7.0
+	go.opencensus.io v0.24.0
+	golang.org/x/crypto v0.7.0
+	golang.org/x/net v0.9.0
 	golang.org/x/sync v0.1.0
-	golang.org/x/sys v0.5.0 // indirect
-	google.golang.org/api v0.102.0
-	google.golang.org/grpc v1.50.1
-	google.golang.org/protobuf v1.28.1
+	golang.org/x/sys v0.7.0 // indirect
+	google.golang.org/api v0.118.0
+	google.golang.org/grpc v1.55.0
+	google.golang.org/protobuf v1.30.0
 	gopkg.in/h2non/gock.v1 v1.1.2
 	k8s.io/api v0.25.3
 	k8s.io/apiextensions-apiserver v0.25.3
@@ -50,12 +50,12 @@ require (
 )
 
 require (
-	cloud.google.com/go/storage v1.27.0
+	cloud.google.com/go/storage v1.29.0
 	github.com/aws/aws-sdk-go v1.44.129 // indirect
-	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/prometheus/statsd_exporter v0.22.8 // indirect
-	golang.org/x/oauth2 v0.1.0
-	google.golang.org/genproto v0.0.0-20221027153422-115e99e71e1c // indirect
+	golang.org/x/oauth2 v0.7.0
+	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 )
 
 require (
@@ -65,11 +65,11 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute v1.12.1 // indirect
-	cloud.google.com/go/compute/metadata v0.2.1 // indirect
-	cloud.google.com/go/iam v0.6.0 // indirect
-	cloud.google.com/go/monitoring v1.7.0 // indirect
-	cloud.google.com/go/trace v1.3.0 // indirect
+	cloud.google.com/go/compute v1.19.0 // indirect
+	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	cloud.google.com/go/iam v0.13.0 // indirect
+	cloud.google.com/go/monitoring v1.13.0 // indirect
+	cloud.google.com/go/trace v1.9.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.11.28 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.9.21 // indirect
@@ -102,8 +102,8 @@ require (
 	github.com/google/safetext v0.0.0-20221026122733-23539d61753f // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.3.0 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.2.0 // indirect
-	github.com/googleapis/gax-go/v2 v2.7.0 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
+	github.com/googleapis/gax-go/v2 v2.8.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
@@ -130,8 +130,8 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
-	golang.org/x/term v0.5.0 // indirect
-	golang.org/x/text v0.7.0 // indirect
+	golang.org/x/term v0.7.0 // indirect
+	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.1.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
