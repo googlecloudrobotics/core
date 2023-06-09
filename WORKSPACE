@@ -178,9 +178,9 @@ _go_base_images()
 http_archive(
     name = "ingress-nginx",
     build_file = "//third_party:ingress-nginx.BUILD",
-    sha256 = "719a7a54fe8156a38075eb99f82819b661ff117a2b043b41c1f560aaf71d4a09",
-    strip_prefix = "ingress-nginx-1b1f7d30a39f71cd9fe9f7191258e983dcb159c6",
+    sha256 = "6e571764828b24545eea49582fd56d66d51fc66e52a375d98251c80c57fdb2fc",
+    strip_prefix = "ingress-nginx-controller-v1.8.0",
     urls = [
-        "https://github.com/kubernetes/ingress-nginx/archive/1b1f7d30a39f71cd9fe9f7191258e983dcb159c6.tar.gz",
+        "https://github.com/kubernetes/ingress-nginx/archive/refs/tags/controller-v1.8.0.tar.gz",
     ],
 )
