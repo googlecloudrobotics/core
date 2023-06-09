@@ -1,5 +1,5 @@
 # Configuration for the prometheus-operator chart.
-# Reference: 
+# Reference:
 # https://github.com/prometheus-community/helm-charts/blob/kube-prometheus-stack-15.4.6/charts/kube-prometheus-stack/values.yaml
 #
 # WARNING: the prometheus-operator chart is complicated and error-prone. If you
@@ -88,14 +88,23 @@ prometheusOperator:
 kubeApiServer:
   serviceMonitor:
     interval: 10m
+    metricRelabelings:
+    # Drop high cardinality apiserver buckets.
+      - action: drop
+        regex: "^apiserver_request|^etcd_request"
+        source_labels: [__name__]
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: instance
-
 kubelet:
   serviceMonitor:
     # From kubernetes 1.18, /metrics/resource/v1alpha1 renamed to /metrics/resource
     resourcePath: "/metrics/resource"
+    metricRelabelings:
+    # Drop high cardinality container_network metrics.
+    - action: drop
+      regex: "^container_network"
+      source_labels: [__name__]
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: instance
