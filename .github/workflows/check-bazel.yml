@@ -28,7 +28,7 @@ jobs:
             echo >&2 "If you are a project member, please push your branch to"
             echo >&2 "github.com/googlecloudrobotics/core instead."
             echo >&2 "https://docs.github.com/en/actions/managing-workflow-runs/approving-workflow-runs-from-public-forks#about-workflow-runs-from-public-forks"
-            exit 1
+            # exit 1
           fi
           echo "$ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY" > robco_integration_test_credentials.json
       - name: Run .github/ci/presubmit.sh

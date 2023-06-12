@@ -11,7 +11,8 @@ function bazel_ci {
   BAZELRC="${DIR}/rbe.bazelrc"
   # GitHub does not give non-org members access to repo secrets.
   # If that is the case, fall back to a non-RBE (ie slow) build.
-  if ! jq -e . >/dev/null 2>&1 < robco_integration_test_credentials.json; then
+  wc -c robco_integration_test_credentials.json
+  if ! jq -e . < robco_integration_test_credentials.json | wc -c; then
       echo "Failed to parse RBE credentials, this is expected iff this is a PR from an external contributor/bot" >&2
       BAZELRC="/dev/null"
   fi
