@@ -7,6 +7,9 @@ newver = "new_versions.txt"
 
 [ingress-nginx]
 source = "container"
+# As of 2023-06-09, nvchecker is not compatible with registry.k8s.io, which
+# doesn't return the WWW-Authenticate header that nvchecker expects, so you get
+# UnsupportedAuthenticationError.
 registry = "k8s.gcr.io"
 container = "ingress-nginx/controller"
 prefix = "v"
