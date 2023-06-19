@@ -151,6 +151,13 @@ load("@io_bazel_rules_docker//cc:image.bzl", _cc_image_repos = "repositories")
 
 _cc_image_repos()
 
+http_archive(
+    name = "rules_oci",
+    sha256 = "db57efd706f01eb3ce771468366baa1614b5b25f4cce99757e2b8d942155b8ec",
+    strip_prefix = "rules_oci-1.0.0",
+    url = "https://github.com/bazel-contrib/rules_oci/releases/download/v1.0.0/rules_oci-v1.0.0.tar.gz",
+)
+
 # oci_rules is configured to pull rules_docker go base images
 # The configuration was copied from the release documentation at
 # https://github.com/bazel-contrib/rules_oci/releases/tag/v0.3.9 and then slightly
@@ -182,5 +189,17 @@ http_archive(
     strip_prefix = "ingress-nginx-controller-v1.8.0",
     urls = [
         "https://github.com/kubernetes/ingress-nginx/archive/refs/tags/controller-v1.8.0.tar.gz",
+    ],
+)
+
+load("@rules_oci//oci:pull.bzl", "oci_pull")
+
+oci_pull(
+    name = "distroless_cc",
+    digest = "sha256:41036fc7ed8df0f6addc18484cef0c94a85867508967789f947e11ffd5ff0cc8",
+    image = "gcr.io/distroless/cc",
+    platforms = [
+        "linux/amd64",
+        "linux/arm64",
     ],
 )

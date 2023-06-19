@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -23,7 +23,8 @@ go_library(
     ],
 )
 
-load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_oci//oci:defs.bzl", "oci_image")
 
 genrule(
     name = "helm-config",
@@ -38,17 +39,36 @@ genrule(
     tools = ["@kubernetes_helm//:helm"],
 )
 
-container_image(
+oci_image(
     name = "helm-image",
     base = "@cc_image_base//image",
-    directory = "/home/nonroot/",
-    tars = [":helm-config"],
+    tars = [":helm-image-layer"],
 )
 
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+pkg_tar(
+    name = "helm-image-layer",
+    package_dir = "/home/nonroot/",
+    deps = [":helm-config"],
+)
 
-go_image(
-    name = "chart-assignment-controller",
-    base = ":helm-image",
+go_binary(
+    name = "chart-assignment-controller-app",
     embed = [":go_default_library"],
+)
+
+pkg_tar(
+    name = "chart-assignment-controller-layer",
+    srcs = [":chart-assignment-controller-app"],
+)
+
+oci_image(
+    name = "chart-assignment-controller",
+    architecture = select({
+        "@platforms//cpu:arm64": "arm64",
+        "@platforms//cpu:x86_64": "amd64",
+    }),
+    base = ":helm-image",
+    entrypoint = ["/chart-assignment-controller-app"],
+    os = "linux",
+    tars = [":chart-assignment-controller-layer"],
 )
