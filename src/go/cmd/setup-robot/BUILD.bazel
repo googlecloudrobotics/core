@@ -47,20 +47,21 @@ go_test(
     ],
 )
 
-oci_image(
-    name = "base_image_with_files",
-    base = "@cc_image_base//image",
-    tars = [":base_image_with_files_layer"],
-)
-
 pkg_tar(
     name = "base_image_with_files_layer",
     srcs = [
-        "//src/app_charts/base:base-robot",
+        # currently broken
+        #        "//src/app_charts/base:base-robot",
         "//src/go/cmd/synk",
         "@kubernetes_helm//:helm",
     ],
     package_dir = "/setup-robot-files",
+)
+
+oci_image(
+    name = "base_image_with_files",
+    base = "@cc_image_base//image",
+    tars = [":base_image_with_files_layer"],
 )
 
 go_binary(
@@ -87,14 +88,10 @@ oci_image(
     visibility = ["//visibility:public"],
 )
 
-#go_image(
-#    name = "setup-robot-image",
-#    embed = [":go_default_library"],
-#)
-
-#oci_push(
-#    name = "setup-robot.push",
-#    format = "Docker",
-#    image = ":setup-robot-image",
-#    visibility = ["//visibility:public"],
-#)
+oci_push(
+    name = "setup-robot.push",
+    image = ":setup-robot-image",
+    # repository is required, even in container_push
+    repository = "TODO-registry",
+    visibility = ["//visibility:public"],
+)
