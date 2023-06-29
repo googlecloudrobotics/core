@@ -41,7 +41,7 @@ genrule(
 
 oci_image(
     name = "helm-image",
-    base = "@cc_image_base//image",
+    base = "@distroless_cc",
     tars = [":helm-image-layer"],
 )
 
@@ -62,7 +62,7 @@ pkg_tar(
 )
 
 oci_image(
-    name = "chart-assignment-controller",
+    name = "chart-assignment-controller-image",
     architecture = select({
         "@platforms//cpu:arm64": "arm64",
         "@platforms//cpu:x86_64": "amd64",

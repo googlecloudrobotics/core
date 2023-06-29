@@ -69,7 +69,6 @@ def push_all(name, images = {}, **kwargs):
         push_targets.append(push_target)
         container_push(
             name = push_target,
-            format = "Docker",
             image = image,
         )
 

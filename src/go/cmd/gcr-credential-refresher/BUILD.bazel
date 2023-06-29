@@ -1,7 +1,8 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 go_library(
     name = "go_default_library",
@@ -16,8 +17,26 @@ go_library(
     ],
 )
 
-go_image(
-    name = "gcr-credential-refresher",
-    base = "@cc_image_base//image",
+go_binary(
+    name = "gcr-credential-refresher-app",
     embed = [":go_default_library"],
+    visibility = ["//visibility:private"],
+)
+
+pkg_tar(
+    name = "gcr-credential-refresher-image-layer",
+    srcs = [":gcr-credential-refresher-app"],
+)
+
+oci_image(
+    name = "gcr-credential-refresher-image",
+    architecture = select({
+        "@platforms//cpu:arm64": "arm64",
+        "@platforms//cpu:x86_64": "amd64",
+    }),
+    base = "@distroless_base",
+    entrypoint = ["/gcr-credential-refresher-app"],
+    os = "linux",
+    tars = [":gcr-credential-refresher-image-layer"],
+    visibility = ["//visibility:public"],
 )

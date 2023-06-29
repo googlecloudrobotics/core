@@ -1,6 +1,8 @@
 package(default_visibility = ["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 go_library(
     name = "go_default_library",
@@ -31,16 +33,24 @@ go_test(
     ],
 )
 
-# only for testing
 go_binary(
-    name = "http-relay-client-bin",
+    name = "http-relay-client-app",
     embed = [":go_default_library"],
 )
 
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+pkg_tar(
+    name = "http-relay-client-image-layer",
+    srcs = [":http-relay-client-app"],
+)
 
-go_image(
-    name = "http-relay-client",
-    base = "@cc_image_base//image",
-    embed = [":go_default_library"],
+oci_image(
+    name = "http-relay-client-image",
+    architecture = select({
+        "@platforms//cpu:arm64": "arm64",
+        "@platforms//cpu:x86_64": "amd64",
+    }),
+    base = "@distroless_base",
+    entrypoint = ["/http-relay-client-app"],
+    os = "linux",
+    tars = [":http-relay-client-image-layer"],
 )

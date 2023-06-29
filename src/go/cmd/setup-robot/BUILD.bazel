@@ -1,5 +1,4 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
@@ -50,8 +49,7 @@ go_test(
 pkg_tar(
     name = "base_image_with_files_layer",
     srcs = [
-        # currently broken
-        #        "//src/app_charts/base:base-robot",
+        "//src/app_charts/base:base-robot",
         "//src/go/cmd/synk",
         "@kubernetes_helm//:helm",
     ],
@@ -60,7 +58,7 @@ pkg_tar(
 
 oci_image(
     name = "base_image_with_files",
-    base = "@cc_image_base//image",
+    base = "@distroless_cc",
     tars = [":base_image_with_files_layer"],
 )
 
