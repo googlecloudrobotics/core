@@ -886,7 +886,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Request duration buckets (in milliseconds) over time.",
+      "description": "Request duration buckets (in seconds) over time.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -956,7 +956,7 @@
         "yAxis": {
           "axisPlacement": "left",
           "reverse": false,
-          "unit": "ms"
+          "unit": "s"
         }
       },
       "pluginVersion": "9.1.7",
@@ -968,17 +968,15 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "exemplar": false,
           "expr": "sum(rate(broker_responses_durations_bucket[$__interval])) by (le)",
           "format": "time_series",
-          "instant": false,
           "interval": "",
           "legendFormat": "",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Request duration (in milliseconds) histogram",
+      "title": "Request duration (in seconds) histogram",
       "tooltip": {
         "show": true,
         "showHistogram": false
