@@ -1,7 +1,6 @@
 load("//bazel:build_rules/helm_chart.bzl", "helm_chart")
 load("//bazel/build_rules/app_chart:cache_gcr_credentials.bzl", "cache_gcr_credentials")
 load("//bazel/build_rules/app_chart:push_all.bzl", "push_all")
-load("@bazel_skylib//lib:paths.bzl", "paths")
 
 def _impl(ctx):
     chart_yaml = ctx.actions.declare_file(ctx.label.name + "-chart.yaml")
@@ -23,7 +22,6 @@ def _impl(ctx):
 
     images = ctx.attr.images or {}
     for key, value in images.items():
-        out_dir = paths.join(ctx.bin_dir.path, key.label.package, key.label.name)
         key_files = key[DefaultInfo].files
         for file in key_files.to_list():
             image_dir = file
