@@ -36,7 +36,7 @@ const (
 )
 
 func runSender(t *testing.T, b *broker, s string, m string, wg *sync.WaitGroup) {
-	respChan, err := b.RelayRequest(s, &pb.HttpRequest{Id: proto.String(m)})
+	respChan, err := b.RelayRequest(s, &pb.HttpRequest{Id: proto.String(m), Url: proto.String("http://example.com/foo")})
 	if err != nil {
 		t.Errorf("Got relay request error: %v", err)
 	}
@@ -52,7 +52,7 @@ func runSender(t *testing.T, b *broker, s string, m string, wg *sync.WaitGroup) 
 }
 
 func runReceiver(t *testing.T, b *broker, s string, wg *sync.WaitGroup) {
-	req, err := b.GetRequest(context.Background(), s)
+	req, err := b.GetRequest(context.Background(), s, "/")
 	if err != nil {
 		t.Errorf("Error when getting request: %s", err)
 	}
@@ -65,7 +65,7 @@ func runReceiver(t *testing.T, b *broker, s string, wg *sync.WaitGroup) {
 
 // runSenderStream expects two items in the response stream, and it doesn't care about the contents.
 func runSenderStream(t *testing.T, b *broker, s string, m string, wg *sync.WaitGroup) {
-	respChan, err := b.RelayRequest(s, &pb.HttpRequest{Id: proto.String(m)})
+	respChan, err := b.RelayRequest(s, &pb.HttpRequest{Id: proto.String(m), Url: proto.String("http://example.com/foo")})
 	if err != nil {
 		t.Errorf("Got relay request error: %v", err)
 	}
@@ -87,7 +87,7 @@ func runSenderStream(t *testing.T, b *broker, s string, m string, wg *sync.WaitG
 // runReceiverStream sends two items in the response stream, waiting before the second.
 // It returns after the first response has been sent.
 func runReceiverStream(t *testing.T, b *broker, s string, wg *sync.WaitGroup, done <-chan bool) {
-	req, err := b.GetRequest(context.Background(), s)
+	req, err := b.GetRequest(context.Background(), s, "/")
 	if err != nil {
 		t.Errorf("Error when getting request: %s", err)
 	}
@@ -195,7 +195,7 @@ func TestTimeout(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
-		respChan, err := b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne)})
+		respChan, err := b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
 		if err != nil {
 			t.Errorf("Got relay request error: %v", err)
 		}
@@ -206,7 +206,7 @@ func TestTimeout(t *testing.T) {
 	}()
 	go func() {
 		log.Printf("Getting request")
-		b.GetRequest(context.Background(), "foo")
+		b.GetRequest(context.Background(), "foo", "/")
 		log.Printf("Reaping inactive requests")
 		b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
 		log.Printf("Done")
