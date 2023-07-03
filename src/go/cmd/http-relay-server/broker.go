@@ -45,7 +45,21 @@ var (
 	brokerResponseDurations = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name: "broker_responses_durations",
-			Help: "Time from request to final response in ms",
+			Help: "Time from request to final response in s",
+		},
+		[]string{"method", "backend"},
+	)
+	brokerBackendResponseDurations = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "broker_backend_responses_durations",
+			Help: "Time from backend request to final response in s",
+		},
+		[]string{"method", "backend"},
+	)
+	brokerOverheadDurations = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "broker_overhead_durations",
+			Help: "Extra time spend between relay server and client in s",
 		},
 		[]string{"method", "backend"},
 	)
@@ -55,6 +69,8 @@ func init() {
 	prometheus.MustRegister(brokerRequests)
 	prometheus.MustRegister(brokerResponses)
 	prometheus.MustRegister(brokerResponseDurations)
+	prometheus.MustRegister(brokerBackendResponseDurations)
+	prometheus.MustRegister(brokerOverheadDurations)
 }
 
 type pendingResponse struct {
@@ -211,9 +227,18 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	r.m.Unlock()
 	brokerRequests.WithLabelValues("server_response", backendName).Inc()
 	brokerResponseDurations.WithLabelValues("server_response", backendName).Observe(duration)
-	log.Printf("[%s] Delivered response to client (%d bytes), elapsed %.3fs", id, len(resp.Body), duration)
 	if resp.GetEof() {
 		close(pr.responseStream)
+		backendDuration := (time.Duration(resp.GetBackendDurationMs()) * time.Millisecond).Seconds()
+		backendDurStr := "N/A"
+		if backendDuration > 0.0 {
+			brokerBackendResponseDurations.WithLabelValues("server_response", backendName).Observe(backendDuration)
+			brokerOverheadDurations.WithLabelValues("server_response", backendName).Observe(duration - backendDuration)
+			backendDurStr = fmt.Sprintf("%.3fs", backendDuration)
+		}
+		log.Printf("[%s] Delivered final response to client (%d bytes), elapsed on server=%.3fs, backend=%.3fs", id, len(resp.Body), duration, backendDurStr)
+	} else {
+		log.Printf("[%s] Delivered response to client (%d bytes), elapsed on server=%.3fs", id, len(resp.Body), duration)
 	}
 	brokerResponses.WithLabelValues("server_response", "ok", backendName).Inc()
 	return nil

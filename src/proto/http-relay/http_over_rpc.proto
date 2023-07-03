@@ -46,4 +46,5 @@ message HttpResponse {
   optional bytes body = 3;
   optional bool eof = 5;
   repeated HttpHeader trailer = 6;
+  optional int64 backend_duration_ms=7;
 }
