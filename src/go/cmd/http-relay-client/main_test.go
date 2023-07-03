@@ -76,8 +76,9 @@ func TestLocalProxy(t *testing.T) {
 				Value: proto.String("High"),
 			},
 		},
-		Body: []byte("theresponsebody"),
-		Eof:  proto.Bool(true),
+		Body:              []byte("theresponsebody"),
+		Eof:               proto.Bool(true),
+		BackendDurationMs: proto.Int64(0),
 	})
 	gock.New("https://localhost:8081").
 		Get("/server/request").
@@ -119,10 +120,11 @@ func TestBackendError(t *testing.T) {
 		Body: []byte("thebody"),
 	})
 	resp, _ := proto.Marshal(&pb.HttpResponse{
-		Id:         proto.String("15"),
-		StatusCode: proto.Int32(400),
-		Body:       []byte("theresponsebody"),
-		Eof:        proto.Bool(true),
+		Id:                proto.String("15"),
+		StatusCode:        proto.Int32(400),
+		Body:              []byte("theresponsebody"),
+		Eof:               proto.Bool(true),
+		BackendDurationMs: proto.Int64(0),
 	})
 	gock.New("https://localhost:8081").
 		Get("/server/request").

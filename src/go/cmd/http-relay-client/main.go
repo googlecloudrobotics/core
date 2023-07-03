@@ -35,6 +35,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -402,6 +403,7 @@ func streamToBackend(remote *http.Client, req *pb.HttpRequest, backendWriter io.
 }
 
 func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest) {
+	ts := time.Now()
 	resp, hresp, err := makeBackendRequest(local, req)
 	if err != nil {
 		// Even if we couldn't handle the backend request, send an
@@ -450,6 +452,13 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 				if len(hresp.Trailer) > 0 {
 					log.Printf("[%s] Trailers: %+v", *resp.Id, hresp.Trailer)
 					resp.Trailer = append(resp.Trailer, marshalHeader(&hresp.Trailer)...)
+				}
+				if resp.Eof != nil && *resp.Eof {
+					duration := time.Since(ts)
+					resp.BackendDurationMs = proto.Int64(duration.Milliseconds())
+					// see makeBackendRequest()
+					urlPath := strings.TrimPrefix(*req.Url, "http://invalid")
+					log.Printf("[%s] Backend request duration: %.3fs (for %s)", *resp.Id, duration.Seconds(), urlPath)
 				}
 				return postResponse(remote, resp)
 			},
