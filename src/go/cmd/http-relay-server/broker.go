@@ -243,7 +243,7 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 			brokerOverheadDurations.WithLabelValues("server_response", backendName, pr.requestPath).Observe(duration - backendDuration)
 			backendDurStr = fmt.Sprintf("%.3fs", backendDuration)
 		}
-		log.Printf("[%s] Delivered final response to client (%d bytes), elapsed on server=%.3fs, backend=%.3fs", id, len(resp.Body), duration, backendDurStr)
+		log.Printf("[%s] Delivered final response to client (%d bytes), elapsed on server=%.3fs, backend=%s", id, len(resp.Body), duration, backendDurStr)
 	} else {
 		log.Printf("[%s] Delivered response to client (%d bytes), elapsed on server=%.3fs", id, len(resp.Body), duration)
 	}
