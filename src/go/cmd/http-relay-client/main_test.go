@@ -27,6 +27,8 @@ import (
 	"gopkg.in/h2non/gock.v1"
 )
 
+var defaultRelayURL = buildRelayURL()
+
 func assertMocksDoneWithin(t *testing.T, d time.Duration) {
 	for start := time.Now(); time.Since(start) < d; {
 		if gock.IsDone() {
@@ -98,7 +100,7 @@ func TestLocalProxy(t *testing.T) {
 		Body(bytes.NewReader(resp)).
 		Reply(200)
 
-	err := localProxy(&http.Client{}, &http.Client{})
+	err := localProxy(&http.Client{}, &http.Client{}, defaultRelayURL)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
@@ -143,7 +145,7 @@ func TestBackendError(t *testing.T) {
 		Body(bytes.NewReader(resp)).
 		Reply(200)
 
-	err := localProxy(&http.Client{}, &http.Client{})
+	err := localProxy(&http.Client{}, &http.Client{}, defaultRelayURL)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
@@ -171,7 +173,7 @@ func TestServerTimeout(t *testing.T) {
 		Reply(408).
 		BodyString(string(req))
 
-	err := localProxy(&http.Client{}, &http.Client{})
+	err := localProxy(&http.Client{}, &http.Client{}, defaultRelayURL)
 	if err != ErrTimeout {
 		t.Errorf("Unexpected error: %s", err)
 	}
