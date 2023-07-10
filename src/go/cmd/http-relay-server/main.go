@@ -95,6 +95,8 @@ import (
 	"syscall"
 	"time"
 
+	_ "net/http/pprof"
+
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/protobuf/proto"
@@ -437,6 +439,9 @@ func (s *server) serverResponse(w http.ResponseWriter, r *http.Request) {
 func main() {
 	flag.Parse()
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+
+	// for pprof
+	go http.ListenAndServe(":8084", nil)
 
 	server := newServer()
 	h2s := &http2.Server{}

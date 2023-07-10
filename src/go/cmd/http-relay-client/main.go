@@ -40,11 +40,14 @@ import (
 	"syscall"
 	"time"
 
+	_ "net/http/pprof"
+
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	"github.com/cenkalti/backoff"
 	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/protobuf/proto"
 )
@@ -102,6 +105,9 @@ var (
 		"Force enable http2 protocol usage through the use of go's http2 transport (e.g. when relaying grpc).")
 	disableAuthForRemote = flag.Bool("disable_auth_for_remote", false,
 		"Disable auth when talking to the relay server for local testing.")
+	// DO NOT SUBMIT
+	fixMaxConns = flag.Bool("fix_max_conns", false, "Apply maxconns adjustments")
+	// DO NOT SUBMIT
 )
 
 var (
@@ -211,6 +217,8 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 		StatusCode: proto.Int32(int32(resp.StatusCode)),
 		Header:     marshalHeader(&resp.Header),
 		Trailer:    marshalHeader(&resp.Trailer),
+		// pre-allocating a Body with capacity is slower!
+		//Body:       make([]byte, 0, *maxChunkSize+*blockSize),
 	}, resp, nil
 }
 
@@ -264,6 +272,7 @@ func streamBytes(id string, in io.ReadCloser, out chan<- []byte) {
 			if debugLogs {
 				log.Printf("[%s] Forward %d bytes from backend", id, n)
 			}
+			// goes to buildResponses() where we append it to Body
 			out <- buffer[:n]
 		}
 	}
@@ -302,7 +311,10 @@ func buildResponses(in <-chan []byte, resp *pb.HttpResponse, out chan<- *pb.Http
 					log.Printf("[%s] Posting intermediate response of %d bytes to relay", *resp.Id, len(resp.Body))
 				}
 				out <- resp
-				resp = &pb.HttpResponse{Id: resp.Id}
+				resp = &pb.HttpResponse{
+					Id: resp.Id,
+					//Body: make([]byte, 0, *maxChunkSize+*blockSize),
+				}
 				timeouts = 0
 			}
 		case <-timer.C:
@@ -314,7 +326,10 @@ func buildResponses(in <-chan []byte, resp *pb.HttpResponse, out chan<- *pb.Http
 					log.Printf("[%s] Posting partial response of %d bytes to relay", *resp.Id, len(resp.Body))
 				}
 				out <- resp
-				resp = &pb.HttpResponse{Id: resp.Id}
+				resp = &pb.HttpResponse{
+					Id: resp.Id,
+					//Body: make([]byte, 0, *maxChunkSize+*blockSize),
+				}
 				timeouts = 0
 			}
 		}
@@ -507,18 +522,37 @@ func buildRelayURL() string {
 }
 
 func main() {
-	var err error
-
 	flag.Parse()
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
+	maxIdleConsPerHost := *maxIdleConnsPerHost
+	if *fixMaxConns {
+		if maxIdleConsPerHost < *numPendingRequests {
+			maxIdleConsPerHost = *numPendingRequests
+		}
+	}
+
+	remoteTransport := http.DefaultTransport.(*http.Transport).Clone()
+	if *fixMaxConns {
+		// MaxIdleConns and MaxConnsPerHost is not limited by default
+		// here we only ever have a single host (the relay server)
+		remoteTransport.MaxIdleConnsPerHost = maxIdleConsPerHost
+	}
+
 	remote := &http.Client{}
 	if !*disableAuthForRemote {
-		ctx := context.Background()
-		scope := "https://www.googleapis.com/auth/cloud-platform.read-only"
-		if remote, err = google.DefaultClient(ctx, scope); err != nil {
-			log.Fatalf("unable to set up credentials for relay-server authentication: %v", err)
+		ts, err := google.DefaultTokenSource(context.Background(), "https://www.googleapis.com/auth/cloud-platform.read-only")
+		if err != nil {
+			log.Fatalf("unable to create default tokensource for relay-server authentication: %v", err)
 		}
+		remote = &http.Client{
+			Transport: &oauth2.Transport{
+				Base:   remoteTransport,
+				Source: oauth2.ReuseTokenSource(nil, ts),
+			},
+		}
+	} else {
+		remote.Transport = remoteTransport
 	}
 	remote.Timeout = remoteRequestTimeout
 
@@ -566,7 +600,7 @@ func main() {
 		transport = h2transport
 	} else {
 		h1transport := http.DefaultTransport.(*http.Transport).Clone()
-		h1transport.MaxIdleConnsPerHost = *maxIdleConnsPerHost
+		h1transport.MaxIdleConnsPerHost = maxIdleConsPerHost
 		h1transport.TLSClientConfig = tlsConfig
 
 		if *disableHttp2 {
@@ -590,6 +624,9 @@ func main() {
 		},
 		Transport: transport,
 	}
+
+	// for pprof
+	go http.ListenAndServe(":8085", nil)
 
 	relayURL := buildRelayURL()
 

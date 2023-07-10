@@ -100,7 +100,9 @@ function run() {
   num_runs=100
   run_test "   default_params" $num_runs "bytes/100000"
   run_test "    more_requests" $num_runs "bytes/100000" --max_idle_conns_per_host=100 --num_pending_requests=10
+  run_test "more_requests+fix" $num_runs "bytes/100000" --max_idle_conns_per_host=100 --num_pending_requests=10 --fix_max_conns
   run_test "    more_requests" $num_runs "bytes/100000" --max_idle_conns_per_host=100 --num_pending_requests=50
+  run_test "more_requests+fix" $num_runs "bytes/100000" --max_idle_conns_per_host=100 --num_pending_requests=50 --fix_max_conns
   suite_cleanup
 }
 

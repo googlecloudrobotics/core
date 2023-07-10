@@ -125,6 +125,8 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	if r.req[server] == nil {
 		// This happens when the relay-client connects for the first time.
 		r.req[server] = make(chan *pb.HttpRequest)
+		// is faster locally, but breaks the tests (are we breakign the ordering?)
+		//r.req[server] = make(chan *pb.HttpRequest, 50)
 	}
 	if r.resp[id] != nil {
 		r.m.Unlock()
@@ -160,6 +162,8 @@ func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpR
 		// This happens when the relay-server started and a client connects before
 		// the relay-client connected.
 		r.req[server] = make(chan *pb.HttpRequest)
+		// is faster locally, but breaks the tests (are we breakign the ordering?)
+		//r.req[server] = make(chan *pb.HttpRequest, 50)
 	}
 	reqChan := r.req[server]
 	r.m.Unlock()
