@@ -83,7 +83,8 @@ function prepare_source_install {
   # `setup-robot.push` is the first container push to avoid a GCR bug with parallel pushes on newly
   # created projects (see b/123625511).
   ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push \
-    --dst="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot:latest"
+    --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
+    --tag="latest"
 
   # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl
   # Running :push outside the build system shaves ~3 seconds off an incremental build.
