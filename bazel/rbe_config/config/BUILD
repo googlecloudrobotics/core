@@ -40,7 +40,7 @@ platform(
         "@bazel_tools//tools/cpp:clang",
     ],
     exec_properties = {
-        "container-image": "docker://gcr.io/cloud-robotics-releases/bazel-rbe-executor@sha256:4f5e402f2856ae805cc1f13f3b3b362e4bbf368a923e55e3d9743188d8f9c23f",
+        "container-image": "docker://gcr.io/cloud-robotics-releases/bazel-rbe-executor@sha256:6650b807d35da820c154c527932fdb3034acaa20b5cf970251e7ec34c59a9cda",
         "OSFamily": "Linux",
     },
     parents = ["@local_config_platform//:host"],

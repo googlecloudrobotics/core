@@ -9,7 +9,7 @@ resource "google_privateca_ca_pool" "ca_pool" {
   name     = "${data.google_project.project.project_id}-ca-pool"
   location = var.region
   # Enterprise is recommended for long-lasting certificates
-  tier     = "ENTERPRISE"
+  tier = "ENTERPRISE"
 
   publishing_options {
     publish_ca_cert = true
@@ -34,8 +34,8 @@ resource "google_privateca_ca_pool" "ca_pool" {
 }
 
 resource "google_privateca_certificate_authority" "ca" {
-  project = data.google_project.project.project_id
-  count   = var.certificate_provider == "google-cas" ? 1 : 0
+  project                  = data.google_project.project.project_id
+  count                    = var.certificate_provider == "google-cas" ? 1 : 0
   certificate_authority_id = "${data.google_project.project.project_id}-certificate-authority"
   location                 = var.region
   pool                     = google_privateca_ca_pool.ca_pool[0].name
@@ -49,14 +49,14 @@ resource "google_privateca_certificate_authority" "ca" {
     }
     x509_config {
       ca_options {
-        is_ca = true
+        is_ca                  = true
         max_issuer_path_length = 10
       }
       key_usage {
         base_key_usage {
-          cert_sign = true
-          crl_sign  = true
-          key_encipherment = true
+          cert_sign         = true
+          crl_sign          = true
+          key_encipherment  = true
           digital_signature = true
         }
         extended_key_usage {

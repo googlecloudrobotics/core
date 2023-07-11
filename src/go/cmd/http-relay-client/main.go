@@ -35,6 +35,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -108,20 +109,12 @@ var (
 	ErrForbidden = errors.New(http.StatusText(http.StatusForbidden))
 )
 
-func getRequest(remote *http.Client) (*pb.HttpRequest, error) {
+func getRequest(remote *http.Client, relayURL string) (*pb.HttpRequest, error) {
 	if debugLogs {
 		log.Printf("Connecting to relay server to get next request for %s", *serverName)
 	}
-	query := url.Values{}
-	query.Add("server", *serverName)
-	relayURL := url.URL{
-		Scheme:   *relayScheme,
-		Host:     *relayAddress,
-		Path:     *relayPrefix + "/server/request",
-		RawQuery: query.Encode(),
-	}
 
-	resp, err := remote.Get(relayURL.String())
+	resp, err := remote.Get(relayURL)
 	if err != nil {
 		return nil, err
 	}
@@ -402,6 +395,7 @@ func streamToBackend(remote *http.Client, req *pb.HttpRequest, backendWriter io.
 }
 
 func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest) {
+	ts := time.Now()
 	resp, hresp, err := makeBackendRequest(local, req)
 	if err != nil {
 		// Even if we couldn't handle the backend request, send an
@@ -451,6 +445,13 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 					log.Printf("[%s] Trailers: %+v", *resp.Id, hresp.Trailer)
 					resp.Trailer = append(resp.Trailer, marshalHeader(&hresp.Trailer)...)
 				}
+				if resp.Eof != nil && *resp.Eof {
+					duration := time.Since(ts)
+					resp.BackendDurationMs = proto.Int64(duration.Milliseconds())
+					// see makeBackendRequest()
+					urlPath := strings.TrimPrefix(*req.Url, "http://invalid")
+					log.Printf("[%s] Backend request duration: %.3fs (for %s)", *resp.Id, duration.Seconds(), urlPath)
+				}
 				return postResponse(remote, resp)
 			},
 			backoff.WithMaxRetries(&exponentialBackoff, 10),
@@ -465,8 +466,8 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 	}
 }
 
-func localProxy(remote *http.Client, local *http.Client) error {
-	req, err := getRequest(remote)
+func localProxy(remote, local *http.Client, relayURL string) error {
+	req, err := getRequest(remote, relayURL)
 	if err != nil {
 		if errors.Is(err, ErrTimeout) {
 			return err
@@ -482,15 +483,27 @@ func localProxy(remote *http.Client, local *http.Client) error {
 	return nil
 }
 
-func localProxyWorker(remote *http.Client, local *http.Client) {
+func localProxyWorker(remote, local *http.Client, relayURL string) {
 	log.Printf("Starting to relay server request loop for %s", *serverName)
 	for {
-		err := localProxy(remote, local)
+		err := localProxy(remote, local, relayURL)
 		if err != nil && !errors.Is(err, ErrTimeout) {
 			log.Print(err)
 			time.Sleep(1 * time.Second)
 		}
 	}
+}
+
+func buildRelayURL() string {
+	query := url.Values{}
+	query.Add("server", *serverName)
+	relayURL := url.URL{
+		Scheme:   *relayScheme,
+		Host:     *relayAddress,
+		Path:     *relayPrefix + "/server/request",
+		RawQuery: query.Encode(),
+	}
+	return relayURL.String()
 }
 
 func main() {
@@ -577,10 +590,13 @@ func main() {
 		},
 		Transport: transport,
 	}
+
+	relayURL := buildRelayURL()
+
 	wg := new(sync.WaitGroup)
 	wg.Add(*numPendingRequests)
 	for i := 0; i < *numPendingRequests; i++ {
-		go localProxyWorker(remote, local)
+		go localProxyWorker(remote, local, relayURL)
 	}
 	// Waiting for all goroutines to finish (they never do)
 	wg.Wait()

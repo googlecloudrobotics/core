@@ -151,19 +151,36 @@ load("@io_bazel_rules_docker//cc:image.bzl", _cc_image_repos = "repositories")
 
 _cc_image_repos()
 
-# Containerization rules for Go must come after go_rules_dependencies().
-load("@io_bazel_rules_docker//go:image.bzl", _go_image_repos = "repositories")
+# oci_rules is configured to pull rules_docker go base images
+# The configuration was copied from the release documentation at
+# https://github.com/bazel-contrib/rules_oci/releases/tag/v0.3.9 and then slightly
+# modified to remove duplicate calls already present in this file.
+load("@rules_oci//oci:dependencies.bzl", "rules_oci_dependencies")
 
-_go_image_repos()
+rules_oci_dependencies()
+
+load("@rules_oci//oci:repositories.bzl", "LATEST_CRANE_VERSION", "LATEST_ZOT_VERSION", "oci_register_toolchains")
+
+oci_register_toolchains(
+    name = "oci",
+    crane_version = LATEST_CRANE_VERSION,
+)
+
+# This section replaces the standard @io_bazel_rules_docker//go:image.bzl `repositories` macro to be able
+# to define base image versions independent of rules_docker version.
+# Containerization rules for Go must come after go_rules_dependencies().
+load("//bazel:base_images.bzl", _go_base_images = "go_base_images")
+
+_go_base_images()
 
 # grafana dashboards for nginx ingress controller
 
 http_archive(
     name = "ingress-nginx",
     build_file = "//third_party:ingress-nginx.BUILD",
-    sha256 = "719a7a54fe8156a38075eb99f82819b661ff117a2b043b41c1f560aaf71d4a09",
-    strip_prefix = "ingress-nginx-1b1f7d30a39f71cd9fe9f7191258e983dcb159c6",
+    sha256 = "6e571764828b24545eea49582fd56d66d51fc66e52a375d98251c80c57fdb2fc",
+    strip_prefix = "ingress-nginx-controller-v1.8.0",
     urls = [
-        "https://github.com/kubernetes/ingress-nginx/archive/1b1f7d30a39f71cd9fe9f7191258e983dcb159c6.tar.gz",
+        "https://github.com/kubernetes/ingress-nginx/archive/refs/tags/controller-v1.8.0.tar.gz",
     ],
 )

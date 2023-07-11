@@ -14,7 +14,7 @@ resource "google_project_iam_member" "owner_group" {
 
 # This is needed to allow creating certificates in GCP.
 resource "google_project_service" "certificateauthority" {
-  project            = data.google_project.project.project_id
+  project = data.google_project.project.project_id
   # Only enable if Google CAS is the Certificate Authority
   count              = var.certificate_provider == "google-cas" ? 1 : 0
   service            = "privateca.googleapis.com"

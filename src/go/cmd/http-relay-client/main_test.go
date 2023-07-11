@@ -27,6 +27,8 @@ import (
 	"gopkg.in/h2non/gock.v1"
 )
 
+var defaultRelayURL = buildRelayURL()
+
 func assertMocksDoneWithin(t *testing.T, d time.Duration) {
 	for start := time.Now(); time.Since(start) < d; {
 		if gock.IsDone() {
@@ -76,8 +78,9 @@ func TestLocalProxy(t *testing.T) {
 				Value: proto.String("High"),
 			},
 		},
-		Body: []byte("theresponsebody"),
-		Eof:  proto.Bool(true),
+		Body:              []byte("theresponsebody"),
+		Eof:               proto.Bool(true),
+		BackendDurationMs: proto.Int64(0),
 	})
 	gock.New("https://localhost:8081").
 		Get("/server/request").
@@ -97,7 +100,7 @@ func TestLocalProxy(t *testing.T) {
 		Body(bytes.NewReader(resp)).
 		Reply(200)
 
-	err := localProxy(&http.Client{}, &http.Client{})
+	err := localProxy(&http.Client{}, &http.Client{}, defaultRelayURL)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
@@ -119,10 +122,11 @@ func TestBackendError(t *testing.T) {
 		Body: []byte("thebody"),
 	})
 	resp, _ := proto.Marshal(&pb.HttpResponse{
-		Id:         proto.String("15"),
-		StatusCode: proto.Int32(400),
-		Body:       []byte("theresponsebody"),
-		Eof:        proto.Bool(true),
+		Id:                proto.String("15"),
+		StatusCode:        proto.Int32(400),
+		Body:              []byte("theresponsebody"),
+		Eof:               proto.Bool(true),
+		BackendDurationMs: proto.Int64(0),
 	})
 	gock.New("https://localhost:8081").
 		Get("/server/request").
@@ -141,7 +145,7 @@ func TestBackendError(t *testing.T) {
 		Body(bytes.NewReader(resp)).
 		Reply(200)
 
-	err := localProxy(&http.Client{}, &http.Client{})
+	err := localProxy(&http.Client{}, &http.Client{}, defaultRelayURL)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
@@ -169,7 +173,7 @@ func TestServerTimeout(t *testing.T) {
 		Reply(408).
 		BodyString(string(req))
 
-	err := localProxy(&http.Client{}, &http.Client{})
+	err := localProxy(&http.Client{}, &http.Client{}, defaultRelayURL)
 	if err != ErrTimeout {
 		t.Errorf("Unexpected error: %s", err)
 	}

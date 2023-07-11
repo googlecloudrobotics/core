@@ -25,5 +25,8 @@ jobs:
           echo "$ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY" > robco_integration_test_credentials.json
       - name: Run .github/ci/presubmit.sh
         env:
-          USE_BAZEL_VERSION: "5.4.0"
+          USE_BAZEL_VERSION: "6.2.0"
         run: ./.github/ci/presubmit.sh
+      - name: Get bazel server logs
+        if: success() || failure()
+        run: cat ~/.cache/bazel/_bazel_*/*/java.log

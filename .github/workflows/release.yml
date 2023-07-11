@@ -49,7 +49,7 @@ jobs:
 
       - name: Deploy Navtest
         env:
-          USE_BAZEL_VERSION: "5.4.0"
+          USE_BAZEL_VERSION: "6.2.0"
         run: |
           set -euo pipefail
 
@@ -58,8 +58,7 @@ jobs:
           # From https://cloud.google.com/sdk/docs/install#deb
           echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
             | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list >/dev/null
-          sudo wget -q https://packages.cloud.google.com/apt/doc/apt-key.gpg \
-            -O /usr/share/keyrings/cloud.google.gpg
+          curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
           sudo apt-get update -y
           sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
 
@@ -68,7 +67,7 @@ jobs:
       # Now we are ready to create the release.
       - name: Run release_binary.sh
         env:
-          USE_BAZEL_VERSION: "5.4.0"
+          USE_BAZEL_VERSION: "6.2.0"
           REPO: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FULL_SHA: ${{ steps.latest-green.outputs.latest_green }}

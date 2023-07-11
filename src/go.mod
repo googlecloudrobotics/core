@@ -3,7 +3,7 @@ module github.com/googlecloudrobotics/core/src
 go 1.18
 
 require (
-	cloud.google.com/go v0.105.0 // indirect
+	cloud.google.com/go v0.107.0 // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.14
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -28,13 +28,13 @@ require (
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
-	go.opencensus.io v0.23.0
+	go.opencensus.io v0.24.0
 	golang.org/x/crypto v0.1.0
 	golang.org/x/net v0.7.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.5.0 // indirect
-	google.golang.org/api v0.102.0
-	google.golang.org/grpc v1.50.1
+	google.golang.org/api v0.103.0
+	google.golang.org/grpc v1.53.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/h2non/gock.v1 v1.1.2
 	k8s.io/api v0.25.3
@@ -52,10 +52,10 @@ require (
 require (
 	cloud.google.com/go/storage v1.27.0
 	github.com/aws/aws-sdk-go v1.44.129 // indirect
-	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/prometheus/statsd_exporter v0.22.8 // indirect
-	golang.org/x/oauth2 v0.1.0
-	google.golang.org/genproto v0.0.0-20221027153422-115e99e71e1c // indirect
+	golang.org/x/oauth2 v0.4.0
+	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
 )
 
 require (
@@ -65,11 +65,11 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute v1.12.1 // indirect
-	cloud.google.com/go/compute/metadata v0.2.1 // indirect
-	cloud.google.com/go/iam v0.6.0 // indirect
-	cloud.google.com/go/monitoring v1.7.0 // indirect
-	cloud.google.com/go/trace v1.3.0 // indirect
+	cloud.google.com/go/compute v1.15.1 // indirect
+	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	cloud.google.com/go/iam v0.8.0 // indirect
+	cloud.google.com/go/monitoring v1.8.0 // indirect
+	cloud.google.com/go/trace v1.4.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.11.28 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.9.21 // indirect
@@ -124,7 +124,6 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/prometheus v0.39.1 // indirect
-	github.com/stretchr/testify v1.8.1 // indirect
 	github.com/xlab/treeprint v1.1.0 // indirect
 	go.starlark.net v0.0.0-20221028183056-acb66ad56dd2 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
