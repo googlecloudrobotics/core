@@ -75,11 +75,16 @@ func init() {
 }
 
 type pendingResponse struct {
-	// for comunication of relay-server to relay-cleint
+	// This channel is used to communicate data between the backend and web-client for
+	// bidirectional streaming connections.
 	requestStream chan []byte
-	// for communication of relay-server to client
+
+	// This channel is used to communicate data between the backend and web-client.
+	// The web-client sends a hanging request to the relay-server which blocks until
+	// data is received on the response channel.
 	responseStream chan *pb.HttpResponse
-	lastActivity   time.Time
+
+	lastActivity time.Time
 	// For diagnostics only.
 	startTime   time.Time
 	requestPath string
@@ -127,6 +132,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 		r.req[server] = make(chan *pb.HttpRequest)
 	}
 	if r.resp[id] != nil {
+		r.m.Unlock()
 		return nil, fmt.Errorf("Multiple clients trying to handle request ID %s on server %s", id, server)
 	}
 	ts := time.Now()
@@ -144,9 +150,12 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	log.Printf("[%s] Enqueuing request", id)
 	brokerRequests.WithLabelValues("client", server, targetUrl.Path).Inc()
 	select {
+	// This blocks until we get a free spot in the broker's request channel.
 	case reqChan <- request:
 		return respChan, nil
 	case <-time.After(10 * time.Second):
+		// This branch is triggered if the channel is not ready to consume the request
+		// since it is still busy with handling a different request.
 		return nil, fmt.Errorf("Cannot reach the client %q. Check that it's turned on, set up, and connected to the internet. (timeout waiting for relay client to accept request)", server)
 	}
 }
@@ -212,7 +221,7 @@ func (r *broker) PutRequestStream(id string, data []byte) bool {
 	return true
 }
 
-// SendResponse delivers the HttpResponse to the client handler that created the
+// SendResponse delivers the HttpResponse to the web-client handler that created the
 // request. It fails if and only if the request ID is not recognized.
 func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	id := *resp.Id
@@ -230,7 +239,11 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 		pr.lastActivity = time.Now()
 	}
 	duration := time.Since(pr.startTime).Seconds()
+
+	// Writing to this channel will notify consumers which are waiting for data
+	// on the channel returned by RelayRequest().
 	pr.responseStream <- resp
+
 	r.m.Unlock()
 	brokerRequests.WithLabelValues("server_response", backendName, pr.requestPath).Inc()
 	brokerResponseDurations.WithLabelValues("server_response", backendName, pr.requestPath).Observe(duration)
