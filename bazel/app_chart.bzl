@@ -96,12 +96,6 @@ _app_chart_backend = rule(
             default = Label("@kubernetes_helm//:helm"),
             allow_single_file = True,
         ),
-        # TODO: why _digester?
-        #"_digester": attr.label(
-        #    default = "@io_bazel_rules_docker//container/go/cmd/digester:digester",
-        #    cfg = "exec",
-        #    executable = True,
-        #),
     },
     outputs = {
         "chart": "%{name}-0.0.1.tgz",
