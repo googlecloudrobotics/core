@@ -125,7 +125,7 @@ function terraform_init {
   fi
 
   local ROBOT_IMAGE_DIGEST
-  ROBOT_IMAGE_DIGEST=$(cat bazel-bin/setup-robot.digest)
+  ROBOT_IMAGE_DIGEST=$(grep -Eo 'sha256:.{,64}' bazel-bin/src/go/cmd/setup-robot/setup-robot-image/index.json)
 
   # We only need to create dns resources if a custom domain is used.
   local CUSTOM_DOMAIN
