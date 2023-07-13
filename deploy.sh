@@ -84,8 +84,8 @@ function prepare_source_install {
   # created projects (see b/123625511).
   local oldPwd
   oldPwd=$(pwd)
-  cd ${DIR}/bazel-bin/src/go/cmd/setup-robot/push-setup-robot.push.sh.runfiles/cloud_robotics
-  ${DIR}/bazel-bin/src/go/cmd/setup-robot/push-setup-robot.push.sh \
+  cd ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/cloud_robotics
+  ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh \
     --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
     --tag="latest"
 
