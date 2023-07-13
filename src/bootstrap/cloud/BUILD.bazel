@@ -1,11 +1,19 @@
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
+genrule(
+    name = "setup-robot-digest",
+    srcs = ["//src/go/cmd/setup-robot:setup-robot-image"],
+    outs = ["setup-robot.digest"],
+    cmd = "$(JQ_BIN) -r '.manifests[0].digest' $(location //src/go/cmd/setup-robot:setup-robot-image)/index.json > $@",
+    toolchains = ["@jq_toolchains//:resolved_toolchain"],
+)
+
 pkg_tar(
     name = "bazel-bin",
     srcs = [
+        ":setup-robot-digest",
         "//src/app_charts/base:base-cloud",
         "//src/app_charts/platform-apps:platform-apps-cloud",
-        "//src/go/cmd/setup-robot:setup-robot.push.digest",
     ],
     mode = "644",
     package_dir = "/bazel-bin",
@@ -41,7 +49,7 @@ pkg_tar(
     name = "binary_tools",
     srcs = [
         "//src/go/cmd/synk",
-        "//src/go/cmd/token-vendor",
+        "//src/go/cmd/token-vendor:token-vendor-app",
         "@hashicorp_terraform//:terraform",
         "@kubernetes_helm//:helm",
     ],

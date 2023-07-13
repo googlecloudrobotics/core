@@ -1,7 +1,6 @@
-load("//bazel:container_push.bzl", "container_push")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
-load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 go_library(
     name = "go_default_library",
@@ -47,34 +46,50 @@ go_test(
     ],
 )
 
-container_image(
-    name = "base_image_with_files",
-    base = "@cc_image_base//image",
-    directory = "/setup-robot-files",
-    files = [
+pkg_tar(
+    name = "base_image_with_files_layer",
+    srcs = [
         "//src/app_charts/base:base-robot",
         "//src/go/cmd/synk",
         "@kubernetes_helm//:helm",
     ],
+    package_dir = "/setup-robot-files",
 )
 
-go_image(
-    name = "setup-robot-image",
-    base = ":base_image_with_files",
-    embed = [":go_default_library"],
-    visibility = ["//visibility:public"],
+oci_image(
+    name = "base_image_with_files",
+    base = "@distroless_cc",
+    tars = [":base_image_with_files_layer"],
 )
 
-container_push(
-    name = "setup-robot.push",
-    format = "Docker",
-    image = ":setup-robot-image",
-    visibility = ["//visibility:public"],
-)
-
-# Ignore this auto-generated target. Gazelle doesn't get that we don't need it.
 go_binary(
-    name = "unused",
+    name = "setup-robot-app",
     embed = [":go_default_library"],
     visibility = ["//visibility:private"],
+)
+
+pkg_tar(
+    name = "setup-robot-image-layer",
+    srcs = [":setup-robot-app"],
+)
+
+oci_image(
+    name = "setup-robot-image",
+    architecture = select({
+        "@platforms//cpu:arm64": "arm64",
+        "@platforms//cpu:x86_64": "amd64",
+    }),
+    base = ":base_image_with_files",
+    entrypoint = ["/setup-robot-app"],
+    os = "linux",
+    tars = [":setup-robot-image-layer"],
+    visibility = ["//visibility:public"],
+)
+
+oci_push(
+    name = "setup-robot.push",
+    image = ":setup-robot-image",
+    # repository is required, even in container_push
+    repository = "TODO-registry",
+    visibility = ["//visibility:public"],
 )
