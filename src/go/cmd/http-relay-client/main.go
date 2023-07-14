@@ -172,6 +172,9 @@ func extractRequestHeader(breq *pb.HttpRequest, header *http.Header) {
 func createBackendRequest(breq *pb.HttpRequest) (*http.Request, error) {
 	id := *breq.Id
 	targetUrl, err := url.Parse(*breq.Url)
+	if err != nil {
+		return nil, err
+	}
 	targetUrl.Scheme = *backendScheme
 	targetUrl.Host = *backendAddress
 	targetUrl.Path = *backendPath + targetUrl.Path
@@ -200,10 +203,11 @@ func createBackendRequest(breq *pb.HttpRequest) (*http.Request, error) {
 	return req, nil
 }
 
-// This function builds and executes a http.Request from the proto request we received from the web-client.
-// This web-client (e.g. Chrome) request is executed in the network in which the relay-client is running.
-// In case of our on-prem cluster, these requests are processed by Istio and sent to the relevant in-cluster
-
+// This function builds and executes a http.Request from the proto request we
+// received from the user-client. This user-client (e.g. Chrome) request is
+// executed in the network in which the relay-client is running. In case of
+// our on-prem cluster, these requests are processed by Istio and sent to the
+// relevant in-cluster service.
 // It returns both a new pb.HttpResponse as well as the related http.Response so
 // that the caller can access e.g. http trailers once the response body has
 // been read.
@@ -519,8 +523,7 @@ func handleRequest(remote *http.Client, local *http.Client, pbreq *pb.HttpReques
 					// Even in a streaming case I would expect a duration which represents the
 					// processing time of the last item.
 				}
-				err = postResponse(remote, resp)
-				return err
+				return postResponse(remote, resp)
 			},
 			backoff.WithMaxRetries(&exponentialBackoff, 10),
 			func(err error, _ time.Duration) {
@@ -645,7 +648,7 @@ func main() {
 			}
 		}
 
-		transport = &ochttp.Transport{Base: h2transport}
+		transport = h2transport
 	} else {
 		h1transport := http.DefaultTransport.(*http.Transport).Clone()
 		h1transport.MaxIdleConnsPerHost = *maxIdleConnsPerHost
@@ -660,7 +663,7 @@ func main() {
 			h1transport.TLSNextProto = map[string]func(authority string, c *tls.Conn) http.RoundTripper{}
 		}
 
-		transport = &ochttp.Transport{Base: h1transport}
+		transport = h1transport
 	}
 
 	// TODO(https://github.com/golang/go/issues/31391): reimplement timeouts if possible
@@ -670,7 +673,7 @@ func main() {
 			// Don't follow redirects: instead, pass them through the relay untouched.
 			return http.ErrUseLastResponse
 		},
-		Transport: transport,
+		Transport: &ochttp.Transport{Base: transport},
 	}
 
 	relayURL := buildRelayURL()

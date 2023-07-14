@@ -75,12 +75,12 @@ func init() {
 }
 
 type pendingResponse struct {
-	// This channel is used to communicate data between the backend and web-client for
+	// This channel is used to communicate data between the backend and user-client for
 	// bidirectional streaming connections.
 	requestStream chan []byte
 
-	// This channel is used to communicate data between the backend and web-client.
-	// The web-client sends a hanging request to the relay-server which blocks until
+	// This channel is used to communicate data between the backend and user-client.
+	// The user-client sends a hanging request to the relay-server which blocks until
 	// data is received on the response channel.
 	responseStream chan *pb.HttpResponse
 
@@ -221,7 +221,7 @@ func (r *broker) PutRequestStream(id string, data []byte) bool {
 	return true
 }
 
-// SendResponse delivers the HttpResponse to the web-client handler that created the
+// SendResponse delivers the HttpResponse to the user-client handler that created the
 // request. It fails if and only if the request ID is not recognized.
 func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	id := *resp.Id
