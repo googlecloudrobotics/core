@@ -4,7 +4,7 @@ load("//bazel:app.bzl", "app")
 app_chart(
     name = "token-vendor-cloud",
     images = {
-        "token-vendor-go": "//src/go/cmd/token-vendor:token-vendor-go",
+        "token-vendor-go": "//src/go/cmd/token-vendor:token-vendor-image",
     },
 )
 

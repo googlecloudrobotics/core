@@ -96,7 +96,8 @@ function release_binary {
   # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl
   for t in latest ${DOCKER_TAG}; do
     bazel-bin/src/go/cmd/setup-robot/setup-robot.push \
-      --dst="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot:${t}"
+      --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
+      --tag="${t}"
     TAG="$t" bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
   done
 

@@ -118,38 +118,12 @@ load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 
 gazelle_dependencies()
 
-load(
-    "@io_bazel_rules_docker//repositories:repositories.bzl",
-    container_repositories = "repositories",
+http_archive(
+    name = "rules_oci",
+    sha256 = "db57efd706f01eb3ce771468366baa1614b5b25f4cce99757e2b8d942155b8ec",
+    strip_prefix = "rules_oci-1.0.0",
+    url = "https://github.com/bazel-contrib/rules_oci/releases/download/v1.0.0/rules_oci-v1.0.0.tar.gz",
 )
-
-container_repositories()
-
-load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
-
-container_deps()
-
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_pull",
-)
-
-# When updating iptables_base, make sure to use the SHA of the amd64 image
-# rather than the manifest list. You can do this by going to
-# https://console.cloud.google.com/gcr/images/google-containers/GLOBAL/debian-iptables
-# then selecting the latest version, expanding the manifest and finding the
-# digest for the amd64 image.
-# See https://github.com/bazelbuild/rules_docker/issues/714 for background.
-container_pull(
-    name = "iptables_base",
-    digest = "sha256:9c41b4c326304b94eb96fdd2e181aa6e9995cc4642fcdfb570cedd73a419ba39",
-    registry = "gcr.io",
-    repository = "google-containers/debian-iptables",
-)
-
-load("@io_bazel_rules_docker//cc:image.bzl", _cc_image_repos = "repositories")
-
-_cc_image_repos()
 
 # oci_rules is configured to pull rules_docker go base images
 # The configuration was copied from the release documentation at
@@ -166,13 +140,6 @@ oci_register_toolchains(
     crane_version = LATEST_CRANE_VERSION,
 )
 
-# This section replaces the standard @io_bazel_rules_docker//go:image.bzl `repositories` macro to be able
-# to define base image versions independent of rules_docker version.
-# Containerization rules for Go must come after go_rules_dependencies().
-load("//bazel:base_images.bzl", _go_base_images = "go_base_images")
-
-_go_base_images()
-
 # grafana dashboards for nginx ingress controller
 
 http_archive(
@@ -184,3 +151,41 @@ http_archive(
         "https://github.com/kubernetes/ingress-nginx/archive/refs/tags/controller-v1.8.0.tar.gz",
     ],
 )
+
+load("@rules_oci//oci:pull.bzl", "oci_pull")
+
+oci_pull(
+    name = "distroless_cc",
+    digest = "sha256:b53fbf5f81f4a120a489fedff2092e6fcbeacf7863fce3e45d99cc58dc230ccc",
+    image = "gcr.io/distroless/cc",
+    platforms = [
+        "linux/amd64",
+        "linux/arm64",
+    ],
+)
+
+oci_pull(
+    name = "distroless_base",
+    digest = "sha256:73deaaf6a207c1a33850257ba74e0f196bc418636cada9943a03d7abea980d6d",
+    image = "gcr.io/distroless/base",
+    platforms = [
+        "linux/amd64",
+        "linux/arm64",
+    ],
+)
+
+# When updating iptables_base, make sure to use the SHA of the amd64 image
+# rather than the manifest list. You can do this by going to
+# https://console.cloud.google.com/gcr/images/google-containers/GLOBAL/debian-iptables
+# then selecting the latest version, expanding the manifest and finding the
+# digest for the amd64 image.
+# See https://github.com/bazelbuild/rules_docker/issues/714 for background.
+oci_pull(
+    name = "iptables_base",
+    digest = "sha256:9c41b4c326304b94eb96fdd2e181aa6e9995cc4642fcdfb570cedd73a419ba39",
+    image = "gcr.io/google-containers/debian-iptables",
+)
+
+load("@aspect_bazel_lib//lib:repositories.bzl", "register_jq_toolchains")
+
+register_jq_toolchains()
