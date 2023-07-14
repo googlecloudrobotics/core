@@ -42,7 +42,11 @@ import (
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
+	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/cenkalti/backoff"
+	"go.opencensus.io/plugin/ochttp"
+	"go.opencensus.io/plugin/ochttp/propagation/tracecontext"
+	"go.opencensus.io/trace"
 	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
 	"golang.org/x/oauth2/google"
@@ -102,12 +106,19 @@ var (
 		"Force enable http2 protocol usage through the use of go's http2 transport (e.g. when relaying grpc).")
 	disableAuthForRemote = flag.Bool("disable_auth_for_remote", false,
 		"Disable auth when talking to the relay server for local testing.")
+	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "",
+		"If not empty, traces will be uploaded to this Google Cloud Project.")
 )
 
 var (
 	ErrTimeout   = errors.New(http.StatusText(http.StatusRequestTimeout))
 	ErrForbidden = errors.New(http.StatusText(http.StatusForbidden))
 )
+
+func addServiceName(span *trace.Span) {
+	relayClientAttr := trace.StringAttribute("service.name", "http-relay-client")
+	span.AddAttributes(relayClientAttr)
+}
 
 func getRequest(remote *http.Client, relayURL string) (*pb.HttpRequest, error) {
 	if debugLogs {
@@ -152,16 +163,17 @@ func marshalHeader(h *http.Header) []*pb.HttpHeader {
 	return r
 }
 
-// makeBackendRequest builds a hhtp.Request from the given breq and executes in
-// on the given http.Client.
-// It returns both a new pb.HttpResponse as well as the related http.Response so
-// that the caller can access e.g. http trailers once the response body has
-// been read.
-func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpResponse, *http.Response, error) {
+func extractRequestHeader(breq *pb.HttpRequest, header *http.Header) {
+	for _, h := range breq.Header {
+		header.Add(*h.Name, *h.Value)
+	}
+}
+
+func createBackendRequest(breq *pb.HttpRequest) (*http.Request, error) {
 	id := *breq.Id
 	targetUrl, err := url.Parse(*breq.Url)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	targetUrl.Scheme = *backendScheme
 	targetUrl.Host = *backendAddress
@@ -169,18 +181,16 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 	log.Printf("[%s] Sending %s request to backend: %s", id, *breq.Method, targetUrl)
 	req, err := http.NewRequest(*breq.Method, targetUrl.String(), bytes.NewReader(breq.Body))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if *preserveHost && breq.Host != nil {
 		req.Host = *breq.Host
 	}
-	for _, h := range breq.Header {
-		req.Header.Add(*h.Name, *h.Value)
-	}
+	extractRequestHeader(breq, &req.Header)
 	if *authenticationTokenFile != "" {
 		token, err := ioutil.ReadFile(*authenticationTokenFile)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Failed to read authentication token from %s: %v", *authenticationTokenFile, err)
+			return nil, fmt.Errorf("Failed to read authentication token from %s: %v", *authenticationTokenFile, err)
 		}
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
@@ -190,10 +200,32 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 		log.Printf("%s", dump)
 	}
 
+	return req, nil
+}
+
+// This function builds and executes a http.Request from the proto request we
+// received from the user-client. This user-client (e.g. Chrome) request is
+// executed in the network in which the relay-client is running. In case of
+// our on-prem cluster, these requests are processed by Istio and sent to the
+// relevant in-cluster service.
+// It returns both a new pb.HttpResponse as well as the related http.Response so
+// that the caller can access e.g. http trailers once the response body has
+// been read.
+func makeBackendRequest(ctx context.Context, local *http.Client, req *http.Request, id string) (*pb.HttpResponse, *http.Response, error) {
+	_, backendSpan := trace.StartSpan(ctx, "Sent."+req.URL.Path)
+	addServiceName(backendSpan)
+	f := &tracecontext.HTTPFormat{}
+	f.SpanContextToRequest(backendSpan.SpanContext(), req)
 	resp, err := local.Do(req)
 	if err != nil {
+		backendSpan.End()
 		return nil, nil, err
 	}
+	backendSpan.End()
+
+	_, backendResp := trace.StartSpan(ctx, "Creating response (proto marshaling)")
+	addServiceName(backendResp)
+	defer backendResp.End()
 
 	if debugLogs {
 		log.Printf("[%s] Backend responded with status %d", id, resp.StatusCode)
@@ -206,6 +238,7 @@ func makeBackendRequest(local *http.Client, breq *pb.HttpRequest) (*pb.HttpRespo
 		// Initially only keys, values are set after body has be read (EOF)
 		log.Printf("[%s] Trailers: %+v", id, resp.Trailer)
 	}
+
 	return &pb.HttpResponse{
 		Id:         proto.String(id),
 		StatusCode: proto.Int32(int32(resp.StatusCode)),
@@ -225,10 +258,13 @@ func postResponse(remote *http.Client, br *pb.HttpResponse) error {
 		Host:   *relayAddress,
 		Path:   *relayPrefix + "/server/response",
 	}
+
 	resp, err := remote.Post(responseUrl.String(), "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse", bytes.NewReader(body))
+
 	if err != nil {
 		return fmt.Errorf("couldn't post response to relay server: %v", err)
 	}
+
 	defer resp.Body.Close()
 	body, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -286,6 +322,7 @@ func buildResponses(in <-chan []byte, resp *pb.HttpResponse, out chan<- *pb.Http
 	timer := time.NewTimer(timeout)
 	timeouts := 0
 
+	// TODO(haukeheibel): Why are we not simply reading the entire body? Why the chunking?
 	for {
 		select {
 		case b, more := <-in:
@@ -324,9 +361,9 @@ func buildResponses(in <-chan []byte, resp *pb.HttpResponse, out chan<- *pb.Http
 // postErrorResponse resolves the client's request in case of an internal error.
 // This is not strictly necessary, but avoids kubectl hanging in such cases. As
 // this is best-effort, errors posting the response are logged and ignored.
-func postErrorResponse(remote *http.Client, req *pb.HttpRequest, message string) {
+func postErrorResponse(remote *http.Client, id string, message string) {
 	resp := &pb.HttpResponse{
-		Id:         req.Id,
+		Id:         proto.String(id),
 		StatusCode: proto.Int32(http.StatusInternalServerError),
 		Header: []*pb.HttpHeader{{
 			Name:  proto.String("Content-Type"),
@@ -345,7 +382,7 @@ func postErrorResponse(remote *http.Client, req *pb.HttpRequest, message string)
 // It fails permanently and closes the backend connection on any failure, as
 // the relay-server doesn't have sufficiently advanced flow control to recover
 // from dropped/duplicate "packets".
-func streamToBackend(remote *http.Client, req *pb.HttpRequest, backendWriter io.WriteCloser) {
+func streamToBackend(remote *http.Client, id string, backendWriter io.WriteCloser) {
 	// Close the backend connection on stream failure. This should cause the
 	// response stream to end and prevent the client from hanging in the case
 	// of an error in the request stream.
@@ -355,7 +392,7 @@ func streamToBackend(remote *http.Client, req *pb.HttpRequest, backendWriter io.
 		Scheme:   *relayScheme,
 		Host:     *relayAddress,
 		Path:     *relayPrefix + "/server/requeststream",
-		RawQuery: "id=" + *req.Id,
+		RawQuery: "id=" + id,
 	}).String()
 	for {
 		// Get data from the "request stream", then copy it to the backend.
@@ -364,13 +401,13 @@ func streamToBackend(remote *http.Client, req *pb.HttpRequest, backendWriter io.
 		if err != nil {
 			// TODO(rodrigoq): detect transient failure and retry w/ backoff?
 			// e.g. "server status Request Timeout: No request received within timeout"
-			log.Printf("[%s] Failed to get request stream: %v", *req.Id, err)
+			log.Printf("[%s] Failed to get request stream: %v", id, err)
 			return
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusGone {
 			if debugLogs {
-				log.Printf("[%s] End of request stream", *req.Id)
+				log.Printf("[%s] End of request stream", id)
 			}
 			return
 		} else if resp.StatusCode != http.StatusOK {
@@ -379,29 +416,47 @@ func streamToBackend(remote *http.Client, req *pb.HttpRequest, backendWriter io.
 				msg = []byte(fmt.Sprintf("<failed to read response body: %v>", err))
 			}
 			if debugLogs {
-				log.Printf("[%s] Relay server request stream responded %s: %s", *req.Id, http.StatusText(resp.StatusCode), msg)
+				log.Printf("[%s] Relay server request stream responded %s: %s", id, http.StatusText(resp.StatusCode), msg)
 			}
 			return
 		}
 		if n, err := io.Copy(backendWriter, resp.Body); err != nil {
-			log.Printf("[%s] Failed to write to backend: %v", *req.Id, err)
+			log.Printf("[%s] Failed to write to backend: %v", id, err)
 			return
 		} else {
 			if debugLogs {
-				log.Printf("[%s] Wrote %d bytes to backend", *req.Id, n)
+				log.Printf("[%s] Wrote %d bytes to backend", id, n)
 			}
 		}
 	}
 }
 
-func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest) {
+func handleRequest(remote *http.Client, local *http.Client, pbreq *pb.HttpRequest) {
 	ts := time.Now()
-	resp, hresp, err := makeBackendRequest(local, req)
+	id := *pbreq.Id
+	req, err := createBackendRequest(pbreq)
+	if err != nil {
+		postErrorResponse(remote, id, fmt.Sprintf("Failed to create request for backend: %v", err))
+	}
+	// Measure edge processing time.
+	f := &tracecontext.HTTPFormat{}
+	ctx := req.Context()
+	var span *trace.Span
+	if sctx, ok := f.SpanContextFromRequest(req); ok {
+		ctx, span = trace.StartSpanWithRemoteParent(ctx, "Recv."+req.URL.Path, sctx)
+	} else {
+		ctx, span = trace.StartSpan(ctx, "Recv."+req.URL.Path)
+	}
+	addServiceName(span)
+	defer span.End()
+
+	resp, hresp, err := makeBackendRequest(ctx, local, req, id)
 	if err != nil {
 		// Even if we couldn't handle the backend request, send an
 		// answer to the relay that signals the error.
-		log.Printf("[%s] Backend request failed, reporting this to the relay: %v", *req.Id, err)
-		postErrorResponse(remote, req, fmt.Sprintf("Unable to reach backend: %v", err))
+		errorMessage := fmt.Sprintf("Backend request failed with error: %v", err)
+		log.Printf("[%s] %s", id, errorMessage)
+		postErrorResponse(remote, id, errorMessage)
 		return
 	}
 	// hresp.Body is either closed from streamToBackend() or streamBytes()
@@ -414,12 +469,15 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 		if !ok {
 			log.Printf("Error: 101 Switching Protocols response with non-writable body.")
 			log.Printf("       This occurs when using Go <1.12 or when http.Client.Timeout > 0.")
-			postErrorResponse(remote, req, "Backend returned 101 Switching Protocols, which is not supported.")
+			postErrorResponse(remote, id, "Backend returned 101 Switching Protocols, which is not supported.")
 			return
 		}
 		// Stream stdin from remote to backend
-		go streamToBackend(remote, req, bodyWriter)
+		go streamToBackend(remote, id, bodyWriter)
 	}
+
+	ctx, respChSpan := trace.StartSpan(ctx, "Building (chunked) response channel")
+	addServiceName(respChSpan)
 
 	bodyChannel := make(chan []byte)
 	responseChannel := make(chan *pb.HttpResponse)
@@ -427,6 +485,8 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 	go streamBytes(*resp.Id, hresp.Body, bodyChannel)
 	// collect data from bodyChannel and send to remote (relay-server)
 	go buildResponses(bodyChannel, resp, responseChannel, responseTimeout)
+
+	respChSpan.End()
 
 	exponentialBackoff := backoff.ExponentialBackOff{
 		InitialInterval:     time.Second,
@@ -437,7 +497,13 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 		Clock:               backoff.SystemClock,
 	}
 
+	// This call here blocks until all data from the bodyChannel has been read.
 	for resp := range responseChannel {
+		_, respCh := trace.StartSpan(ctx, "Sending response from channel")
+		addServiceName(respCh)
+		defer respCh.End()
+
+		// Q(hauke): do we really need exponential backoff in the relay?
 		exponentialBackoff.Reset()
 		err := backoff.RetryNotify(
 			func() error {
@@ -449,8 +515,13 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 					duration := time.Since(ts)
 					resp.BackendDurationMs = proto.Int64(duration.Milliseconds())
 					// see makeBackendRequest()
-					urlPath := strings.TrimPrefix(*req.Url, "http://invalid")
+					urlPath := strings.TrimPrefix(*pbreq.Url, "http://invalid")
 					log.Printf("[%s] Backend request duration: %.3fs (for %s)", *resp.Id, duration.Seconds(), urlPath)
+				} else {
+					// Q(hauke): When are we ending up in this branch?
+					// What are the semantics and why are we not setting a request duration?
+					// Even in a streaming case I would expect a duration which represents the
+					// processing time of the last item.
 				}
 				return postResponse(remote, resp)
 			},
@@ -467,6 +538,7 @@ func handleRequest(remote *http.Client, local *http.Client, req *pb.HttpRequest)
 }
 
 func localProxy(remote, local *http.Client, relayURL string) error {
+	// Read pending request from the relay-server.
 	req, err := getRequest(remote, relayURL)
 	if err != nil {
 		if errors.Is(err, ErrTimeout) {
@@ -479,6 +551,7 @@ func localProxy(remote, local *http.Client, relayURL string) error {
 			return fmt.Errorf("failed to get request from relay: %v", err)
 		}
 	}
+	// Forward the request to the backend.
 	go handleRequest(remote, local, req)
 	return nil
 }
@@ -511,6 +584,18 @@ func main() {
 
 	flag.Parse()
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+
+	if *stackdriverProjectID != "" {
+		sd, err := stackdriver.NewExporter(stackdriver.Options{
+			ProjectID: *stackdriverProjectID,
+		})
+		if err != nil {
+			log.Fatalf("Failed to create the Stackdriver exporter for project '%s': %v", *stackdriverProjectID, err)
+		} else {
+			trace.RegisterExporter(sd)
+			defer sd.Flush()
+		}
+	}
 
 	remote := &http.Client{}
 	if !*disableAuthForRemote {
@@ -588,7 +673,7 @@ func main() {
 			// Don't follow redirects: instead, pass them through the relay untouched.
 			return http.ErrUseLastResponse
 		},
-		Transport: transport,
+		Transport: &ochttp.Transport{Base: transport},
 	}
 
 	relayURL := buildRelayURL()

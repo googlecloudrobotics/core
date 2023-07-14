@@ -52,7 +52,7 @@ func TestClientHandler(t *testing.T) {
 	server := newServer()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go func() { server.client(respRecorder, req); wg.Done() }()
+	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
 	relayRequest, err := server.b.GetRequest(context.Background(), "foo", "/")
 	if err != nil {
 		t.Errorf("Error when getting request: %v", err)
@@ -69,6 +69,7 @@ func TestClientHandler(t *testing.T) {
 		}},
 		Body: []byte("body"),
 	}
+	relayRequest.Header = relayRequest.Header[:1]
 	if !proto.Equal(wantRequest, relayRequest) {
 		t.Errorf("Wrong encapsulated request; want %s; got '%s'", wantRequest, relayRequest)
 	}
@@ -127,7 +128,7 @@ func TestClientBadRequest(t *testing.T) {
 			server := newServer()
 			wg := sync.WaitGroup{}
 			wg.Add(1)
-			go func() { server.client(respRecorder, tc.req); wg.Done() }()
+			go func() { server.userClientRequest(respRecorder, tc.req); wg.Done() }()
 			wg.Wait()
 
 			resp := respRecorder.Result()
@@ -175,7 +176,7 @@ func TestRequestStreamHandler(t *testing.T) {
 	server := newServer()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go func() { server.client(respRecorder, req); wg.Done() }()
+	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
 
 	// Simulate a 101 Switching Protocols response from the backend.
 	relayRequest, err := server.b.GetRequest(context.Background(), "foo", "/")
