@@ -132,7 +132,6 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 		r.req[server] = make(chan *pb.HttpRequest)
 	}
 	if r.resp[id] != nil {
-		r.m.Unlock()
 		return nil, fmt.Errorf("Multiple clients trying to handle request ID %s on server %s", id, server)
 	}
 	ts := time.Now()
