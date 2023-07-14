@@ -79,6 +79,33 @@ spec:
     name: cluster-authority
 ---
 apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: app-rollout-controller
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/app-rollout-controller
+webhooks:
+- name: apps.apps.cloudrobotics.com
+  admissionReviewVersions: ["v1"]
+  failurePolicy: Fail
+  clientConfig:
+    service:
+      namespace: {{ .Release.Namespace }}
+      name: app-rollout-controller
+      path: /app/mutate
+  rules:
+  - apiGroups:
+    - apps.cloudrobotics.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - apps
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: app-rollout-controller

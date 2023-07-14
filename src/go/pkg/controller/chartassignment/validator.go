@@ -80,7 +80,7 @@ func (v *chartAssignmentValidator) validate(cur, old *apps.ChartAssignment) erro
 	}
 	c := cur.Spec.Chart
 	if c.Inline != "" {
-		if c.Repository != "" || c.Name != "" || c.Version != "" {
+		if c.Repository != "" || c.Name != "" {
 			return fmt.Errorf("chart repository, name, and version must be empty for inline charts")
 		}
 	} else if c.Repository == "" || c.Name == "" || c.Version == "" {
