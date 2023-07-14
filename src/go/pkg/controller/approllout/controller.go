@@ -405,20 +405,6 @@ func (r *Reconciler) generateChartAssignments(
 	baseValues chartutil.Values,
 ) ([]*apps.ChartAssignment, error) {
 
-	// A spec can also specify that it wants to use a specific version
-	// of the app, rather than the canonical version of it.
-	// In that case, there is a naming convention for the app.
-	// NOTE: if version is indicated, the versioned app has to exist, we
-	// do not fall back to the canonical app, as this would introduce hard
-	// to reason behavior and hard to debug bugs.
-	appName := func (name, version string) string {
-		switch version {
-		case "":
-			return name
-		default:
-			return fmt.Sprintf("%s.v%s", name, version)
-		}
-	}
 
 	var (
 		// Different entries might request different app versions. This map
@@ -436,17 +422,23 @@ func (r *Reconciler) generateChartAssignments(
 		return nil, errors.Wrap(err, "list all Robots")
 	}
 
-	// TODO(coconutruben): consider refactoring this into its own function
-	// and use labels to avoid with the search.
-	// Find all app versions used across rollout.
-	for _, rcomp := range rollout.Spec.Robots {
+	if err := r.kube.List(ctx, &appVersionsList, kclient.MatchingLabels{labelAppName: rollout.Spec.AppName}); err != nil {
+		return nil, errors.Wrap(err, "list all App Versions")
+	}
+	for _, app := range appVersionsList.Items {
+		appVersions[app.Labels[labelAppVersion]] = &app
+	}
+
+
+	// There might be old Apps laying around that do not conform to this
+	// methodology yet. However, those Apps also do not use the version
+	// mechanism. Therefore, we can just look for that App once, and put
+	// it into our map if it's not there yet.
+	if _, ok := appVersions[""]; !ok {
 		app := apps.App{}
-		v := rcomp.Version
-		aname := appName(rollout.Spec.AppName, v)
-		if err := r.kube.Get(ctx, kclient.ObjectKey{Name: aname}, &app); err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("app %q (app: %q, version: %q", aname, app, v))
+		if err := r.kube.Get(ctx, kclient.ObjectKey{Name: rollout.Spec.AppName}, &app); err == nil {
+			appVersions[""] = &app
 		}
-		appVersions[v] = &app
 	}
 
 	for _, rcomp := range rollout.Spec.Robots {
@@ -455,7 +447,10 @@ func (r *Reconciler) generateChartAssignments(
 			return nil, errors.Wrap(err, "select robots")
 		}
 		// map is populated by for all the rcomp.Version, no need to check ok
-		app := appVersions[rcomp.Version]
+		app , ok := appVersions[rcomp.Version]
+		if !ok {
+			return nil, errors.Wrap(err, fmt.Sprintf("no App %q (Version: %q) found", rollout.Spec.AppName, rcomp.Version))
+		}
 		comps := app.Spec.Components
 		for i := range robots {
 			// Ensure we don't pass a pointer to the most recent loop item.
@@ -473,18 +468,6 @@ func (r *Reconciler) generateChartAssignments(
 	}
 	// The cloud has has no version, just the canonical version. We might
 	// not have it due to no robot using it.
-	if _, ok := appVersions[""]; !ok {
-		appo := apps.App{}
-		if err := r.kube.Get(ctx, kclient.ObjectKey{Name: rollout.Spec.AppName}, &appo); err != nil {
-			// This could be fine, or could be an error. It's likely an issue
-			// if the rollout has cloud values, and we don't find the app. Print in those cases.
-			if rollout.Spec.Cloud.Values != nil {
-				log.Printf("No canonical version of App %q. There won't be a Cloud ChartAssignment. AppRollout %q defines cloud values: %v", rollout.Spec.AppName, rollout.Name, err)
-			}
-		} else {
-			appVersions[""] = &appo
-		}
-	}
 	if app, ok := appVersions[""]; ok {
 		comps := app.Spec.Components
 		if comps.Cloud.Name != "" || comps.Cloud.Inline != "" {
@@ -499,6 +482,8 @@ func (r *Reconciler) generateChartAssignments(
 			})
 			cas = append(cas, newCloudChartAssignment(app, rollout, baseValues, robots...))
 		}
+	} else if rollout.Spec.Cloud.Values != nil {
+		log.Printf("No canonical version of App %q. There won't be a Cloud ChartAssignment. AppRollout %q defines cloud values.", rollout.Spec.AppName, rollout.Name)
 	}
 	sort.Slice(cas, func(i, j int) bool {
 		return cas[i].Name < cas[j].Name
@@ -732,8 +717,18 @@ func (v *appVersionLabelSetter) label(cur *apps.App) error {
 	if cur.ObjectMeta.Labels == nil {
 		cur.ObjectMeta.Labels = map[string]string{}
 	}
-	cur.ObjectMeta.Labels[labelAppVersion] = "test1"
-	cur.ObjectMeta.Labels[labelAppName] = "test2"
+	parts := strings.Split(cur.Name, ".v")
+	switch len(parts) {
+	case 1:
+		cur.ObjectMeta.Labels[labelAppName] = parts[0]
+		cur.ObjectMeta.Labels[labelAppVersion] = ""
+	case 2:
+		cur.ObjectMeta.Labels[labelAppName] = parts[0]
+		cur.ObjectMeta.Labels[labelAppVersion] = parts[1]
+	default:
+		return fmt.Errorf("AppName %q invalid", cur.Name)
+
+	}
 	return nil
 }
 
