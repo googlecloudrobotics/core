@@ -15,6 +15,7 @@ If you haven't already, complete the [Quickstart Guide](../quickstart.md) or [De
      your cloud project is selected in the project selector dropdown at the top.
 
 1. Configure the OAuth consent screen: [APIs & Services → Credentials → OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent).
+   * User Type: Internal
    * Application name: My Cloud Robotics Application
    * Support email: *your email address*
    * Add `[PROJECT_ID].cloud.goog` to Authorized domains (where `[PROJECT_ID]` is your GCP project ID).
