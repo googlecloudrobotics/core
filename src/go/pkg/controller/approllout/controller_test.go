@@ -21,6 +21,7 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	core "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/helm/pkg/chartutil"
 	"sigs.k8s.io/yaml"
 )
@@ -307,7 +308,8 @@ spec:
       foo3: bar3
       `)
 
-	cas, err := generateChartAssignments(&app, &rollout, robots[:], baseValues)
+	al := []apps.App{app}
+	cas, err := generateChartAssignments(al, robots[:], &rollout, baseValues)
 	if err != nil {
 		t.Fatalf("Generate failed: %s", err)
 	}
@@ -316,6 +318,174 @@ spec:
 	}
 	for i, ca := range cas {
 		verifyChartAssignment(t, &expected[i], ca)
+	}
+}
+
+// generateApp will generate an app for testing
+func generateApp(name, version, robotPayload, cloudPayload string) apps.App {
+	app := apps.App{}
+	app.Name = name
+	app.Labels = map[string]string{
+		labelAppName:    name,
+		labelAppVersion: version,
+	}
+	app.Spec.Components.Cloud.Name = "cloud"
+	app.Spec.Components.Cloud.Inline = cloudPayload
+	app.Spec.Components.Robot.Name = "robot"
+	app.Spec.Components.Robot.Inline = robotPayload
+	return app
+}
+
+// generateRobot will generate a robot named |name| with the labels
+func generateRobot(name string, labels map[string]string) registry.Robot {
+	robot := registry.Robot{}
+	robot.Name = name
+	robot.Labels = labels
+	return robot
+}
+
+// generateRollout will create a rollout pointing at AppName
+func generateRollout(name, appName string) apps.AppRollout {
+	rollout := apps.AppRollout{}
+	rollout.Name = name
+	rollout.Spec.AppName = appName
+	return rollout
+}
+
+// addRobotToRollout will add a robot component with the match label & version.
+func addRobotToRollout(ar *apps.AppRollout, matchLabel, matchValue, version string) {
+	ar.Spec.Robots = append(ar.Spec.Robots, apps.AppRolloutSpecRobot{
+		Version: version,
+		Selector: &apps.RobotSelector{
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					matchLabel: matchValue,
+				},
+			},
+		},
+	})
+}
+
+// The tests below deal with vApp, this is a short form for versioned App
+
+// TestGenerateChartAssignments_vApps tests rollout with versioned Apps
+func TestGenerateChartAssignments_vApps(t *testing.T) {
+	appName := "myapp"
+	appVersion := "17"
+	testLabel := "test-label"
+	testValueA := "test-value"
+	testValueB := "test-value-2"
+	al := []apps.App{
+		generateApp(appName, "", "testpayload", ""),
+		generateApp(appName, appVersion, "testpayload", ""),
+	}
+	robots := []registry.Robot{
+		generateRobot("robot1", map[string]string{
+			testLabel: testValueA,
+		}),
+		generateRobot("robot2", map[string]string{
+			testLabel: testValueA,
+		}),
+		generateRobot("robot3", map[string]string{
+			testLabel: testValueB,
+		}),
+	}
+	rollout := generateRollout("test", appName)
+	// a versioned app matching robots testValueA
+	addRobotToRollout(&rollout, testLabel, testValueA, appVersion)
+	// the canonical app matching robots testValueB
+	addRobotToRollout(&rollout, testLabel, testValueB, "")
+	// Simply test that this works, and does not throw errors.
+	_, err := generateChartAssignments(al, robots[:], &rollout, nil)
+	if err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+}
+
+// TestGenerateChartAssignments_vAppMissing tests a missing App version
+func TestGenerateChartAssignments_vAppMissing(t *testing.T) {
+	appName := "myapp"
+	appVersion := "17"
+	newAppVersion := "18"
+	testLabel := "test-label"
+	testValueA := "test-value"
+	al := []apps.App{
+		generateApp(appName, appVersion, "testpayload", ""),
+	}
+	robots := []registry.Robot{
+		generateRobot("robot1", map[string]string{
+			testLabel: testValueA,
+		}),
+	}
+	rollout := generateRollout("test", appName)
+	// a versioned app matching robots testValueA
+	addRobotToRollout(&rollout, testLabel, testValueA, newAppVersion)
+	// Simply test that this works, and does throw an error.
+	_, err := generateChartAssignments(al, robots[:], &rollout, nil)
+	if err == nil {
+		t.Fatal("Requesting a non-existant app should fail, but didn't")
+	}
+}
+
+// TestGenerateChartAssignments_vAppCloud tests a cloud cas
+func TestGenerateChartAssignments_vAppCloud(t *testing.T) {
+	appName := "myapp"
+	appVersion := "17"
+	testLabel := "test-label"
+	testValueA := "test-value"
+	al := []apps.App{
+		// Cloud does not have a Version field, and thus requires this
+		// non versioned, canonical app.
+		generateApp(appName, "", "testpayload", "cloudpayload"),
+		generateApp(appName, appVersion, "testpayload", ""),
+	}
+	robots := []registry.Robot{
+		generateRobot("robot1", map[string]string{
+			testLabel: testValueA,
+		}),
+	}
+	rollout := generateRollout("test", appName)
+	// a versioned app matching robots testValueA
+	addRobotToRollout(&rollout, testLabel, testValueA, appVersion)
+	// expand to cover cloud
+	rollout.Spec.Cloud = apps.AppRolloutSpecCloud{}
+	// Simply test that this works, and does throw an error.
+	cas, err := generateChartAssignments(al, robots[:], &rollout, nil)
+	if err != nil {
+		t.Fatal("generate chart assignment with cloud rollout")
+	}
+	if len(cas) != 2 {
+		t.Fatalf("chart assingments, expected 2, got %d", len(cas))
+	}
+}
+
+// TestGenerateChartAssignments_vAppCloudMissing tests cloud rollout w/out App
+//
+// As the Cloud field is not versioned, it needs the canonical version of the
+// app to exist. In this test, we only create versioned Apps, and thus
+// the generation will fail.
+func TestGenerateChartAssignments_vAppCloudMissing(t *testing.T) {
+	appName := "myapp"
+	appVersion := "17"
+	al := []apps.App{
+		// only the versioned App will exist.
+		generateApp(appName, appVersion, "testpayload", "cloudpayload"),
+	}
+	rollout := generateRollout("test", appName)
+	// expand to cover cloud
+	rollout.Spec.Cloud = apps.AppRolloutSpecCloud{}
+	// Simply test that this works, and does throw an error.
+	_, err := generateChartAssignments(al, nil, &rollout, nil)
+	if err != nil {
+		t.Fatal("cloud rollout without unversioned app should pass, if rollout has no Cloud Values in Spec.")
+	}
+	rollout.Spec.Cloud = apps.AppRolloutSpecCloud{Values: apps.ConfigValues{
+		"test": 1,
+	}}
+	// Simply test that this works, and does throw an error.
+	_, err = generateChartAssignments(al, nil, &rollout, nil)
+	if err != nil {
+		t.Fatal("cloud rollout without unversioned app should pass, (and log) if rollout has Cloud Values in Spec.")
 	}
 }
 
@@ -375,7 +545,8 @@ spec:
       - name: robot1
 	`)
 
-	cas, err := generateChartAssignments(&app, &rollout, robots[:], nil)
+	al := []apps.App{app}
+	cas, err := generateChartAssignments(al, robots[:], &rollout, nil)
 	if err != nil {
 		t.Fatalf("Generate failed: %s", err)
 	}
@@ -422,8 +593,8 @@ spec:
       matchLabels:
         a: b
 	`)
-
-	_, err := generateChartAssignments(&app, &rollout, robots[:], nil)
+	al := []apps.App{app}
+	_, err := generateChartAssignments(al, robots[:], &rollout, nil)
 	if exp := errRobotSelectorOverlap("robot2"); err != exp {
 		t.Fatalf("expected error %q but got %q", exp, err)
 	}
@@ -475,7 +646,7 @@ status:
 	}
 }
 
-func TestValidate(t *testing.T) {
+func TestValidateAppRollout(t *testing.T) {
 	cases := []struct {
 		name       string
 		cur        string
@@ -578,7 +749,88 @@ spec:
 			var cur apps.AppRollout
 			unmarshalYAML(t, &cur, c.cur)
 
-			err := validate(&cur)
+			err := appRolloutValidate(&cur)
+			if err == nil && c.shouldFail {
+				t.Fatal("expected failure but got none")
+			}
+			if err != nil && !c.shouldFail {
+				t.Fatalf("unexpected error: %s", err)
+			}
+		})
+	}
+}
+
+// TestValidateApp tests all the labels and mechanism for the apps
+func TestValidateApp(t *testing.T) {
+	cases := []struct {
+		name       string
+		cur        string
+		shouldFail bool
+	}{
+		{
+			name: "valid",
+			cur: `
+metadata:
+  name: app
+	`,
+		},
+		{
+			name: "valid-app-label-only",
+			cur: `
+metadata:
+  name: app
+  labels:
+    cloudrobotics.com/app-name: app
+	`,
+		},
+		{
+			name: "valid-both-labels",
+			cur: `
+metadata:
+  name: app.v17
+  labels:
+    cloudrobotics.com/app-name: app
+    cloudrobotics.com/app-version: 17
+	`,
+		},
+		{
+			name: "valid-both-labels-lower",
+			cur: `
+metadata:
+  name: app.v17rc00
+  labels:
+    cloudrobotics.com/app-name: app
+    cloudrobotics.com/app-version: 17RC00
+	`,
+		},
+		{
+			name:       "invalid-app-label-only",
+			shouldFail: true,
+			cur: `
+metadata:
+  name: app2
+  labels:
+    cloudrobotics.com/app-name: app
+	`,
+		},
+		{
+			name:       "invalid-both-labels",
+			shouldFail: true,
+			cur: `
+metadata:
+  name: app.v17rc10
+  labels:
+    cloudrobotics.com/app-name: app
+    cloudrobotics.com/app-version: 17RC00
+	`,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var cur apps.App
+			unmarshalYAML(t, &cur, c.cur)
+
+			err := appValidate(&cur)
 			if err == nil && c.shouldFail {
 				t.Fatal("expected failure but got none")
 			}

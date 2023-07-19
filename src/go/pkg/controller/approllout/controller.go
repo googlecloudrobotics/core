@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"encoding/json"
 	"net/http"
 	"reflect"
 	"sort"
@@ -228,7 +227,11 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	log.Printf("Reconcile AppRollout %q (version: %s)", ar.Name, ar.ResourceVersion)
 
 	// Apply spec.
-	var curCAs apps.ChartAssignmentList
+	var (
+		curCAs apps.ChartAssignmentList
+		al     apps.AppList
+		robots registry.RobotList
+	)
 
 	ar.Status.ObservedGeneration = ar.Generation
 	ar.Status.Assignments = 0
@@ -236,12 +239,45 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	ar.Status.ReadyAssignments = 0
 	ar.Status.FailedAssignments = 0
 
+	// TODO(coconutruben): consider moving these into a testable function.
+	// Moving them into generateChartAssignments requires rewriting the
+	// existing tests.
 	err := r.kube.List(ctx, &curCAs, kclient.MatchingFields(map[string]string{fieldIndexOwners: string(ar.UID)}))
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "list ChartAssignments for owner UID %s", ar.UID)
 	}
 
-	wantCAs, err := r.generateChartAssignments(ctx, ar, r.baseValues)
+	if err := r.kube.List(ctx, &robots); err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "list all Robots")
+	}
+
+	if err := r.kube.List(ctx, &al, kclient.MatchingLabels{labelAppName: ar.Spec.AppName}); err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "list all App Versions")
+	}
+
+	// There might be old Apps laying around that do not conform to this
+	// methodology yet. However, those Apps also do not use the version
+	// mechanism. Therefore, we can just look for that App once, and put
+	// it into our map if it's not there yet.
+	appFound := func(name string) bool {
+		for idx := range al.Items {
+			if al.Items[idx].Name == name {
+				return true
+			}
+		}
+		return false
+	}
+	if !appFound(ar.Spec.AppName) {
+		// We might not need the canonical app at all, if all the rollout
+		// entries are asking for versioned apps. Do not fail here yet,
+		// if we needed it, it will fail in generateChartAssignments
+		app := apps.App{}
+		if err := r.kube.Get(ctx, kclient.ObjectKey{Name: ar.Spec.AppName}, &app); err == nil {
+			al.Items = append(al.Items, app)
+		}
+	}
+
+	wantCAs, err := generateChartAssignments(al.Items, robots.Items, ar, r.baseValues)
 	if err != nil {
 		if _, ok := errors.Cause(err).(errRobotSelectorOverlap); ok {
 			return reconcile.Result{}, r.updateErrorStatus(ctx, ar, err.Error())
@@ -399,57 +435,48 @@ func (r errRobotSelectorOverlap) Error() string {
 
 // generateChartAssignments returns a list of all cloud and robot ChartAssignments
 // for the given app, its rollout, and set of robots.
-func (r *Reconciler) generateChartAssignments(
-	ctx context.Context,
+func generateChartAssignments(
+	al []apps.App,
+	robots []registry.Robot,
 	rollout *apps.AppRollout,
 	baseValues chartutil.Values,
 ) ([]*apps.ChartAssignment, error) {
-
 
 	var (
 		// Different entries might request different app versions. This map
 		// is used to only retrieve them once.
 		appVersions = map[string]*apps.App{}
-		appVersionsList apps.AppList
-		robots registry.RobotList
-		cas   []*apps.ChartAssignment
+		cas         []*apps.ChartAssignment
 		// Robots that matched selectors for the rollout and which will be
 		// passed to the cloud chart.
 		selectedRobots = map[string]*registry.Robot{}
 	)
 
-	if err := r.kube.List(ctx, &robots); err != nil {
-		return nil, errors.Wrap(err, "list all Robots")
-	}
-
-	if err := r.kube.List(ctx, &appVersionsList, kclient.MatchingLabels{labelAppName: rollout.Spec.AppName}); err != nil {
-		return nil, errors.Wrap(err, "list all App Versions")
-	}
-	for _, app := range appVersionsList.Items {
-		appVersions[app.Labels[labelAppVersion]] = &app
-	}
-
-
-	// There might be old Apps laying around that do not conform to this
-	// methodology yet. However, those Apps also do not use the version
-	// mechanism. Therefore, we can just look for that App once, and put
-	// it into our map if it's not there yet.
-	if _, ok := appVersions[""]; !ok {
-		app := apps.App{}
-		if err := r.kube.Get(ctx, kclient.ObjectKey{Name: rollout.Spec.AppName}, &app); err == nil {
-			appVersions[""] = &app
+	for _, app := range al {
+		v, ok := app.Labels[labelAppVersion]
+		if !ok {
+			// If only app-name is defined, it is an unversioned app.
+			v = ""
+		}
+		if _, ok := appVersions[v]; ok {
+			log.Printf("App %q version %q already known. Going to ignore App Object %q for the same app/version", rollout.Spec.AppName, v, app.Name)
+		} else {
+			// only add to map if this is the first time we're adding this
+			// version for the app. The validator should ensure that this
+			// overwrite cannot happen, but apps might be legacy, or have
+			// bypassed validation.
+			appVersions[v] = &app
 		}
 	}
-
 	for _, rcomp := range rollout.Spec.Robots {
-		robots, err := matchingRobots(robots.Items, rcomp.Selector)
+		robots, err := matchingRobots(robots, rcomp.Selector)
 		if err != nil {
 			return nil, errors.Wrap(err, "select robots")
 		}
 		// map is populated by for all the rcomp.Version, no need to check ok
-		app , ok := appVersions[rcomp.Version]
+		app, ok := appVersions[rcomp.Version]
 		if !ok {
-			return nil, errors.Wrap(err, fmt.Sprintf("no App %q (Version: %q) found", rollout.Spec.AppName, rcomp.Version))
+			return nil, fmt.Errorf("no App %q (Version: %q) found", rollout.Spec.AppName, rcomp.Version)
 		}
 		comps := app.Spec.Components
 		for i := range robots {
@@ -666,74 +693,78 @@ func indexAppName(o kclient.Object) []string {
 	return []string{ar.Spec.AppName}
 }
 
-// NewMutatingWebhook returns a new webhook that standardizes Apps.
-//
-// Apps can be a version of a canonical app. This is a naming convention
-// where an App named [App].v[something] is [App] version [something]
-// This hook sets known labels on the object to make indentifying those
-// apps easier in the reconciliation.
-func NewMutatingWebhook(mgr manager.Manager) *admission.Webhook {
-	return &admission.Webhook{Handler: newAppVersionLabelSetter(mgr.GetScheme())}
-}
-
-func newAppVersionLabelSetter(sc *runtime.Scheme) *appVersionLabelSetter {
-	return &appVersionLabelSetter{
-		decoder: serializer.NewCodecFactory(sc).UniversalDeserializer(),
-	}
-}
-
-// appVersionLabelSetter implements a version label setting webhook.
-type appVersionLabelSetter struct {
-	decoder runtime.Decoder
-}
-
-func (v *appVersionLabelSetter) Handle(_ context.Context, req admission.Request) admission.Response {
-	cur := &apps.App{}
-
-	if err := runtime.DecodeInto(v.decoder, req.AdmissionRequest.Object.Raw, cur); err != nil {
-		return admission.Errored(http.StatusBadRequest, err)
-	}
-	if err := v.label(cur); err != nil {
-		return admission.Denied(err.Error())
-	}
-	craw, err := json.Marshal(cur)
-	if err != nil {
-		return admission.Denied(err.Error())
-	}
-	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, craw)
-}
-
 const (
 	// canonical name of an app
 	labelAppName = "cloudrobotics.com/app-name"
 	// version of that app. Note, the default version of the app has
 	// a version label of ""
-	labelAppVersion    = "cloudrobotics.com/app-version"
+	labelAppVersion = "cloudrobotics.com/app-version"
 )
 
-// label will use the labels above to create version and canonical app
-// labels
-func (v *appVersionLabelSetter) label(cur *apps.App) error {
-	if cur.ObjectMeta.Labels == nil {
-		cur.ObjectMeta.Labels = map[string]string{}
-	}
-	parts := strings.Split(cur.Name, ".v")
-	switch len(parts) {
-	case 1:
-		cur.ObjectMeta.Labels[labelAppName] = parts[0]
-		cur.ObjectMeta.Labels[labelAppVersion] = ""
-	case 2:
-		cur.ObjectMeta.Labels[labelAppName] = parts[0]
-		cur.ObjectMeta.Labels[labelAppVersion] = parts[1]
-	default:
-		return fmt.Errorf("AppName %q invalid", cur.Name)
+// NewAppValidationWebhook returns a new webhook that validates Apps.
+//
+// This pertains to multiple versions of the same app, so that the labels
+// defined above are in sync with the name of the App.
+// The policy is
+// - an unversioned app defines
+//   - cloudrobotics.com/app-name
+//   - (optionally): cloudrobotics.com/app-version with a "" value
+//     this must match the name of the object
+//
+// - a versioned app defines
+//   - cloudrobotics.com/app-name
+//   - cloudrobotics.com/app-version
+//     the name of the App object must match LOWERCASE([app-name].v[app-version])
+func NewAppValidationWebhook(mgr manager.Manager) *admission.Webhook {
+	return &admission.Webhook{Handler: newAppValidator(mgr.GetScheme())}
+}
 
+// appValidator implements a validation webhook.
+type appValidator struct {
+	decoder runtime.Decoder
+}
+
+func newAppValidator(sc *runtime.Scheme) *appValidator {
+	return &appValidator{
+		decoder: serializer.NewCodecFactory(sc).UniversalDeserializer(),
 	}
+}
+
+func (v *appValidator) Handle(_ context.Context, req admission.Request) admission.Response {
+	cur := &apps.App{}
+	if err := runtime.DecodeInto(v.decoder, req.AdmissionRequest.Object.Raw, cur); err != nil {
+		return admission.Errored(http.StatusBadRequest, err)
+	}
+	if err := appValidate(cur); err != nil {
+		return admission.Denied(err.Error())
+	}
+	return admission.Allowed("")
+}
+
+func appValidate(cur *apps.App) error {
+	name := cur.Name
+	appName, anok := cur.Labels[labelAppName]
+	appVersion, avok := cur.Labels[labelAppVersion]
+	if anok {
+		if avok {
+			// both name and version are defined
+			ename := strings.ToLower(fmt.Sprintf("%s.v%s", appName, appVersion))
+			if ename != name {
+				return fmt.Errorf("%q=%q, %q=%q: expected object name %q, got %q", labelAppName, appName, labelAppVersion, appVersion, ename, name)
+			}
+		} else {
+			// only name is defined
+			if appName != name {
+				return fmt.Errorf("%q=%q, undefined %q: expected object name %q, got %q", labelAppName, appName, labelAppVersion, appName, name)
+			}
+		}
+	}
+	// neither is defined, we're dealing with a legacy app
 	return nil
 }
 
-// NewValidationWebhook returns a new webhook that validates AppRollouts.
-func NewValidationWebhook(mgr manager.Manager) *admission.Webhook {
+// NewAppRolloutValidationWebhook returns a new webhook that validates AppRollouts.
+func NewAppRolloutValidationWebhook(mgr manager.Manager) *admission.Webhook {
 	return &admission.Webhook{Handler: newAppRolloutValidator(mgr.GetScheme())}
 }
 
@@ -754,13 +785,13 @@ func (v *appRolloutValidator) Handle(_ context.Context, req admission.Request) a
 	if err := runtime.DecodeInto(v.decoder, req.AdmissionRequest.Object.Raw, cur); err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
-	if err := validate(cur); err != nil {
+	if err := appRolloutValidate(cur); err != nil {
 		return admission.Denied(err.Error())
 	}
 	return admission.Allowed("")
 }
 
-func validate(cur *apps.AppRollout) error {
+func appRolloutValidate(cur *apps.AppRollout) error {
 	if cur.Spec.AppName == "" {
 		return errors.New("app name missing")
 	}

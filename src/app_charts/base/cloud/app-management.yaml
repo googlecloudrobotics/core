@@ -79,7 +79,7 @@ spec:
     name: cluster-authority
 ---
 apiVersion: admissionregistration.k8s.io/v1
-kind: MutatingWebhookConfiguration
+kind: ValidatingWebhookConfiguration
 metadata:
   name: app-rollout-controller
   annotations:
@@ -92,7 +92,7 @@ webhooks:
     service:
       namespace: {{ .Release.Namespace }}
       name: app-rollout-controller
-      path: /app/mutate
+      path: /app/validate
   rules:
   - apiGroups:
     - apps.cloudrobotics.com

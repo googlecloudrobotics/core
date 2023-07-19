@@ -39,6 +39,7 @@ go_test(
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
         "//src/go/pkg/apis/registry/v1alpha1:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_helm//pkg/chartutil:go_default_library",
         "@io_k8s_sigs_yaml//:go_default_library",
     ],
