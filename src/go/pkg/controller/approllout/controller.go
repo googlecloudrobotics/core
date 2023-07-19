@@ -273,6 +273,16 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 		// if we needed it, it will fail in generateChartAssignments
 		app := apps.App{}
 		if err := r.kube.Get(ctx, kclient.ObjectKey{Name: ar.Spec.AppName}, &app); err == nil {
+			// If we're here, the App is both:
+			// - app.Name == ar.Spec.AppName.
+			// - not found using the app-name label. This object is a copy so
+			// we can just write the label in there, so generateChartAssignments
+			// can safely assume the label is always there.
+			if app.Labels == nil {
+				app.Labels = map[string]string{}
+			}
+			app.Labels[labelAppName] = app.Name
+			app.Labels[labelAppVersion] = ""
 			al.Items = append(al.Items, app)
 		}
 	}
