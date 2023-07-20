@@ -28,6 +28,8 @@ go_test(
     size = "small",
     srcs = ["main_test.go"],
     embed = [":go_default_library"],
+    # TODO(https://github.com/googlecloudrobotics/core/issues/180): fix flaky test
+    flaky = True,
     visibility = ["//visibility:private"],
     deps = [
         "//src/proto/http-relay:go_default_library",
