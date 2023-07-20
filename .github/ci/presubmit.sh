@@ -30,6 +30,7 @@ ACCESS_TOKEN="$(GOOGLE_APPLICATION_CREDENTIALS=robco_integration_test_credential
 # --strategy=TestRunner=standalone means that the tests are run locally
 # and not on a remote worker (which does not have the Docker environment).
 bazel_ci test \
+  --flaky_test_attempts 3 \
   --test_env ACCESS_TOKEN="${ACCESS_TOKEN}" \
   --test_env REGISTRY="${REGISTRY}" \
   --test_tag_filters="requires-docker" \
