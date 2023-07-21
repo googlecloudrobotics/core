@@ -104,14 +104,6 @@ webhooks:
     resources:
     - apps
   sideEffects: None
----
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: app-rollout-controller
-  annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/app-rollout-controller
-webhooks:
 - name: approllouts.apps.cloudrobotics.com
   admissionReviewVersions: ["v1"]
   failurePolicy: Fail

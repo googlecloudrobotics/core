@@ -756,7 +756,7 @@ func appValidate(cur *apps.App) error {
 	appName, anok := cur.Labels[labelAppName]
 	appVersion, avok := cur.Labels[labelAppVersion]
 	if anok {
-		if avok {
+		if avok && appVersion != "" {
 			// both name and version are defined
 			ename := strings.ToLower(fmt.Sprintf("%s.v%s", appName, appVersion))
 			if ename != name {
