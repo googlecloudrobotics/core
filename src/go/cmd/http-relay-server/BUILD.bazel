@@ -9,6 +9,10 @@ go_library(
     srcs = [
         "broker.go",
         "main.go",
+        "handler_http.go",
+        "handler_websocket.go",
+        "utils.go",
+        "backend_context.go",
     ],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server",
     visibility = ["//visibility:private"],
