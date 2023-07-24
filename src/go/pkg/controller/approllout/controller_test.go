@@ -323,33 +323,49 @@ spec:
 
 // generateApp will generate an app for testing
 func generateApp(name, version, robotPayload, cloudPayload string) apps.App {
-	app := apps.App{}
-	app.Name = name
-	app.Labels = map[string]string{
-		labelAppName:    name,
-		labelAppVersion: version,
+	return apps.App{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				labelAppName:    name,
+				labelAppVersion: version,
+			},
+		},
+		Spec: apps.AppSpec{
+			Components: apps.AppComponents{
+				Cloud: apps.AppComponent{
+					Name:   "cloud",
+					Inline: cloudPayload,
+				},
+				Robot: apps.AppComponent{
+					Name:   "robot",
+					Inline: robotPayload,
+				},
+			},
+		},
 	}
-	app.Spec.Components.Cloud.Name = "cloud"
-	app.Spec.Components.Cloud.Inline = cloudPayload
-	app.Spec.Components.Robot.Name = "robot"
-	app.Spec.Components.Robot.Inline = robotPayload
-	return app
 }
 
 // generateRobot will generate a robot named |name| with the labels
 func generateRobot(name string, labels map[string]string) registry.Robot {
-	robot := registry.Robot{}
-	robot.Name = name
-	robot.Labels = labels
-	return robot
+	return registry.Robot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: labels,
+		},
+	}
 }
 
 // generateRollout will create a rollout pointing at AppName
 func generateRollout(name, appName string) apps.AppRollout {
-	rollout := apps.AppRollout{}
-	rollout.Name = name
-	rollout.Spec.AppName = appName
-	return rollout
+	return apps.AppRollout{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: apps.AppRolloutSpec{
+			AppName: appName,
+		},
+	}
 }
 
 // addRobotToRollout will add a robot component with the match label & version.
