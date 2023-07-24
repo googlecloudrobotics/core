@@ -60,6 +60,9 @@ func TestLocalProxy(t *testing.T) {
 	gock.BodyTypes = append(gock.BodyTypes, "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse")
 	defer gock.Off()
 
+	// We expect the response below to always contain 0 milliseconds.
+	timeSince = func(t time.Time) time.Duration { return 0 * time.Millisecond }
+
 	req, _ := proto.Marshal(&pb.HttpRequest{
 		Id:     proto.String("15"),
 		Method: proto.String("GET"),
@@ -112,6 +115,10 @@ func TestBackendError(t *testing.T) {
 	gock.BodyTypes = append(gock.BodyTypes, "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse")
 	defer gock.Off()
 
+	// We expect the response below to always contain 0 milliseconds.
+	timeSince = func(t time.Time) time.Duration { return 0 * time.Millisecond }
+
+	// The pending request on the relay-server side.
 	req, _ := proto.Marshal(&pb.HttpRequest{
 		Id:     proto.String("15"),
 		Method: proto.String("GET"),
@@ -121,6 +128,7 @@ func TestBackendError(t *testing.T) {
 			Value: proto.String("google.com")}},
 		Body: []byte("thebody"),
 	})
+
 	resp, _ := proto.Marshal(&pb.HttpResponse{
 		Id:                proto.String("15"),
 		StatusCode:        proto.Int32(400),
@@ -128,23 +136,38 @@ func TestBackendError(t *testing.T) {
 		Eof:               proto.Bool(true),
 		BackendDurationMs: proto.Int64(0),
 	})
-	gock.New("https://localhost:8081").
+
+	relayServerAddress := "https://localhost:8081"
+	backendServerAddress := "https://localhost:8080"
+
+	// Mocks the response from the relay server from which we are getting
+	// the initial data.
+	gock.New(relayServerAddress).
 		Get("/server/request").
 		MatchParam("server", "foo").
 		Reply(200).
 		BodyString(string(req))
-	gock.New("https://localhost:8080").
+
+	// Mocks the response from the backend server to which we relayed data.
+	gock.New(backendServerAddress).
 		Get("/foo/bar").
 		MatchParam("a", "b").
 		MatchHeader("X-GFE", "google.com").
 		BodyString("thebody").
 		Reply(400).
 		BodyString("theresponsebody")
-	gock.New("https://localhost:8081").
+
+	// Mocks the response from the realy-server after having received the
+	// actual backend response.
+	gock.New(relayServerAddress).
 		Post("/server/response").
 		Body(bytes.NewReader(resp)).
 		Reply(200)
 
+	// localProxy ...
+	// 1. pulls a request from the realy-server (/server/request)
+	// 2. send that request to the backend server (here localhost:8080/foo/bar?a=b)
+	// 3. retrieves the response from the backend and sends it to the relay-server
 	err := localProxy(&http.Client{}, &http.Client{}, defaultRelayURL)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)

@@ -115,6 +115,11 @@ var (
 	ErrForbidden = errors.New(http.StatusText(http.StatusForbidden))
 )
 
+// This is a package internal variable which we define to be able to overwrite
+// the measured time during unit tests. This is a light weight alternative
+// to mocking the entire time interface and passing it along all call paths.
+var timeSince = time.Since
+
 func addServiceName(span *trace.Span) {
 	relayClientAttr := trace.StringAttribute("service.name", "http-relay-client")
 	span.AddAttributes(relayClientAttr)
@@ -512,7 +517,7 @@ func handleRequest(remote *http.Client, local *http.Client, pbreq *pb.HttpReques
 					resp.Trailer = append(resp.Trailer, marshalHeader(&hresp.Trailer)...)
 				}
 				if resp.Eof != nil && *resp.Eof {
-					duration := time.Since(ts)
+					duration := timeSince(ts)
 					resp.BackendDurationMs = proto.Int64(duration.Milliseconds())
 					// see makeBackendRequest()
 					urlPath := strings.TrimPrefix(*pbreq.Url, "http://invalid")

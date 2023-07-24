@@ -32,15 +32,9 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SHADOW_REPO="${DIR}/../.gopath/src/github.com/googlecloudrobotics/core/src/go"
 
 export GOPATH="${DIR}/../.gopath"
+export GOBIN="${GOPATH}/bin"
 
-# Activate Go modules for installation
-export GO111MODULE=on
-go get k8s.io/api/...@$K8S_RELEASE
-go get k8s.io/apimachinery/...@$K8S_RELEASE
-go get k8s.io/code-generator/...@$K8S_RELEASE
-
-# Deactivate Go modules for generating files. Cloud Robotics repo does not use Go modules
-export GO111MODULE=off
+go install k8s.io/code-generator/cmd/{applyconfiguration-gen,defaulter-gen,client-gen,lister-gen,informer-gen,deepcopy-gen}@${K8S_RELEASE}
 
 export PATH="$PATH:$GOPATH/bin"
 mkdir -p ${SHADOW_REPO}
@@ -95,25 +89,25 @@ done
 dirs="${dirs:1}"
 groupversions="${groupversions:1}"
 
-deepcopy-gen \
+${GOBIN}/deepcopy-gen \
   --go-header-file   "${SHADOW_REPO}/HEADER" \
   --input-dirs       "${dirs}" \
   --bounding-dirs    "${REPO}/pkg/apis" \
   --output-file-base zz_generated.deepcopy
 
-client-gen \
+${GOBIN}/client-gen \
   --go-header-file "${SHADOW_REPO}/HEADER" \
   --clientset-name "versioned" \
   --input-base     "${REPO}/pkg/apis" \
   --input          "${groupversions}" \
   --output-package "${REPO}/pkg/client" \
 
-lister-gen \
+${GOBIN}/lister-gen \
   --go-header-file "${SHADOW_REPO}/HEADER" \
   --input-dirs     "${dirs}" \
   --output-package "${REPO}/pkg/client/listers"
 
-informer-gen \
+${GOBIN}/informer-gen \
   --go-header-file   "${SHADOW_REPO}/HEADER" \
   --single-directory \
   --listers-package  "${REPO}/pkg/client/listers" \
