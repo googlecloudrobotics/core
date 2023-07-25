@@ -86,13 +86,19 @@ function release_binary {
       //src/app_charts:push \
       //src/go/cmd/setup-robot:setup-robot.push
 
+  # The push scripts depends on binaries in the runfiles.
+  local oldPwd=$(pwd)
   # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl
   for t in latest ${DOCKER_TAG}; do
-    bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh \
+    cd ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/cloud_robotics
+    ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh \
       --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
       --tag="${t}"
-    TAG="$t" bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
+
+    cd ${oldPwd}/bazel-bin/src/app_charts/push.runfiles/cloud_robotics
+    TAG="$t" ${oldPwd}/bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
   done
+  cd ${oldPwd}
 
   gsutil cp -a public-read \
       bazel-bin/src/bootstrap/cloud/crc-binary.tar.gz \
