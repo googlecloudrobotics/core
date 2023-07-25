@@ -36,12 +36,7 @@ pkg_tar(
 
 oci_image(
     name = "token-vendor-image",
-    architecture = select({
-        "@platforms//cpu:arm64": "arm64",
-        "@platforms//cpu:x86_64": "amd64",
-    }),
     base = "@distroless_base",
     entrypoint = ["/token-vendor-app"],
-    os = "linux",
     tars = [":token-vendor-image-layer"],
 )
