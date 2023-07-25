@@ -75,13 +75,8 @@ pkg_tar(
 
 oci_image(
     name = "setup-robot-image",
-    architecture = select({
-        "@platforms//cpu:arm64": "arm64",
-        "@platforms//cpu:x86_64": "amd64",
-    }),
     base = ":base_image_with_files",
     entrypoint = ["/setup-robot-app"],
-    os = "linux",
     tars = [":setup-robot-image-layer"],
     visibility = ["//visibility:public"],
 )
