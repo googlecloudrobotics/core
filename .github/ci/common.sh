@@ -87,7 +87,8 @@ function release_binary {
       //src/go/cmd/setup-robot:setup-robot.push
 
   # The push scripts depends on binaries in the runfiles.
-  local oldPwd=$(pwd)
+  local oldPwd
+  oldPwd=$(pwd)
   # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl
   for t in latest ${DOCKER_TAG}; do
     cd ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/cloud_robotics
