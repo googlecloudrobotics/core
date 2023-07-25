@@ -144,6 +144,6 @@ bazel_ci test \
 
 # If this is running on main (ie, not a manual run) then update the `latest`
 # binary.
-# if [[ "$MANUAL_RUN" == "false" ]] ; then
+if [[ "$MANUAL_RUN" == "false" ]] ; then
   release_binary "robco-ci-binary-builds" "crc-${BUILD_IDENTIFIER}" "latest"
-# fi
+fi
