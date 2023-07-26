@@ -91,7 +91,8 @@ func runController(ctx context.Context, cfg *rest.Config, params map[string]inte
 	srv := mgr.GetWebhookServer()
 	srv.CertDir = *certDir
 
-	srv.Register("/approllout/validate", approllout.NewValidationWebhook(mgr))
+	srv.Register("/approllout/validate", approllout.NewAppRolloutValidationWebhook(mgr))
+	srv.Register("/app/validate", approllout.NewAppValidationWebhook(mgr))
 
 	return mgr.Start(signals.SetupSignalHandler())
 }

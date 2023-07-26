@@ -49,12 +49,7 @@ pkg_tar(
 
 oci_image(
     name = "http-relay-client-image",
-    architecture = select({
-        "@platforms//cpu:arm64": "arm64",
-        "@platforms//cpu:x86_64": "amd64",
-    }),
     base = "@distroless_base",
     entrypoint = ["/http-relay-client-app"],
-    os = "linux",
     tars = [":http-relay-client-image-layer"],
 )

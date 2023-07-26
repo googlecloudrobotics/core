@@ -22,6 +22,13 @@ jobs:
         env:
           ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY: ${{ secrets.ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY }}
         run: |
+          if [[ -z "$ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY" ]] ; then
+            echo >&2 "This PR appears to be from a fork or authored by a non-org member, rather than from the primary repo."
+            echo >&2 "This means it can't run the presubmit, which requires access to GCR."
+            echo >&2 "If you are a project member, please push your branch to github.com/googlecloudrobotics/core instead."
+            echo >&2 "https://docs.github.com/en/actions/managing-workflow-runs/approving-workflow-runs-from-public-forks#about-workflow-runs-from-public-forks"
+            exit 1
+          fi
           echo "$ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY" > robco_integration_test_credentials.json
       - name: Run .github/ci/presubmit.sh
         env:
@@ -29,4 +36,4 @@ jobs:
         run: ./.github/ci/presubmit.sh
       - name: Get bazel server logs
         if: success() || failure()
-        run: cat ~/.cache/bazel/_bazel_*/*/java.log
+        run: cat ~/.cache/bazel/_bazel_*/*/java.log || true

@@ -39,13 +39,8 @@ pkg_tar(
 
 oci_image(
     name = "app-rollout-controller-image",
-    architecture = select({
-        "@platforms//cpu:arm64": "arm64",
-        "@platforms//cpu:x86_64": "amd64",
-    }),
     base = "@distroless_base",
     entrypoint = ["/app-rollout-controller-app"],
-    os = "linux",
     tars = [":app-rollout-controller-image-layer"],
     visibility = ["//visibility:public"],
 )
