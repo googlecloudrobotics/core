@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -93,7 +92,6 @@ func TestClientHandler(t *testing.T) {
 
 	wg.Wait()
 	resp := respRecorder.Result()
-	log.Printf(">><<>><< response: %+v", resp)
 	checkResponse(t, resp, 201, "thebody")
 	if want, got := 1, len(resp.Header); want != got {
 		t.Errorf("Wrong # of headers; want %d; got %d", want, got)
