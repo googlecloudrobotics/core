@@ -79,19 +79,15 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -109,7 +105,6 @@ import (
 )
 
 const (
-	clientPrefix           = "/client/"
 	inactiveRequestTimeout = 60 * time.Second
 	// Time to wait for requests to complete before calling panic(). This should
 	// be less that the kubelet's timeout (30s by default) so that we can print
@@ -127,113 +122,14 @@ var (
 		"If not empty, traces will be uploaded to this Google Cloud Project.")
 )
 
-func createId() string {
-	u := make([]byte, 16)
-	// err is documented as always nil
-	rand.Read(u)
-	return hex.EncodeToString(u)
-}
-
-func marshalHeader(h *http.Header) []*pb.HttpHeader {
-	r := []*pb.HttpHeader{}
-	for k, vs := range *h {
-		for _, v := range vs {
-			r = append(r, &pb.HttpHeader{Name: proto.String(k), Value: proto.String(v)})
-		}
-	}
-	return r
-}
-
-func unmarshalHeader(w http.ResponseWriter, protoHeader []*pb.HttpHeader) {
-	for _, h := range protoHeader {
-		w.Header().Add(*h.Name, *h.Value)
-	}
-}
-
-func addServiceName(span *trace.Span) {
-	relayServerAttr := trace.StringAttribute("service.name", "http-relay-server")
-	span.AddAttributes(relayServerAttr)
-}
-
-func extractBackendNameAndPath(r *http.Request) (backendName string, path string, err error) {
-	if strings.HasPrefix(r.URL.Path, clientPrefix) {
-		// After stripping, the path is "${SERVER_NAME}/${REQUEST}"
-		pathParts := strings.SplitN(strings.TrimPrefix(r.URL.Path, clientPrefix), "/", 2)
-		backendName = pathParts[0]
-		if backendName == "" {
-			err = fmt.Errorf("Request path too short: missing remote server identifier")
-			return
-		}
-		path = "/"
-		if len(pathParts) > 1 {
-			path += pathParts[1]
-		}
-	} else {
-		// Requests without the /client/ prefix are gRPC requests. The backend is
-		// identified by "X-Server-Name" header.
-		headers, ok := r.Header["X-Server-Name"]
-		if !ok {
-			err = fmt.Errorf("Request without required header: \"X-Server-Name\"")
-			return
-		}
-		backendName = headers[0]
-		path = r.URL.Path
-	}
-	return
-}
-
-// responseFilter enforces that there's at least one HttpResponse in the out
-// channel and that the first response has a status code. From the reposnses it
-// extracts and return headers, trailers, status-code and body data.
-func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*pb.HttpHeader, []*pb.HttpHeader, int, <-chan []byte) {
-	body := make(chan []byte, 1)
-	firstMessage, more := <-in
+func waitForFirstResponse(backendCtx backendContext, backendRespCh <-chan *pb.HttpResponse) (*pb.HttpResponse, error) {
+	firstResponse, more := <-backendRespCh
 	if !more {
+		// There needs to be at least a single response from the backend client.
 		brokerResponses.WithLabelValues("client", "missing_message", backendCtx.ServerName, backendCtx.Path).Inc()
-		body <- []byte(fmt.Sprintf("Timeout after %v, either the backend request took too long or the relay client died", inactiveRequestTimeout))
-		close(body)
-		return nil, nil, http.StatusInternalServerError, body
+		return nil, fmt.Errorf("Timeout after %v, either the backend request took too long or the relay client died.", inactiveRequestTimeout)
 	}
-	if firstMessage.StatusCode == nil {
-		brokerResponses.WithLabelValues("client", "missing_header", backendCtx.ServerName, backendCtx.Path).Inc()
-		body <- []byte("Received no header from relay client")
-		close(body)
-		// Flush remaining messages
-		for range in {
-		}
-		return nil, nil, http.StatusInternalServerError, body
-	}
-	body <- []byte(firstMessage.Body)
-	lastMessage := firstMessage
-	go func() {
-		for backendResp := range in {
-			brokerResponses.WithLabelValues("client", "ok", backendCtx.ServerName, backendCtx.Path).Inc()
-			body <- []byte(backendResp.Body)
-			lastMessage = backendResp
-		}
-		close(body)
-	}()
-	// TODO(haukeheibel): We are returning before the go-routine above finishes. How is
-	// lastMessage.Trailer different from firstMessage.Trailer?
-	return firstMessage.Header, lastMessage.Trailer, int(*firstMessage.StatusCode), body
-}
-
-type backendContext struct {
-	Id         string
-	ServerName string
-	Path       string
-}
-
-func newBackendContext(r *http.Request) (*backendContext, error) {
-	serverName, path, err := extractBackendNameAndPath(r)
-	if err != nil {
-		return nil, err
-	}
-	return &backendContext{
-		Id:         serverName + ":" + createId(),
-		ServerName: serverName,
-		Path:       path,
-	}, nil
+	return firstResponse, nil
 }
 
 type server struct {
@@ -259,91 +155,11 @@ func (s *server) health(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("ok"))
 }
 
-// bidirectionalStream handles a 101 Switching Protocols response from the
-// backend, by "hijacking" to get a bidirectional connection to the client,
-// and streaming data between client and broker/relay client.
-func (s *server) bidirectionalStream(backendCtx backendContext, w http.ResponseWriter, response <-chan []byte) {
-	hj, ok := w.(http.Hijacker)
-	if !ok {
-		http.Error(w, "Backend returned 101 Switching Protocols, which is not supported by the relay server", http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusSwitchingProtocols)
-	conn, bufrw, err := hj.Hijack()
-	if err != nil {
-		// After a failed hijack, the connection is in an unknown state and
-		// we can't report an error to the client.
-		log.Printf("[%s] Failed to hijack connection after 101: %v", backendCtx.Id, err)
-		return
-	}
-	log.Printf("[%s] Switched protocols", backendCtx.Id)
-	defer conn.Close()
-
-	go func() {
-		// This goroutine handles the request stream from client to backend.
-		log.Printf("[%s] Trying to read from bidi-stream", backendCtx.Id)
-		for {
-			// This must be a new buffer each time, as the channel is not making a copy
-			bytes := make([]byte, *blockSize)
-			// Here we get the client stream (e.g. kubectl or k9s)
-			n, err := bufrw.Read(bytes)
-			if err != nil {
-				// TODO(https://github.com/golang/go/issues/4373): in Go 1.13,
-				// we may be able to suppress the "read from closed connection" better.
-				if strings.Contains(err.Error(), "use of closed network connection") {
-					// Request ended and connection closed by HTTP server.
-					log.Printf("[%s] End of bidi-stream stream (closed socket)", backendCtx.Id)
-				} else {
-					// Connection has unexpectedly failed for some other reason.
-					log.Printf("[%s] Error reading from bidi-stream: %v", backendCtx.Id, err)
-				}
-				return
-			}
-			log.Printf("[%s] Read %d bytes from bidi-stream", backendCtx.Id, n)
-			if ok = s.b.PutRequestStream(backendCtx.Id, bytes[:n]); !ok {
-				log.Printf("[%s] End of bidi-stream stream", backendCtx.Id)
-				return
-			}
-			log.Printf("[%s] Uploaded %d bytes from bidi-stream", backendCtx.Id, n)
-		}
-	}()
-
-	numBytes := 0
-	for bytes := range response {
-		// TODO(b/130706300): detect dropped connection and end request in broker
-		_, _ = bufrw.Write(bytes)
-		bufrw.Flush()
-		numBytes += len(bytes)
-	}
-	log.Printf("[%s] Wrote %d response bytes to bidi-stream", backendCtx.Id, numBytes)
-}
-
 func (s *server) readRequestBody(ctx context.Context, r *http.Request) ([]byte, error) {
 	_, span := trace.StartSpan(ctx, "Read request body")
 	addServiceName(span)
 	defer span.End()
 	return ioutil.ReadAll(r.Body)
-}
-
-func (s *server) createBackendRequest(backendCtx backendContext, r *http.Request, body []byte) *pb.HttpRequest {
-	backendUrl := url.URL{
-		Scheme:   "http",
-		Host:     "invalid",
-		Path:     backendCtx.Path,
-		RawQuery: r.URL.RawQuery,
-		Fragment: r.URL.Fragment,
-	}
-
-	backendReq := &pb.HttpRequest{
-		Id:     proto.String(backendCtx.Id),
-		Method: proto.String(r.Method),
-		Host:   proto.String(r.Host),
-		Url:    proto.String(backendUrl.String()),
-		Header: marshalHeader(&r.Header),
-		Body:   body,
-	}
-
-	return backendReq
 }
 
 func (s *server) relayRequest(ctx context.Context, backendCtx backendContext, request *pb.HttpRequest) (<-chan *pb.HttpResponse, error) {
@@ -356,31 +172,6 @@ func (s *server) relayRequest(ctx context.Context, backendCtx backendContext, re
 		return nil, err
 	}
 	return backendRespChan, nil
-}
-
-func (s *server) waitForFirstResponseAndHandleSwitching(ctx context.Context, backendCtx backendContext, w http.ResponseWriter, backendRespChan <-chan *pb.HttpResponse) ([]*pb.HttpHeader, []*pb.HttpHeader, <-chan []byte, bool) {
-	_, span := trace.StartSpan(ctx, "Waiting for first response")
-	addServiceName(span)
-	defer span.End()
-
-	header, trailer, status, backendRespBodyChan := responseFilter(backendCtx, backendRespChan)
-	if header != nil {
-		unmarshalHeader(w, header)
-	}
-
-	if status == http.StatusSwitchingProtocols {
-		span.AddAttributes(trace.StringAttribute("notes", "Received 101 switching protocols."))
-		// Note: call s.bidirectionalStream before w.WriteHeader so that
-		// bidirectionalStream can set the status on error.
-		// TODO(haukeheibel): I don't get this comment. We never write the
-		// header and just return.
-		s.bidirectionalStream(backendCtx, w, backendRespBodyChan)
-		return nil, nil, nil, true
-	}
-
-	w.WriteHeader(status)
-
-	return header, trailer, backendRespBodyChan, false
 }
 
 // This function is used to handle requests by the user-client.
@@ -421,7 +212,7 @@ func (s *server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	backendReq := s.createBackendRequest(*backendCtx, r, body)
+	backendReq := createBackendRequest(*backendCtx, r, body)
 
 	// Pipe a request into the request channel to it get polled by the relay client.
 	// Then return the response channel, so we can pass it on and wait on a response
@@ -432,44 +223,23 @@ func (s *server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	header, trailer, backendRespBodyChannel, done := s.waitForFirstResponseAndHandleSwitching(ctx, *backendCtx, w, backendRespChan)
-	if done {
+	firstResponse, err := waitForFirstResponse(*backendCtx, backendRespChan)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	_, forwardingResponseSpan := trace.StartSpan(ctx, "Forwarding backend response to user-client")
-	addServiceName(forwardingResponseSpan)
-	defer forwardingResponseSpan.End()
-
-	// This code here will block until we have actually received a response from the backend,
-	// i.e. this will block until
-	numBytes := 0
-	for bytes := range backendRespBodyChannel {
-		// TODO(b/130706300): detect dropped connection and end request in broker
-		_, _ = w.Write(bytes)
-		if flush, ok := w.(http.Flusher); ok {
-			flush.Flush()
+	if *firstResponse.StatusCode == http.StatusSwitchingProtocols {
+		span.AddAttributes(trace.StringAttribute("notes", "Received 101 switching protocols."))
+		s.b.m.Lock()
+		bodyStreamToBackend := s.b.resp[backendCtx.Id].requestStream
+		s.b.m.Unlock()
+		if bodyStreamToBackend != nil {
+			websocketRelayResponses(*backendCtx, w, firstResponse, backendRespChan, bodyStreamToBackend)
 		}
-		numBytes += len(bytes)
+	} else {
+		httpRelayResponses(ctx, *backendCtx, w, firstResponse, backendRespChan)
 	}
-
-	// TODO(ensonic): open questions:
-	// - can we do this less hacky? (see unmarshalHeader() above)
-	// - why do we not always get them as trailers?
-	for _, h := range header {
-		if strings.HasPrefix(*h.Name, "Grpc-") {
-			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
-			log.Printf("[%s] Adding trailer from header: %q:%q", backendCtx.Id, *h.Name, *h.Value)
-		}
-	}
-	if trailer != nil {
-		for _, h := range trailer {
-			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
-			log.Printf("[%s] Adding real trailer: %q:%q", backendCtx.Id, *h.Name, *h.Value)
-		}
-	}
-
-	log.Printf("[%s] Wrote %d response bytes to request", backendCtx.Id, numBytes)
 }
 
 // relay-client pulls a request
