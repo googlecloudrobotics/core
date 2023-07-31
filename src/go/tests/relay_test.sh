@@ -39,12 +39,13 @@ function kc() {
 }
 
 function setup() {
-  gcloud config config-helper --format=json || exit 1
   # configure kubectl to use relay for robot-sim vm (test-robot)
   kubectl config set-credentials "${GCP_PROJECT_ID}" --exec-command=gke-gcloud-auth-plugin --exec-api-version=client.authentication.k8s.io/v1beta1
   sed -i "s/provideClusterInfo: false/provideClusterInfo: true/" "${KUBECONFIG}"
   kubectl config set-cluster "${CLUSTER}" --server="https://www.endpoints.${GCP_PROJECT_ID}.cloud.goog/apis/core.kubernetes-relay/client/${CLUSTER}"
   kubectl config set-context "${CLUSTER}" --cluster "${CLUSTER}" --namespace "default" --user "$GCP_PROJECT_ID"
+  echo "Checking relay is working..."
+  kubectl --context "${CLUSTER}" version || test_failed "during setup, failed to reach the robot-sim VM"
 
   # delete test pod (if running)
   if kc get pod "${TEST_POD_NAME}" -o name 2>/dev/null; then
@@ -60,9 +61,8 @@ function teardown() {
   # delete test pod (if running)
   kc delete pod --ignore-not-found "${TEST_POD_NAME}" || /bin/true
  
-  rm -rf "${KC_CFG_DIR}"
+  rm -rf "${KC_CFG_DIR}" "${CLOUDSDK_CONFIG}"
 }
-trap teardown EXIT
 
 function test_failed() {
   echo "TEST FAILED: $1"
@@ -94,6 +94,7 @@ function test_relay_handles_eof() {
 }
 
 setup
+trap teardown EXIT
 test_relay_can_exec_to_shell
 test_relay_handles_eof
 
