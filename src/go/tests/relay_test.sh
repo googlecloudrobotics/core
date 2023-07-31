@@ -29,13 +29,20 @@ touch "${KUBECONFIG}"
 export KUBECACHE="${KC_DIR}/cache"
 mkdir -p "${KUBECACHE}"
 
+# gcloud expects to be able to write to its config directly.
+CLOUDSDK_CONFIG=$(mktemp -d -t gcloud-XXXXXXXXXX)
+export CLOUDSDK_CONFIG
+cp -a ~/.config/gcloud/* "${CLOUDSDK_CONFIG}"
+
 function kc() {
   kubectl --cache-dir="${KUBECACHE}" --context="${CLUSTER}" "$@"
 }
 
 function setup() {
-  kubectl config set-credentials "${GCP_PROJECT_ID}" --auth-provider gcp
-  # setup relay for robot-sim vm (test-robot)
+  gcloud config config-helper --format=json || exit 1
+  # configure kubectl to use relay for robot-sim vm (test-robot)
+  kubectl config set-credentials "${GCP_PROJECT_ID}" --exec-command=gke-gcloud-auth-plugin --exec-api-version=client.authentication.k8s.io/v1beta1
+  sed -i "s/provideClusterInfo: false/provideClusterInfo: true/" "${KUBECONFIG}"
   kubectl config set-cluster "${CLUSTER}" --server="https://www.endpoints.${GCP_PROJECT_ID}.cloud.goog/apis/core.kubernetes-relay/client/${CLUSTER}"
   kubectl config set-context "${CLUSTER}" --cluster "${CLUSTER}" --namespace "default" --user "$GCP_PROJECT_ID"
 
