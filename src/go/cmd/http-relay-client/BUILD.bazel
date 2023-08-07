@@ -19,6 +19,7 @@ go_library(
         "@org_golang_google_protobuf//proto:go_default_library",
         "@org_golang_x_net//context:go_default_library",
         "@org_golang_x_net//http2:go_default_library",
+        "@org_golang_x_oauth2//:go_default_library",
         "@org_golang_x_oauth2//google:go_default_library",
     ],
 )
