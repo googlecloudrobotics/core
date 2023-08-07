@@ -84,12 +84,23 @@ func (s *Server) Start(port int, blockSize int) {
 	mainCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// hs := &http.Server{
+	// 	Addr: fmt.Sprintf(":%d", s.port),
+	// 	Handler: &ochttp.Handler{
+	// 		Handler: h,
+	// 	},
+	// 	BaseContext: func(l net.Listener) context.Context {
+	// 		log.Printf("Relay server listening on: 127.0.0.1:%d", l.Addr().(*net.TCPAddr).Port)
+	// 		return mainCtx
+	// 	},
+	// }
+
 	h2s := &http2.Server{}
 	h2h := h2c.NewHandler(h, h2s)
 	och := &ochttp.Handler{
 		Handler: h2h,
 	}
-	h1s := &http.Server{
+	hs := &http.Server{
 		Addr:    fmt.Sprintf(":%d", s.port),
 		Handler: och,
 		BaseContext: func(l net.Listener) context.Context {
@@ -97,11 +108,12 @@ func (s *Server) Start(port int, blockSize int) {
 			return mainCtx
 		},
 	}
+
 	// Wait for the server to terminate, either because it failed to create a
 	// listener, or because we got SIGTERM.
 	g, gCtx := errgroup.WithContext(mainCtx)
 	g.Go(func() error {
-		if err := h1s.ListenAndServe(); err != http.ErrServerClosed {
+		if err := hs.ListenAndServe(); err != http.ErrServerClosed {
 			return err
 		}
 		// ErrServerClosed follows SIGTERM which is normal when updating the
@@ -112,7 +124,7 @@ func (s *Server) Start(port int, blockSize int) {
 		<-gCtx.Done()
 		ctx, cancel := context.WithTimeout(context.Background(), cleanShutdownTimeout)
 		defer cancel()
-		return h1s.Shutdown(ctx)
+		return hs.Shutdown(ctx)
 	})
 
 	if err := g.Wait(); err != nil {

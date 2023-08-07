@@ -22,25 +22,34 @@ package client
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	"github.com/cenkalti/backoff"
+	"github.com/golang/glog"
+	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/plugin/ochttp/propagation/tracecontext"
 	"go.opencensus.io/trace"
 	"golang.org/x/net/context"
+	"golang.org/x/net/http2"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -57,48 +66,6 @@ const (
 	responseTimeout = 100 * time.Millisecond
 	// Print more detailed logs when enabled.
 	debugLogs = false
-)
-
-var (
-	backendScheme = flag.String("backend_scheme", "https",
-		"Connection scheme (http, https) for connection from relay "+
-			"client to backend server")
-	backendAddress = flag.String("backend_address", "localhost:8080",
-		"Hostname of the backend server as seen by the relay client")
-	backendPath = flag.String("backend_path", "",
-		"Path prefix for backend requests (default: none)")
-	preserveHost = flag.Bool("preserve_host", true,
-		"Preserve Host header of the original request for "+
-			"compatibility with cross-origin request checks.")
-	relayScheme = flag.String("relay_scheme", "https",
-		"Connection scheme (http, https) for connection from relay "+
-			"client to relay server")
-	relayAddress = flag.String("relay_address", "localhost:8081",
-		"Hostname of the relay server as seen by the relay client")
-	relayPrefix = flag.String("relay_prefix", "",
-		"Path prefix for the relay server")
-	serverName = flag.String("server_name", "foo", "Fetch requests from "+
-		"the relay server for this server name")
-	authenticationTokenFile = flag.String("authentication_token_file", "",
-		"File with authentication token for backend requests")
-	rootCAFile = flag.String("root_ca_file", "",
-		"File with root CA cert for SSL")
-	maxChunkSize = flag.Int("max_chunk_size", 50*1024,
-		"Max size of data in bytes to accumulate before sending to the peer")
-	blockSize = flag.Int("block_size", 10*1024,
-		"Size of i/o buffer in bytes")
-	numPendingRequests = flag.Int("num_pending_requests", 1,
-		"Number of pending http requests to the relay")
-	maxIdleConnsPerHost = flag.Int("max_idle_conns_per_host", http.DefaultMaxIdleConnsPerHost,
-		"The maximum number of idle (keep-alive) connections to keep per-host")
-	disableHttp2 = flag.Bool("disable_http2", false,
-		"Disable http2 protocol usage (e.g. for channels that use special streaming protocols such as SPDY).")
-	forceHttp2 = flag.Bool("force_http2", false,
-		"Force enable http2 protocol usage through the use of go's http2 transport (e.g. when relaying grpc).")
-	disableAuthForRemote = flag.Bool("disable_auth_for_remote", false,
-		"Disable auth when talking to the relay server for local testing.")
-	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "",
-		"If not empty, traces will be uploaded to this Google Cloud Project.")
 )
 
 var (
@@ -182,6 +149,99 @@ func NewClient(config ClientConfig) *Client {
 }
 
 func (c *Client) Start() {
+	remote_transport := http.DefaultTransport.(*http.Transport).Clone()
+	remote_transport.MaxIdleConns = 100
+	remote_transport.MaxIdleConnsPerHost = 100
+	remote := &http.Client{Transport: remote_transport}
+
+	if !c.config.DisableAuthForRemote {
+		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, remote)
+		var err error
+		scope := "https://www.googleapis.com/auth/cloud-platform.read-only"
+		if remote, err = google.DefaultClient(ctx, scope); err != nil {
+			log.Fatalf("unable to set up credentials for relay-server authentication: %v", err)
+		}
+	}
+
+	var tlsConfig *tls.Config
+	if c.config.RootCAFile != "" {
+		rootCAs := x509.NewCertPool()
+		certs, err := ioutil.ReadFile(c.config.RootCAFile)
+		if err != nil {
+			log.Fatalf("Failed to read CA file %s: %v", c.config.RootCAFile, err)
+		}
+		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+			log.Fatalf("No certs found in %s", c.config.RootCAFile)
+		}
+		tlsConfig = &tls.Config{RootCAs: rootCAs}
+
+		if keyLogFile := os.Getenv("SSLKEYLOGFILE"); keyLogFile != "" {
+			keyLog, err := os.OpenFile(keyLogFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+			if err != nil {
+				glog.Errorf("Can open keylog file %q (check SSLKEYLOGFILE env var): %v", keyLogFile, err)
+			} else {
+				tlsConfig.KeyLogWriter = keyLog
+			}
+		}
+	}
+
+	var transport http.RoundTripper
+	if c.config.ForceHttp2 {
+		h2transport := &http2.Transport{}
+		if c.config.RootCAFile != "" {
+			h2transport.TLSClientConfig = tlsConfig
+		}
+
+		if c.config.DisableHttp2 {
+			log.Fatal("Cannot use --force_http2 together with --disable_http2")
+		}
+
+		if c.config.BackendScheme == "http" {
+			// Enable HTTP/2 Cleartext (H2C) for gRPC backends.
+			h2transport.AllowHTTP = true
+			h2transport.DialTLS = func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+				// Pretend we are dialing a TLS endpoint.
+				// Note, we ignore the passed tls.Config
+				return net.Dial(network, addr)
+			}
+		}
+
+		transport = h2transport
+	} else {
+		h1transport := http.DefaultTransport.(*http.Transport).Clone()
+		h1transport.MaxIdleConns = 100
+		h1transport.MaxIdleConnsPerHost = c.config.MaxIdleConnsPerHost
+		h1transport.TLSClientConfig = tlsConfig
+
+		if c.config.DisableHttp2 {
+			// Fix for: http2: invalid Upgrade request header: ["SPDY/3.1"]
+			// according to the docs:
+			//    Programs that must disable HTTP/2 can do so by setting Transport.TLSNextProto (for clients) or
+			//    Server.TLSNextProto (for servers) to a non-nil, empty map.
+			//
+			h1transport.TLSNextProto = map[string]func(authority string, c *tls.Conn) http.RoundTripper{}
+		}
+
+		transport = h1transport
+	}
+
+	// TODO(https://github.com/golang/go/issues/31391): reimplement timeouts if possible
+	// (see also https://github.com/golang/go/issues/30876)
+	local := &http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			// Don't follow redirects: instead, pass them through the relay untouched.
+			return http.ErrUseLastResponse
+		},
+		Transport: &ochttp.Transport{Base: transport},
+	}
+
+	wg := new(sync.WaitGroup)
+	wg.Add(c.config.NumPendingRequests)
+	for i := 0; i < c.config.NumPendingRequests; i++ {
+		go c.localProxyWorker(remote, local)
+	}
+	// Waiting for all goroutines to finish (they never do)
+	wg.Wait()
 }
 
 func addServiceName(span *trace.Span) {
@@ -190,8 +250,8 @@ func addServiceName(span *trace.Span) {
 }
 
 func (c *Client) getRequest(remote *http.Client) (*pb.HttpRequest, error) {
-	if debugLogs {
-		log.Printf("Connecting to relay server to get next request for %s", *serverName)
+	if glog.V(1) {
+		glog.Infof("Connecting to relay server to get next request for %s", c.config.ServerName)
 	}
 
 	relayURL := c.buildRelayURL()
@@ -245,22 +305,22 @@ func (c *Client) createBackendRequest(breq *pb.HttpRequest) (*http.Request, erro
 	if err != nil {
 		return nil, err
 	}
-	targetUrl.Scheme = *backendScheme
-	targetUrl.Host = *backendAddress
-	targetUrl.Path = *backendPath + targetUrl.Path
+	targetUrl.Scheme = c.config.BackendScheme
+	targetUrl.Host = c.config.BackendAddress
+	targetUrl.Path = c.config.BackendPath + targetUrl.Path
 	log.Printf("[%s] Sending %s request to backend: %s", id, *breq.Method, targetUrl)
 	req, err := http.NewRequest(*breq.Method, targetUrl.String(), bytes.NewReader(breq.Body))
 	if err != nil {
 		return nil, err
 	}
-	if *preserveHost && breq.Host != nil {
+	if c.config.PreserveHost && breq.Host != nil {
 		req.Host = *breq.Host
 	}
 	extractRequestHeader(breq, &req.Header)
-	if *authenticationTokenFile != "" {
-		token, err := ioutil.ReadFile(*authenticationTokenFile)
+	if c.config.AuthenticationTokenFile != "" {
+		token, err := os.ReadFile(c.config.AuthenticationTokenFile)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to read authentication token from %s: %v", *authenticationTokenFile, err)
+			return nil, fmt.Errorf("Failed to read authentication token from %s: %v", c.config.AuthenticationTokenFile, err)
 		}
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
@@ -324,9 +384,9 @@ func (c *Client) postResponse(remote *http.Client, br *pb.HttpResponse) error {
 	}
 
 	responseUrl := url.URL{
-		Scheme: *relayScheme,
-		Host:   *relayAddress,
-		Path:   *relayPrefix + "/server/response",
+		Scheme: c.config.RelayScheme,
+		Host:   c.config.RelayAddress,
+		Path:   c.config.RelayPrefix + "/server/response",
 	}
 
 	resp, err := remote.Post(responseUrl.String(), "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse", bytes.NewReader(body))
@@ -353,11 +413,11 @@ func (c *Client) postResponse(remote *http.Client, br *pb.HttpResponse) error {
 }
 
 // streamBytes converts an io.Reader into a channel to enable select{}-style timeouts.
-func streamBytes(id string, in io.ReadCloser, out chan<- []byte) {
+func (c *Client) streamBytes(id string, in io.ReadCloser, out chan<- []byte) {
 	eof := false
 	for !eof {
 		// This must be a new buffer each time, as the channel is not making a copy
-		buffer := make([]byte, *blockSize)
+		buffer := make([]byte, c.config.BlockSize)
 		if debugLogs {
 			log.Printf("[%s] Reading from backend", id)
 		}
@@ -404,7 +464,7 @@ func (c *Client) buildResponses(in <-chan []byte, resp *pb.HttpResponse, out cha
 				resp.Eof = proto.Bool(true)
 				out <- resp
 				return
-			} else if len(resp.Body) > *maxChunkSize {
+			} else if len(resp.Body) > c.config.MaxChunkSize {
 				if debugLogs {
 					log.Printf("[%s] Posting intermediate response of %d bytes to relay", *resp.Id, len(resp.Body))
 				}
@@ -459,9 +519,9 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 	defer backendWriter.Close()
 
 	streamURL := (&url.URL{
-		Scheme:   *relayScheme,
-		Host:     *relayAddress,
-		Path:     *relayPrefix + "/server/requeststream",
+		Scheme:   c.config.RelayScheme,
+		Host:     c.config.RelayAddress,
+		Path:     c.config.RelayPrefix + "/server/requeststream",
 		RawQuery: "id=" + id,
 	}).String()
 	for {
@@ -481,7 +541,7 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 			}
 			return
 		} else if resp.StatusCode != http.StatusOK {
-			msg, err := ioutil.ReadAll(resp.Body)
+			msg, err := io.ReadAll(resp.Body)
 			if err != nil {
 				msg = []byte(fmt.Sprintf("<failed to read response body: %v>", err))
 			}
@@ -552,7 +612,7 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 	bodyChannel := make(chan []byte)
 	responseChannel := make(chan *pb.HttpResponse)
 	// Stream stdout from backend to bodyChannel
-	go streamBytes(*resp.Id, hresp.Body, bodyChannel)
+	go c.streamBytes(*resp.Id, hresp.Body, bodyChannel)
 	// collect data from bodyChannel and send to remote (relay-server)
 	go c.buildResponses(bodyChannel, resp, responseChannel, responseTimeout)
 
@@ -614,9 +674,9 @@ func (c *Client) localProxy(remote, local *http.Client) error {
 		if errors.Is(err, ErrTimeout) {
 			return err
 		} else if errors.Is(err, ErrForbidden) {
-			log.Fatalf("failed to authenticate to cloud-api, restarting: %v", err)
+			glog.Fatalf("failed to authenticate to cloud-api, restarting: %v", err)
 		} else if errors.Is(err, syscall.ECONNREFUSED) {
-			log.Fatalf("failed to connect to cloud-api, restarting: %v", err)
+			glog.Fatalf("failed to connect to cloud-api, restarting: %v", err)
 		} else {
 			return fmt.Errorf("failed to get request from relay: %v", err)
 		}
@@ -627,11 +687,11 @@ func (c *Client) localProxy(remote, local *http.Client) error {
 }
 
 func (c *Client) localProxyWorker(remote, local *http.Client) {
-	log.Printf("Starting to relay server request loop for %s", *serverName)
+	glog.Infof("Starting to relay server request loop for %s", c.config.ServerName)
 	for {
 		err := c.localProxy(remote, local)
 		if err != nil && !errors.Is(err, ErrTimeout) {
-			log.Print(err)
+			glog.Errorf("%+v", err)
 			time.Sleep(1 * time.Second)
 		}
 	}
@@ -639,11 +699,11 @@ func (c *Client) localProxyWorker(remote, local *http.Client) {
 
 func (c *Client) buildRelayURL() string {
 	query := url.Values{}
-	query.Add("server", *serverName)
+	query.Add("server", c.config.ServerName)
 	relayURL := url.URL{
-		Scheme:   *relayScheme,
-		Host:     *relayAddress,
-		Path:     *relayPrefix + "/server/request",
+		Scheme:   c.config.RelayScheme,
+		Host:     c.config.RelayAddress,
+		Path:     c.config.RelayPrefix + "/server/request",
 		RawQuery: query.Encode(),
 	}
 	return relayURL.String()

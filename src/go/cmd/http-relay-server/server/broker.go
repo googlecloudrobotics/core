@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -147,7 +148,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	respChan := r.resp[id].responseStream
 	r.m.Unlock()
 
-	log.Printf("[%s] Enqueuing request", id)
+	glog.Infof("[%s] Enqueuing request", id)
 	brokerRequests.WithLabelValues("client", server, targetUrl.Path).Inc()
 	select {
 	// This blocks until we get a free spot in the broker's request channel.
