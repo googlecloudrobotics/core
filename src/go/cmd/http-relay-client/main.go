@@ -49,6 +49,7 @@ import (
 	"go.opencensus.io/trace"
 	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/protobuf/proto"
 )
@@ -98,7 +99,7 @@ var (
 		"Size of i/o buffer in bytes")
 	numPendingRequests = flag.Int("num_pending_requests", 1,
 		"Number of pending http requests to the relay")
-	maxIdleConnsPerHost = flag.Int("max_idle_conns_per_host", http.DefaultMaxIdleConnsPerHost,
+	maxIdleConnsPerHost = flag.Int("max_idle_conns_per_host", 100,
 		"The maximum number of idle (keep-alive) connections to keep per-host")
 	disableHttp2 = flag.Bool("disable_http2", false,
 		"Disable http2 protocol usage (e.g. for channels that use special streaming protocols such as SPDY).")
@@ -602,9 +603,13 @@ func main() {
 		}
 	}
 
-	remote := &http.Client{}
+	remote_transport := http.DefaultTransport.(*http.Transport).Clone()
+	remote_transport.MaxIdleConns = *maxIdleConnsPerHost
+	remote_transport.MaxIdleConnsPerHost = *maxIdleConnsPerHost
+	remote := &http.Client{Transport: remote_transport}
+
 	if !*disableAuthForRemote {
-		ctx := context.Background()
+		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, remote)
 		scope := "https://www.googleapis.com/auth/cloud-platform.read-only"
 		if remote, err = google.DefaultClient(ctx, scope); err != nil {
 			log.Fatalf("unable to set up credentials for relay-server authentication: %v", err)
@@ -656,6 +661,7 @@ func main() {
 		transport = h2transport
 	} else {
 		h1transport := http.DefaultTransport.(*http.Transport).Clone()
+		h1transport.MaxIdleConns = *maxIdleConnsPerHost
 		h1transport.MaxIdleConnsPerHost = *maxIdleConnsPerHost
 		h1transport.TLSClientConfig = tlsConfig
 
