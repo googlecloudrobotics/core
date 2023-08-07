@@ -1,5 +1,5 @@
 // Utilities for proto conversion
-package main
+package server
 
 import (
 	"log"

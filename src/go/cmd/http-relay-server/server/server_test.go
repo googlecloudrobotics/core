@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package server
 
 import (
 	"bytes"
@@ -49,7 +49,7 @@ func TestClientHandler(t *testing.T) {
 	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := httptest.NewRecorder()
-	server := newServer()
+	server := NewServer()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
@@ -125,7 +125,7 @@ func TestClientBadRequest(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			respRecorder := httptest.NewRecorder()
-			server := newServer()
+			server := NewServer()
 			wg := sync.WaitGroup{}
 			wg.Add(1)
 			go func() { server.userClientRequest(respRecorder, tc.req); wg.Done() }()
@@ -161,19 +161,16 @@ func nonRepeatingByteArray(n int) []byte {
 func TestRequestStreamHandler(t *testing.T) {
 	// Use a large request stream body to ensure it gets split into multiple
 	// blocks. This would have caught a race that jumbles the request stream.
-	oldBlockSize := *blockSize
-	*blockSize = 64
-	defer func() {
-		*blockSize = oldBlockSize
-	}()
-	wantRequestStream := nonRepeatingByteArray(3 * (*blockSize))
+	blockSize := 64
+	wantRequestStream := nonRepeatingByteArray(3 * blockSize)
 
 	// In a background goroutine, run a client request with post-request data
 	// in the request stream.
 	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := hijacktest.NewRecorder(wantRequestStream)
-	server := newServer()
+	server := NewServer()
+	server.blockSize = 64
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
@@ -253,7 +250,7 @@ func TestServerRequestResponseHandler(t *testing.T) {
 	resp := httptest.NewRequest("POST", "/server/response", bytes.NewReader(backendRespBody))
 	reqRecorder := httptest.NewRecorder()
 	respRecorder := httptest.NewRecorder()
-	server := newServer()
+	server := NewServer()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
@@ -310,7 +307,7 @@ func TestServerResponseHandlerWithInvalidRequestID(t *testing.T) {
 
 	resp := httptest.NewRequest("POST", "/server/response", bytes.NewReader(backendRespBody))
 	respRecorder := httptest.NewRecorder()
-	server := newServer()
+	server := NewServer()
 	server.serverResponse(respRecorder, resp)
 
 	if want, got := http.StatusBadRequest, respRecorder.Result().StatusCode; want != got {

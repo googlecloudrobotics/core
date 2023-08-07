@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"log"
@@ -8,7 +8,7 @@ import (
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 )
 
-func bidirectionalStream(backendCtx backendContext, w http.ResponseWriter, backendResBodyChan <-chan []byte, streamToBackend chan []byte) {
+func bidirectionalStream(backendCtx backendContext, w http.ResponseWriter, backendResBodyChan <-chan []byte, streamToBackend chan []byte, blockSize int) {
 	hj, ok := w.(http.Hijacker)
 	if !ok {
 		http.Error(w, "Backend returned 101 Switching Protocols, which is not supported by the relay server", http.StatusInternalServerError)
@@ -30,7 +30,7 @@ func bidirectionalStream(backendCtx backendContext, w http.ResponseWriter, backe
 		log.Printf("[%s] Trying to read from bidi-stream", backendCtx.Id)
 		for {
 			// This must be a new buffer each time, as the channel is not making a copy
-			bytes := make([]byte, *blockSize)
+			bytes := make([]byte, blockSize)
 			// Here we get the user client stream (e.g. kubectl, k9s or browser stream)
 			n, err := bufrw.Read(bytes)
 			if err != nil {
@@ -79,11 +79,11 @@ func createWebSocketBodyChannel(backendCtx backendContext, firstResponse *pb.Htt
 	return websocketBodies
 }
 
-func websocketRelayResponses(backendCtx backendContext, w http.ResponseWriter, firstBackendResp *pb.HttpResponse, backendRespCh <-chan *pb.HttpResponse, streamToBackend chan []byte) {
+func websocketRelayResponses(backendCtx backendContext, w http.ResponseWriter, firstBackendResp *pb.HttpResponse, backendRespCh <-chan *pb.HttpResponse, streamToBackend chan []byte, blockSize int) {
 	writeResponseHeader(backendCtx, w, firstBackendResp)
 
 	backendResBodyChan := createWebSocketBodyChannel(backendCtx, firstBackendResp, backendRespCh)
-	bidirectionalStream(backendCtx, w, backendResBodyChan, streamToBackend)
+	bidirectionalStream(backendCtx, w, backendResBodyChan, streamToBackend, blockSize)
 
 	// Even in the old code, we just returned here. Should we not handle the trailer of
 	// the last response?

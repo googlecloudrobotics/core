@@ -1,5 +1,5 @@
 // Utilities we use for implementing the relay server
-package main
+package server
 
 import (
 	"log"
