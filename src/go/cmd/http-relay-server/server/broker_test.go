@@ -17,13 +17,13 @@ package server
 import (
 	"bytes"
 	"context"
-	"log"
 	"sync"
 	"testing"
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 	"google.golang.org/protobuf/proto"
+	"k8s.io/klog"
 )
 
 const (
@@ -205,11 +205,11 @@ func TestTimeout(t *testing.T) {
 		wg.Done()
 	}()
 	go func() {
-		log.Printf("Getting request")
+		klog.Infof("Getting request")
 		b.GetRequest(context.Background(), "foo", "/")
-		log.Printf("Reaping inactive requests")
+		klog.Infof("Reaping inactive requests")
 		b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
-		log.Printf("Done")
+		klog.Infof("Done")
 		wg.Done()
 	}()
 	wg.Wait()

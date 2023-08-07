@@ -17,13 +17,13 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
+	"k8s.io/klog"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -147,7 +147,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	respChan := r.resp[id].responseStream
 	r.m.Unlock()
 
-	log.Printf("[%s] Enqueuing request", id)
+	klog.Infof("[%s] Enqueuing request", id)
 	brokerRequests.WithLabelValues("client", server, targetUrl.Path).Inc()
 	select {
 	// This blocks until we get a free spot in the broker's request channel.
@@ -256,9 +256,9 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 			brokerOverheadDurations.WithLabelValues("server_response", backendName, pr.requestPath).Observe(duration - backendDuration)
 			backendDurStr = fmt.Sprintf("%.3fs", backendDuration)
 		}
-		log.Printf("[%s] Delivered final response to client (%d bytes), elapsed on server=%.3fs, backend=%s", id, len(resp.Body), duration, backendDurStr)
+		klog.Infof("[%s] Delivered final response to client (%d bytes), elapsed on server=%.3fs, backend=%s", id, len(resp.Body), duration, backendDurStr)
 	} else {
-		log.Printf("[%s] Delivered response to client (%d bytes), elapsed on server=%.3fs", id, len(resp.Body), duration)
+		klog.Infof("[%s] Delivered response to client (%d bytes), elapsed on server=%.3fs", id, len(resp.Body), duration)
 	}
 	brokerResponses.WithLabelValues("server_response", "ok", backendName, pr.requestPath).Inc()
 	return nil
@@ -268,7 +268,7 @@ func (r *broker) ReapInactiveRequests(threshold time.Time) {
 	r.m.Lock()
 	for id, pr := range r.resp {
 		if pr.lastActivity.Before(threshold) {
-			log.Printf("[%s] Timeout on inactive request", id)
+			klog.Infof("[%s] Timeout on inactive request", id)
 			defer close(pr.requestStream)
 			defer close(pr.responseStream)
 			// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop

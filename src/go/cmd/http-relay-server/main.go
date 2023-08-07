@@ -84,6 +84,7 @@ import (
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server/server"
 	"go.opencensus.io/trace"
+	"k8s.io/klog"
 )
 
 var (
@@ -95,6 +96,7 @@ var (
 )
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
