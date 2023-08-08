@@ -38,7 +38,7 @@ function init_robot_sim() {
 
   echo "Uploading setup files"
   run_on_robot_sim ${SIM_HOST} "mkdir -p ~/robco"
-  scp -o "StrictHostKeyChecking=no" -i ~/.ssh/google_compute_engine ${DEPLOY_FILES} ${SIM_HOST}:~/robco/
+  scp -o "StrictHostKeyChecking=no" -i ~/.ssh/google_compute_engine ${DEPLOY_FILES} builder@${SIM_HOST}:~/robco/
 
   # Terraform creates the robot-sim VM, but doesn't install the local cluster.
   # Since this script is idempotent, we run it on every test.
