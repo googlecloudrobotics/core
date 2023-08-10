@@ -22,6 +22,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -44,7 +45,6 @@ import (
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/plugin/ochttp/propagation/tracecontext"
 	"go.opencensus.io/trace"
-	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -112,7 +112,7 @@ func DefaultClientConfig() ClientConfig {
 		ServerName: "server_name",
 
 		NumPendingRequests:  1,
-		MaxIdleConnsPerHost: http.DefaultMaxIdleConnsPerHost,
+		MaxIdleConnsPerHost: 100,
 
 		MaxChunkSize: 50 * 1024,
 		BlockSize:    10 * 1024,
@@ -135,10 +135,10 @@ func NewClient(config ClientConfig) *Client {
 func (c *Client) Start() {
 	var err error
 
-	remote_transport := http.DefaultTransport.(*http.Transport).Clone()
-	remote_transport.MaxIdleConns = c.config.MaxIdleConnsPerHost
-	remote_transport.MaxIdleConnsPerHost = c.config.MaxIdleConnsPerHost
-	remote := &http.Client{Transport: remote_transport}
+	remoteTransport := http.DefaultTransport.(*http.Transport).Clone()
+	remoteTransport.MaxIdleConns = c.config.MaxIdleConnsPerHost
+	remoteTransport.MaxIdleConnsPerHost = c.config.MaxIdleConnsPerHost
+	remote := &http.Client{Transport: remoteTransport}
 
 	if !c.config.DisableAuthForRemote {
 		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, remote)
