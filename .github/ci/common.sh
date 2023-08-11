@@ -8,14 +8,7 @@ set -o xtrace    # print command traces before executing command
 
 # Wraps the common Bazel flags for CI for brevity.
 function bazel_ci {
-  BAZELRC="${DIR}/rbe.bazelrc"
-  # GitHub does not give non-org members access to repo secrets.
-  # If that is the case, fall back to a non-RBE (ie slow) build.
-  if ! jq -e . >/dev/null 2>&1 < robco_integration_test_credentials.json; then
-      echo "Failed to parse RBE credentials, this is expected iff this is a PR from an external contributor/bot" >&2
-      BAZELRC="/dev/null"
-  fi
-  bazel --bazelrc="${BAZELRC}" "$@"
+  bazel --bazelrc="${DIR}/.bazelrc" "$@"
 }
 
 function generate_build_id() {
@@ -45,7 +38,7 @@ function init_robot_sim() {
 
   echo "Uploading setup files"
   run_on_robot_sim ${SIM_HOST} "mkdir -p ~/robco"
-  scp -o "StrictHostKeyChecking=no" -i ~/.ssh/google_compute_engine ${DEPLOY_FILES} ${SIM_HOST}:~/robco/
+  scp -o "StrictHostKeyChecking=no" -i ~/.ssh/google_compute_engine ${DEPLOY_FILES} builder@${SIM_HOST}:~/robco/
 
   # Terraform creates the robot-sim VM, but doesn't install the local cluster.
   # Since this script is idempotent, we run it on every test.
@@ -93,12 +86,20 @@ function release_binary {
       //src/app_charts:push \
       //src/go/cmd/setup-robot:setup-robot.push
 
+  # The push scripts depends on binaries in the runfiles.
+  local oldPwd
+  oldPwd=$(pwd)
   # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl
   for t in latest ${DOCKER_TAG}; do
-    bazel-bin/src/go/cmd/setup-robot/setup-robot.push \
-      --dst="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot:${t}"
-    TAG="$t" bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
+    cd ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/cloud_robotics
+    ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh \
+      --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
+      --tag="${t}"
+
+    cd ${oldPwd}/bazel-bin/src/app_charts/push.runfiles/cloud_robotics
+    TAG="$t" ${oldPwd}/bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
   done
+  cd ${oldPwd}
 
   gsutil cp -a public-read \
       bazel-bin/src/bootstrap/cloud/crc-binary.tar.gz \

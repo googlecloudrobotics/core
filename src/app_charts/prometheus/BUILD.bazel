@@ -33,7 +33,7 @@ app_chart(
         ":prometheus-operator-chart.cloud",
     ],
     images = {
-        "http-relay-server": "//src/go/cmd/http-relay-server",
+        "http-relay-server": "//src/go/cmd/http-relay-server:http-relay-server-image",
     },
     values = "values-cloud.yaml",
 )
@@ -46,7 +46,7 @@ app_chart(
     files = [
         ":prometheus-operator-chart.robot",
     ],
-    images = {"http-relay-client": "//src/go/cmd/http-relay-client"},
+    images = {"http-relay-client": "//src/go/cmd/http-relay-client:http-relay-client-image"},
 )
 
 app(

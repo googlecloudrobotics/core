@@ -33,14 +33,14 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	testpb "google.golang.org/grpc/interop/grpc_testing"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	testpb "google.golang.org/grpc/test/grpc_testing"
 )
 
 const (
-	RelayClientPath = "src/go/cmd/http-relay-client/http-relay-client-bin_/http-relay-client-bin"
-	RelayServerPath = "src/go/cmd/http-relay-server/http-relay-server-bin_/http-relay-server-bin"
+	RelayClientPath = "src/go/cmd/http-relay-client/http-relay-client-app_/http-relay-client-app"
+	RelayServerPath = "src/go/cmd/http-relay-server/http-relay-server-app_/http-relay-server-app"
 )
 
 var (

@@ -70,6 +70,7 @@ function prepare_source_install {
       //src/app_charts/base:base-cloud \
       //src/app_charts/platform-apps:platform-apps-cloud \
       //src/app_charts:push \
+      //src/bootstrap/cloud:setup-robot.digest \
       //src/go/cmd/setup-robot:setup-robot.push \
       //src/go/cmd/synk
 
@@ -82,12 +83,19 @@ function prepare_source_install {
 
   # `setup-robot.push` is the first container push to avoid a GCR bug with parallel pushes on newly
   # created projects (see b/123625511).
-  ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push \
-    --dst="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot:latest"
+  local oldPwd
+  oldPwd=$(pwd)
+  cd ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/cloud_robotics
+  ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh \
+    --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
+    --tag="latest"
 
   # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl
   # Running :push outside the build system shaves ~3 seconds off an incremental build.
+  cd ${DIR}/bazel-bin/src/app_charts/push.runfiles/cloud_robotics
   TAG="latest" ${DIR}/bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
+
+  cd ${oldPwd}
 }
 
 function terraform_exec {
@@ -118,7 +126,7 @@ function terraform_init {
   fi
 
   local ROBOT_IMAGE_DIGEST
-  ROBOT_IMAGE_DIGEST=$(cat bazel-bin/src/go/cmd/setup-robot/setup-robot.push.digest)
+  ROBOT_IMAGE_DIGEST=$(cat bazel-bin/src/bootstrap/cloud/setup-robot.digest)
 
   # We only need to create dns resources if a custom domain is used.
   local CUSTOM_DOMAIN

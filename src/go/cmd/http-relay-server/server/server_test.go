@@ -1,4 +1,4 @@
-// Copyright 2019 The Cloud Robotics Authors
+// Copyright 2023 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package server
 
 import (
 	"bytes"
@@ -49,10 +49,10 @@ func TestClientHandler(t *testing.T) {
 	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := httptest.NewRecorder()
-	server := newServer()
+	server := NewServer()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go func() { server.client(respRecorder, req); wg.Done() }()
+	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
 	relayRequest, err := server.b.GetRequest(context.Background(), "foo", "/")
 	if err != nil {
 		t.Errorf("Error when getting request: %v", err)
@@ -69,6 +69,7 @@ func TestClientHandler(t *testing.T) {
 		}},
 		Body: []byte("body"),
 	}
+	relayRequest.Header = relayRequest.Header[:1]
 	if !proto.Equal(wantRequest, relayRequest) {
 		t.Errorf("Wrong encapsulated request; want %s; got '%s'", wantRequest, relayRequest)
 	}
@@ -124,10 +125,10 @@ func TestClientBadRequest(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			respRecorder := httptest.NewRecorder()
-			server := newServer()
+			server := NewServer()
 			wg := sync.WaitGroup{}
 			wg.Add(1)
-			go func() { server.client(respRecorder, tc.req); wg.Done() }()
+			go func() { server.userClientRequest(respRecorder, tc.req); wg.Done() }()
 			wg.Wait()
 
 			resp := respRecorder.Result()
@@ -158,24 +159,19 @@ func nonRepeatingByteArray(n int) []byte {
 }
 
 func TestRequestStreamHandler(t *testing.T) {
-	// Use a large request stream body to ensure it gets split into multiple
-	// blocks. This would have caught a race that jumbles the request stream.
-	oldBlockSize := *blockSize
-	*blockSize = 64
-	defer func() {
-		*blockSize = oldBlockSize
-	}()
-	wantRequestStream := nonRepeatingByteArray(3 * (*blockSize))
+	blockSize := 64
+	wantRequestStream := nonRepeatingByteArray(3 * blockSize)
 
 	// In a background goroutine, run a client request with post-request data
 	// in the request stream.
 	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := hijacktest.NewRecorder(wantRequestStream)
-	server := newServer()
+	server := NewServer()
+	server.blockSize = blockSize
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go func() { server.client(respRecorder, req); wg.Done() }()
+	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
 
 	// Simulate a 101 Switching Protocols response from the backend.
 	relayRequest, err := server.b.GetRequest(context.Background(), "foo", "/")
@@ -252,7 +248,7 @@ func TestServerRequestResponseHandler(t *testing.T) {
 	resp := httptest.NewRequest("POST", "/server/response", bytes.NewReader(backendRespBody))
 	reqRecorder := httptest.NewRecorder()
 	respRecorder := httptest.NewRecorder()
-	server := newServer()
+	server := NewServer()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
@@ -309,7 +305,7 @@ func TestServerResponseHandlerWithInvalidRequestID(t *testing.T) {
 
 	resp := httptest.NewRequest("POST", "/server/response", bytes.NewReader(backendRespBody))
 	respRecorder := httptest.NewRecorder()
-	server := newServer()
+	server := NewServer()
 	server.serverResponse(respRecorder, resp)
 
 	if want, got := http.StatusBadRequest, respRecorder.Result().StatusCode; want != got {

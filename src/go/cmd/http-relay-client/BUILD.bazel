@@ -1,6 +1,8 @@
 package(default_visibility = ["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 go_library(
     name = "go_default_library",
@@ -10,9 +12,14 @@ go_library(
     deps = [
         "//src/proto/http-relay:go_default_library",
         "@com_github_cenkalti_backoff//:go_default_library",
+        "@io_opencensus_go//plugin/ochttp:go_default_library",
+        "@io_opencensus_go//plugin/ochttp/propagation/tracecontext:go_default_library",
+        "@io_opencensus_go//trace:go_default_library",
+        "@io_opencensus_go_contrib_exporter_stackdriver//:go_default_library",
         "@org_golang_google_protobuf//proto:go_default_library",
         "@org_golang_x_net//context:go_default_library",
         "@org_golang_x_net//http2:go_default_library",
+        "@org_golang_x_oauth2//:go_default_library",
         "@org_golang_x_oauth2//google:go_default_library",
     ],
 )
@@ -31,16 +38,19 @@ go_test(
     ],
 )
 
-# only for testing
 go_binary(
-    name = "http-relay-client-bin",
+    name = "http-relay-client-app",
     embed = [":go_default_library"],
 )
 
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+pkg_tar(
+    name = "http-relay-client-image-layer",
+    srcs = [":http-relay-client-app"],
+)
 
-go_image(
-    name = "http-relay-client",
-    base = "@cc_image_base//image",
-    embed = [":go_default_library"],
+oci_image(
+    name = "http-relay-client-image",
+    base = "@distroless_base",
+    entrypoint = ["/http-relay-client-app"],
+    tars = [":http-relay-client-image-layer"],
 )
