@@ -1,4 +1,4 @@
-// Copyright 2019 The Cloud Robotics Authors
+// Copyright 2023 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package client
 
 import (
 	"bytes"
@@ -26,8 +26,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/h2non/gock.v1"
 )
-
-var defaultRelayURL = buildRelayURL()
 
 func assertMocksDoneWithin(t *testing.T, d time.Duration) {
 	for start := time.Now(); time.Since(start) < d; {
@@ -103,7 +101,10 @@ func TestLocalProxy(t *testing.T) {
 		Body(bytes.NewReader(resp)).
 		Reply(200)
 
-	err := localProxy(&http.Client{}, &http.Client{}, defaultRelayURL)
+	config := DefaultClientConfig()
+	config.ServerName = "foo"
+	client := NewClient(config)
+	err := client.localProxy(&http.Client{}, &http.Client{})
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
@@ -164,11 +165,15 @@ func TestBackendError(t *testing.T) {
 		Body(bytes.NewReader(resp)).
 		Reply(200)
 
+	config := DefaultClientConfig()
+	config.ServerName = "foo"
+	client := NewClient(config)
+
 	// localProxy ...
 	// 1. pulls a request from the realy-server (/server/request)
 	// 2. send that request to the backend server (here localhost:8080/foo/bar?a=b)
 	// 3. retrieves the response from the backend and sends it to the relay-server
-	err := localProxy(&http.Client{}, &http.Client{}, defaultRelayURL)
+	err := client.localProxy(&http.Client{}, &http.Client{})
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
@@ -196,7 +201,10 @@ func TestServerTimeout(t *testing.T) {
 		Reply(408).
 		BodyString(string(req))
 
-	err := localProxy(&http.Client{}, &http.Client{}, defaultRelayURL)
+	config := DefaultClientConfig()
+	config.ServerName = "foo"
+	client := NewClient(config)
+	err := client.localProxy(&http.Client{}, &http.Client{})
 	if err != ErrTimeout {
 		t.Errorf("Unexpected error: %s", err)
 	}
@@ -211,7 +219,10 @@ func TestBuildResponsesTimesOut(t *testing.T) {
 		Id:         proto.String("20"),
 		StatusCode: proto.Int32(200),
 	}
-	go buildResponses(bodyChannel, resp, responseChannel, 10*time.Millisecond)
+	config := DefaultClientConfig()
+	config.BackendResponseTimeout = 10 * time.Millisecond
+	client := NewClient(config)
+	go client.buildResponses(bodyChannel, resp, responseChannel)
 	bodyChannel <- []byte("foo")
 	resp = <-responseChannel
 	g.Expect(*resp.Id).To(Equal("20"))
