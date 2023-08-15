@@ -103,16 +103,13 @@ function terraform_exec {
 }
 
 function terraform_cleanup {
-  # Terraform doesn't seem to remove node pool taints without recreating the
-  # node pool, whereas this approach causes less downtime.
-  pool=(base-pool "--cluster=cloud-robotics" "--zone=${GCP_ZONE}" "--project=${GCP_PROJECT_ID}")
-  if [[ -n "$(gcloud container node-pools describe "${pool[@]}" --format 'value(config.taints)')" ]] ; then
-    gcloud beta container node-pools update "${pool[@]}" --quiet \
-      --no-enable-autoscaling
-    gcloud beta container node-pools update "${pool[@]}" --quiet \
-      --node-taints=""
-    gcloud beta container node-pools update "${pool[@]}" --quiet \
-      --enable-autoscaling --min-nodes=2 --max-nodes=10
+  # Terraform doesn't seem to handle changes to vertical_pod_autoscaling for
+  # existing clusters, so apply the change with gcloud.
+  cluster=(cloud-robotics "--zone=${GCP_ZONE}" "--project=${GCP_PROJECT_ID}")
+  if [[ -z "$(gcloud container clusters describe "${cluster[@]}" --format 'value(verticalPodAutoscaling.enabled)')" ]] ; then
+    echo "Enabling vertical pod autoscaling in the GKE cluster. This can take a few minutes..."
+    gcloud container clusters update "${cluster[@]}" --quiet \
+      --enable-vertical-pod-autoscaling
   fi
 }
 

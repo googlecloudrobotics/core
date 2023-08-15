@@ -57,18 +57,18 @@ resource "google_project_iam_member" "robot-service-account-container-access" {
 }
 
 resource "google_project_iam_member" "robot-service-roles" {
-  project  = data.google_project.project.project_id
-  member   = "serviceAccount:${google_service_account.robot-service.email}"
+  project = data.google_project.project.project_id
+  member  = "serviceAccount:${google_service_account.robot-service.email}"
   for_each = toset([
-    "roles/cloudtrace.agent",      # Upload cloud traces
+    "roles/cloudtrace.agent", # Upload cloud traces
     # Unused by the cloud-robotics stack, but existing users might need to carefully migrate
     "roles/datastore.user",
-    "roles/logging.logWriter",      # Upload text logs to Cloud logging
+    "roles/logging.logWriter", # Upload text logs to Cloud logging
     # Required to use robot-service@ for GKE clusters that simulate robots
-    "roles/monitoring.viewer",      
+    "roles/monitoring.viewer",
     "roles/storage.objectAdmin",
   ])
-  role     = each.value
+  role = each.value
 }
 
 resource "google_project_iam_member" "robot-service-kubernetes" {
