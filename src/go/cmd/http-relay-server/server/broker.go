@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -90,6 +91,16 @@ type pendingResponse struct {
 	requestPath string
 }
 
+var numberRegexp = regexp.MustCompile(`(?i)[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-f0-9]{20}|[0-9]{2,}`)
+
+// cleanPath replaces decimal/hex numbers and GUIDS with "XXX" to make a path
+// that is more suitable as a metric label, reducing the risk of
+// high-cardinality labels with requests like
+// /api/logItems/2906532336276711024.
+func cleanPath(path string) string {
+	return numberRegexp.ReplaceAllString(path, "XXX")
+}
+
 // broker implements a thread-safe map for the request and response queues.
 // Requests (req) are mapped by server-name. There is only channel per relay-
 // client (identified by the server query parameter)
@@ -148,7 +159,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	r.m.Unlock()
 
 	log.Printf("[%s] Enqueuing request", id)
-	brokerRequests.WithLabelValues("client", server, targetUrl.Path).Inc()
+	brokerRequests.WithLabelValues("client", server, cleanPath(targetUrl.Path)).Inc()
 	select {
 	// This blocks until we get a free spot in the broker's request channel.
 	case reqChan <- request:
@@ -172,13 +183,13 @@ func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpR
 	reqChan := r.req[server]
 	r.m.Unlock()
 
-	brokerRequests.WithLabelValues("server_request", server, path).Inc()
+	brokerRequests.WithLabelValues("server_request", server, cleanPath(path)).Inc()
 	select {
 	case req := <-reqChan:
-		brokerResponses.WithLabelValues("server_request", "ok", server, path).Inc()
+		brokerResponses.WithLabelValues("server_request", "ok", server, cleanPath(path)).Inc()
 		return req, nil
 	case <-time.After(time.Second * 30):
-		brokerResponses.WithLabelValues("server_request", "timeout", server, path).Inc()
+		brokerResponses.WithLabelValues("server_request", "timeout", server, cleanPath(path)).Inc()
 		return nil, fmt.Errorf("No request received within timeout")
 	case <-ctx.Done():
 		return nil, fmt.Errorf("Server is restarting")
@@ -245,22 +256,22 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	pr.responseStream <- resp
 
 	r.m.Unlock()
-	brokerRequests.WithLabelValues("server_response", backendName, pr.requestPath).Inc()
-	brokerResponseDurations.WithLabelValues("server_response", backendName, pr.requestPath).Observe(duration)
+	brokerRequests.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Inc()
+	brokerResponseDurations.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Observe(duration)
 	if resp.GetEof() {
 		close(pr.responseStream)
 		backendDuration := (time.Duration(resp.GetBackendDurationMs()) * time.Millisecond).Seconds()
 		backendDurStr := "N/A"
 		if backendDuration > 0.0 {
-			brokerBackendResponseDurations.WithLabelValues("server_response", backendName, pr.requestPath).Observe(backendDuration)
-			brokerOverheadDurations.WithLabelValues("server_response", backendName, pr.requestPath).Observe(duration - backendDuration)
+			brokerBackendResponseDurations.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Observe(backendDuration)
+			brokerOverheadDurations.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Observe(duration - backendDuration)
 			backendDurStr = fmt.Sprintf("%.3fs", backendDuration)
 		}
 		log.Printf("[%s] Delivered final response to client (%d bytes), elapsed on server=%.3fs, backend=%s", id, len(resp.Body), duration, backendDurStr)
 	} else {
 		log.Printf("[%s] Delivered response to client (%d bytes), elapsed on server=%.3fs", id, len(resp.Body), duration)
 	}
-	brokerResponses.WithLabelValues("server_response", "ok", backendName, pr.requestPath).Inc()
+	brokerResponses.WithLabelValues("server_response", "ok", backendName, cleanPath(pr.requestPath)).Inc()
 	return nil
 }
 
