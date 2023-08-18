@@ -92,7 +92,7 @@ kubeApiServer:
     # Drop high cardinality apiserver buckets.
       - action: drop
         regex: "^apiserver_request|^etcd_request"
-        source_labels: [__name__]
+        sourceLabels: [__name__]
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: instance
@@ -104,7 +104,7 @@ kubelet:
     # Drop high cardinality container_network metrics.
     - action: drop
       regex: "^container_network"
-      source_labels: [__name__]
+      sourceLabels: [__name__]
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: instance

@@ -16,7 +16,6 @@ go_library(
         "@io_opencensus_go//plugin/ochttp:go_default_library",
         "@io_opencensus_go//plugin/ochttp/propagation/tracecontext:go_default_library",
         "@io_opencensus_go//trace:go_default_library",
-        "@io_opencensus_go_contrib_exporter_stackdriver//:go_default_library",
         "@org_golang_google_protobuf//proto:go_default_library",
         "@org_golang_x_net//http2:go_default_library",
         "@org_golang_x_net//http2/h2c:go_default_library",
@@ -32,6 +31,8 @@ go_test(
         "server_test.go",
     ],
     embed = [":go_default_library"],
+    # TODO(https://github.com/googlecloudrobotics/core/issues/207): fix
+    flaky = True,
     visibility = ["//visibility:private"],
     deps = [
         "//src/proto/http-relay:go_default_library",
