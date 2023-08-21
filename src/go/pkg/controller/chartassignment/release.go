@@ -68,11 +68,11 @@ func newReleases(cfg *rest.Config, rec record.EventRecorder) (*releases, error) 
 
 // release is a cache object which acts as a proxy for Synk ResourceSets.
 type release struct {
-	name       string
-	synk       synk.Interface
-	recorder   record.EventRecorder
-	actorc     chan func()
-	generation int64 // last deployed generation.
+	name     string
+	synk     synk.Interface
+	recorder record.EventRecorder
+	actorc   chan func()
+	gen      int64 // last deployed generation.
 
 	mtx    sync.Mutex
 	status releaseStatus
@@ -132,13 +132,16 @@ func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 	// a transient error.
 	// For a fresh release object, a first update will always happen as
 	// r.generation is 0 and resource generations start at 1.
-	if r.generation == as.Generation && !status.retry {
+	if r.generation() == as.Generation && !status.retry {
 		return true
 	}
+	// update() starts by loading the chart. Set this before returning so the
+	// caller sees the right phase.
+	r.setPhase(apps.ChartAssignmentPhaseLoadingChart)
 	asCopy := as.DeepCopy()
 	started := r.start(func() { r.update(asCopy) })
 	if started {
-		r.generation = as.Generation
+		r.setGeneration(as.Generation)
 	}
 	return started
 }
@@ -177,6 +180,18 @@ func (r *release) setPhase(p apps.ChartAssignmentPhase) {
 	r.mtx.Unlock()
 }
 
+func (r *release) generation() int64 {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+	return r.gen
+}
+
+func (r *release) setGeneration(generation int64) {
+	r.mtx.Lock()
+	r.gen = generation
+	r.mtx.Unlock()
+}
+
 func (r *release) setFailed(err error, retry bool) {
 	r.mtx.Lock()
 	if !retry {
@@ -210,11 +225,10 @@ func (r *release) delete(as *apps.ChartAssignment) {
 	r.setPhase(apps.ChartAssignmentPhaseDeleted)
 	// Reset last deployed generation to 0 as the ChartAssignment will be deleted
 	// and its generation start at 1 again if it is re-created.
-	r.generation = 0
+	r.setGeneration(0)
 }
 
 func (r *release) update(as *apps.ChartAssignment) {
-	r.setPhase(apps.ChartAssignmentPhaseLoadingChart)
 	resources, retry, err := loadAndExpandChart(as)
 	if err != nil {
 		log.Printf("Error loading chart: %v", err)
