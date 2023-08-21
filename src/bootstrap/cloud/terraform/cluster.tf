@@ -8,7 +8,7 @@ resource "google_container_cluster" "cloud-robotics" {
   project               = data.google_project.project.project_id
   name                  = "cloud-robotics"
   location              = var.zone
-  min_master_version    = "1.22"
+  min_master_version    = "1.24"
   enable_shielded_nodes = true
   depends_on            = [google_project_service.container]
 
