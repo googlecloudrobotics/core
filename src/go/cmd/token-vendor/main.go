@@ -65,6 +65,7 @@ var (
 		string(Kubernetes),
 		"Public key repository implementation to use. Options: "+strings.Join(keyStoreOpts, ","))
 	k8sQPS = flag.Int("k8s-qps", 25, "Limit of QPS to the Kubernetes API server.")
+	k8sBurst = flag.Int("k8s-burst", 50, "Burst limit of QPS to the Kubernetes API server.")
 	// API options
 	bind     = flag.String("bind", "0.0.0.0", "Address to bind to")
 	port     = flag.Int("port", 9090, "Port number to listen on")
@@ -105,6 +106,7 @@ func main() {
 			log.Panic(err)
 		}
 		config.QPS = float32(*k8sQPS)
+		config.Burst = *k8sBurst
 		cs, err := kubernetes.NewForConfig(config)
 		if err != nil {
 			log.Panic(err)
