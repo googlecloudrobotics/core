@@ -38,7 +38,7 @@ CLOUD_ROBOTICS_CONTAINER_REGISTRY="gcr.io/cloud-robotics-releases"
 # DOCKER_TAG is a global variable that is used in release_binary.
 DOCKER_TAG=${DOCKER_TAG:-"crc-${VERSION}-${SHA}"}
 
-release_binary "${GCP_BUCKET}" "crc-${VERSION}/crc-${VERSION}+${SHA}" ${LABELS}
+# release_binary "${GCP_BUCKET}" "crc-${VERSION}/crc-${VERSION}+${SHA}" ${LABELS}
 
 # Generate release notes comparing against the previous release.
 output=$(curl -fsS \
