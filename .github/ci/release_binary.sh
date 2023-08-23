@@ -47,8 +47,8 @@ output=$(curl -fsS \
   -H "Authorization: token $GITHUB_TOKEN" \
   https://api.github.com/repos/$REPO/releases/generate-notes \
   -d '{"tag_name":"'$RELEASE_NAME'","previous_tag_name":"'$PREVIOUS_RELEASE_NAME'"}')
-# Code newlines as literal \n so thar curl understands that.
-BODY="$(jq -r '.body'   <<< $output | awk '{printf "%s\\n", $0}')"
+# Code newlines as literal \n and escape double quotes to generate valid JSON.
+BODY="$(jq -r '.body'   <<< $output | awk '{printf "%s\\n", $0}' | sed 's/"/\\"/g')"
 echo "Generated release notes for $RELEASE_NAME"
 
 # Create the release on GitHub.
