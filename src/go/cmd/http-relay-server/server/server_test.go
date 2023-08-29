@@ -69,7 +69,14 @@ func TestClientHandler(t *testing.T) {
 		}},
 		Body: []byte("body"),
 	}
-	relayRequest.Header = relayRequest.Header[:1]
+	// Remove the Traceparent header entry since we cannot assert on its value.
+	tempHeader := relayRequest.Header[:0]
+	for _, header := range relayRequest.Header {
+		if *header.Name != "Traceparent" {
+			tempHeader = append(tempHeader, header)
+		}
+	}
+	relayRequest.Header = tempHeader
 	if !proto.Equal(wantRequest, relayRequest) {
 		t.Errorf("Wrong encapsulated request; want %s; got '%s'", wantRequest, relayRequest)
 	}

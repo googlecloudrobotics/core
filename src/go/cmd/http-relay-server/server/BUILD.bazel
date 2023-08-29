@@ -31,8 +31,6 @@ go_test(
         "server_test.go",
     ],
     embed = [":go_default_library"],
-    # TODO(https://github.com/googlecloudrobotics/core/issues/207): fix
-    flaky = True,
     visibility = ["//visibility:private"],
     deps = [
         "//src/proto/http-relay:go_default_library",
