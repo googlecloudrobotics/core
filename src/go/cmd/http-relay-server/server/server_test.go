@@ -43,7 +43,7 @@ func checkResponse(t *testing.T, resp *http.Response, wantStatus int, wantBody s
 	if want, got := wantBody, string(body); want != got {
 		t.Errorf("Wrong body; want %s; got %s", want, got)
 	}
-} 
+}
 
 func TestClientHandler(t *testing.T) {
 	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))

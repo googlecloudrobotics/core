@@ -219,11 +219,11 @@ func (s *testServer) UnaryCall(ctx context.Context, in *testpb.SimpleRequest) (*
 }
 
 type relayWithGrpcServer struct {
-  Listener net.Listener
-  GrpcServer *grpc.Server
-  Relay *relay
-  Conn *grpc.ClientConn
-  Ctx context.Context
+	Listener net.Listener
+	GrpcServer *grpc.Server
+	Relay *relay
+	Conn *grpc.ClientConn
+	Ctx context.Context
 }
 
 func (r *relayWithGrpcServer) mustStop(t *testing.T) {
@@ -231,12 +231,12 @@ func (r *relayWithGrpcServer) mustStop(t *testing.T) {
 	r.GrpcServer.Stop()
 	if err := r.Relay.stop(); err != nil {
 		t.Fatal("failed to stop relay: ", err)
-	}
+	}a
 	r.Conn.Close()
 }
 
 func mustStartRelayWithGrpcServer(t *testing.T, service testpb.TestServiceServer) (testpb.TestServiceClient, *relayWithGrpcServer) {
-    t.Helper()
+	t.Helper()
 
 	result := &relayWithGrpcServer{}
 	var err error
@@ -288,11 +288,11 @@ func TestGrpcRelaySimpleCallWorks(t *testing.T) {
 // with a response that has to be chunked.
 func TestGrpcRelayChunkingOfLargeResponseWorks(t *testing.T) {
 	// Make responses from gRPC server larger than the default MaxChunkSize.
-    payload := make([]byte, client.DefaultClientConfig().MaxChunkSize * 5)
+	payload := make([]byte, client.DefaultClientConfig().MaxChunkSize * 5)
 	for i := 0; i < len(payload); i++ {
 		payload[i] = byte(i) // Fill with non-zeroes
 	} 
-    testServer := &testServer{responsePayload: payload}
+	testServer := &testServer{responsePayload: payload}
 	client, relayAndServer := mustStartRelayWithGrpcServer(t,  testServer)
 	defer relayAndServer.mustStop(t)
 

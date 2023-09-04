@@ -130,7 +130,7 @@ func extractBackendNameAndPath(r *http.Request) (backendName string, path string
 }
 
 type responseChunk struct {
-    Body []byte
+	Body []byte
 	Trailers []*pb.HttpHeader
 }
 
@@ -141,7 +141,6 @@ type responseChunk struct {
 func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*pb.HttpHeader, int, <-chan *responseChunk) {
 	responseChunks := make(chan *responseChunk, 1)
 	firstMessage, more := <-in
-
 	if !more {
 		brokerResponses.WithLabelValues("client", "missing_message", backendCtx.ServerName, backendCtx.Path).Inc()
 		responseChunks <- &responseChunk{
@@ -162,9 +161,9 @@ func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*p
 		return nil, http.StatusInternalServerError, responseChunks
 	}
 
-    responseChunks <- &responseChunk{
-      Body: []byte(firstMessage.Body),
-	  Trailers: []*pb.HttpHeader(firstMessage.Trailer),
+	responseChunks <- &responseChunk{
+		Body: []byte(firstMessage.Body),
+		Trailers: []*pb.HttpHeader(firstMessage.Trailer),
 	}
 
 	go func() {
@@ -175,7 +174,7 @@ func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*p
 				Trailers: []*pb.HttpHeader(backendResp.Trailer),
 			}
 		}
-        close(responseChunks)
+		close(responseChunks)
 	}()
 	return firstMessage.Header, int(*firstMessage.StatusCode), responseChunks
 }
