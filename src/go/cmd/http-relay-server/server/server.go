@@ -134,10 +134,10 @@ type responseChunk struct {
 	Trailers []*pb.HttpHeader
 }
 
-// responseFilter enforces that there's at least one HttpResponse in the out
-// channel and that the first response has a status code. From the responses it
-// extracts it synchronously returns headers and status-code and asynchronously
-// returns body and trailers via a channel.
+// responseFilter enforces that there's at least one HttpResponse in the 'in'
+// channel and that the first response has a status code. It collects the
+// responses and then returns headers and status-code. Additionally, it
+// returns body and trailers asynchronously via the returned channel.
 func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*pb.HttpHeader, int, <-chan *responseChunk) {
 	responseChunks := make(chan *responseChunk, 1)
 	firstMessage, more := <-in
