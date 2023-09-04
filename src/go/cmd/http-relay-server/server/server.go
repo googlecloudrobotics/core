@@ -129,40 +129,54 @@ func extractBackendNameAndPath(r *http.Request) (backendName string, path string
 	return
 }
 
-// responseFilter enforces that there's at least one HttpResponse in the out
-// channel and that the first response has a status code. From the reposnses it
-// extracts and return headers, trailers, status-code and body data.
-func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*pb.HttpHeader, []*pb.HttpHeader, int, <-chan []byte) {
-	body := make(chan []byte, 1)
+type responseChunk struct {
+	Body     []byte
+	Trailers []*pb.HttpHeader
+}
+
+// responseFilter enforces that there's at least one HttpResponse in the 'in'
+// channel and that the first response has a status code. It collects the
+// responses and then returns headers and status-code. Additionally, it
+// returns body and trailers asynchronously via the returned channel.
+func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*pb.HttpHeader, int, <-chan *responseChunk) {
+	responseChunks := make(chan *responseChunk, 1)
 	firstMessage, more := <-in
 	if !more {
 		brokerResponses.WithLabelValues("client", "missing_message", backendCtx.ServerName, backendCtx.Path).Inc()
-		body <- []byte(fmt.Sprintf("Timeout after %v, either the backend request took too long or the relay client died", inactiveRequestTimeout))
-		close(body)
-		return nil, nil, http.StatusInternalServerError, body
+		responseChunks <- &responseChunk{
+			Body: []byte(fmt.Sprintf("Timeout after %v, either the backend request took too long or the relay client died", inactiveRequestTimeout)),
+		}
+		close(responseChunks)
+		return nil, http.StatusInternalServerError, responseChunks
 	}
 	if firstMessage.StatusCode == nil {
 		brokerResponses.WithLabelValues("client", "missing_header", backendCtx.ServerName, backendCtx.Path).Inc()
-		body <- []byte("Received no header from relay client")
-		close(body)
+		responseChunks <- &responseChunk{
+			Body: []byte("Received no header from relay client"),
+		}
+		close(responseChunks)
 		// Flush remaining messages
 		for range in {
 		}
-		return nil, nil, http.StatusInternalServerError, body
+		return nil, http.StatusInternalServerError, responseChunks
 	}
-	body <- []byte(firstMessage.Body)
-	lastMessage := firstMessage
+
+	responseChunks <- &responseChunk{
+		Body:     []byte(firstMessage.Body),
+		Trailers: []*pb.HttpHeader(firstMessage.Trailer),
+	}
+
 	go func() {
 		for backendResp := range in {
 			brokerResponses.WithLabelValues("client", "ok", backendCtx.ServerName, backendCtx.Path).Inc()
-			body <- []byte(backendResp.Body)
-			lastMessage = backendResp
+			responseChunks <- &responseChunk{
+				Body:     []byte(backendResp.Body),
+				Trailers: []*pb.HttpHeader(backendResp.Trailer),
+			}
 		}
-		close(body)
+		close(responseChunks)
 	}()
-	// TODO(haukeheibel): We are returning before the go-routine above finishes. How is
-	// lastMessage.Trailer different from firstMessage.Trailer?
-	return firstMessage.Header, lastMessage.Trailer, int(*firstMessage.StatusCode), body
+	return firstMessage.Header, int(*firstMessage.StatusCode), responseChunks
 }
 
 type backendContext struct {
@@ -195,7 +209,7 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 // bidirectionalStream handles a 101 Switching Protocols response from the
 // backend, by "hijacking" to get a bidirectional connection to the client,
 // and streaming data between client and broker/relay client.
-func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseWriter, response <-chan []byte) {
+func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseWriter, responseChunks <-chan *responseChunk) {
 	hj, ok := w.(http.Hijacker)
 	if !ok {
 		http.Error(w, "Backend returned 101 Switching Protocols, which is not supported by the relay server", http.StatusInternalServerError)
@@ -242,11 +256,11 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 	}()
 
 	numBytes := 0
-	for bytes := range response {
+	for responseChunk := range responseChunks {
 		// TODO(b/130706300): detect dropped connection and end request in broker
-		_, _ = bufrw.Write(bytes)
+		_, _ = bufrw.Write(responseChunk.Body)
 		bufrw.Flush()
-		numBytes += len(bytes)
+		numBytes += len(responseChunk.Body)
 	}
 	log.Printf("[%s] Wrote %d response bytes to bidi-stream", backendCtx.Id, numBytes)
 }
@@ -291,12 +305,12 @@ func (s *Server) relayRequest(ctx context.Context, backendCtx backendContext, re
 	return backendRespChan, nil
 }
 
-func (s *Server) waitForFirstResponseAndHandleSwitching(ctx context.Context, backendCtx backendContext, w http.ResponseWriter, backendRespChan <-chan *pb.HttpResponse) ([]*pb.HttpHeader, []*pb.HttpHeader, <-chan []byte, bool) {
+func (s *Server) waitForFirstResponseAndHandleSwitching(ctx context.Context, backendCtx backendContext, w http.ResponseWriter, backendRespChan <-chan *pb.HttpResponse) ([]*pb.HttpHeader, <-chan *responseChunk, bool) {
 	_, span := trace.StartSpan(ctx, "Waiting for first response")
 	addServiceName(span)
 	defer span.End()
 
-	header, trailer, status, backendRespBodyChan := responseFilter(backendCtx, backendRespChan)
+	header, status, responseChunksChan := responseFilter(backendCtx, backendRespChan)
 	if header != nil {
 		unmarshalHeader(w, header)
 	}
@@ -307,13 +321,13 @@ func (s *Server) waitForFirstResponseAndHandleSwitching(ctx context.Context, bac
 		// bidirectionalStream can set the status on error.
 		// TODO(haukeheibel): I don't get this comment. We never write the
 		// header and just return.
-		s.bidirectionalStream(backendCtx, w, backendRespBodyChan)
-		return nil, nil, nil, true
+		s.bidirectionalStream(backendCtx, w, responseChunksChan)
+		return nil, nil, true
 	}
 
 	w.WriteHeader(status)
 
-	return header, trailer, backendRespBodyChan, false
+	return header, responseChunksChan, false
 }
 
 // This function is used to handle requests by the user-client.
@@ -365,7 +379,7 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	header, trailer, backendRespBodyChannel, done := s.waitForFirstResponseAndHandleSwitching(ctx, *backendCtx, w, backendRespChan)
+	header, responseChunksChan, done := s.waitForFirstResponseAndHandleSwitching(ctx, *backendCtx, w, backendRespChan)
 	if done {
 		return
 	}
@@ -377,13 +391,19 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	// This code here will block until we have actually received a response from the backend,
 	// i.e. this will block until
 	numBytes := 0
-	for bytes := range backendRespBodyChannel {
+	for responseChunk := range responseChunksChan {
 		// TODO(b/130706300): detect dropped connection and end request in broker
-		_, _ = w.Write(bytes)
+		_, _ = w.Write(responseChunk.Body)
 		if flush, ok := w.(http.Flusher); ok {
 			flush.Flush()
 		}
-		numBytes += len(bytes)
+		numBytes += len(responseChunk.Body)
+
+		// Only the last chunk will actually contain trailers.
+		for _, h := range responseChunk.Trailers {
+			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
+			log.Printf("[%s] Adding real trailer: %q:%q", backendCtx.Id, *h.Name, *h.Value)
+		}
 	}
 
 	// TODO(ensonic): open questions:
@@ -393,12 +413,6 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(*h.Name, "Grpc-") {
 			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
 			log.Printf("[%s] Adding trailer from header: %q:%q", backendCtx.Id, *h.Name, *h.Value)
-		}
-	}
-	if trailer != nil {
-		for _, h := range trailer {
-			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
-			log.Printf("[%s] Adding real trailer: %q:%q", backendCtx.Id, *h.Name, *h.Value)
 		}
 	}
 
