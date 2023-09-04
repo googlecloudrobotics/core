@@ -93,7 +93,7 @@ func TestClientHandler(t *testing.T) {
 			Name:  proto.String("Some-Trailer"),
 			Value: proto.String("trailer value"),
 		}},
-		Eof:  proto.Bool(true),
+		Eof: proto.Bool(true),
 	})
 
 	wg.Wait()
@@ -166,7 +166,7 @@ func TestClientHandlerWithChunkedResponse(t *testing.T) {
 			Name:  proto.String("Some-Trailer"),
 			Value: proto.String("trailer value"),
 		}},
-		Eof:  proto.Bool(true),
+		Eof: proto.Bool(true),
 	})
 
 	wg.Wait()

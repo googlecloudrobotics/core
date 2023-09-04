@@ -219,11 +219,11 @@ func (s *testServer) UnaryCall(ctx context.Context, in *testpb.SimpleRequest) (*
 }
 
 type relayWithGrpcServer struct {
-	Listener net.Listener
+	Listener   net.Listener
 	GrpcServer *grpc.Server
-	Relay *relay
-	Conn *grpc.ClientConn
-	Ctx context.Context
+	Relay      *relay
+	Conn       *grpc.ClientConn
+	Ctx        context.Context
 }
 
 func (r *relayWithGrpcServer) mustStop(t *testing.T) {
@@ -231,7 +231,7 @@ func (r *relayWithGrpcServer) mustStop(t *testing.T) {
 	r.GrpcServer.Stop()
 	if err := r.Relay.stop(); err != nil {
 		t.Fatal("failed to stop relay: ", err)
-	}a
+	}
 	r.Conn.Close()
 }
 
@@ -245,7 +245,7 @@ func mustStartRelayWithGrpcServer(t *testing.T, service testpb.TestServiceServer
 	result.Listener, err = net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
-	} 
+	}
 	result.GrpcServer = grpc.NewServer()
 	testpb.RegisterTestServiceServer(result.GrpcServer, service)
 	go result.GrpcServer.Serve(result.Listener)
@@ -271,7 +271,7 @@ func mustStartRelayWithGrpcServer(t *testing.T, service testpb.TestServiceServer
 // TestGrpcRelaySimpleCallWorks launches a local http relay (client + server), connects a
 // grpc service as backend and issues a simple call.
 func TestGrpcRelaySimpleCallWorks(t *testing.T) {
-	client, relayAndServer := mustStartRelayWithGrpcServer(t,  &testServer{})
+	client, relayAndServer := mustStartRelayWithGrpcServer(t, &testServer{})
 	defer relayAndServer.mustStop(t)
 
 	if _, err := client.EmptyCall(relayAndServer.Ctx, &testpb.Empty{}); err != nil {
@@ -288,12 +288,12 @@ func TestGrpcRelaySimpleCallWorks(t *testing.T) {
 // with a response that has to be chunked.
 func TestGrpcRelayChunkingOfLargeResponseWorks(t *testing.T) {
 	// Make responses from gRPC server larger than the default MaxChunkSize.
-	payload := make([]byte, client.DefaultClientConfig().MaxChunkSize * 5)
+	payload := make([]byte, client.DefaultClientConfig().MaxChunkSize*5)
 	for i := 0; i < len(payload); i++ {
 		payload[i] = byte(i) // Fill with non-zeroes
-	} 
+	}
 	testServer := &testServer{responsePayload: payload}
-	client, relayAndServer := mustStartRelayWithGrpcServer(t,  testServer)
+	client, relayAndServer := mustStartRelayWithGrpcServer(t, testServer)
 	defer relayAndServer.mustStop(t)
 
 	response, err := client.UnaryCall(relayAndServer.Ctx, &testpb.SimpleRequest{})
@@ -306,7 +306,7 @@ func TestGrpcRelayChunkingOfLargeResponseWorks(t *testing.T) {
 	}
 
 	if !bytes.Equal(response.Payload.Body, testServer.responsePayload) {
-		t.Errorf("Received payload not equal to payload returned by server.")	
+		t.Errorf("Received payload not equal to payload returned by server.")
 	}
 }
 
@@ -314,7 +314,7 @@ func TestGrpcRelayChunkingOfLargeResponseWorks(t *testing.T) {
 // grpc service as backend and issues a simple call.
 func TestGrpcRelayErrorArePropagated(t *testing.T) {
 	// UnimplementedTestServiceServer returns Unimplemented for all RPCs.
-	client, relayAndServer := mustStartRelayWithGrpcServer(t,  &testpb.UnimplementedTestServiceServer{})
+	client, relayAndServer := mustStartRelayWithGrpcServer(t, &testpb.UnimplementedTestServiceServer{})
 	defer relayAndServer.mustStop(t)
 
 	if _, err := client.EmptyCall(relayAndServer.Ctx, &testpb.Empty{}); err != nil {

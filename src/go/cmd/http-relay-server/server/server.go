@@ -130,7 +130,7 @@ func extractBackendNameAndPath(r *http.Request) (backendName string, path string
 }
 
 type responseChunk struct {
-	Body []byte
+	Body     []byte
 	Trailers []*pb.HttpHeader
 }
 
@@ -162,7 +162,7 @@ func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*p
 	}
 
 	responseChunks <- &responseChunk{
-		Body: []byte(firstMessage.Body),
+		Body:     []byte(firstMessage.Body),
 		Trailers: []*pb.HttpHeader(firstMessage.Trailer),
 	}
 
@@ -170,7 +170,7 @@ func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*p
 		for backendResp := range in {
 			brokerResponses.WithLabelValues("client", "ok", backendCtx.ServerName, backendCtx.Path).Inc()
 			responseChunks <- &responseChunk{
-				Body: []byte(backendResp.Body),
+				Body:     []byte(backendResp.Body),
 				Trailers: []*pb.HttpHeader(backendResp.Trailer),
 			}
 		}
