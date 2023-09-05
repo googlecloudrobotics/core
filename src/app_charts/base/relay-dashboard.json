@@ -1074,14 +1074,16 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "count(count by (backend) (broker_requests))",
+          "expr": "count(sum by(backend) (rate(broker_requests{method=\"server_request\", job=\"kubernetes-relay-server\"}[$__rate_interval]) > 0))",
           "interval": "",
           "legendFormat": "number of backends",
+          "range": true,
           "refId": "A"
         }
       ],
-      "title": "Number of backends",
+      "title": "Number of backends online",
       "type": "timeseries"
     },
     {
@@ -1327,6 +1329,6 @@
   "timezone": "",
   "title": "Http Relay",
   "uid": "p_rQjdS7k",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
