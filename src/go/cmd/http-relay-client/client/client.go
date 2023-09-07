@@ -657,6 +657,9 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		)
 		if _, ok := err.(*RelayServerError); ok {
 			// A permanent error suggests the request should be aborted.
+			log.Printf("[%s] %s", *resp.Id, err)
+			log.Printf("[%s] Closing backend connection", *resp.Id)
+			hresp.Body.Close()
 			break
 		}
 	}

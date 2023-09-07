@@ -202,10 +202,16 @@ func TestHttpRelay(t *testing.T) {
 	}
 }
 
+// TestDroppedUserClientFreesRelayChannel checks that when the user client closes a connection,
+// it is propagated to the relay server and client, closing the backend connection as well.
 func TestDroppedUserClientFreesRelayChannel(t *testing.T) {
 	// setup http test server
 	connClosed := make(chan error)
+	defer close(connClosed)
 	finishServer := make(chan bool)
+	defer close(finishServer)
+
+	// mock a long running backend that uses chunking to send periodic updates
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for {
 			select {
@@ -214,7 +220,6 @@ func TestDroppedUserClientFreesRelayChannel(t *testing.T) {
 			default:
 				if _, err := fmt.Fprintln(w, "DEADBEEF"); err != nil {
 					connClosed <- err
-					println("server closed")
 					return
 				}
 				if flusher, ok := w.(http.Flusher); ok {
@@ -226,8 +231,7 @@ func TestDroppedUserClientFreesRelayChannel(t *testing.T) {
 			}
 		}
 	}))
-	defer ts.Close()
-	defer func() { finishServer <- true }()
+	defer func() { ts.Close() }()
 
 	backendAddress := strings.TrimPrefix(ts.URL, "http://")
 	r := &relay{}
@@ -250,12 +254,11 @@ func TestDroppedUserClientFreesRelayChannel(t *testing.T) {
 		t.Fatal(err)
 	}
 	res.Body.Close()
-	println("client closed")
 
-	// wait for up to 10s for server to close connection
+	// wait for up to 30s for backend connection to be closed
 	select {
 	case <-connClosed:
-	case <-time.After(10 * time.Second):
+	case <-time.After(30 * time.Second):
 		t.Error("Server did not close connection")
 	}
 }
