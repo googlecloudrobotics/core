@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -127,7 +128,7 @@ func (r *relay) stop() error {
 }
 
 // TestHttpRelay launches a local http relay (client + server) and connects a
-// test-hhtp-server as a backend. The test is then interacting with the backend
+// test-http-server as a backend. The test is then interacting with the backend
 // through the local relay.
 func TestHttpRelay(t *testing.T) {
 	tests := []struct {
@@ -197,6 +198,64 @@ func TestHttpRelay(t *testing.T) {
 				t.Errorf("Wrong body - got %q, expected it to contain %q, ", body, tc.body)
 			}
 		})
+	}
+}
+
+func TestDroppedUserClientFreesRelayChannel(t *testing.T) {
+	// setup http test server
+	connClosed := make(chan error)
+	finishServer := make(chan bool)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for {
+			select {
+			case <-finishServer:
+				return
+			default:
+				if _, err := fmt.Fprintln(w, "DEADBEEF"); err != nil {
+					connClosed <- err
+					println("server closed")
+					return
+				}
+				if flusher, ok := w.(http.Flusher); ok {
+					flusher.Flush()
+				} else {
+					t.Fatal("cannot flush")
+				}
+				time.Sleep(time.Second)
+			}
+		}
+	}))
+	defer ts.Close()
+	defer func() { finishServer <- true }()
+
+	backendAddress := strings.TrimPrefix(ts.URL, "http://")
+	r := &relay{}
+	if err := r.start(backendAddress); err != nil {
+		t.Fatal("failed to start relay: ", err)
+	}
+	defer func() {
+		if err := r.stop(); err != nil {
+			t.Fatal("failed to stop relay: ", err)
+		}
+	}()
+	relayAddress := "http://127.0.0.1:" + r.rsPort
+
+	res, err := http.Get(relayAddress + "/client/remote1/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// receive the first chunk then terminates the connection
+	if _, err := bufio.NewReader(res.Body).ReadString('\n'); err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	println("client closed")
+
+	// wait for up to 10s for server to close connection
+	select {
+	case <-connClosed:
+	case <-time.After(10 * time.Second):
+		t.Error("Server did not close connection")
 	}
 }
 

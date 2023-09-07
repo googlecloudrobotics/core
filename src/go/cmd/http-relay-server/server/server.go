@@ -379,7 +379,10 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	numBytes := 0
 	for bytes := range backendRespBodyChannel {
 		// TODO(b/130706300): detect dropped connection and end request in broker
-		_, _ = w.Write(bytes)
+		if _, err = w.Write(bytes); err != nil {
+			delete(s.b.resp, backendReq.GetId())
+			return
+		}
 		if flush, ok := w.(http.Flusher); ok {
 			flush.Flush()
 		}
