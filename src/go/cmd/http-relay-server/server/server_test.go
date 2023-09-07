@@ -69,7 +69,82 @@ func TestClientHandler(t *testing.T) {
 		}},
 		Body: []byte("body"),
 	}
-	relayRequest.Header = relayRequest.Header[:1]
+	// Remove the Traceparent header entry since we cannot assert on its value.
+	tempHeader := relayRequest.Header[:0]
+	for _, header := range relayRequest.Header {
+		if *header.Name != "Traceparent" {
+			tempHeader = append(tempHeader, header)
+		}
+	}
+	relayRequest.Header = tempHeader
+	if !proto.Equal(wantRequest, relayRequest) {
+		t.Errorf("Wrong encapsulated request; want %s; got '%s'", wantRequest, relayRequest)
+	}
+
+	server.b.SendResponse(&pb.HttpResponse{
+		Id:         relayRequest.Id,
+		StatusCode: proto.Int32(201),
+		Header: []*pb.HttpHeader{{
+			Name:  proto.String("X-GFE"),
+			Value: proto.String("google.com"),
+		}},
+		Body: []byte("thebody"),
+		Trailer: []*pb.HttpHeader{{
+			Name:  proto.String("Some-Trailer"),
+			Value: proto.String("trailer value"),
+		}},
+		Eof: proto.Bool(true),
+	})
+
+	wg.Wait()
+	resp := respRecorder.Result()
+	checkResponse(t, resp, 201, "thebody")
+	if want, got := 1, len(resp.Header); want != got {
+		t.Errorf("Wrong # of headers; want %d; got %d", want, got)
+	}
+	if want, got := "google.com", resp.Header.Get("X-GFE"); want != got {
+		t.Errorf("Wrong header value; want %s; got %s", want, got)
+	}
+	if want, got := 1, len(resp.Trailer); want != got {
+		t.Errorf("Wrong # of trailers; want %d; got %d", want, got)
+	}
+	if want, got := "trailer value", resp.Trailer.Get("Some-Trailer"); want != got {
+		t.Errorf("Wrong trailer value; want %s; got %s", want, got)
+	}
+}
+
+func TestClientHandlerWithChunkedResponse(t *testing.T) {
+	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
+	req.Header.Add("X-Deadline", "now")
+	respRecorder := httptest.NewRecorder()
+	server := NewServer()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
+	relayRequest, err := server.b.GetRequest(context.Background(), "foo", "/")
+	if err != nil {
+		t.Errorf("Error when getting request: %v", err)
+	}
+
+	wantRequest := &pb.HttpRequest{
+		Id:     relayRequest.Id,
+		Method: proto.String("GET"),
+		Host:   proto.String("example.com"),
+		Url:    proto.String("http://invalid/bar?a=b#c"),
+		Header: []*pb.HttpHeader{{
+			Name:  proto.String("X-Deadline"),
+			Value: proto.String("now"),
+		}},
+		Body: []byte("body"),
+	}
+	// Remove the Traceparent header entry since we cannot assert on its value.
+	tempHeader := relayRequest.Header[:0]
+	for _, header := range relayRequest.Header {
+		if *header.Name != "Traceparent" {
+			tempHeader = append(tempHeader, header)
+		}
+	}
+	relayRequest.Header = tempHeader
 	if !proto.Equal(wantRequest, relayRequest) {
 		t.Errorf("Wrong encapsulated request; want %s; got '%s'", wantRequest, relayRequest)
 	}
@@ -87,7 +162,11 @@ func TestClientHandler(t *testing.T) {
 	server.b.SendResponse(&pb.HttpResponse{
 		Id:   relayRequest.Id,
 		Body: []byte("body"),
-		Eof:  proto.Bool(true),
+		Trailer: []*pb.HttpHeader{{
+			Name:  proto.String("Some-Trailer"),
+			Value: proto.String("trailer value"),
+		}},
+		Eof: proto.Bool(true),
 	})
 
 	wg.Wait()
@@ -98,6 +177,12 @@ func TestClientHandler(t *testing.T) {
 	}
 	if want, got := "google.com", resp.Header.Get("X-GFE"); want != got {
 		t.Errorf("Wrong header value; want %s; got %s", want, got)
+	}
+	if want, got := 1, len(resp.Trailer); want != got {
+		t.Errorf("Wrong # of trailers; want %d; got %d", want, got)
+	}
+	if want, got := "trailer value", resp.Trailer.Get("Some-Trailer"); want != got {
+		t.Errorf("Wrong trailer value; want %s; got %s", want, got)
 	}
 }
 
