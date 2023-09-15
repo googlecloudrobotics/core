@@ -30,11 +30,11 @@ spec:
             port: 8080
           failureThreshold: 3
           initialDelaySeconds: 10
-          periodSeconds: 10
+          periodSeconds: 120
           timeoutSeconds: 60
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true  
+          readOnlyRootFilesystem: true
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
