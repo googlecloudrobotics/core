@@ -12,7 +12,7 @@ steps:
 
   # This runs on a custom image that has kubectl, gcloud and bazel installed.
   # See Dockerfile.integration-test-image.
-  - name: "gcr.io/robco-integration-test/integration-test-image@sha256:928573eb6eae7033efd0d62bda58a0e94c4142a3c319eded4a32940c6776a556"
+  - name: "gcr.io/robco-integration-test/integration-test-image@sha256:4861a46d7079ffa53d54999a3df080cb4a919505bb2b4803416ff5fad13efb5f"
     entrypoint: "bash"
     args: ["./.github/ci/integration_test.sh"]
     env:
