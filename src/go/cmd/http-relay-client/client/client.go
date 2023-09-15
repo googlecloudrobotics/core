@@ -396,9 +396,9 @@ func (c *Client) postResponse(remote *http.Client, br *pb.HttpResponse) error {
 		return fmt.Errorf("couldn't read relay server's response body: %v", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		err := NewRelayServerError(fmt.Sprintf("relay server responded %s: %s", http.StatusText(resp.StatusCode), body))
+		err := NewRelayServerError(fmt.Sprintf("relay server responded %s or the client cancelled the request: %s", http.StatusText(resp.StatusCode), body))
 		if resp.StatusCode == http.StatusBadRequest {
-			// http-relay-server may have restarted or the client cancelled the request.
+			// http-relay-server may have restarted during the request.
 			return backoff.Permanent(err)
 		}
 		return err
@@ -660,7 +660,7 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		// A missing chunk will cause clients to receive corrupted data, in most cases it is better
 		// to close the connection to avoid that.
 		if err != nil {
-			log.Printf("[%s] Closing backend connection: %v", *resp.Id, err)
+			log.Printf("[%s] Closing backend connection (%s)", *resp.Id, err)
 			break
 		}
 	}
