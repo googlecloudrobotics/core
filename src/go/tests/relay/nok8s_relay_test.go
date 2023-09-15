@@ -231,18 +231,14 @@ func TestDroppedUserClientFreesRelayChannel(t *testing.T) {
 			}
 		}
 	}))
-	defer func() { ts.Close() }()
+	defer ts.Close()
 
 	backendAddress := strings.TrimPrefix(ts.URL, "http://")
 	r := &relay{}
 	if err := r.start(backendAddress); err != nil {
 		t.Fatal("failed to start relay: ", err)
 	}
-	defer func() {
-		if err := r.stop(); err != nil {
-			t.Fatal("failed to stop relay: ", err)
-		}
-	}()
+	defer r.stop()
 	relayAddress := "http://127.0.0.1:" + r.rsPort
 
 	res, err := http.Get(relayAddress + "/client/remote1/")

@@ -174,6 +174,8 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 // StopRelayRequest forgets a relaying request, this causes the next chunk from the backend
 // with the relay id to not be recognized, resulting in the relay server returning an error.
 func (r *broker) StopRelayRequest(requestId string) {
+	r.m.Lock()
+	defer r.m.Unlock()
 	delete(r.resp, requestId)
 }
 
