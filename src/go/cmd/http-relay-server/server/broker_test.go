@@ -54,11 +54,11 @@ func runSender(t *testing.T, b *broker, s string, m string, wg *sync.WaitGroup) 
 func runReceiver(t *testing.T, b *broker, s string, wg *sync.WaitGroup) {
 	req, err := b.GetRequest(context.Background(), s, "/")
 	if err != nil {
-		t.Errorf("Error when getting request: %s", err)
+		t.Errorf("Error when getting request: %v", err)
 	}
 	err = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(true)})
 	if err != nil {
-		t.Errorf("Error when sending response: %s", err)
+		t.Errorf("Error when sending response: %v", err)
 	}
 	wg.Done()
 }
@@ -89,17 +89,17 @@ func runSenderStream(t *testing.T, b *broker, s string, m string, wg *sync.WaitG
 func runReceiverStream(t *testing.T, b *broker, s string, wg *sync.WaitGroup, done <-chan bool) {
 	req, err := b.GetRequest(context.Background(), s, "/")
 	if err != nil {
-		t.Errorf("Error when getting request: %s", err)
+		t.Errorf("Error when getting request: %v", err)
 	}
 	err = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(false)})
 	if err != nil {
-		t.Errorf("Error when sending response: %s", err)
+		t.Errorf("Error when sending response: %v", err)
 	}
 	go func() {
 		<-done
 		err = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(true)})
 		if err != nil {
-			t.Errorf("Error when sending response: %s", err)
+			t.Errorf("Error when sending response: %v", err)
 		}
 		wg.Done()
 	}()
