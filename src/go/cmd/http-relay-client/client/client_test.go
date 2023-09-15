@@ -106,7 +106,7 @@ func TestLocalProxy(t *testing.T) {
 	client := NewClient(config)
 	err := client.localProxy(&http.Client{}, &http.Client{})
 	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("Unexpected error: %s", err)
 	}
 	assertMocksDoneWithin(t, 10*time.Second)
 }
@@ -175,7 +175,7 @@ func TestBackendError(t *testing.T) {
 	// 3. retrieves the response from the backend and sends it to the relay-server
 	err := client.localProxy(&http.Client{}, &http.Client{})
 	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("Unexpected error: %s", err)
 	}
 	assertMocksDoneWithin(t, 10*time.Second)
 }
@@ -206,7 +206,7 @@ func TestServerTimeout(t *testing.T) {
 	client := NewClient(config)
 	err := client.localProxy(&http.Client{}, &http.Client{})
 	if err != ErrTimeout {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("Unexpected error: %s", err)
 	}
 	assertMocksDoneWithin(t, 10*time.Second)
 }
