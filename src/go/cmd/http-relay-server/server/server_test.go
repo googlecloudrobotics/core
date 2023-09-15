@@ -223,7 +223,7 @@ func TestClientBadRequest(t *testing.T) {
 			if tc.wantMsg != "" {
 				body, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
-					t.Errorf("Failed to read body stream: %v", err)
+					t.Errorf("Failed to read body stream: %s", err)
 				}
 				if !strings.Contains(string(body), tc.wantMsg) {
 					t.Errorf("Wrong response body; want %q; got %q", tc.wantMsg, body)
@@ -326,7 +326,7 @@ func TestServerRequestResponseHandler(t *testing.T) {
 	}
 	backendRespBody, err := proto.Marshal(backendResp)
 	if err != nil {
-		t.Errorf("Failed to marshal test response: %v", err)
+		t.Errorf("Failed to marshal test response: %s", err)
 	}
 
 	req := httptest.NewRequest("GET", "/server/request?server=b", strings.NewReader(""))
@@ -354,7 +354,7 @@ func TestServerRequestResponseHandler(t *testing.T) {
 	}
 	body, err := ioutil.ReadAll(reqRecorder.Result().Body)
 	if err != nil {
-		t.Errorf("Failed to read body stream: %v", err)
+		t.Errorf("Failed to read body stream: %s", err)
 	}
 	if !strings.Contains(string(body), "/my/url") {
 		t.Errorf("Serialize request didn't contain URL: %s", string(body))
@@ -385,7 +385,7 @@ func TestServerResponseHandlerWithInvalidRequestID(t *testing.T) {
 	}
 	backendRespBody, err := proto.Marshal(backendResp)
 	if err != nil {
-		t.Errorf("Failed to marshal test response: %v", err)
+		t.Errorf("Failed to marshal test response: %s", err)
 	}
 
 	resp := httptest.NewRequest("POST", "/server/response", bytes.NewReader(backendRespBody))
