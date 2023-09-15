@@ -257,10 +257,8 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 
 	numBytes := 0
 	for responseChunk := range responseChunks {
-		if _, err = w.Write(responseChunk.Body); err != nil {
-			log.Printf("[%s] %s", backendCtx.Id, err)
-			return
-		}
+		// TODO(b/130706300): detect dropped connection and end request in broker
+		_, _ = bufrw.Write(responseChunk.Body)
 		bufrw.Flush()
 		numBytes += len(responseChunk.Body)
 	}
@@ -380,7 +378,6 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer s.b.StopRelayRequest(backendCtx.Id)
 
 	header, responseChunksChan, done := s.waitForFirstResponseAndHandleSwitching(ctx, *backendCtx, w, backendRespChan)
 	if done {
@@ -395,10 +392,8 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	// i.e. this will block until
 	numBytes := 0
 	for responseChunk := range responseChunksChan {
-		if _, err = w.Write(responseChunk.Body); err != nil {
-			log.Printf("[%s] %s", backendCtx.Id, err)
-			return
-		}
+		// TODO(b/130706300): detect dropped connection and end request in broker
+		_, _ = w.Write(responseChunk.Body)
 		if flush, ok := w.(http.Flusher); ok {
 			flush.Flush()
 		}

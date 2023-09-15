@@ -91,18 +91,6 @@ type ClientConfig struct {
 	ForceHttp2   bool
 }
 
-type RelayServerError struct {
-	msg string
-}
-
-func NewRelayServerError(msg string) error {
-	return &RelayServerError{msg}
-}
-
-func (e *RelayServerError) Error() string {
-	return e.msg
-}
-
 func DefaultClientConfig() ClientConfig {
 	return ClientConfig{
 		RemoteRequestTimeout:   60 * time.Second,
@@ -396,7 +384,7 @@ func (c *Client) postResponse(remote *http.Client, br *pb.HttpResponse) error {
 		return fmt.Errorf("couldn't read relay server's response body: %v", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		err := NewRelayServerError(fmt.Sprintf("relay server responded %s or the client cancelled the request: %s", http.StatusText(resp.StatusCode), body))
+		err := fmt.Errorf("relay server responded %s: %s", http.StatusText(resp.StatusCode), body)
 		if resp.StatusCode == http.StatusBadRequest {
 			// http-relay-server may have restarted during the request.
 			return backoff.Permanent(err)
@@ -576,7 +564,6 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 	defer span.End()
 
 	resp, hresp, err := makeBackendRequest(ctx, local, req, id)
-	defer hresp.Body.Close()
 	if err != nil {
 		// Even if we couldn't handle the backend request, send an
 		// answer to the relay that signals the error.
@@ -656,11 +643,8 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 				log.Printf("[%s] Failed to post response to relay: %v", *resp.Id, err)
 			},
 		)
-		// Any error suggests the request should be aborted.
-		// A missing chunk will cause clients to receive corrupted data, in most cases it is better
-		// to close the connection to avoid that.
-		if err != nil {
-			log.Printf("[%s] Closing backend connection (%s)", *resp.Id, err)
+		if _, ok := err.(*backoff.PermanentError); ok {
+			// A permanent error suggests the request should be aborted.
 			break
 		}
 	}
