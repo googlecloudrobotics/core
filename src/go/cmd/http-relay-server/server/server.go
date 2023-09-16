@@ -144,10 +144,10 @@ func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*p
 	if !more {
 		brokerResponses.WithLabelValues("client", "missing_message", backendCtx.ServerName, backendCtx.Path).Inc()
 		responseChunks <- &responseChunk{
-			Body: []byte(fmt.Sprintf("Timeout after %v, either the backend request took too long or the relay client died", inactiveRequestTimeout)),
+			Body: []byte(fmt.Sprintf("Timeout after %v, indicating that the backend request took too long", inactiveRequestTimeout)),
 		}
 		close(responseChunks)
-		return nil, http.StatusInternalServerError, responseChunks
+		return nil, http.StatusGatewayTimeout, responseChunks
 	}
 	if firstMessage.StatusCode == nil {
 		brokerResponses.WithLabelValues("client", "missing_header", backendCtx.ServerName, backendCtx.Path).Inc()
