@@ -257,7 +257,7 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 
 	numBytes := 0
 	for responseChunk := range responseChunks {
-		if _, err = w.Write(responseChunk.Body); err != nil {
+		if _, err = bufrw.Write(responseChunk.Body); err != nil {
 			log.Printf("[%s] Error writing response to bidi-stream: %v", backendCtx.Id, err)
 			return
 		}
