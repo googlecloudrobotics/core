@@ -257,8 +257,10 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 
 	numBytes := 0
 	for responseChunk := range responseChunks {
-		// TODO(b/130706300): detect dropped connection and end request in broker
-		_, _ = bufrw.Write(responseChunk.Body)
+		if _, err = bufrw.Write(responseChunk.Body); err != nil {
+			log.Printf("[%s] Error writing response to bidi-stream: %v", backendCtx.Id, err)
+			return
+		}
 		bufrw.Flush()
 		numBytes += len(responseChunk.Body)
 	}
@@ -378,6 +380,7 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	defer s.b.StopRelayRequest(backendCtx.Id)
 
 	header, responseChunksChan, done := s.waitForFirstResponseAndHandleSwitching(ctx, *backendCtx, w, backendRespChan)
 	if done {
@@ -392,8 +395,10 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	// i.e. this will block until
 	numBytes := 0
 	for responseChunk := range responseChunksChan {
-		// TODO(b/130706300): detect dropped connection and end request in broker
-		_, _ = w.Write(responseChunk.Body)
+		if _, err = w.Write(responseChunk.Body); err != nil {
+			log.Printf("[%s] Error writing response to user-client: %v", backendCtx.Id, err)
+			return
+		}
 		if flush, ok := w.(http.Flusher); ok {
 			flush.Flush()
 		}
@@ -553,6 +558,6 @@ func (s *Server) Start(port int, blockSize int) {
 		// update) or a failed liveness check (eg broker deadlock), we can't
 		// easily tell. We panic to help debugging: if the environment sets
 		// GOTRACEBACK=all they will see stacktraces after the panic.
-		log.Panicf("Server terminated abnormally: %s", err)
+		log.Panicf("Server terminated abnormally: %v", err)
 	}
 }

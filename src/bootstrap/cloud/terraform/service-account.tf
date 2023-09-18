@@ -60,7 +60,7 @@ resource "google_project_iam_member" "robot-service-roles" {
   project = data.google_project.project.project_id
   member  = "serviceAccount:${google_service_account.robot-service.email}"
   for_each = toset([
-    "roles/cloudtrace.agent", # Upload cloud traces
+    "roles/cloudtrace.agent",  # Upload cloud traces
     "roles/logging.logWriter", # Upload text logs to Cloud logging
     # Required to use robot-service@ for GKE clusters that simulate robots
     "roles/monitoring.viewer",
