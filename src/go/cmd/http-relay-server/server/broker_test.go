@@ -256,6 +256,11 @@ func TestCleanPath(t *testing.T) {
 			input: "/api/logItems/6113d19fca7ff66ccc66",
 			want:  "/api/logItems/XXX",
 		},
+		{
+			desc:  "even longer hex should be removed",
+			input: "/api/executive/operations/a04478091806ceb8a04478091806c1ab",
+			want:  "/api/executive/operations/XXX",
+		},
 	}
 
 	for _, tc := range tests {
