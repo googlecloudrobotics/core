@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -60,12 +61,7 @@ func initRelay() {
 }
 
 func serverFunction(f func(w http.ResponseWriter, r *http.Request)) *http.Server {
-	httpHandlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TBD: server code, e.g. sleeping to force a timeout
-		glog.Info("reached server side endpoint")
-		time.Sleep(6 * time.Second)
-		http.DefaultServeMux.ServeHTTP(w, r)
-	})
+	httpHandlerFunc := http.HandlerFunc(f)
 
 	srv := &http.Server{
 		Addr:         "127.0.0.1:8083",
@@ -82,13 +78,14 @@ func serverFunction(f func(w http.ResponseWriter, r *http.Request)) *http.Server
 	return srv
 }
 
-func TestTimeout(t *testing.T) {
+func TestHttpResponse(t *testing.T) {
 	initRelay()
+
+	expectedResponse := []byte("Unit test response.")
 
 	httpServer := serverFunction(func(w http.ResponseWriter, r *http.Request) {
 		glog.Info("reached server side endpoint")
-		time.Sleep(6 * time.Second)
-		http.DefaultServeMux.ServeHTTP(w, r)
+		w.Write(expectedResponse)
 	})
 	defer httpServer.Shutdown(context.Background())
 
@@ -97,9 +94,11 @@ func TestTimeout(t *testing.T) {
 	relayAddress := "http://127.0.0.1:8081/client/server_name/"
 	res, err := http.Get(relayAddress)
 	if err != nil {
-		t.Logf("Received relay error: ", err)
+		t.Error("Server responeded with an error. Error %v", err)
 	}
-	t.Error("Server timeout error expected but not observed.")
 	defer res.Body.Close()
-	io.ReadAll(res.Body)
+	observedResponse, err := io.ReadAll(res.Body)
+	if !bytes.Equal(observedResponse, expectedResponse) {
+		t.Errorf("Received wrong response.\n\tExpected: %s\n\tObserved: %s", expectedResponse, observedResponse)
+	}
 }
