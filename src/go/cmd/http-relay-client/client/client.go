@@ -576,7 +576,6 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 	defer span.End()
 
 	resp, hresp, err := makeBackendRequest(ctx, local, req, id)
-	defer hresp.Body.Close()
 	if err != nil {
 		// Even if we couldn't handle the backend request, send an
 		// answer to the relay that signals the error.
@@ -585,6 +584,7 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		c.postErrorResponse(remote, id, errorMessage)
 		return
 	}
+	defer hresp.Body.Close()
 	// hresp.Body is either closed from streamToBackend() or streamBytes()
 
 	if *resp.StatusCode == http.StatusSwitchingProtocols {
