@@ -584,7 +584,8 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		c.postErrorResponse(remote, id, errorMessage)
 		return
 	}
-	// hresp.Body is either closed from streamToBackend() or streamBytes()
+	defer hresp.Body.Close()
+	// hresp.Body is also closed from streamBytes()
 
 	if *resp.StatusCode == http.StatusSwitchingProtocols {
 		// A 101 Switching Protocols response means that the request will be
