@@ -61,15 +61,21 @@ func initRelay() {
 	})
 }
 
-func serverFunction(f func(w http.ResponseWriter, r *http.Request)) *http.Server {
+func serveFunction(
+	f func(w http.ResponseWriter, r *http.Request)) *http.Server {
+	return serveFunctionWithTimeout(f, 10*time.Second)
+}
+
+func serveFunctionWithTimeout(
+	f func(w http.ResponseWriter, r *http.Request),
+	handlerTimeout time.Duration) *http.Server {
 	httpHandlerFunc := http.HandlerFunc(f)
 
 	srv := &http.Server{
 		Addr:         "127.0.0.1:8083",
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
-		Handler: http.TimeoutHandler(httpHandlerFunc,
-			5*time.Second, "handler timeout"),
+		ReadTimeout:  5 * time.Second, // Time between accepted connection and request body being read.
+		WriteTimeout: 5 * time.Second, // Time between request header being read and response body being written.
+		Handler:      http.TimeoutHandler(httpHandlerFunc, handlerTimeout, "Timeout"),
 	}
 
 	go func() {
@@ -84,7 +90,7 @@ func TestHttpResponse(t *testing.T) {
 
 	expectedResponse := []byte("Unit test response.")
 
-	httpServer := serverFunction(func(w http.ResponseWriter, r *http.Request) {
+	httpServer := serveFunction(func(w http.ResponseWriter, r *http.Request) {
 		w.Write(expectedResponse)
 	})
 	defer httpServer.Shutdown(context.Background())
@@ -98,5 +104,24 @@ func TestHttpResponse(t *testing.T) {
 	observedResponse, err := io.ReadAll(res.Body)
 	if !bytes.Equal(observedResponse, expectedResponse) {
 		t.Errorf("Received wrong response.\n\tExpected: %s\n\tObserved: %s", expectedResponse, observedResponse)
+	}
+}
+
+func TestHttpTimeout(t *testing.T) {
+	initRelay()
+
+	httpServer := serveFunctionWithTimeout(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(2 * time.Second)
+	}, 1*time.Second)
+	defer httpServer.Shutdown(context.Background())
+
+	relayAddress := "http://127.0.0.1:8081/client/server_name/"
+	res, err := http.Get(relayAddress)
+	if err != nil {
+		t.Errorf("Server responded with an error. Error: %+v", err)
+		return
+	}
+	if res.StatusCode != 503 {
+		t.Error("No timeout error received.")
 	}
 }
