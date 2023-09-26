@@ -35,6 +35,7 @@ func initRelay() {
 			config.BackendScheme = "http"
 			config.RelayScheme = "http"
 			config.BackendAddress = "127.0.0.1:8083"
+			config.DisableAuthForRemote = true
 			relayClient := client.NewClient(config)
 			relayClient.Start()
 		}()
