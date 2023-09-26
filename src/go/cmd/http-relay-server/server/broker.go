@@ -91,7 +91,7 @@ type pendingResponse struct {
 	requestPath string
 }
 
-var numberRegexp = regexp.MustCompile(`(?i)[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-f0-9]{20}|[0-9]{2,}`)
+var numberRegexp = regexp.MustCompile(`(?i)[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-f0-9]{20,}|[0-9]{2,}`)
 
 // cleanPath replaces decimal/hex numbers and GUIDS with "XXX" to make a path
 // that is more suitable as a metric label, reducing the risk of
