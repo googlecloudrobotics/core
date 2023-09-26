@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"sync"
@@ -58,33 +59,47 @@ func initRelay() {
 	})
 }
 
+func serverFunction(f func(w http.ResponseWriter, r *http.Request)) *http.Server {
+	httpHandlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// TBD: server code, e.g. sleeping to force a timeout
+		glog.Info("reached server side endpoint")
+		time.Sleep(6 * time.Second)
+		http.DefaultServeMux.ServeHTTP(w, r)
+	})
+
+	srv := &http.Server{
+		Addr:         "127.0.0.1:8083",
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		Handler: http.TimeoutHandler(httpHandlerFunc,
+			5*time.Second, "handler timeout"),
+	}
+
+	go func() {
+		srv.ListenAndServe()
+	}()
+
+	return srv
+}
+
 func TestTimeout(t *testing.T) {
 	initRelay()
 
-	go func() {
-		httpHandlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// TBD: server code, e.g. sleeping to force a timeout
-			glog.Info("reached server side endpoint")
-			time.Sleep(6 * time.Second)
-			http.DefaultServeMux.ServeHTTP(w, r)
-		})
-		srv := &http.Server{
-			Addr:         "127.0.0.1:8083",
-			ReadTimeout:  5 * time.Second,
-			WriteTimeout: 5 * time.Second,
-			Handler: http.TimeoutHandler(httpHandlerFunc,
-				5*time.Second, "handler timeout"),
-		}
-		srv.ListenAndServe()
-	}()
+	httpServer := serverFunction(func(w http.ResponseWriter, r *http.Request) {
+		glog.Info("reached server side endpoint")
+		time.Sleep(6 * time.Second)
+		http.DefaultServeMux.ServeHTTP(w, r)
+	})
+	defer httpServer.Shutdown(context.Background())
 
 	glog.Info("Sending request to backend.")
 
 	relayAddress := "http://127.0.0.1:8081/client/server_name/"
 	res, err := http.Get(relayAddress)
 	if err != nil {
-		t.Fatal(err)
+		t.Logf("Received relay error: ", err)
 	}
+	t.Error("Server timeout error expected but not observed.")
 	defer res.Body.Close()
 	io.ReadAll(res.Body)
 }
