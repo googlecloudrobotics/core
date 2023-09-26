@@ -85,12 +85,9 @@ func TestHttpResponse(t *testing.T) {
 	expectedResponse := []byte("Unit test response.")
 
 	httpServer := serverFunction(func(w http.ResponseWriter, r *http.Request) {
-		glog.Info("reached server side endpoint")
 		w.Write(expectedResponse)
 	})
 	defer httpServer.Shutdown(context.Background())
-
-	glog.Info("Sending request to backend.")
 
 	relayAddress := "http://127.0.0.1:8081/client/server_name/"
 	res, err := http.Get(relayAddress)
