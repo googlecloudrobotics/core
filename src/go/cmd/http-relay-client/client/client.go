@@ -576,7 +576,6 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 	defer span.End()
 
 	resp, hresp, err := makeBackendRequest(ctx, local, req, id)
-	defer hresp.Body.Close()
 	if err != nil {
 		// Even if we couldn't handle the backend request, send an
 		// answer to the relay that signals the error.
@@ -585,7 +584,8 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		c.postErrorResponse(remote, id, errorMessage)
 		return
 	}
-	// hresp.Body is either closed from streamToBackend() or streamBytes()
+	defer hresp.Body.Close()
+	// hresp.Body is also closed from streamBytes()
 
 	if *resp.StatusCode == http.StatusSwitchingProtocols {
 		// A 101 Switching Protocols response means that the request will be
@@ -669,18 +669,33 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 func (c *Client) localProxy(remote, local *http.Client) error {
 	// Read pending request from the relay-server.
 	relayURL := c.buildRelayURL()
-	req, err := c.getRequest(remote, relayURL)
-	if err != nil {
-		if errors.Is(err, ErrTimeout) {
-			return err
-		} else if errors.Is(err, ErrForbidden) {
-			log.Fatalf("failed to authenticate to cloud-api, restarting: %v", err)
-		} else if errors.Is(err, syscall.ECONNREFUSED) {
-			log.Fatalf("failed to connect to cloud-api, restarting: %v", err)
+
+	var req *pb.HttpRequest = nil
+	var err error = nil
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		req, err = c.getRequest(remote, relayURL)
+		if err != nil {
+			if errors.Is(err, ErrTimeout) {
+				return err
+			} else if errors.Is(err, ErrForbidden) {
+				log.Fatalf("failed to authenticate to cloud-api, restarting: %v", err)
+			} else if errors.Is(err, syscall.ECONNREFUSED) {
+				log.Printf("Failed to connect to relay server. Retrying.")
+				continue
+			} else {
+				return fmt.Errorf("failed to get request from relay: %v", err)
+			}
 		} else {
-			return fmt.Errorf("failed to get request from relay: %v", err)
+			break
 		}
 	}
+
+	if err != nil {
+		log.Fatalf("failed to connect to cloud-api, restarting: %v", err)
+	}
+
 	// Forward the request to the backend.
 	go c.handleRequest(remote, local, req)
 	return nil
