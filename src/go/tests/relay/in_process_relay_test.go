@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"sync"
 	"testing"
@@ -16,25 +18,46 @@ import (
 )
 
 var (
-	port      = 8081
-	blockSize = 10 * 1024
-	once      sync.Once
+	relayPort   int // Will be initialized by initRelay()
+	backendPort int // Will be initialized by initRelay()
+	blockSize   = 10 * 1024
+	once        sync.Once
 )
+
+func pickUnusedPortOrDie() int {
+	var addr *net.TCPAddr
+	var err error
+	if addr, err = net.ResolveTCPAddr("tcp", "localhost:0"); err == nil {
+		var list *net.TCPListener
+		if list, err = net.ListenTCP("tcp", addr); err == nil {
+			defer list.Close()
+			return list.Addr().(*net.TCPAddr).Port
+		}
+	}
+	glog.Fatal("Failed to pick a free TCP port.")
+	return 0
+}
 
 func initRelay() {
 	once.Do(func() {
 		glog.Info("Running init.")
 
+		backendPort = pickUnusedPortOrDie()
+		relayPort = pickUnusedPortOrDie()
+
+		glog.Infof("Setting up relay.\n\tBackend port: %d\n\tRelay port: %d", backendPort, relayPort)
+
 		go func() {
 			relayServer := server.NewServer()
-			relayServer.Start(port, blockSize)
+			relayServer.Start(relayPort, blockSize)
 		}()
 
 		go func() {
 			config := client.DefaultClientConfig()
-			config.BackendScheme = "http"
 			config.RelayScheme = "http"
-			config.BackendAddress = "127.0.0.1:8083"
+			config.RelayAddress = fmt.Sprint("127.0.0.1:", relayPort)
+			config.BackendScheme = "http"
+			config.BackendAddress = fmt.Sprint("127.0.0.1:", backendPort)
 			config.DisableAuthForRemote = true
 			relayClient := client.NewClient(config)
 			relayClient.Start()
@@ -43,7 +66,8 @@ func initRelay() {
 		relayHealthy := false
 		deadline := time.Now().Add(5 * time.Second)
 		for time.Now().Before(deadline) {
-			res, err := http.Get("http://127.0.0.1:8081/healthz")
+			relayHealthzAddr := fmt.Sprint("http://127.0.0.1:", relayPort, "/healthz")
+			res, err := http.Get(relayHealthzAddr)
 			if err != nil {
 				glog.Infof("Relay server is has not yet started, retrying.")
 				time.Sleep(250 * time.Millisecond)
@@ -72,7 +96,7 @@ func serveFunctionWithTimeout(
 	httpHandlerFunc := http.HandlerFunc(f)
 
 	srv := &http.Server{
-		Addr:         "127.0.0.1:8083",
+		Addr:         fmt.Sprint("127.0.0.1:", backendPort),
 		ReadTimeout:  5 * time.Second, // Time between accepted connection and request body being read.
 		WriteTimeout: 5 * time.Second, // Time between request header being read and response body being written.
 		Handler:      http.TimeoutHandler(httpHandlerFunc, handlerTimeout, "Timeout"),
@@ -90,12 +114,14 @@ func TestHttpResponse(t *testing.T) {
 
 	expectedResponse := []byte("Unit test response.")
 
+	// Setup a backend function which just serves a string.
 	httpServer := serveFunction(func(w http.ResponseWriter, r *http.Request) {
 		w.Write(expectedResponse)
 	})
 	defer httpServer.Shutdown(context.Background())
 
-	relayAddress := "http://127.0.0.1:8081/client/server_name/"
+	// Invoke the backend function through the relay.
+	relayAddress := fmt.Sprint("http://127.0.0.1:", relayPort, "/client/server_name/")
 	res, err := http.Get(relayAddress)
 	if err != nil {
 		t.Error("Server responeded with an error. Error %v", err)
@@ -110,12 +136,15 @@ func TestHttpResponse(t *testing.T) {
 func TestHttpTimeout(t *testing.T) {
 	initRelay()
 
+	// Setup a backend server which will create a timeout and result in a 503.
 	httpServer := serveFunctionWithTimeout(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)
 	}, 1*time.Second)
 	defer httpServer.Shutdown(context.Background())
 
-	relayAddress := "http://127.0.0.1:8081/client/server_name/"
+	// Hit the backend function through the relay and verify that the relay
+	// forwards the 503 timeout.
+	relayAddress := fmt.Sprint("http://127.0.0.1:", relayPort, "/client/server_name/")
 	res, err := http.Get(relayAddress)
 	if err != nil {
 		t.Errorf("Server responded with an error. Error: %+v", err)
