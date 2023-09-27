@@ -584,6 +584,7 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		c.postErrorResponse(remote, id, errorMessage)
 		return
 	}
+	defer hresp.Body.Close()
 	// hresp.Body is either closed from streamToBackend() or streamBytes()
 
 	if *resp.StatusCode == http.StatusSwitchingProtocols {
