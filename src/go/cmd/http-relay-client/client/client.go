@@ -682,6 +682,7 @@ func (c *Client) localProxy(remote, local *http.Client) error {
 			} else if errors.Is(err, ErrForbidden) {
 				log.Fatalf("failed to authenticate to cloud-api, restarting: %v", err)
 			} else if errors.Is(err, syscall.ECONNREFUSED) {
+				log.Printf("Failed to connect to relay server. Retrying.")
 				continue
 			} else {
 				return fmt.Errorf("failed to get request from relay: %v", err)
