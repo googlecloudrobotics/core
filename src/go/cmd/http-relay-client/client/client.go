@@ -432,7 +432,6 @@ func (c *Client) streamBytes(id string, in io.ReadCloser, out chan<- []byte) {
 		log.Printf("[%s] Got EOF reading from backend", id)
 	}
 	close(out)
-	in.Close()
 }
 
 // buildResponses collates the bytes from the in stream into HttpResponse objects.
@@ -584,8 +583,6 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		c.postErrorResponse(remote, id, errorMessage)
 		return
 	}
-	defer hresp.Body.Close()
-	// hresp.Body is either closed from streamToBackend() or streamBytes()
 
 	if *resp.StatusCode == http.StatusSwitchingProtocols {
 		// A 101 Switching Protocols response means that the request will be
@@ -600,6 +597,10 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		}
 		// Stream stdin from remote to backend
 		go c.streamToBackend(remote, id, bodyWriter)
+	} else {
+		// `streamToBackend` will close `hresp.Body` but it is only ran on websocket connections.
+		// We need to close it here for http connections.
+		defer hresp.Body.Close()
 	}
 
 	ctx, respChSpan := trace.StartSpan(ctx, "Building (chunked) response channel")
