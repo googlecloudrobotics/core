@@ -78,6 +78,13 @@ resource "google_project_iam_member" "robot-service-kubernetes" {
   member = "serviceAccount:${google_service_account.robot-service.email}"
 }
 
+# Allow robot-service@ to fetch images from GCR.
+resource "google_storage_bucket_iam_member" "robot_service_container_viewer" {
+  bucket = "artifacts.${data.google_project.project.project_id}.appspot.com"
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.robot-service.email}"
+}
+
 resource "google_service_account" "human-acl" {
   account_id   = "human-acl"
   display_name = "human-acl"
