@@ -598,7 +598,7 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		// Stream stdin from remote to backend
 		go c.streamToBackend(remote, id, bodyWriter)
 	} else {
-		// `streamToBackend` will close `hresp.Body` but it is only ran on websocket connections.
+		// `streamToBackend` will close `hresp.Body` but it is only called on websocket connections.
 		// We need to close it here for http connections.
 		defer hresp.Body.Close()
 	}
@@ -670,18 +670,33 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 func (c *Client) localProxy(remote, local *http.Client) error {
 	// Read pending request from the relay-server.
 	relayURL := c.buildRelayURL()
-	req, err := c.getRequest(remote, relayURL)
-	if err != nil {
-		if errors.Is(err, ErrTimeout) {
-			return err
-		} else if errors.Is(err, ErrForbidden) {
-			log.Fatalf("failed to authenticate to cloud-api, restarting: %v", err)
-		} else if errors.Is(err, syscall.ECONNREFUSED) {
-			log.Fatalf("failed to connect to cloud-api, restarting: %v", err)
+
+	var req *pb.HttpRequest = nil
+	var err error = nil
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		req, err = c.getRequest(remote, relayURL)
+		if err != nil {
+			if errors.Is(err, ErrTimeout) {
+				return err
+			} else if errors.Is(err, ErrForbidden) {
+				log.Fatalf("failed to authenticate to cloud-api, restarting: %v", err)
+			} else if errors.Is(err, syscall.ECONNREFUSED) {
+				log.Printf("Failed to connect to relay server. Retrying.")
+				continue
+			} else {
+				return fmt.Errorf("failed to get request from relay: %v", err)
+			}
 		} else {
-			return fmt.Errorf("failed to get request from relay: %v", err)
+			break
 		}
 	}
+
+	if err != nil {
+		log.Fatalf("failed to connect to cloud-api, restarting: %v", err)
+	}
+
 	// Forward the request to the backend.
 	go c.handleRequest(remote, local, req)
 	return nil
