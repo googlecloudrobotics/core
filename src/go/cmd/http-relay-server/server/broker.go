@@ -176,27 +176,6 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 func (r *broker) StopRelayRequest(requestId string) {
 	r.m.Lock()
 	defer r.m.Unlock()
-	pr, ok := r.resp[requestId]
-	if !ok {
-		log.Printf("ignored request to stop relay request [%s] that does not exist", requestId)
-		return
-	}
-	close(pr.requestStream)
-	// TODO: Find out the best way to close `responseStream`. Unlike `requestStream`, it is also
-	// closed in `SendResponse`. It does not hold the lock throughout it's usage of `pr` so
-	// something like this could happen
-	//
-	// SendResponse:
-	//   r.m.Lock()
-	//   pr := r.resp[id]
-	//   r.m.Unlock()
-	// StopRelayRequest:
-	//   r.m.Lock()
-	//   defer r.m.Unlock()
-	//   delete r.resp[requestId]
-	//   close(pr.responseStream)
-	// SendReponse:
-	//   close(pr.responseStream) // panic!
 	delete(r.resp, requestId)
 }
 
@@ -238,10 +217,7 @@ func (r *broker) GetRequestStream(id string) ([]byte, bool) {
 	}
 
 	select {
-	case data, more := <-pr.requestStream:
-		if !more {
-			return nil, false
-		}
+	case data := <-pr.requestStream:
 		return data, true
 	case <-time.After(time.Second * 30):
 		return []byte{}, true
