@@ -21,7 +21,7 @@ env:
 
 jobs:
   create_release:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       # Check out repo at latest green postsubmit commit on the main branch.
       - name: Get latest passing commit
