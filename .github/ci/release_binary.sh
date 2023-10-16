@@ -21,7 +21,7 @@ LABELS=${LABELS:-"latest crc-${VERSION}/crc-${VERSION}+latest"}
 
 # Get the last release. We only create a new release if the main branch has moved since
 # as trying to re-create an existing release is an error.
-output=$(curl -fsS \
+output=$(curl --fail-with-body -sS \
   -H "Accept: application/vnd.github+json" \
   -H "Authorization: token $GITHUB_TOKEN" \
   https://api.github.com/repos/$REPO/releases/latest)
@@ -41,7 +41,7 @@ DOCKER_TAG=${DOCKER_TAG:-"crc-${VERSION}-${SHA}"}
 release_binary "${GCP_BUCKET}" "crc-${VERSION}/crc-${VERSION}+${SHA}" ${LABELS}
 
 # Generate release notes comparing against the previous release.
-output=$(curl -fsS \
+output=$(curl --fail-with-body -sS \
   -X POST \
   -H "Accept: application/vnd.github+json" \
   -H "Authorization: token $GITHUB_TOKEN" \
@@ -52,7 +52,7 @@ BODY="$(jq -r '.body'   <<< $output | awk '{printf "%s\\n", $0}' | sed 's/"/\\"/
 echo "Generated release notes for $RELEASE_NAME"
 
 # Create the release on GitHub.
-curl -fsS \
+curl --fail-with-body -sS \
   -X POST \
   -H "Accept: application/vnd.github+json" \
   -H "Authorization: token $GITHUB_TOKEN" \
