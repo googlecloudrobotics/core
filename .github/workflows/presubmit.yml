@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   setup-presubmit:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       presubmit_digest: ${{ steps.pr-digest.outputs.digest }}
       presubmit_status: ${{ steps.status.outputs.status }}
@@ -60,7 +60,7 @@ jobs:
 
   presubmits-ok:
     needs: [setup-presubmit, call-check-bazel]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     # To ensure this job always runs even if the "heavy" jobs were skipped.
     # This allows us to guard merging on this check in Branch Protection.
     if: ${{ always() }}

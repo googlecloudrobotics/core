@@ -21,7 +21,7 @@ env:
 
 jobs:
   create_release:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       # Check out repo at latest green postsubmit commit on the main branch.
       - name: Get latest passing commit
@@ -30,7 +30,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          output=$(curl -fsS \
+          output=$(curl --fail-with-body -sS \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/$REPO/actions/workflows/postsubmit.yml/runs?per_page=1&branch=main&status=success")
