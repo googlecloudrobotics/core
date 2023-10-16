@@ -5,9 +5,6 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# DO NOT SUBMIT
-curl --version
-
 # shellcheck source=ci/common.sh
 source "${DIR}/common.sh"
 
