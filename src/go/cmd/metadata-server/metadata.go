@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -41,6 +42,59 @@ const (
 	// getPodByIPWait confgured the time to sleep between the retries
 	getPodByIPWait = 500 * time.Millisecond
 )
+
+// rateLimitTokenSource is a TokenSource that applies exponential backoff on
+// errors, returning the previous error if called again too soon. It doesn't
+// rate-limit on success, as it assumes it wraps a reuseTokenSource.
+type rateLimitTokenSource struct {
+	wrapped oauth2.TokenSource
+
+	mu       sync.Mutex // guards err and next
+	err      error
+	exponent int
+	next     time.Time
+}
+
+func newRateLimitTokenSource(ts oauth2.TokenSource) *rateLimitTokenSource {
+	return &rateLimitTokenSource{wrapped: ts}
+}
+
+var timeNow = time.Now
+
+// Token tries to fetch a token, unless an error was recently encountered, in
+// which case the previous error is returned.
+func (s *rateLimitTokenSource) Token() (*oauth2.Token, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if timeNow().Before(s.next) {
+		return nil, s.err
+	}
+	t, err := s.wrapped.Token()
+	if err != nil {
+		s.updateBackoff(err)
+		return nil, err
+	}
+	s.resetBackoff()
+	return t, nil
+}
+
+func (s *rateLimitTokenSource) resetBackoff() {
+	s.exponent = 0
+	s.next = time.Time{}
+}
+
+func (s *rateLimitTokenSource) updateBackoff(err error) {
+	const (
+		// maxDelay = initialDelay * 2 ^ maxExponent
+		initialDelay = 100 * time.Millisecond
+		maxExponent  = 10
+	)
+	if s.exponent < maxExponent {
+		s.exponent = s.exponent + 1
+	}
+	s.next = timeNow().Add(initialDelay << s.exponent)
+	s.err = err
+}
 
 // ConstHandler serves OK responses with static body content.
 type ConstHandler struct {
@@ -115,7 +169,7 @@ func (th *TokenHandler) updateRobotAuth() error {
 }
 
 func (th *TokenHandler) updateRobotTokenSource(ctx context.Context) {
-	th.TokenSource = th.robotAuth.CreateRobotTokenSource(ctx)
+	th.TokenSource = newRateLimitTokenSource(th.robotAuth.CreateRobotTokenSource(ctx))
 }
 
 func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler {

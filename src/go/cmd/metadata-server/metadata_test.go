@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net"
@@ -164,5 +165,93 @@ func TestMetadataHandlerReturnsZone(t *testing.T) {
 	}
 	if want, got := "projects/512/zones/edge", bodyOrDie(respRecorder.Result()); want != got {
 		t.Errorf("Wrong response body; want %s; got %s", want, got)
+	}
+}
+
+var errToken = errors.New("failed to get token")
+
+// fakeTokenSource returns `Errors` consecutive errors then returns tokens.
+// Calls counts the number of calls so far.
+type fakeTokenSource struct {
+	Calls  int
+	Errors int
+}
+
+func (s *fakeTokenSource) Token() (*oauth2.Token, error) {
+	s.Calls = s.Calls + 1
+	if s.Calls <= s.Errors {
+		return nil, errToken
+	}
+	return &oauth2.Token{}, nil
+}
+
+func TestRateLimitTokenSource(t *testing.T) {
+	oldTimeNow := timeNow
+	t.Cleanup(func() {
+		timeNow = oldTimeNow
+	})
+
+	// Test that we retry a certain number of errors within a given amount of
+	// time, then succeed. Since we use 100ms steps (not real time), maxTime
+	// should not be too large or the test may get slow: One hour can be
+	// "simulated" in a few ms, a year takes ~15s.
+	tests := []struct {
+		desc   string
+		errors int
+		// Acceptable range of overall duration (too lazy to do the maths to
+		// work out exactly how long it should wait).
+		minTime time.Duration
+		maxTime time.Duration
+	}{
+		{
+			desc:    "no errors",
+			errors:  0,
+			minTime: 0,
+			maxTime: 0,
+		},
+		{
+			desc:    "single error retried within 0.5s",
+			errors:  1,
+			minTime: 100 * time.Millisecond,
+			maxTime: 500 * time.Millisecond,
+		},
+		{
+			desc:    "two errors retried within 1s",
+			errors:  2,
+			minTime: 200 * time.Millisecond,
+			maxTime: time.Second,
+		},
+		{
+			desc: "20 errors retried within 1h",
+
+			errors:  20,
+			minTime: 15 * time.Minute,
+			maxTime: time.Hour,
+		},
+	}
+
+	startTime := time.Time{}
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			clock := startTime
+			timeNow = func() time.Time { return clock }
+
+			fakeTS := &fakeTokenSource{Errors: tc.errors}
+			ts := newRateLimitTokenSource(fakeTS)
+			for ; clock.Sub(startTime) <= tc.maxTime; clock = clock.Add(100 * time.Millisecond) {
+				_, err := ts.Token()
+				if err != nil {
+					continue
+				}
+				break
+			}
+			duration := clock.Sub(startTime)
+			if duration < tc.minTime {
+				t.Errorf("Token() succeeded within %s, want at least %s", duration, tc.minTime)
+			}
+			if duration > tc.maxTime {
+				t.Errorf("Token() did not succeed within %s", tc.maxTime)
+			}
+		})
 	}
 }
