@@ -49,14 +49,16 @@ const (
 type rateLimitTokenSource struct {
 	wrapped oauth2.TokenSource
 
-	mu       sync.Mutex // guards err and next
-	err      error
-	exponent int
-	next     time.Time
+	mu    sync.Mutex // guards err and next
+	err   error
+	delay time.Duration
+	next  time.Time
 }
 
 func newRateLimitTokenSource(ts oauth2.TokenSource) *rateLimitTokenSource {
-	return &rateLimitTokenSource{wrapped: ts}
+	rlts := &rateLimitTokenSource{wrapped: ts}
+	rlts.resetBackoff()
+	return rlts
 }
 
 var timeNow = time.Now
@@ -79,21 +81,16 @@ func (s *rateLimitTokenSource) Token() (*oauth2.Token, error) {
 }
 
 func (s *rateLimitTokenSource) resetBackoff() {
-	s.exponent = 0
+	s.delay = 100 * time.Millisecond
 	s.next = time.Time{}
 }
 
 func (s *rateLimitTokenSource) updateBackoff(err error) {
-	const (
-		// maxDelay = initialDelay * 2 ^ maxExponent
-		initialDelay = 100 * time.Millisecond
-		maxExponent  = 10
-	)
-	if s.exponent < maxExponent {
-		s.exponent = s.exponent + 1
-	}
-	s.next = timeNow().Add(initialDelay << s.exponent)
+	s.next = timeNow().Add(s.delay)
 	s.err = err
+	if s.delay < 120*time.Second {
+		s.delay *= 2
+	}
 }
 
 // ConstHandler serves OK responses with static body content.
