@@ -45,7 +45,7 @@ const (
 
 // rateLimitTokenSource is a TokenSource that applies exponential backoff on
 // errors, returning the previous error if called again too soon. It doesn't
-// rate-limit on success, as it assumes it wraps a reuseTokenSource.
+// rate-limit on success, as it assumes it wraps an oauth2.ReuseTokenSource.
 type rateLimitTokenSource struct {
 	wrapped oauth2.TokenSource
 
