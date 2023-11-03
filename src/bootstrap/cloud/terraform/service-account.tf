@@ -64,7 +64,6 @@ resource "google_project_iam_member" "robot-service-roles" {
     "roles/logging.logWriter", # Upload text logs to Cloud logging
     # Required to use robot-service@ for GKE clusters that simulate robots
     "roles/monitoring.viewer",
-    "roles/storage.objectAdmin",
   ])
   role = each.value
 }
