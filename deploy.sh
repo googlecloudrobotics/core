@@ -243,6 +243,16 @@ function terraform_post {
     gcloud container clusters update "${cluster[@]}" --quiet \
       --enable-vertical-pod-autoscaling
   fi
+
+  # I couldn't work out how to identify exactly which buckets back GCR in a
+  # given project: some have just "artifacts", some have just "eu.artifacts",
+  # and some have both. Since GCR will be turned down in favor of GAR in 2024,
+  # it seems simplest just to apply the ACLs with gcloud until then.
+  for bucket in $(gcloud storage buckets list --project "${GCP_PROJECT_ID}" --format "value(name)" | grep "artifacts.*appspot.com") ; do
+    gcloud storage buckets add-iam-policy-binding "gs://${bucket}" \
+      --member "serviceAccount:robot-service@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+      --role "roles/storage.objectViewer"
+  done
 }
 
 function terraform_delete {
