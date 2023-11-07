@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=0.10.4
+VERSION=0.12.9
 
 # fetch the latest version
 helm repo add akri-helm-charts https://project-akri.github.io/akri/ 

@@ -4,7 +4,7 @@ load("//bazel:app.bzl", "app")
 
 helm_template(
     name = "akri-chart.robot",
-    chart = "//third_party/akri:akri-0.10.4.tgz",
+    chart = "//third_party/akri:akri-0.12.9.tgz",
     helm_version = 3,
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",

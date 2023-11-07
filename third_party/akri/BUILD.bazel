@@ -2,7 +2,7 @@
 # Apache license
 licenses(["notice"])
 
-# Helm chart for akri (version 0.8.23) included here was pulled from the
+# Helm chart for akri (version 0.12.9) included here was pulled from the
 # project-akri github repo and modified to be compatible with the Intrinsic
 # codebase. Future versions can be updated by running
 #   sh update-akri.sh
