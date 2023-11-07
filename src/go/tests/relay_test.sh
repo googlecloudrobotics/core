@@ -15,9 +15,20 @@
 # limitations under the License.
 #
 # This test only works in conjunction with a sim vm. E.g. from the top of the
-# repo run:
-# ./scripts/robot-sim.sh create "<myproject>" "sim1"
-# bazel test --test_env GCP_PROJECT_ID="<myproject>" --test_env CLUSTER="sim1" --test_env HOME="${HOME}" --test_output=streamed --test_tag_filters="external" //src/go/tests:relay_test
+# repo run: (one time)
+#
+#     ./scripts/robot-sim.sh create "${PROJECT:?}" "sim1"
+#
+# Then to deploy and test the relay:
+#
+#   ./deploy.sh fast_push "${PROJECT:?}"
+#   sleep 30  # allow time for http-relay-server/client to update
+#   bazel test --test_env GCP_PROJECT_ID="${PROJECT:?}" --test_env CLUSTER="sim1" --test_env HOME="${HOME}" --test_output=streamed --test_tag_filters="external" //src/go/tests:relay_test
+#
+# Instead of `sleep 30` you can watch:
+#
+#   kubectl --context gke_${PROJECT:?}_${ZONE:?}_cloud-robotics -n app-k8s-relay get pods -w
+#   kubectl --context gke_${PROJECT:?}_${ZONE:?}_sim1 -n app-k8s-relay get pods -w
 #
 # Add -v7 to kc exec in the tests to get more details when debugging.
 
@@ -29,15 +40,23 @@ touch "${KUBECONFIG}"
 export KUBECACHE="${KC_DIR}/cache"
 mkdir -p "${KUBECACHE}"
 
+# gcloud expects to be able to write to its config directly.
+CLOUDSDK_CONFIG=$(mktemp -d -t gcloud-XXXXXXXXXX)
+export CLOUDSDK_CONFIG
+cp -a ~/.config/gcloud/* "${CLOUDSDK_CONFIG}"
+
 function kc() {
   kubectl --cache-dir="${KUBECACHE}" --context="${CLUSTER}" "$@"
 }
 
 function setup() {
-  kubectl config set-credentials "${GCP_PROJECT_ID}" --auth-provider gcp
-  # setup relay for robot-sim vm (test-robot)
+  # configure kubectl to use relay for robot-sim vm (test-robot)
+  kubectl config set-credentials "${GCP_PROJECT_ID}" --exec-command=gke-gcloud-auth-plugin --exec-api-version=client.authentication.k8s.io/v1beta1
+  sed -i "s/provideClusterInfo: false/provideClusterInfo: true/" "${KUBECONFIG}"
   kubectl config set-cluster "${CLUSTER}" --server="https://www.endpoints.${GCP_PROJECT_ID}.cloud.goog/apis/core.kubernetes-relay/client/${CLUSTER}"
   kubectl config set-context "${CLUSTER}" --cluster "${CLUSTER}" --namespace "default" --user "$GCP_PROJECT_ID"
+  echo "Checking relay is working..."
+  kubectl --context "${CLUSTER}" version || test_failed "during setup, failed to reach the robot-sim VM"
 
   # delete test pod (if running)
   if kc get pod "${TEST_POD_NAME}" -o name 2>/dev/null; then
@@ -45,17 +64,16 @@ function setup() {
     kc wait --for=delete pod/"${TEST_POD_NAME}" --timeout=60s
   fi
   # deploy a container with a shell that runs sleep
-  kc run "${TEST_POD_NAME}" --image=gcr.io/google-containers/busybox:latest --restart=Never -- /bin/sh -c "trap : TERM INT; sleep 3600 & wait"
+  kc run "${TEST_POD_NAME}" --image=gcr.io/google-containers/busybox:1.27.2 --restart=Never -- /bin/sh -c "trap : TERM INT; sleep 3600 & wait"
   kc wait --for=condition=Ready pod/"${TEST_POD_NAME}"
 }
 
 function teardown() {
   # delete test pod (if running)
   kc delete pod --ignore-not-found "${TEST_POD_NAME}" || /bin/true
- 
-  rm -rf "${KC_CFG_DIR}"
+
+  rm -rf "${KC_CFG_DIR}" "${CLOUDSDK_CONFIG}"
 }
-trap teardown EXIT
 
 function test_failed() {
   echo "TEST FAILED: $1"
@@ -68,12 +86,12 @@ function test_passed() {
 
 function test_relay_can_exec_to_shell() {
   # exec command in shell-container through the relay
-  res=$(kc exec "${TEST_POD_NAME}" -- id)
-  if [[ "$res" != "uid=0(root) gid=0(root) groups=10(wheel)" ]]; then
-    test_failed "id command did not run, output was \"$res\""
+  res=$(kc exec "${TEST_POD_NAME}" -- echo hello)
+  if [[ "$res" != "hello" ]]; then
+    test_failed "echo command did not run, output was \"$res\", want \"hello\""
   fi
 
-  test_passed "id command worked"
+  test_passed "echo command worked"
 }
 
 function test_relay_handles_eof() {
@@ -87,6 +105,7 @@ function test_relay_handles_eof() {
 }
 
 setup
+trap teardown EXIT
 test_relay_can_exec_to_shell
 test_relay_handles_eof
 

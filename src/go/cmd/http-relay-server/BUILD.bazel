@@ -1,52 +1,34 @@
-package(default_visibility = ["//visibility:public"])
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "broker.go",
-        "main.go",
-    ],
+    srcs = ["main.go"],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server",
     visibility = ["//visibility:private"],
     deps = [
-        "//src/proto/http-relay:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
-        "@org_golang_google_protobuf//proto:go_default_library",
-        "@org_golang_x_net//http2:go_default_library",
-        "@org_golang_x_net//http2/h2c:go_default_library",
-        "@org_golang_x_sync//errgroup:go_default_library",
+        "//src/go/cmd/http-relay-server/server:go_default_library",
+        "@io_opencensus_go//trace:go_default_library",
+        "@io_opencensus_go_contrib_exporter_stackdriver//:go_default_library",
     ],
 )
 
-go_test(
-    name = "go_default_test",
-    size = "small",
-    srcs = [
-        "broker_test.go",
-        "main_test.go",
-    ],
-    embed = [":go_default_library"],
-    visibility = ["//visibility:private"],
-    deps = [
-        "//src/proto/http-relay:go_default_library",
-        "@com_github_getlantern_httptest//:go_default_library",
-        "@org_golang_google_protobuf//proto:go_default_library",
-    ],
-)
-
-# only for testing
 go_binary(
-    name = "http-relay-server-bin",
+    name = "http-relay-server-app",
     embed = [":go_default_library"],
 )
 
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+pkg_tar(
+    name = "http-relay-server-image-layer",
+    srcs = [":http-relay-server-app"],
+)
 
-go_image(
-    name = "http-relay-server",
-    base = "@cc_image_base//image",
-    embed = [":go_default_library"],
+oci_image(
+    name = "http-relay-server-image",
+    base = "@distroless_base",
+    entrypoint = ["/http-relay-server-app"],
+    tars = [":http-relay-server-image-layer"],
 )

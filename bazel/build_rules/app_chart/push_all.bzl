@@ -20,7 +20,7 @@ def _impl(ctx):
                 [
                     "if [[ -z \"${TAG:-}\" ]]; then echo >&2 \"$0: TAG environment variable must be set when pushing images.\"; exit 1; fi",
                 ] + [
-                    "async {command} --dst=\"${{CONTAINER_REGISTRY}}/{repository}:${{TAG}}\"".format(
+                    "async {command} --repository=\"${{CONTAINER_REGISTRY}}/{repository}\" --tag=\"${{TAG}}\"".format(
                         command = _get_runfile_path(ctx, target.files_to_run.executable),
                         repository = repository,
                     )
@@ -69,7 +69,6 @@ def push_all(name, images = {}, **kwargs):
         push_targets.append(push_target)
         container_push(
             name = push_target,
-            format = "Docker",
             image = image,
         )
 

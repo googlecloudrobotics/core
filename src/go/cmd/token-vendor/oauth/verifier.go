@@ -40,8 +40,7 @@ func NewTokenVerifier(ctx context.Context, c *http.Client, project string) (*Tok
 
 // Verify if a given token has "actAs" permission on a given service account.
 func (v *TokenVerifier) Verify(ctx context.Context, token Token, sa string) error {
-	saFQN := fmt.Sprintf("%s@%s.iam.gserviceaccount.com", sa, v.project)
-	resource := fmt.Sprintf("projects/%s/serviceAccounts/%s", v.project, saFQN)
+	resource := fmt.Sprintf("projects/%s/serviceAccounts/%s@%s.iam.gserviceaccount.com", v.project, sa, v.project)
 	const iamActAs = "iam.serviceAccounts.actAs"
 	// check the cache first
 	actAs, found := v.cache.actAs(token, resource)

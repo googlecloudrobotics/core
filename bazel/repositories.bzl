@@ -45,54 +45,32 @@ def cloud_robotics_repositories():
         ],
     )
 
-    # Rules for building and handling Docker images with Bazel and define base images
-    # From 2023-03, which is >v0.25.0 (they are not doing any new releases at the time of
-    # writing).
-    _maybe(
-        http_archive,
-        name = "io_bazel_rules_docker",
-        sha256 = "f6d71a193ff6df39900417b50e67a5cf0baad2e90f83c8aefe66902acce4c34d",
-        strip_prefix = "rules_docker-ca2f3086ead9f751975d77db0255ffe9ee07a781",
-        urls = ["https://github.com/bazelbuild/rules_docker/archive/ca2f3086ead9f751975d77db0255ffe9ee07a781.tar.gz"],
-    )
-
     # Go rules and proto support
     _maybe(
         http_archive,
         name = "io_bazel_rules_go",
-        sha256 = "ae013bf35bd23234d1dea46b079f1e05ba74ac0321423830119d3e787ec73483",
+        sha256 = "278b7ff5a826f3dc10f04feaf0b70d48b68748ccd512d7f98bf442077f043fe3",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.36.0/rules_go-v0.36.0.zip",
-            "https://github.com/bazelbuild/rules_go/releases/download/v0.36.0/rules_go-v0.36.0.zip",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.41.0/rules_go-v0.41.0.zip",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.41.0/rules_go-v0.41.0.zip",
         ],
     )
     _maybe(
         http_archive,
         name = "bazel_gazelle",
-        sha256 = "de69a09dc70417580aabf20a28619bb3ef60d038470c7cf8442fafcf627c21cb",
+        sha256 = "29218f8e0cebe583643cbf93cae6f971be8a2484cdcfa1e45057658df8d54002",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
-            "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.32.0/bazel-gazelle-v0.32.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.32.0/bazel-gazelle-v0.32.0.tar.gz",
         ],
     )
 
     _maybe(
         http_archive,
         name = "com_github_bazelbuild_buildtools",
-        sha256 = "e3bb0dc8b0274ea1aca75f1f8c0c835adbe589708ea89bf698069d0790701ea3",
-        strip_prefix = "buildtools-5.1.0",
-        urls = ["https://github.com/bazelbuild/buildtools/archive/5.1.0.tar.gz"],
-    )
-
-    # Rules to perform OCI operations.
-    # This is currently only used to pulled base images to build images with. rules_docker and rules_go are the ones
-    # that actually do the heavy lifting when building images.
-    _maybe(
-        http_archive,
-        name = "rules_oci",
-        sha256 = "f6125c9a123a2ac58fb6b13b4b8d4631827db9cfac025f434bbbefbd97953f7c",
-        strip_prefix = "rules_oci-0.3.9",
-        urls = ["https://github.com/bazel-contrib/rules_oci/releases/download/v0.3.9/rules_oci-v0.3.9.tar.gz"],
+        sha256 = "977a0bd4593c8d4c8f45e056d181c35e48aa01ad4f8090bdb84f78dca42f47dc",
+        strip_prefix = "buildtools-6.1.2",
+        urls = ["https://github.com/bazelbuild/buildtools/archive/v6.1.2.tar.gz"],
     )
 
 def _maybe(repo_rule, name, **kwargs):

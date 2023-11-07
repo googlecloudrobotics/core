@@ -6,16 +6,35 @@ go_test(
     timeout = "long",
     srcs = ["nok8s_relay_test.go"],
     data = [
-        "//src/go/cmd/http-relay-client:http-relay-client-bin",
-        "//src/go/cmd/http-relay-server:http-relay-server-bin",
+        "//src/go/cmd/http-relay-client:http-relay-client-app",
+        "//src/go/cmd/http-relay-server:http-relay-server-app",
     ],
     rundir = ".",
     deps = [
+        "//src/go/cmd/http-relay-client/client:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//interop/grpc_testing:go_default_library",
         "@org_golang_google_grpc//metadata:go_default_library",
         "@org_golang_google_grpc//status:go_default_library",
-        "@org_golang_google_grpc//test/grpc_testing:go_default_library",
+        "@org_golang_x_net//websocket:go_default_library",
+    ],
+)
+
+go_test(
+    name = "in_process_relay_test",
+    srcs = ["in_process_relay_test.go"],
+    deps = [
+        "//src/go/cmd/http-relay-client/client:go_default_library",
+        "//src/go/cmd/http-relay-server/server:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_pkg_errors//:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//interop/grpc_testing:go_default_library",
+        "@org_golang_google_grpc//metadata:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
+        "@org_golang_x_net//websocket:go_default_library",
     ],
 )

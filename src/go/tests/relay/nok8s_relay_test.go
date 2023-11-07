@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -30,17 +31,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client"
 	"github.com/pkg/errors"
+	"golang.org/x/net/websocket"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	testpb "google.golang.org/grpc/interop/grpc_testing"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	testpb "google.golang.org/grpc/test/grpc_testing"
 )
 
 const (
-	RelayClientPath = "src/go/cmd/http-relay-client/http-relay-client-bin_/http-relay-client-bin"
-	RelayServerPath = "src/go/cmd/http-relay-server/http-relay-server-bin_/http-relay-server-bin"
+	RelayClientPath = "src/go/cmd/http-relay-client/http-relay-client-app_/http-relay-client-app"
+	RelayServerPath = "src/go/cmd/http-relay-server/http-relay-server-app_/http-relay-server-app"
 )
 
 var (
@@ -127,7 +130,7 @@ func (r *relay) stop() error {
 }
 
 // TestHttpRelay launches a local http relay (client + server) and connects a
-// test-hhtp-server as a backend. The test is then interacting with the backend
+// test-http-server as a backend. The test is then interacting with the backend
 // through the local relay.
 func TestHttpRelay(t *testing.T) {
 	tests := []struct {
@@ -200,50 +203,202 @@ func TestHttpRelay(t *testing.T) {
 	}
 }
 
+// TestDroppedUserClientFreesRelayChannel checks that when the user client closes a connection,
+// it is propagated to the relay server and client, closing the backend connection as well.
+func TestDroppedUserClientFreesRelayChannel(t *testing.T) {
+	// setup http test server
+	connClosed := make(chan error)
+	defer close(connClosed)
+	finishServer := make(chan bool)
+	defer close(finishServer)
+
+	// mock a long running backend that uses chunking to send periodic updates
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for {
+			select {
+			case <-finishServer:
+				return
+			default:
+				if _, err := fmt.Fprintln(w, "DEADBEEF"); err != nil {
+					connClosed <- err
+					return
+				}
+				if flusher, ok := w.(http.Flusher); ok {
+					flusher.Flush()
+				} else {
+					t.Fatal("cannot flush")
+				}
+				time.Sleep(time.Second)
+			}
+		}
+	}))
+	defer ts.Close()
+
+	backendAddress := strings.TrimPrefix(ts.URL, "http://")
+	r := &relay{}
+	if err := r.start(backendAddress); err != nil {
+		t.Fatal("failed to start relay: ", err)
+	}
+	defer r.stop()
+	relayAddress := "http://127.0.0.1:" + r.rsPort
+
+	res, err := http.Get(relayAddress + "/client/remote1/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// receive the first chunk then terminates the connection
+	if _, err := bufio.NewReader(res.Body).ReadString('\n'); err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+
+	// wait for up to 30s for backend connection to be closed
+	select {
+	case <-connClosed:
+	case <-time.After(30 * time.Second):
+		t.Error("Server did not close connection")
+	}
+}
+
+// TestDroppedBidiStreamFreesRelayChannel checks that when a bidi stream (websockets) closes,
+// it is propagated to the relay server and client, closing the backend connection as well.
+func TestDroppedBidiStreamFreesRelayChannel(t *testing.T) {
+	// setup http test server
+	done := make(chan error)
+	defer close(done)
+
+	// test websockets server that echo received messages
+	ts := httptest.NewServer(websocket.Handler(func(conn *websocket.Conn) {
+		r := bufio.NewReader(conn)
+		for {
+			req, err := r.ReadBytes('\n')
+			if err != nil {
+				if err == io.EOF {
+					done <- nil
+				} else {
+					done <- err
+				}
+			}
+			if _, err := conn.Write(req); err != nil {
+				if err == io.EOF {
+					done <- nil
+				} else {
+					done <- err
+				}
+			}
+		}
+	}))
+	defer func() {
+		ts.CloseClientConnections()
+		ts.Close()
+	}()
+
+	backendAddress := strings.TrimPrefix(ts.URL, "http://")
+	r := &relay{}
+	if err := r.start(backendAddress); err != nil {
+		t.Fatal("failed to start relay: ", err)
+	}
+	defer r.stop()
+	relayAddress := "ws://127.0.0.1:" + r.rsPort
+
+	clientConn, err := websocket.Dial(relayAddress+"/client/remote1/", "", "http://127.0.0.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// receive the first message then terminates the connection
+	if _, err := clientConn.Write([]byte("hello\n")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bufio.NewReader(clientConn).ReadString('\n'); err != nil {
+		t.Fatal(err)
+	}
+	clientConn.Close()
+
+	// wait for up to 30s for backend connection to be closed
+	select {
+	case err = <-done:
+		if err != nil {
+			t.Error(err)
+		}
+	case <-time.After(30 * time.Second):
+		t.Error("Server did not close connection")
+	}
+}
+
 type testServer struct {
 	testpb.UnimplementedTestServiceServer
+	responsePayload []byte
 }
 
 func (s *testServer) EmptyCall(ctx context.Context, in *testpb.Empty) (*testpb.Empty, error) {
 	return &testpb.Empty{}, nil
 }
 
+func (s *testServer) UnaryCall(ctx context.Context, in *testpb.SimpleRequest) (*testpb.SimpleResponse, error) {
+	return &testpb.SimpleResponse{
+		Payload: &testpb.Payload{
+			Body: s.responsePayload,
+		},
+	}, nil
+}
+
+type relayWithGrpcServer struct {
+	Listener   net.Listener
+	GrpcServer *grpc.Server
+	Relay      *relay
+	Conn       *grpc.ClientConn
+	Ctx        context.Context
+}
+
+func (r *relayWithGrpcServer) mustStop(t *testing.T) {
+	r.Listener.Close()
+	r.GrpcServer.Stop()
+	if err := r.Relay.stop(); err != nil {
+		t.Fatal("failed to stop relay: ", err)
+	}
+	r.Conn.Close()
+}
+
+func mustStartRelayWithGrpcServer(t *testing.T, service testpb.TestServiceServer) (testpb.TestServiceClient, *relayWithGrpcServer) {
+	t.Helper()
+
+	result := &relayWithGrpcServer{}
+	var err error
+
+	// Setup gRPC test server.
+	result.Listener, err = net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	result.GrpcServer = grpc.NewServer()
+	testpb.RegisterTestServiceServer(result.GrpcServer, service)
+	go result.GrpcServer.Serve(result.Listener)
+
+	// Start relay client and server.
+	backendAddress := fmt.Sprintf("127.0.0.1:%d", result.Listener.Addr().(*net.TCPAddr).Port)
+	result.Relay = &relay{}
+	if err := result.Relay.start(backendAddress, "--force_http2"); err != nil {
+		t.Fatal("failed to start relay: ", err)
+	}
+	relayAddress := "127.0.0.1:" + result.Relay.rsPort
+
+	// Create gRPC client via relay.
+	result.Ctx = metadata.AppendToOutgoingContext(context.Background(), "x-server-name", "remote1")
+	result.Conn, err = grpc.DialContext(result.Ctx, relayAddress, grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to create client connection: %v", err)
+	}
+
+	return testpb.NewTestServiceClient(result.Conn), result
+}
+
 // TestGrpcRelaySimpleCallWorks launches a local http relay (client + server), connects a
 // grpc service as backend and issues a simple call.
 func TestGrpcRelaySimpleCallWorks(t *testing.T) {
-	// setup grpc test server
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Errorf("failed to listen: %v", err)
-	}
-	defer l.Close()
-	s := grpc.NewServer()
-	testpb.RegisterTestServiceServer(s, &testServer{})
-	go s.Serve(l)
-	defer s.Stop()
+	client, relayAndServer := mustStartRelayWithGrpcServer(t, &testServer{})
+	defer relayAndServer.mustStop(t)
 
-	backendAddress := fmt.Sprintf("127.0.0.1:%d", l.Addr().(*net.TCPAddr).Port)
-	r := &relay{}
-	if err := r.start(backendAddress, "--force_http2"); err != nil {
-		t.Fatal("failed to start relay: ", err)
-	}
-	defer func() {
-		if err := r.stop(); err != nil {
-			t.Fatal("failed to stop relay: ", err)
-		}
-	}()
-	relayAddress := "127.0.0.1:" + r.rsPort
-
-	ctx := metadata.AppendToOutgoingContext(context.Background(), "x-server-name", "remote1")
-	conn, err := grpc.DialContext(ctx, relayAddress, grpc.WithInsecure())
-	if err != nil {
-		t.Errorf("Failed to create client connection: %v", err)
-	}
-	defer conn.Close()
-
-	client := testpb.NewTestServiceClient(conn)
-
-	if _, err = client.EmptyCall(ctx, &testpb.Empty{}); err != nil {
+	if _, err := client.EmptyCall(relayAndServer.Ctx, &testpb.Empty{}); err != nil {
 		if ec, ok := status.FromError(err); ok {
 			if ec.Code() != codes.OK {
 				t.Errorf("Wrong error code: got %d, expected %d", ec.Code(), codes.OK)
@@ -252,42 +407,41 @@ func TestGrpcRelaySimpleCallWorks(t *testing.T) {
 	}
 }
 
+// TestGrpcRelayChunkingOfLargeResponseWorks launches a local http relay
+// (client + server), connects a grpc service as backend and issues a call
+// with a response that has to be chunked.
+func TestGrpcRelayChunkingOfLargeResponseWorks(t *testing.T) {
+	// Make responses from gRPC server larger than the default MaxChunkSize.
+	payload := make([]byte, client.DefaultClientConfig().MaxChunkSize*5)
+	for i := 0; i < len(payload); i++ {
+		payload[i] = byte(i) // Fill with non-zeroes
+	}
+	testServer := &testServer{responsePayload: payload}
+	client, relayAndServer := mustStartRelayWithGrpcServer(t, testServer)
+	defer relayAndServer.mustStop(t)
+
+	response, err := client.UnaryCall(relayAndServer.Ctx, &testpb.SimpleRequest{})
+	if err != nil {
+		if ec, ok := status.FromError(err); ok {
+			if ec.Code() != codes.OK {
+				t.Fatalf("Wrong error code: got %d, expected %d.", ec.Code(), codes.OK)
+			}
+		}
+	}
+
+	if !bytes.Equal(response.Payload.Body, testServer.responsePayload) {
+		t.Errorf("Received payload not equal to payload returned by server.")
+	}
+}
+
 // TestGrpcRelayErrorArePropagated launches a local http relay (client + server), connects a
 // grpc service as backend and issues a simple call.
 func TestGrpcRelayErrorArePropagated(t *testing.T) {
-	// setup grpc test server
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Errorf("failed to listen: %v", err)
-	}
-	defer l.Close()
-	s := grpc.NewServer()
-	testpb.RegisterTestServiceServer(s, &testServer{})
-	go s.Serve(l)
-	defer s.Stop()
+	// UnimplementedTestServiceServer returns Unimplemented for all RPCs.
+	client, relayAndServer := mustStartRelayWithGrpcServer(t, &testpb.UnimplementedTestServiceServer{})
+	defer relayAndServer.mustStop(t)
 
-	backendAddress := fmt.Sprintf("127.0.0.1:%d", l.Addr().(*net.TCPAddr).Port)
-	r := &relay{}
-	if err := r.start(backendAddress, "--force_http2"); err != nil {
-		t.Fatal("failed to start relay: ", err)
-	}
-	defer func() {
-		if err := r.stop(); err != nil {
-			t.Fatal("failed to stop relay: ", err)
-		}
-	}()
-	relayAddress := "127.0.0.1:" + r.rsPort
-
-	ctx := metadata.AppendToOutgoingContext(context.Background(), "x-server-name", "remote1")
-	conn, err := grpc.DialContext(ctx, relayAddress, grpc.WithInsecure())
-	if err != nil {
-		t.Errorf("Failed to create client connection: %v", err)
-	}
-	defer conn.Close()
-
-	client := testpb.NewTestServiceClient(conn)
-
-	if _, err = client.UnaryCall(ctx, &testpb.SimpleRequest{}); err != nil {
+	if _, err := client.EmptyCall(relayAndServer.Ctx, &testpb.Empty{}); err != nil {
 		if ec, ok := status.FromError(err); ok {
 			if ec.Code() != codes.Unimplemented {
 				t.Errorf("Wrong error code: got %d, expected %d", ec.Code(), codes.Unimplemented)

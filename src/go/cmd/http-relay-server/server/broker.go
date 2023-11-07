@@ -1,4 +1,4 @@
-// Copyright 2019 The Cloud Robotics Authors
+// Copyright 2023 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package server
 
 import (
 	"context"
 	"fmt"
 	"log"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -75,14 +76,29 @@ func init() {
 }
 
 type pendingResponse struct {
-	// for comunication of relay-server to relay-cleint
+	// This channel is used to communicate data between the backend and user-client for
+	// bidirectional streaming connections.
 	requestStream chan []byte
-	// for communication of relay-server to client
+
+	// This channel is used to communicate data between the backend and user-client.
+	// The user-client sends a hanging request to the relay-server which blocks until
+	// data is received on the response channel.
 	responseStream chan *pb.HttpResponse
-	lastActivity   time.Time
+
+	lastActivity time.Time
 	// For diagnostics only.
 	startTime   time.Time
 	requestPath string
+}
+
+var numberRegexp = regexp.MustCompile(`(?i)[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-f0-9]{20,}|[0-9]{2,}`)
+
+// cleanPath replaces decimal/hex numbers and GUIDS with "XXX" to make a path
+// that is more suitable as a metric label, reducing the risk of
+// high-cardinality labels with requests like
+// /api/logItems/2906532336276711024.
+func cleanPath(path string) string {
+	return numberRegexp.ReplaceAllString(path, "XXX")
 }
 
 // broker implements a thread-safe map for the request and response queues.
@@ -127,6 +143,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 		r.req[server] = make(chan *pb.HttpRequest)
 	}
 	if r.resp[id] != nil {
+		r.m.Unlock()
 		return nil, fmt.Errorf("Multiple clients trying to handle request ID %s on server %s", id, server)
 	}
 	ts := time.Now()
@@ -142,13 +159,24 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	r.m.Unlock()
 
 	log.Printf("[%s] Enqueuing request", id)
-	brokerRequests.WithLabelValues("client", server, targetUrl.Path).Inc()
+	brokerRequests.WithLabelValues("client", server, cleanPath(targetUrl.Path)).Inc()
 	select {
+	// This blocks until we get a free spot in the broker's request channel.
 	case reqChan <- request:
 		return respChan, nil
 	case <-time.After(10 * time.Second):
+		// This branch is triggered if the channel is not ready to consume the request
+		// since it is still busy with handling a different request.
 		return nil, fmt.Errorf("Cannot reach the client %q. Check that it's turned on, set up, and connected to the internet. (timeout waiting for relay client to accept request)", server)
 	}
+}
+
+// StopRelayRequest forgets a relaying request, this causes the next chunk from the backend
+// with the relay id to not be recognized, resulting in the relay server returning an error.
+func (r *broker) StopRelayRequest(requestId string) {
+	r.m.Lock()
+	defer r.m.Unlock()
+	delete(r.resp, requestId)
 }
 
 // GetRequest obtains a client's request for the server identifier. It blocks
@@ -163,13 +191,13 @@ func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpR
 	reqChan := r.req[server]
 	r.m.Unlock()
 
-	brokerRequests.WithLabelValues("server_request", server, path).Inc()
+	brokerRequests.WithLabelValues("server_request", server, cleanPath(path)).Inc()
 	select {
 	case req := <-reqChan:
-		brokerResponses.WithLabelValues("server_request", "ok", server, path).Inc()
+		brokerResponses.WithLabelValues("server_request", "ok", server, cleanPath(path)).Inc()
 		return req, nil
 	case <-time.After(time.Second * 30):
-		brokerResponses.WithLabelValues("server_request", "timeout", server, path).Inc()
+		brokerResponses.WithLabelValues("server_request", "timeout", server, cleanPath(path)).Inc()
 		return nil, fmt.Errorf("No request received within timeout")
 	case <-ctx.Done():
 		return nil, fmt.Errorf("Server is restarting")
@@ -212,7 +240,7 @@ func (r *broker) PutRequestStream(id string, data []byte) bool {
 	return true
 }
 
-// SendResponse delivers the HttpResponse to the client handler that created the
+// SendResponse delivers the HttpResponse to the user-client handler that created the
 // request. It fails if and only if the request ID is not recognized.
 func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	id := *resp.Id
@@ -230,24 +258,28 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 		pr.lastActivity = time.Now()
 	}
 	duration := time.Since(pr.startTime).Seconds()
+
+	// Writing to this channel will notify consumers which are waiting for data
+	// on the channel returned by RelayRequest().
 	pr.responseStream <- resp
+
 	r.m.Unlock()
-	brokerRequests.WithLabelValues("server_response", backendName, pr.requestPath).Inc()
-	brokerResponseDurations.WithLabelValues("server_response", backendName, pr.requestPath).Observe(duration)
+	brokerRequests.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Inc()
+	brokerResponseDurations.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Observe(duration)
 	if resp.GetEof() {
 		close(pr.responseStream)
 		backendDuration := (time.Duration(resp.GetBackendDurationMs()) * time.Millisecond).Seconds()
 		backendDurStr := "N/A"
 		if backendDuration > 0.0 {
-			brokerBackendResponseDurations.WithLabelValues("server_response", backendName, pr.requestPath).Observe(backendDuration)
-			brokerOverheadDurations.WithLabelValues("server_response", backendName, pr.requestPath).Observe(duration - backendDuration)
+			brokerBackendResponseDurations.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Observe(backendDuration)
+			brokerOverheadDurations.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Observe(duration - backendDuration)
 			backendDurStr = fmt.Sprintf("%.3fs", backendDuration)
 		}
 		log.Printf("[%s] Delivered final response to client (%d bytes), elapsed on server=%.3fs, backend=%s", id, len(resp.Body), duration, backendDurStr)
 	} else {
 		log.Printf("[%s] Delivered response to client (%d bytes), elapsed on server=%.3fs", id, len(resp.Body), duration)
 	}
-	brokerResponses.WithLabelValues("server_response", "ok", backendName, pr.requestPath).Inc()
+	brokerResponses.WithLabelValues("server_response", "ok", backendName, cleanPath(pr.requestPath)).Inc()
 	return nil
 }
 

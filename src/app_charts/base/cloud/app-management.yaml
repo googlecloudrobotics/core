@@ -85,6 +85,25 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/app-rollout-controller
 webhooks:
+- name: apps.apps.cloudrobotics.com
+  admissionReviewVersions: ["v1"]
+  failurePolicy: Fail
+  clientConfig:
+    service:
+      namespace: {{ .Release.Namespace }}
+      name: app-rollout-controller
+      path: /app/validate
+  rules:
+  - apiGroups:
+    - apps.cloudrobotics.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - apps
+  sideEffects: None
 - name: approllouts.apps.cloudrobotics.com
   admissionReviewVersions: ["v1"]
   failurePolicy: Fail
@@ -132,8 +151,6 @@ spec:
         env:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}
-        - name: HELM_HOME
-          value: "/home/nonroot/helm"
         ports:
         - name: webhook
           containerPort: 9876

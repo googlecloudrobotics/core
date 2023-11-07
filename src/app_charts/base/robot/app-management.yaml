@@ -25,8 +25,6 @@ spec:
         env:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}
-        - name: HELM_HOME
-          value: "/home/nonroot/helm"
         - name: ROBOT_NAME
           value: "{{ .Values.robot.name }}"
         ports:

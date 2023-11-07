@@ -1,4 +1,4 @@
-// Copyright 2019 The Cloud Robotics Authors
+// Copyright 2023 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package server
 
 import (
 	"bytes"
@@ -54,11 +54,11 @@ func runSender(t *testing.T, b *broker, s string, m string, wg *sync.WaitGroup) 
 func runReceiver(t *testing.T, b *broker, s string, wg *sync.WaitGroup) {
 	req, err := b.GetRequest(context.Background(), s, "/")
 	if err != nil {
-		t.Errorf("Error when getting request: %s", err)
+		t.Errorf("Error when getting request: %v", err)
 	}
 	err = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(true)})
 	if err != nil {
-		t.Errorf("Error when sending response: %s", err)
+		t.Errorf("Error when sending response: %v", err)
 	}
 	wg.Done()
 }
@@ -89,17 +89,17 @@ func runSenderStream(t *testing.T, b *broker, s string, m string, wg *sync.WaitG
 func runReceiverStream(t *testing.T, b *broker, s string, wg *sync.WaitGroup, done <-chan bool) {
 	req, err := b.GetRequest(context.Background(), s, "/")
 	if err != nil {
-		t.Errorf("Error when getting request: %s", err)
+		t.Errorf("Error when getting request: %v", err)
 	}
 	err = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(false)})
 	if err != nil {
-		t.Errorf("Error when sending response: %s", err)
+		t.Errorf("Error when sending response: %v", err)
 	}
 	go func() {
 		<-done
 		err = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(true)})
 		if err != nil {
-			t.Errorf("Error when sending response: %s", err)
+			t.Errorf("Error when sending response: %v", err)
 		}
 		wg.Done()
 	}()
@@ -213,4 +213,61 @@ func TestTimeout(t *testing.T) {
 		wg.Done()
 	}()
 	wg.Wait()
+}
+
+func TestCleanPath(t *testing.T) {
+	tests := []struct {
+		desc  string
+		input string
+		want  string
+	}{
+		{
+			desc:  "no numbers",
+			input: "/api/icon/robot/status",
+			want:  "/api/icon/robot/status",
+		},
+		{
+			desc:  "version number should not be removed",
+			input: "/grpc.v1.MyService/DoSomething",
+			want:  "/grpc.v1.MyService/DoSomething",
+		},
+		{
+			desc:  "long number",
+			input: "/api/logItems/2906532336276711024",
+			want:  "/api/logItems/XXX",
+		},
+		{
+			desc:  "number in the middle",
+			input: "/api/logItems/2906532336276711024/delete",
+			want:  "/api/logItems/XXX/delete",
+		},
+		{
+			desc:  "GUID",
+			input: "/api/logItems/5886a86e-2bbd-4ca2-9202-069a673b15ab",
+			want:  "/api/logItems/XXX",
+		},
+		{
+			desc:  "short hex should not be removed",
+			input: "/api/deadbeef",
+			want:  "/api/deadbeef",
+		},
+		{
+			desc:  "long hex should be removed",
+			input: "/api/logItems/6113d19fca7ff66ccc66",
+			want:  "/api/logItems/XXX",
+		},
+		{
+			desc:  "even longer hex should be removed",
+			input: "/api/executive/operations/a04478091806ceb8a04478091806c1ab",
+			want:  "/api/executive/operations/XXX",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			if got := cleanPath(tc.input); got != tc.want {
+				t.Errorf("cleanPath(%q) = %q; want %q", tc.input, got, tc.want)
+			}
+		})
+	}
 }

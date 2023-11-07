@@ -53,12 +53,6 @@ variable "cr_syncer_rbac" {
   EOD
 }
 
-variable "use_cloudiot" {
-  description = "Enable the use of cloud-iot. This is false by default on used for legacy setup where cloud-iot is still used."
-  type        = bool
-  default     = false
-}
-
 variable "certificate_provider" {
   description = "Certificate provider to use to generate certificates for in-cluster services. Should be one of: lets-encrypt, google-cas."
   type        = string

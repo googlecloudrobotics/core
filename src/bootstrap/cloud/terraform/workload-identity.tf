@@ -26,15 +26,6 @@ data "google_iam_policy" "token_vendor" {
   }
 }
 
-# Allow the token-vendor to push robot public keys to the Cloud IoT Device
-# Registry.
-resource "google_project_iam_member" "token_vendor_cloudiot_provisioner" {
-  project = data.google_project.project.project_id
-  role    = "roles/cloudiot.provisioner"
-  member  = "serviceAccount:${google_service_account.token_vendor.email}"
-  count = var.use_cloudiot ? 1 : 0
-}
-
 # Note: the policy in service-account.tf allows the token-vendor to create
 # new tokens for the robot-service@ service account.
 

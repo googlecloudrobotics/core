@@ -1,4 +1,4 @@
-// Copyright 2019 The Cloud Robotics Authors
+// Copyright 2023 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package server
 
 import (
 	"bytes"
@@ -49,10 +49,10 @@ func TestClientHandler(t *testing.T) {
 	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := httptest.NewRecorder()
-	server := newServer()
+	server := NewServer()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go func() { server.client(respRecorder, req); wg.Done() }()
+	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
 	relayRequest, err := server.b.GetRequest(context.Background(), "foo", "/")
 	if err != nil {
 		t.Errorf("Error when getting request: %v", err)
@@ -69,6 +69,82 @@ func TestClientHandler(t *testing.T) {
 		}},
 		Body: []byte("body"),
 	}
+	// Remove the Traceparent header entry since we cannot assert on its value.
+	tempHeader := relayRequest.Header[:0]
+	for _, header := range relayRequest.Header {
+		if *header.Name != "Traceparent" {
+			tempHeader = append(tempHeader, header)
+		}
+	}
+	relayRequest.Header = tempHeader
+	if !proto.Equal(wantRequest, relayRequest) {
+		t.Errorf("Wrong encapsulated request; want %s; got '%s'", wantRequest, relayRequest)
+	}
+
+	server.b.SendResponse(&pb.HttpResponse{
+		Id:         relayRequest.Id,
+		StatusCode: proto.Int32(201),
+		Header: []*pb.HttpHeader{{
+			Name:  proto.String("X-GFE"),
+			Value: proto.String("google.com"),
+		}},
+		Body: []byte("thebody"),
+		Trailer: []*pb.HttpHeader{{
+			Name:  proto.String("Some-Trailer"),
+			Value: proto.String("trailer value"),
+		}},
+		Eof: proto.Bool(true),
+	})
+
+	wg.Wait()
+	resp := respRecorder.Result()
+	checkResponse(t, resp, 201, "thebody")
+	if want, got := 1, len(resp.Header); want != got {
+		t.Errorf("Wrong # of headers; want %d; got %d", want, got)
+	}
+	if want, got := "google.com", resp.Header.Get("X-GFE"); want != got {
+		t.Errorf("Wrong header value; want %s; got %s", want, got)
+	}
+	if want, got := 1, len(resp.Trailer); want != got {
+		t.Errorf("Wrong # of trailers; want %d; got %d", want, got)
+	}
+	if want, got := "trailer value", resp.Trailer.Get("Some-Trailer"); want != got {
+		t.Errorf("Wrong trailer value; want %s; got %s", want, got)
+	}
+}
+
+func TestClientHandlerWithChunkedResponse(t *testing.T) {
+	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
+	req.Header.Add("X-Deadline", "now")
+	respRecorder := httptest.NewRecorder()
+	server := NewServer()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
+	relayRequest, err := server.b.GetRequest(context.Background(), "foo", "/")
+	if err != nil {
+		t.Errorf("Error when getting request: %v", err)
+	}
+
+	wantRequest := &pb.HttpRequest{
+		Id:     relayRequest.Id,
+		Method: proto.String("GET"),
+		Host:   proto.String("example.com"),
+		Url:    proto.String("http://invalid/bar?a=b#c"),
+		Header: []*pb.HttpHeader{{
+			Name:  proto.String("X-Deadline"),
+			Value: proto.String("now"),
+		}},
+		Body: []byte("body"),
+	}
+	// Remove the Traceparent header entry since we cannot assert on its value.
+	tempHeader := relayRequest.Header[:0]
+	for _, header := range relayRequest.Header {
+		if *header.Name != "Traceparent" {
+			tempHeader = append(tempHeader, header)
+		}
+	}
+	relayRequest.Header = tempHeader
 	if !proto.Equal(wantRequest, relayRequest) {
 		t.Errorf("Wrong encapsulated request; want %s; got '%s'", wantRequest, relayRequest)
 	}
@@ -86,7 +162,11 @@ func TestClientHandler(t *testing.T) {
 	server.b.SendResponse(&pb.HttpResponse{
 		Id:   relayRequest.Id,
 		Body: []byte("body"),
-		Eof:  proto.Bool(true),
+		Trailer: []*pb.HttpHeader{{
+			Name:  proto.String("Some-Trailer"),
+			Value: proto.String("trailer value"),
+		}},
+		Eof: proto.Bool(true),
 	})
 
 	wg.Wait()
@@ -97,6 +177,12 @@ func TestClientHandler(t *testing.T) {
 	}
 	if want, got := "google.com", resp.Header.Get("X-GFE"); want != got {
 		t.Errorf("Wrong header value; want %s; got %s", want, got)
+	}
+	if want, got := 1, len(resp.Trailer); want != got {
+		t.Errorf("Wrong # of trailers; want %d; got %d", want, got)
+	}
+	if want, got := "trailer value", resp.Trailer.Get("Some-Trailer"); want != got {
+		t.Errorf("Wrong trailer value; want %s; got %s", want, got)
 	}
 }
 
@@ -124,10 +210,10 @@ func TestClientBadRequest(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			respRecorder := httptest.NewRecorder()
-			server := newServer()
+			server := NewServer()
 			wg := sync.WaitGroup{}
 			wg.Add(1)
-			go func() { server.client(respRecorder, tc.req); wg.Done() }()
+			go func() { server.userClientRequest(respRecorder, tc.req); wg.Done() }()
 			wg.Wait()
 
 			resp := respRecorder.Result()
@@ -137,7 +223,7 @@ func TestClientBadRequest(t *testing.T) {
 			if tc.wantMsg != "" {
 				body, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
-					t.Errorf("Failed to read body stream: %s", err)
+					t.Errorf("Failed to read body stream: %v", err)
 				}
 				if !strings.Contains(string(body), tc.wantMsg) {
 					t.Errorf("Wrong response body; want %q; got %q", tc.wantMsg, body)
@@ -158,24 +244,19 @@ func nonRepeatingByteArray(n int) []byte {
 }
 
 func TestRequestStreamHandler(t *testing.T) {
-	// Use a large request stream body to ensure it gets split into multiple
-	// blocks. This would have caught a race that jumbles the request stream.
-	oldBlockSize := *blockSize
-	*blockSize = 64
-	defer func() {
-		*blockSize = oldBlockSize
-	}()
-	wantRequestStream := nonRepeatingByteArray(3 * (*blockSize))
+	blockSize := 64
+	wantRequestStream := nonRepeatingByteArray(3 * blockSize)
 
 	// In a background goroutine, run a client request with post-request data
 	// in the request stream.
 	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := hijacktest.NewRecorder(wantRequestStream)
-	server := newServer()
+	server := NewServer()
+	server.blockSize = blockSize
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go func() { server.client(respRecorder, req); wg.Done() }()
+	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
 
 	// Simulate a 101 Switching Protocols response from the backend.
 	relayRequest, err := server.b.GetRequest(context.Background(), "foo", "/")
@@ -245,14 +326,14 @@ func TestServerRequestResponseHandler(t *testing.T) {
 	}
 	backendRespBody, err := proto.Marshal(backendResp)
 	if err != nil {
-		t.Errorf("Failed to marshal test response: %s", err)
+		t.Errorf("Failed to marshal test response: %v", err)
 	}
 
 	req := httptest.NewRequest("GET", "/server/request?server=b", strings.NewReader(""))
 	resp := httptest.NewRequest("POST", "/server/response", bytes.NewReader(backendRespBody))
 	reqRecorder := httptest.NewRecorder()
 	respRecorder := httptest.NewRecorder()
-	server := newServer()
+	server := NewServer()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
@@ -273,7 +354,7 @@ func TestServerRequestResponseHandler(t *testing.T) {
 	}
 	body, err := ioutil.ReadAll(reqRecorder.Result().Body)
 	if err != nil {
-		t.Errorf("Failed to read body stream: %s", err)
+		t.Errorf("Failed to read body stream: %v", err)
 	}
 	if !strings.Contains(string(body), "/my/url") {
 		t.Errorf("Serialize request didn't contain URL: %s", string(body))
@@ -304,12 +385,12 @@ func TestServerResponseHandlerWithInvalidRequestID(t *testing.T) {
 	}
 	backendRespBody, err := proto.Marshal(backendResp)
 	if err != nil {
-		t.Errorf("Failed to marshal test response: %s", err)
+		t.Errorf("Failed to marshal test response: %v", err)
 	}
 
 	resp := httptest.NewRequest("POST", "/server/response", bytes.NewReader(backendRespBody))
 	respRecorder := httptest.NewRecorder()
-	server := newServer()
+	server := NewServer()
 	server.serverResponse(respRecorder, resp)
 
 	if want, got := http.StatusBadRequest, respRecorder.Result().StatusCode; want != got {

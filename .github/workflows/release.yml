@@ -16,9 +16,12 @@ concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  USE_BAZEL_VERSION: "6.3.2"
+
 jobs:
   create_release:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       # Check out repo at latest green postsubmit commit on the main branch.
       - name: Get latest passing commit
@@ -27,7 +30,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          output=$(curl -fsS \
+          output=$(curl --fail-with-body -sS \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/$REPO/actions/workflows/postsubmit.yml/runs?per_page=1&branch=main&status=success")
@@ -48,8 +51,6 @@ jobs:
           echo $ROBCO_NAVTEST_GITHUB_ROBOT_JSON_KEY > robco_navtest_credentials.json
 
       - name: Deploy Navtest
-        env:
-          USE_BAZEL_VERSION: "6.2.0"
         run: |
           set -euo pipefail
 
@@ -67,7 +68,6 @@ jobs:
       # Now we are ready to create the release.
       - name: Run release_binary.sh
         env:
-          USE_BAZEL_VERSION: "6.2.0"
           REPO: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FULL_SHA: ${{ steps.latest-green.outputs.latest_green }}

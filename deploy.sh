@@ -70,6 +70,7 @@ function prepare_source_install {
       //src/app_charts/base:base-cloud \
       //src/app_charts/platform-apps:platform-apps-cloud \
       //src/app_charts:push \
+      //src/bootstrap/cloud:setup-robot.digest \
       //src/go/cmd/setup-robot:setup-robot.push \
       //src/go/cmd/synk
 
@@ -82,30 +83,23 @@ function prepare_source_install {
 
   # `setup-robot.push` is the first container push to avoid a GCR bug with parallel pushes on newly
   # created projects (see b/123625511).
-  ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push \
-    --dst="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot:latest"
+  local oldPwd
+  oldPwd=$(pwd)
+  cd ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/cloud_robotics
+  ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh \
+    --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
+    --tag="latest"
 
   # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl
   # Running :push outside the build system shaves ~3 seconds off an incremental build.
+  cd ${DIR}/bazel-bin/src/app_charts/push.runfiles/cloud_robotics
   TAG="latest" ${DIR}/bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
+
+  cd ${oldPwd}
 }
 
 function terraform_exec {
   ( cd "${TERRAFORM_DIR}" && ${TERRAFORM} "$@" )
-}
-
-function terraform_cleanup {
-  # Terraform doesn't seem to remove node pool taints without recreating the
-  # node pool, whereas this approach causes less downtime.
-  pool=(base-pool "--cluster=cloud-robotics" "--zone=${GCP_ZONE}" "--project=${GCP_PROJECT_ID}")
-  if [[ -n "$(gcloud container node-pools describe "${pool[@]}" --format 'value(config.taints)')" ]] ; then
-    gcloud beta container node-pools update "${pool[@]}" --quiet \
-      --no-enable-autoscaling
-    gcloud beta container node-pools update "${pool[@]}" --quiet \
-      --node-taints=""
-    gcloud beta container node-pools update "${pool[@]}" --quiet \
-      --enable-autoscaling --min-nodes=2 --max-nodes=10
-  fi
 }
 
 function terraform_init {
@@ -118,7 +112,7 @@ function terraform_init {
   fi
 
   local ROBOT_IMAGE_DIGEST
-  ROBOT_IMAGE_DIGEST=$(cat bazel-bin/src/go/cmd/setup-robot/setup-robot.push.digest)
+  ROBOT_IMAGE_DIGEST=$(cat bazel-bin/src/bootstrap/cloud/setup-robot.digest)
 
   # We only need to create dns resources if a custom domain is used.
   local CUSTOM_DOMAIN
@@ -222,7 +216,6 @@ function terraform_apply {
   # Required or terraform will fail deleting the IoT registry
   cleanup_iot_devices || true
 
-  terraform_cleanup
   terraform_init
 
   # We've stopped managing Google Cloud projects in Terraform, make sure they
@@ -238,6 +231,28 @@ function terraform_apply {
 
   terraform_exec apply ${TERRAFORM_APPLY_FLAGS} \
     || die "terraform apply failed"
+  terraform_post
+}
+
+function terraform_post {
+  # Terraform doesn't seem to handle changes to vertical_pod_autoscaling for
+  # existing clusters, so apply the change with gcloud.
+  cluster=(cloud-robotics "--zone=${GCP_ZONE}" "--project=${GCP_PROJECT_ID}")
+  if [[ -z "$(gcloud container clusters describe "${cluster[@]}" --format 'value(verticalPodAutoscaling.enabled)')" ]] ; then
+    echo "Enabling vertical pod autoscaling in the GKE cluster. This can take a few minutes..."
+    gcloud container clusters update "${cluster[@]}" --quiet \
+      --enable-vertical-pod-autoscaling
+  fi
+
+  # I couldn't work out how to identify exactly which buckets back GCR in a
+  # given project: some have just "artifacts", some have just "eu.artifacts",
+  # and some have both. Since GCR will be turned down in favor of GAR in 2024,
+  # it seems simplest just to apply the ACLs with gcloud until then.
+  for bucket in $(gcloud storage buckets list --project "${GCP_PROJECT_ID}" --format "value(name)" | grep "artifacts.*appspot.com") ; do
+    gcloud storage buckets add-iam-policy-binding "gs://${bucket}" \
+      --member "serviceAccount:robot-service@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+      --role "roles/storage.objectViewer"
+  done
 }
 
 function terraform_delete {
