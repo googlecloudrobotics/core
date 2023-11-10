@@ -377,6 +377,10 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	// from the relay-client.
 	backendRespChan, err := s.relayRequest(ctx, *backendCtx, backendReq)
 	if err != nil {
+		if _, ok := err.(*RelayClientUnavailableError); ok {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

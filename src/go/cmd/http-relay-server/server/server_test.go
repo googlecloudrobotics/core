@@ -397,3 +397,15 @@ func TestServerResponseHandlerWithInvalidRequestID(t *testing.T) {
 		t.Errorf("serverResponse() gave wrong status code; want %d; got %d", want, got)
 	}
 }
+
+// Test that a user client request to a backend that has not been seen before
+// immediately returns 503 Service Unavailable.
+func TestRequestToUnknownBackendResponse503(t *testing.T) {
+	req := httptest.NewRequest("GET", "/client/test/path", bytes.NewReader([]byte{}))
+	respRecorder := httptest.NewRecorder()
+	server := NewServer()
+	server.userClientRequest(respRecorder, req)
+	if respRecorder.Code != http.StatusServiceUnavailable {
+		t.Fail()
+	}
+}

@@ -91,6 +91,12 @@ type pendingResponse struct {
 	requestPath string
 }
 
+type RelayClientUnavailableError struct{}
+
+func (*RelayClientUnavailableError) Error() string {
+	return "relay client not available"
+}
+
 var numberRegexp = regexp.MustCompile(`(?i)[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-f0-9]{20,}|[0-9]{2,}`)
 
 // cleanPath replaces decimal/hex numbers and GUIDS with "XXX" to make a path
@@ -139,8 +145,8 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 
 	r.m.Lock()
 	if r.req[server] == nil {
-		// This happens when the relay-client connects for the first time.
-		r.req[server] = make(chan *pb.HttpRequest)
+		// If we haven't seen this relay client before, immediately return error.
+		return nil, &RelayClientUnavailableError{}
 	}
 	if r.resp[id] != nil {
 		r.m.Unlock()
