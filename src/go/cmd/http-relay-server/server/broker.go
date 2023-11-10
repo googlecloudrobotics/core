@@ -146,6 +146,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	r.m.Lock()
 	if r.req[server] == nil {
 		// If we haven't seen this relay client before, immediately return error.
+		r.m.Unlock()
 		return nil, &RelayClientUnavailableError{}
 	}
 	if r.resp[id] != nil {
