@@ -154,8 +154,8 @@ func TestHttpRelay(t *testing.T) {
 		{
 			desc:       "invalid client",
 			urlPath:    "/client/wrong/",
-			statusCode: http.StatusInternalServerError,
-			body:       "Cannot reach the client",
+			statusCode: http.StatusServiceUnavailable,
+			body:       "",
 		},
 	}
 

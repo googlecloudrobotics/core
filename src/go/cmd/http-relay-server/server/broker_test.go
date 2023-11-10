@@ -192,6 +192,10 @@ func TestRequestStreamUnknownID(t *testing.T) {
 
 func TestTimeout(t *testing.T) {
 	b := newBroker()
+	// create the request channel manually to avoid race condition between the 2
+	// goroutines below
+	b.req["foo"] = make(chan *pb.HttpRequest)
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {

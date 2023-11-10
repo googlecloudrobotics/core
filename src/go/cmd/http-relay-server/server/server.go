@@ -379,6 +379,7 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if _, ok := err.(*RelayClientUnavailableError); ok {
 			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Header().Set("X-CLOUDROBOTICS-HTTP-RELAY", backendCtx.Id)
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -342,6 +342,8 @@ func TestServerRequestResponseHandler(t *testing.T) {
 		wg.Done()
 	}()
 
+	// create the request channel to avoid 503 error for unknown clients.
+	server.b.req["b"] = make(chan *pb.HttpRequest)
 	serverRespChan, err := server.b.RelayRequest("b", backendReq)
 	if err != nil {
 		t.Errorf("Got relay request error: %v", err)
@@ -406,6 +408,9 @@ func TestRequestToUnknownBackendResponse503(t *testing.T) {
 	server := NewServer()
 	server.userClientRequest(respRecorder, req)
 	if respRecorder.Code != http.StatusServiceUnavailable {
-		t.Fail()
+		t.Errorf("Expected status 503, got %d", respRecorder.Code)
+	}
+	if respRecorder.Header().Get("X-CLOUDROBOTICS-HTTP-RELAY") == "" {
+		t.Error("Missing X-CLOUDROBOTICS-HTTP-RELAY header")
 	}
 }
