@@ -137,34 +137,18 @@ resource "google_service_account" "gke_node" {
   display_name = "gke-node"
 }
 
-resource "google_project_iam_member" "gke_node_monitoring_viewer" {
+resource "google_project_iam_member" "gke_node_roles" {
   project = data.google_project.project.project_id
-  role    = "roles/monitoring.viewer"
   member  = "serviceAccount:${google_service_account.gke_node.email}"
-}
-
-resource "google_project_iam_member" "gke_node_monitoring_metricWriter" {
-  project = data.google_project.project.project_id
-  role    = "roles/monitoring.metricWriter"
-  member  = "serviceAccount:${google_service_account.gke_node.email}"
-}
-
-resource "google_project_iam_member" "gke_node_logging_logWriter" {
-  project = data.google_project.project.project_id
-  role    = "roles/logging.logWriter"
-  member  = "serviceAccount:${google_service_account.gke_node.email}"
-}
-
-resource "google_project_iam_member" "gke_node_stackdriver_writer" {
-  project = data.google_project.project.project_id
-  role    = "roles/stackdriver.resourceMetadata.writer"
-  member  = "serviceAccount:${google_service_account.gke_node.email}"
-}
-
-resource "google_project_iam_member" "gke_node_storage_objectViewer" {
-  project = data.google_project.project.project_id
-  role    = "roles/storage.objectViewer"
-  member  = "serviceAccount:${google_service_account.gke_node.email}"
+  for_each = toset([
+    # GKE recommendations
+    "roles/logging.logWriter",
+    "roles/monitoring.metricWriter",
+    "roles/stackdriver.resourceMetadata.writer",
+    # TODO: document usage
+    "roles/storage.objectViewer",
+  ])
+  role    = each.key
 }
 
 # This binding allows access to private container registries.
