@@ -27,5 +27,8 @@ sh_test(
     data = [
         "@kubernetes_helm//:helm",
     ],
-    tags = ["external"],
+    tags = [
+        "external",
+        "manual",
+    ],
 )

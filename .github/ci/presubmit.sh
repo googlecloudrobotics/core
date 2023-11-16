@@ -35,7 +35,8 @@ bazel_ci test \
   --test_env REGISTRY="${REGISTRY}" \
   --test_tag_filters="requires-docker" \
   --test_output=errors \
-  --strategy=TestRunner=standalone //...
+  --strategy=TestRunner=standalone //src/go/tests/apps:go_default_test
+
 set -o xtrace
 
 echo "Timestamp: presubmit.sh done"

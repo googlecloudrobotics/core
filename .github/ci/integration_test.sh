@@ -140,7 +140,7 @@ bazel_ci test \
   --test_output=streamed \
   --test_tag_filters="external" \
   --strategy=TestRunner=standalone \
-  //...
+  //... //src/go/tests:go_default_test //src/go/tests:relay_test
 
 # If this is running on main (ie, not a manual run) then update the `latest`
 # binary.
