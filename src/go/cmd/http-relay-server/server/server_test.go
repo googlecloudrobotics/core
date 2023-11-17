@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -409,6 +410,14 @@ func TestRequestToUnknownBackendResponse503(t *testing.T) {
 	server.userClientRequest(respRecorder, req)
 	if respRecorder.Code != http.StatusServiceUnavailable {
 		t.Errorf("Expected status 503, got %d", respRecorder.Code)
+	}
+	body, err := io.ReadAll(respRecorder.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := []byte("Cannot reach the client \"test\"")
+	if !bytes.HasPrefix(body, expected) {
+		t.Errorf("Unexpected body prefix\nWant: %s\nGot: %s", expected, body)
 	}
 	if respRecorder.Header().Get("X-CLOUDROBOTICS-HTTP-RELAY") == "" {
 		t.Error("Missing X-CLOUDROBOTICS-HTTP-RELAY header")

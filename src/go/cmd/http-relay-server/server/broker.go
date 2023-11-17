@@ -91,10 +91,12 @@ type pendingResponse struct {
 	requestPath string
 }
 
-type RelayClientUnavailableError struct{}
+type RelayClientUnavailableError struct {
+	client string
+}
 
-func (*RelayClientUnavailableError) Error() string {
-	return "relay client not available"
+func (e *RelayClientUnavailableError) Error() string {
+	return fmt.Sprintf("Cannot reach the client %q. Check that it's turned on, set up, and connected to the internet.", e.client)
 }
 
 var numberRegexp = regexp.MustCompile(`(?i)[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-f0-9]{20,}|[0-9]{2,}`)
@@ -147,7 +149,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	if r.req[server] == nil {
 		// If we haven't seen this relay client before, immediately return error.
 		r.m.Unlock()
-		return nil, &RelayClientUnavailableError{}
+		return nil, &RelayClientUnavailableError{client: server}
 	}
 	if r.resp[id] != nil {
 		r.m.Unlock()
