@@ -12,6 +12,7 @@ go_test(
     ],
     rundir = ".",
     tags = [
+        "manual",
         "requires-access-token",
         "requires-docker",
     ],
