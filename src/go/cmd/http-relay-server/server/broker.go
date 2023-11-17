@@ -96,7 +96,7 @@ type RelayClientUnavailableError struct {
 }
 
 func (e *RelayClientUnavailableError) Error() string {
-	return fmt.Sprintf("Cannot reach the client %q. Check that it's turned on, set up, and connected to the internet.", e.client)
+	return fmt.Sprintf("Cannot reach the client %q. Check that it's turned on, set up, and connected to the internet. (unknown client)", e.client)
 }
 
 var numberRegexp = regexp.MustCompile(`(?i)[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-f0-9]{20,}|[0-9]{2,}`)
