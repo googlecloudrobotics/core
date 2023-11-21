@@ -107,6 +107,9 @@ func runReceiverStream(t *testing.T, b *broker, s string, wg *sync.WaitGroup, do
 
 func TestNormalCase(t *testing.T) {
 	b := newBroker()
+	// create the request channels in advance to avoid race conditions with the below goroutinues.
+	b.req["foo"] = make(chan *pb.HttpRequest)
+	b.req["bar"] = make(chan *pb.HttpRequest)
 	var wg sync.WaitGroup
 	wg.Add(6)
 	go runSender(t, b, "foo", idOne, &wg)
@@ -192,6 +195,10 @@ func TestRequestStreamUnknownID(t *testing.T) {
 
 func TestTimeout(t *testing.T) {
 	b := newBroker()
+	// create the request channel manually to avoid race condition between the 2
+	// goroutines below
+	b.req["foo"] = make(chan *pb.HttpRequest)
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {

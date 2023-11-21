@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -342,6 +343,8 @@ func TestServerRequestResponseHandler(t *testing.T) {
 		wg.Done()
 	}()
 
+	// create the request channel to avoid 503 error for unknown clients.
+	server.b.req["b"] = make(chan *pb.HttpRequest)
 	serverRespChan, err := server.b.RelayRequest("b", backendReq)
 	if err != nil {
 		t.Errorf("Got relay request error: %v", err)
@@ -395,5 +398,28 @@ func TestServerResponseHandlerWithInvalidRequestID(t *testing.T) {
 
 	if want, got := http.StatusBadRequest, respRecorder.Result().StatusCode; want != got {
 		t.Errorf("serverResponse() gave wrong status code; want %d; got %d", want, got)
+	}
+}
+
+// Test that a user client request to a backend that has not been seen before
+// immediately returns 503 Service Unavailable.
+func TestRequestToUnknownBackendResponse503(t *testing.T) {
+	req := httptest.NewRequest("GET", "/client/test/path", bytes.NewReader([]byte{}))
+	respRecorder := httptest.NewRecorder()
+	server := NewServer()
+	server.userClientRequest(respRecorder, req)
+	if respRecorder.Code != http.StatusServiceUnavailable {
+		t.Errorf("Expected status 503, got %d", respRecorder.Code)
+	}
+	body, err := io.ReadAll(respRecorder.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := []byte("Cannot reach the client \"test\"")
+	if !bytes.HasPrefix(body, expected) {
+		t.Errorf("Unexpected body prefix\nWant: %s\nGot: %s", expected, body)
+	}
+	if respRecorder.Header().Get("X-CLOUDROBOTICS-HTTP-RELAY") == "" {
+		t.Error("Missing X-CLOUDROBOTICS-HTTP-RELAY header")
 	}
 }
