@@ -57,10 +57,11 @@ func (v *TokenVerifier) Verify(ctx context.Context, token Token, sa string) erro
 	}
 	pcall := v.s.Projects.ServiceAccounts.TestIamPermissions(resource, &preq)
 	pcall.Header().Set("Authorization", "Bearer "+string(token))
+	ts := time.Now()
 	resp, err := pcall.Context(ctx).Do()
 	if err != nil {
-		return errors.Wrapf(err, "TestIamPermissions failed for resource %q with permission %q",
-			resource, iamActAs)
+		return errors.Wrapf(err, "TestIamPermissions failed for resource %q with permission %q after %.3fs",
+			resource, iamActAs, time.Since(ts).Seconds())
 	}
 	if !contains(resp.Permissions, iamActAs) {
 		v.cache.add(token, resource, false)
