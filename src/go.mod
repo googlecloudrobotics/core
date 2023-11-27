@@ -1,6 +1,6 @@
 module github.com/googlecloudrobotics/core/src
 
-go 1.18
+go 1.21
 
 require (
 	cloud.google.com/go v0.110.0 // indirect
@@ -106,6 +106,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
+	github.com/googlecloudrobotics/ilog v0.0.0-20231123101900-2533d3d7f8e1 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
