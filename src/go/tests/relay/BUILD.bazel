@@ -3,34 +3,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_test")
 # gazelle:go_test file
 
 go_test(
-    name = "go_default_test",
-    size = "large",
-    timeout = "long",
-    srcs = [
-        "in_process_relay_test.go",
-        "nok8s_relay_test.go",
-    ],
-    data = [
-        "//src/go/cmd/http-relay-client:http-relay-client-app",
-        "//src/go/cmd/http-relay-server:http-relay-server-app",
-    ],
-    rundir = ".",
-    deps = [
-        "//src/go/cmd/http-relay-client/client:go_default_library",
-        "//src/go/cmd/http-relay-server/server:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
-        "@com_github_pkg_errors//:go_default_library",
-        "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
-        "@org_golang_google_grpc//interop/grpc_testing:go_default_library",
-        "@org_golang_google_grpc//metadata:go_default_library",
-        "@org_golang_google_grpc//status:go_default_library",
-        "@org_golang_x_net//websocket:go_default_library",
-    ],
-)
-
-go_test(
     name = "in_process_relay_test",
+    size = "small",
     srcs = ["in_process_relay_test.go"],
     deps = [
         "//src/go/cmd/http-relay-client/client:go_default_library",
@@ -41,7 +15,13 @@ go_test(
 
 go_test(
     name = "nok8s_relay_test",
+    size = "small",
     srcs = ["nok8s_relay_test.go"],
+    data = [
+        "//src/go/cmd/http-relay-client:http-relay-client-app",
+        "//src/go/cmd/http-relay-server:http-relay-server-app",
+    ],
+    rundir = ".",
     deps = [
         "//src/go/cmd/http-relay-client/client:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
