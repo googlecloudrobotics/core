@@ -154,9 +154,10 @@ http_archive(
 
 load("@rules_oci//oci:pull.bzl", "oci_pull")
 
+# https://console.cloud.google.com/gcr/images/distroless/global/cc
 oci_pull(
     name = "distroless_cc",
-    digest = "sha256:b53fbf5f81f4a120a489fedff2092e6fcbeacf7863fce3e45d99cc58dc230ccc",
+    digest = "sha256:b82f113425c5b5c714151aaacd8039bc141821cdcd3c65202d42bdf9c43ae60b",
     image = "gcr.io/distroless/cc",
     platforms = [
         "linux/amd64",
@@ -164,9 +165,10 @@ oci_pull(
     ],
 )
 
+# https://console.cloud.google.com/gcr/images/distroless/global/base
 oci_pull(
     name = "distroless_base",
-    digest = "sha256:73deaaf6a207c1a33850257ba74e0f196bc418636cada9943a03d7abea980d6d",
+    digest = "sha256:b31a6e02605827e77b7ebb82a0ac9669ec51091edd62c2c076175e05556f4ab9",
     image = "gcr.io/distroless/base",
     platforms = [
         "linux/amd64",
