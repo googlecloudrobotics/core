@@ -65,6 +65,8 @@ var timeSince = time.Since
 type ClientConfig struct {
 	RemoteRequestTimeout   time.Duration
 	BackendResponseTimeout time.Duration
+	IdleConnTimeout        time.Duration
+	ReadIdleTimeout        time.Duration
 
 	DisableAuthForRemote    bool
 	RootCAFile              string
@@ -108,6 +110,14 @@ func DefaultClientConfig() ClientConfig {
 		RemoteRequestTimeout:   60 * time.Second,
 		BackendResponseTimeout: 100 * time.Millisecond,
 
+		// ReadIdleTimeout works around an upstream issue by enabling
+		// HTTP/2 PING, so we recover faster after the node IP changes.
+		// IdleConnTimeout is here because I was worried this would
+		// create unnecessary load with PINGs on long-idle connections.
+		// https://github.com/golang/go/issues/59690
+		ReadIdleTimeout: 30 * time.Second,
+		IdleConnTimeout: 120 * time.Second,
+
 		DisableAuthForRemote:    false,
 		RootCAFile:              "",
 		AuthenticationTokenFile: "",
@@ -150,6 +160,11 @@ func (c *Client) Start() {
 	remoteTransport := http.DefaultTransport.(*http.Transport).Clone()
 	remoteTransport.MaxIdleConns = c.config.MaxIdleConnsPerHost
 	remoteTransport.MaxIdleConnsPerHost = c.config.MaxIdleConnsPerHost
+	remoteTransport.IdleConnTimeout = c.config.IdleConnTimeout
+	http2Trans, err := http2.ConfigureTransports(remoteTransport)
+	if err == nil {
+		http2Trans.ReadIdleTimeout = c.config.ReadIdleTimeout
+	}
 	remote := &http.Client{Transport: remoteTransport}
 
 	if !c.config.DisableAuthForRemote {
