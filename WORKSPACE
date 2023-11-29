@@ -154,7 +154,7 @@ http_archive(
 
 load("@rules_oci//oci:pull.bzl", "oci_pull")
 
-# https://console.cloud.google.com/gcr/images/distroless/global/cc
+# gcloud container images describe gcr.io/distroless/cc:latest --format='value(image_summary.digest)'
 oci_pull(
     name = "distroless_cc",
     digest = "sha256:b82f113425c5b5c714151aaacd8039bc141821cdcd3c65202d42bdf9c43ae60b",
@@ -165,7 +165,7 @@ oci_pull(
     ],
 )
 
-# https://console.cloud.google.com/gcr/images/distroless/global/base
+# gcloud container images describe gcr.io/distroless/base:latest --format='value(image_summary.digest)'
 oci_pull(
     name = "distroless_base",
     digest = "sha256:b31a6e02605827e77b7ebb82a0ac9669ec51091edd62c2c076175e05556f4ab9",
@@ -184,6 +184,7 @@ oci_pull(
 # See https://github.com/bazelbuild/rules_docker/issues/714 for background.
 oci_pull(
     name = "iptables_base",
+    # V11.0.1
     digest = "sha256:9c41b4c326304b94eb96fdd2e181aa6e9995cc4642fcdfb570cedd73a419ba39",
     image = "gcr.io/google-containers/debian-iptables",
 )
