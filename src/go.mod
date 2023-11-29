@@ -1,6 +1,6 @@
 module github.com/googlecloudrobotics/core/src
 
-go 1.18
+go 1.21
 
 require (
 	cloud.google.com/go v0.110.0 // indirect
@@ -62,6 +62,7 @@ require (
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible
 	github.com/golang/glog v1.1.0
 	github.com/google/go-cmp v0.5.9
+	github.com/googlecloudrobotics/ilog v0.0.0-20231123101900-2533d3d7f8e1
 	github.com/sirupsen/logrus v1.9.0
 )
 

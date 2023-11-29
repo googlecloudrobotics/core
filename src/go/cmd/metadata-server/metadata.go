@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -179,7 +179,7 @@ func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler
 			var err error
 			projectNumber, err = getProjectNumber(oauth2.NewClient(ctx, th.TokenSource), th.robotAuth.projectID())
 			if err != nil {
-				log.Printf("will retry to obtain project number for %s: %v", th.robotAuth.projectID(), err)
+				slog.Info("will retry to obtain project number", slog.String("Project", th.robotAuth.projectID()), slog.Any("Error", err))
 			}
 			return err
 		},
@@ -204,19 +204,19 @@ func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler
 func (th *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ipPort := strings.Split(r.RemoteAddr, ":")
 	if len(ipPort) != 2 {
-		log.Printf("Unable to obtain IP from remote address %s", r.RemoteAddr)
+		slog.Error("Unable to obtain IP from remote address", slog.String("Address", r.RemoteAddr))
 		http.Error(w, "Unable to check authorization", http.StatusInternalServerError)
 		return
 	}
 	if ip := net.ParseIP(ipPort[0]); ip == nil || !th.AllowedSources.Contains(ip) {
-		log.Printf("Rejected remote IP %s", ipPort[0])
+		slog.Error("Rejected remote IP", slog.String("IP", ipPort[0]))
 		http.Error(w, "Access forbidden", http.StatusForbidden)
 		return
 	}
 
 	token, err := th.TokenSource.Token()
 	if err != nil {
-		log.Printf("Token retrieval error: %v", err)
+		slog.Error("Token retrieval error", slog.Any("Error", err))
 		http.Error(w, fmt.Sprintf("Token retrieval failed: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -228,7 +228,7 @@ func (th *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		th.updateRobotTokenSource(r.Context())
 		token, err = th.TokenSource.Token()
 		if err != nil {
-			log.Printf("Token retrieval error: %v", err)
+			slog.Error("Token retrieval error", slog.Any("Error", err))
 			http.Error(w, fmt.Sprintf("Token retrieval failed: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -242,7 +242,7 @@ func (th *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	bytes, err := json.Marshal(tokenResponse)
 	if err != nil {
-		log.Printf("Token serialization error: %v", err)
+		slog.Error("Token serialization error", slog.Any("Error", err))
 		http.Error(w, fmt.Sprintf("Token serialization failed: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -257,7 +257,7 @@ func (th *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	w.Write(bytes)
-	log.Printf("Served access token to %s (ua=%q, pod=%q)", r.RemoteAddr, ua, pod)
+	slog.Info("Served access token", slog.String("Address", r.RemoteAddr), slog.String("UA", ua), slog.String("Pod", pod))
 }
 
 func (th *TokenHandler) getPodNameByIP(ctx context.Context, ip string) string {
@@ -268,7 +268,7 @@ func (th *TokenHandler) getPodNameByIP(ctx context.Context, ip string) string {
 
 	// Meassure the time it takes to obtain the extra information
 	defer func(start time.Time) {
-		log.Printf("getPodNameByIP() took %s", time.Since(start))
+		slog.Info("getPodNameByIP()", slog.Duration("Duration", time.Since(start)))
 	}(time.Now())
 
 	// TODO(ensonic): to avoid traversing all ns/pods each time we can
@@ -282,20 +282,20 @@ func (th *TokenHandler) getPodNameByIP(ctx context.Context, ip string) string {
 
 	nss, err := th.k8s.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		log.Printf("Failed to list namespaces: %v", err)
+		slog.Error("Failed to list namespaces", slog.Any("Error", err))
 	}
 	for _, ns := range nss.Items {
 		nsName := ns.ObjectMeta.Name
 		pods, err := th.k8s.CoreV1().Pods(nsName).List(ctx, metav1.ListOptions{})
 		if err != nil {
-			log.Printf("Failed to list pods in ns=%q: %v", nsName, err)
+			slog.Error("Failed to list pods", slog.String("Namespace", nsName), slog.Any("Error", err))
 		}
 		for _, pod := range pods.Items {
 			if pod.Status.PodIP == ip {
 				return nsName + "/" + pod.Name
 			}
 			if pod.Status.PodIP == "" {
-				log.Printf("Pod %q has no ip (yet): %q", pod.Name, pod.Status.Message)
+				slog.Warn("Pod has no ip (yet)", slog.String("Pod", pod.Name), slog.String("Message", pod.Status.Message))
 				podsToRetry = append(podsToRetry, pod)
 			}
 		}
@@ -305,7 +305,7 @@ func (th *TokenHandler) getPodNameByIP(ctx context.Context, ip string) string {
 	retries := getPodByIPRetries
 	for len(podsToRetry) > 0 && retries > 0 {
 		time.Sleep(getPodByIPWait)
-		log.Printf("Retrying %d pods without ip", len(podsToRetry))
+		slog.Info("Retrying pods without ip", slog.Int("Count", len(podsToRetry)))
 
 		ptr := podsToRetry
 		podsToRetry = []corev1.Pod{}
@@ -314,19 +314,19 @@ func (th *TokenHandler) getPodNameByIP(ctx context.Context, ip string) string {
 			podName := p.ObjectMeta.Name
 			pod, err := th.k8s.CoreV1().Pods(nsName).Get(ctx, podName, metav1.GetOptions{})
 			if err != nil {
-				log.Printf("Failed to get pod %q in ns=%q: %v", podName, nsName, err)
+				slog.Error("Failed to get pod", slog.String("Pod", podName), slog.String("Namespace", nsName), slog.Any("Error", err))
 			}
 			if pod.Status.PodIP == ip {
 				return nsName + "/" + pod.Name
 			}
 			if pod.Status.PodIP == "" {
-				log.Printf("Pod %q has no ip (yet): %q", pod.Name, pod.Status.Message)
+				slog.Info("Pod has no ip (yet)", slog.String("Pod", pod.Name), slog.String("Message", pod.Status.Message))
 				podsToRetry = append(podsToRetry, *pod)
 			}
 		}
 		retries--
 	}
-	log.Printf("No pod found for ip=%q", ip)
+	slog.Info("No pod found", slog.String("IP", ip))
 	return ""
 }
 
@@ -349,7 +349,7 @@ func (sh ServiceAccountHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	bytes, err := json.Marshal(serviceAccountResponse)
 	if err != nil {
-		log.Printf("ServiceAccountResponse serialization error: %v", err)
+		slog.Error("ServiceAccountResponse serialization error", slog.Any("Error", err))
 		http.Error(w, fmt.Sprintf("ServiceAccountResponse serialization failed: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -358,7 +358,7 @@ func (sh ServiceAccountHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(bytes)
-	log.Printf("Responded to service-account request from %s for %s", r.RemoteAddr, r.URL.Path)
+	slog.Info("Responded to service-account request", slog.String("Origin", r.RemoteAddr), slog.String("URL", r.URL.Path))
 }
 
 // MetadataHandler serves generic instance metadata.
@@ -390,14 +390,14 @@ func (mh MetadataHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/computeMetadata/v1/")
 	value := metadata[key]
 	if value == "" {
-		log.Printf("No key found for %s", r.URL.Path)
+		slog.Warn("No key found", slog.String("URL", r.URL.Path))
 		http.NotFound(w, r)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(value))
-	log.Printf("Responded to metadata request for %s: %s", r.URL.Path, value)
+	slog.Info("Responded to metadata request", slog.String("URL", r.URL.Path), slog.String("Value", value))
 }
 
 func getProjectNumber(client *http.Client, projectId string) (int64, error) {

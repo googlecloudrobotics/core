@@ -23,19 +23,21 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/googlecloudrobotics/ilog"
 )
 
 var (
@@ -52,11 +54,13 @@ var (
 func detectChangesToFile(filename string) <-chan struct{} {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("NewWatcher", slog.Any("Error", err))
+		os.Exit(1)
 	}
 	err = watcher.Add(filename)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Watcher.Add", slog.Any("Error", err))
+		os.Exit(1)
 	}
 	changes := make(chan struct{})
 	go func() {
@@ -66,7 +70,7 @@ func detectChangesToFile(filename string) <-chan struct{} {
 				if !ok {
 					return
 				}
-				log.Printf("event on %s: %s", filename, event)
+				slog.Info("event", slog.String("File", filename), slog.Any("Event", event))
 				if event.Op&(fsnotify.Write|fsnotify.Remove) != 0 {
 					changes <- struct{}{}
 				}
@@ -74,7 +78,7 @@ func detectChangesToFile(filename string) <-chan struct{} {
 				if !ok {
 					return
 				}
-				log.Println("watcher error:", err)
+				slog.Warn("watcher", slog.Any("Error", err))
 			}
 		}
 	}()
@@ -92,7 +96,7 @@ func addIPTablesRule() error {
 func removeIPTablesRule() {
 	args := append([]string{"-t", "nat", "-D", "PREROUTING"}, getIPTablesRuleSpec(*port)...)
 	if err := runIPTablesCommand(args); err != nil {
-		log.Printf("Warning: iptables invocation failed: %v", err)
+		slog.Warn("iptables invocation failed", slog.Any("Error", err))
 	}
 }
 
@@ -107,7 +111,7 @@ func getIPTablesRuleSpec(port int) []string {
 }
 
 func runIPTablesCommand(args []string) error {
-	log.Printf("Debug: Running iptables command with args %v", args)
+	slog.Debug("Debug: Running iptables command", slog.String("Args", strings.Join(args, ", ")))
 	cmd := exec.Command("iptables", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -117,24 +121,31 @@ func runIPTablesCommand(args []string) error {
 func main() {
 	flag.Parse()
 
+	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stdout)
+	slog.SetDefault(slog.New(logHandler))
+
 	if ip := net.ParseIP(*bindIP); ip == nil {
-		log.Fatal("invalid bind_ip flag")
+		slog.Error("invalid bind_ip flag")
+		os.Exit(1)
 	}
 
 	ctx := context.Background()
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatalf("Can't create k8s in-cluster config: %v", err)
+		slog.Error("Can't create k8s in-cluster config", slog.Any("Error", err))
+		os.Exit(1)
 	}
 	k8s, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Fatalf("Can't create k8s client: %v", err)
+		slog.Error("Can't create k8s client", slog.Any("Error", err))
+		os.Exit(1)
 	}
 
 	tokenHandler, err := NewTokenHandler(ctx, k8s)
 	if err != nil {
-		log.Fatalf("%v", err)
+		slog.Error("NewTokenHandler", slog.Any("Error", err))
+		os.Exit(1)
 	}
 
 	http.Handle("/computeMetadata/v1/instance/service-accounts/default/token", tokenHandler)
@@ -145,13 +156,13 @@ func main() {
 	http.Handle("/computeMetadata/v1/", metadataHandler)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
-			log.Printf("Handling root request for %s", r.URL.Path)
+			slog.Info("Handling root request", slog.String("URL", r.URL.Path))
 			w.Header().Set("Metadata-Flavor", "Google")
 			w.Header().Set("Content-Type", "application/text")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("computeMetadata/\n"))
 		} else {
-			log.Printf("Unhandled request %s from %s", r.URL.Path, r.RemoteAddr)
+			slog.Warn("Unhandled request", slog.String("URL", r.URL.Path), slog.String("Origin", r.RemoteAddr))
 			http.NotFound(w, r)
 		}
 	})
@@ -166,31 +177,36 @@ func main() {
 	bindAddress := fmt.Sprintf("%s:%d", *bindIP, *port)
 	ln, err := net.Listen("tcp", bindAddress)
 	if err != nil {
-		log.Fatalf("failed to create listener on %s: %v", bindAddress, err)
+		slog.Error("failed to create listener", slog.String("Address", bindAddress), slog.Any("Error", err))
+		os.Exit(1)
 	}
-	log.Printf("Listening on %s", bindAddress)
+	slog.Info("Listening", slog.String("Address", bindAddress))
 
 	if err := addIPTablesRule(); err != nil {
-		log.Fatalf("failed to add iptables rule: %v", err)
+		slog.Error("failed to add iptables rule", slog.Any("Error", err))
+		os.Exit(1)
 	}
 
 	if err := PatchCorefile(ctx, k8s); err != nil {
 		removeIPTablesRule()
-		log.Fatal(err)
+		slog.Error("PatchCorefile", slog.Any("Error", err))
+		os.Exit(1)
 	}
 
 	go func() {
 		err = http.Serve(ln, nil)
 		RevertCorefile(ctx, k8s)
 		removeIPTablesRule()
-		log.Fatal(err)
+		slog.Error("Serve", slog.Any("Error", err))
+		os.Exit(1)
 	}()
 
 	go func() {
 		<-detectChangesToFile(*robotIdFile)
 		RevertCorefile(ctx, k8s)
 		removeIPTablesRule()
-		log.Fatalf("%s changed but reloading is not implemented. Crashing...", *robotIdFile)
+		slog.Error("File changed but reloading is not implemented. Crashing...", slog.String("ID", *robotIdFile))
+		os.Exit(1)
 	}()
 
 	stop := make(chan os.Signal)
