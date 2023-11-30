@@ -103,14 +103,6 @@ function terraform_exec {
 }
 
 function terraform_init {
-  if [[ -z "${PRIVATE_DOCKER_PROJECTS:-}" ]]; then
-    # Transition helper: Until all configs have PRIVATE_DOCKER_PROJECTS,
-    # default to CLOUD_ROBOTICS_CONTAINER_REGISTRY.
-    if [[ -n "${CLOUD_ROBOTICS_CONTAINER_REGISTRY:-}" ]] && [[ "${CLOUD_ROBOTICS_CONTAINER_REGISTRY:-}" != "${GCP_PROJECT_ID}" ]]; then
-      PRIVATE_DOCKER_PROJECTS="$(echo ${CLOUD_ROBOTICS_CONTAINER_REGISTRY} | sed -n -e 's:^.*gcr.io/::p')"
-    fi
-  fi
-
   local ROBOT_IMAGE_DIGEST
   ROBOT_IMAGE_DIGEST=$(cat bazel-bin/src/bootstrap/cloud/setup-robot.digest)
 
