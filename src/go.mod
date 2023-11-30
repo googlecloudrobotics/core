@@ -64,6 +64,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/googlecloudrobotics/ilog v0.0.0-20231123101900-2533d3d7f8e1
 	github.com/sirupsen/logrus v1.9.0
+	k8s.io/klog/v2 v2.110.1
 )
 
 require (
@@ -139,7 +140,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/component-base v0.28.4 // indirect
-	k8s.io/klog/v2 v2.110.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20231129212854-f0671cc7e66a // indirect
 	k8s.io/utils v0.0.0-20231127182322-b307cd553661 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
