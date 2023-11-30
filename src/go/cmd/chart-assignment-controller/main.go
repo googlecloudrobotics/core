@@ -36,6 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var (
@@ -105,8 +107,8 @@ func runController(ctx context.Context, cfg *rest.Config, cluster string) error 
 
 	mgr, err := manager.New(cfg, manager.Options{
 		Scheme:                 sc,
-		Port:                   *webhookPort,
-		MetricsBindAddress:     "0", // disabled
+		WebhookServer:          webhook.NewServer(webhook.Options{CertDir: *certDir, Port: *webhookPort}),
+		Metrics:                metricsserver.Options{BindAddress: "0"}, // disabled
 		HealthProbeBindAddress: ":8080",
 	})
 	if err != nil {
@@ -120,7 +122,6 @@ func runController(ctx context.Context, cfg *rest.Config, cluster string) error 
 	if *webhookEnabled {
 		webhook := chartassignment.NewValidationWebhook(mgr)
 		srv := mgr.GetWebhookServer()
-		srv.CertDir = *certDir
 		srv.Register("/chartassignment/validate", webhook)
 	}
 
