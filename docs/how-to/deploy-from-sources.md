@@ -14,10 +14,11 @@ and 18.04) Linux.
    select or create a project.
 1. Make sure that [billing][modify-project] is enabled for your project.
 1. [Install the Cloud SDK][cloud-sdk]. When prompted, choose the project that you created above.
-1. After installing the Cloud SDK, install the `kubectl` command-line tool:
+1. After installing the Cloud SDK, install the `kubectl` command-line tool and the GKE auth plugin:
 
     ```shell
     gcloud components install kubectl
+    gcloud components gke-gcloud-auth-plugin
     ```
 
     If you're using Debian or Ubuntu, you may need to use `apt install kubectl` instead.

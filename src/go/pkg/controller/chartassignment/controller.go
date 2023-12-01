@@ -76,22 +76,22 @@ func Add(ctx context.Context, mgr manager.Manager, cloud bool) error {
 		return errors.Wrap(err, "add field indexer")
 	}
 	err = c.Watch(
-		&source.Kind{Type: &apps.ChartAssignment{}},
+		source.Kind(mgr.GetCache(), &apps.ChartAssignment{}),
 		&handler.EnqueueRequestForObject{},
 	)
 	if err != nil {
 		return err
 	}
 	err = c.Watch(
-		&source.Kind{Type: &core.Pod{}},
+		source.Kind(mgr.GetCache(), &core.Pod{}),
 		&handler.Funcs{
-			CreateFunc: func(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+			CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
 				r.enqueueForPod(ctx, e.Object, q)
 			},
-			UpdateFunc: func(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+			UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 				r.enqueueForPod(ctx, e.ObjectNew, q)
 			},
-			DeleteFunc: func(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+			DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
 				r.enqueueForPod(ctx, e.Object, q)
 			},
 		},
