@@ -37,7 +37,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 // GetRobotName returns a valid robot name or an error. If the robotName parameter

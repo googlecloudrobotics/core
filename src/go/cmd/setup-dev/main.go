@@ -38,7 +38,6 @@ import (
 	"golang.org/x/oauth2/google"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
 	clientapi "k8s.io/client-go/tools/clientcmd/api"
 )

@@ -14,7 +14,6 @@ go_library(
         "@com_github_cenkalti_backoff//:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
         "@io_k8s_client_go//dynamic:go_default_library",
-        "@io_k8s_client_go//plugin/pkg/client/auth/gcp:go_default_library",
         "@io_k8s_client_go//tools/clientcmd:go_default_library",
         "@io_k8s_client_go//tools/clientcmd/api:go_default_library",
         "@org_golang_x_oauth2//:go_default_library",
