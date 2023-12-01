@@ -49,7 +49,36 @@ finalize_and_unlock() {
 PROJECT_DIR="${DIR}/deployments/robco-integration-test"
 source "${PROJECT_DIR}/config.sh"
 gcloud config set project ${GCP_PROJECT_ID}
+gcloud components install gke-gcloud-auth-plugin
+gcloud components update
 gcloud container clusters get-credentials cloud-robotics --zone=${GCP_ZONE}
+
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+gke-gcloud-auth-plugin --version 
+gke-gcloud-auth-plugin --version 
+gke-gcloud-auth-plugin --version 
+gke-gcloud-auth-plugin --version 
+gke-gcloud-auth-plugin --version 
+gke-gcloud-auth-plugin --version 
+gke-gcloud-auth-plugin --version 
+gke-gcloud-auth-plugin --version 
+gke-gcloud-auth-plugin --version 
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
+echo "CH3 CH3 CH3 CH3"
 
 BUILD_IDENTIFIER=$(generate_build_id)
 echo "INFO: Build identifier is $BUILD_IDENTIFIER"
