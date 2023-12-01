@@ -18,7 +18,8 @@ limitations under the License.
 //   With migration recommendation:
 //   https://cloud.google.com/blog/products/containers-kubernetes/kubectl-auth-changes-in-gke
 //
-//   Unfortunately, since we run the integration test in cloudbuild, we cannot install packages.
+//   Unfortunately, despite installing the package as per that recommendation in the cloudbuild machine,
+//   the test doesn't seem to accept the plugin. (It could be that it is running in a different machine.)
 //   So the plugin is reintroduced here to allow for GKE auth to proceed as part of a cloudbuild test.
 
 package main
