@@ -25,6 +25,7 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	corev1 "k8s.io/api/core/v1"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
