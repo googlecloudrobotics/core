@@ -17,11 +17,13 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
+	"github.com/googlecloudrobotics/ilog"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -37,15 +39,20 @@ func updateCredentials(ctx context.Context) error {
 	// Connect to the surrounding k8s cluster.
 	localConfig, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("InClusterConfig", ilog.Err(err))
+		os.Exit(1)
 	}
 	localClient, err := kubernetes.NewForConfig(localConfig)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("NewForConfig", ilog.Err(err))
+		os.Exit(1)
 	}
 	robotAuth, err := robotauth.LoadFromFile(*robotIdFile)
 	if err != nil {
-		log.Fatalf("failed to read robot id file %s: %v", *robotIdFile, err)
+		slog.Error("failed to read robot id file",
+			slog.String("File", *robotIdFile),
+			ilog.Err(err))
+		os.Exit(1)
 	}
 	// Perform a token exchange with the TokenVendor in the cloud cluster and update the
 	// credentials used to pull images from GCR.
@@ -56,13 +63,16 @@ func updateCredentials(ctx context.Context) error {
 // on startup, and then every 10 minutes.
 func main() {
 	flag.Parse()
+	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stdout)
+	slog.SetDefault(slog.New(logHandler))
 	ctx := context.Background()
 
 	for {
 		if err := updateCredentials(ctx); err != nil {
-			log.Fatal(err)
+			slog.Error("Update Credentials", ilog.Err(err))
+			os.Exit(1)
 		}
-		log.Printf("Updated GCR credentials in local cluster")
+		slog.Info("Updated GCR credentials in local cluster")
 		time.Sleep(updateInterval)
 	}
 }

@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 
+	"github.com/googlecloudrobotics/ilog"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,7 +38,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// If this becomes a problem, we could do the requests in the
 	// background and just check the status of the latest request here.
 	if _, err := h.client.Resource(gvr).List(h.ctx, metav1.ListOptions{Limit: 1}); k8serrors.IsUnauthorized(err) {
-		log.Printf("failed health check: %v", err)
+		slog.Error("failed health check", ilog.Err(err))
 		http.Error(w, "unhealthy", http.StatusInternalServerError)
 		return
 	}
