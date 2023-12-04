@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"reflect"
@@ -126,7 +126,7 @@ func New(t *testing.T, cfg Config) *Environment {
 				}
 				return errors.Wrapf(err, "Create cluster %q", cfg.Name)
 			}
-			log.Printf("Created cluster %q", cfg.Name)
+			slog.Info("Created cluster", slog.String("Name", cfg.Name))
 			return nil
 		})
 	}
@@ -201,16 +201,18 @@ func (e *Environment) Client(cluster string) client.Client {
 // Teardown destroys all clusters that were created for the environment.
 func (e *Environment) Teardown() {
 	if os.Getenv("NO_TEARDOWN") != "" {
-		log.Printf("Skipping teardown")
+		slog.Info("Skipping teardown")
 		return
 	}
-	log.Println("Tearing down...")
+	slog.Info("Tearing down...")
 
 	for name, c := range e.clusters {
 		if err := c.kind.Delete(c.genName, ""); err != nil {
 			e.t.Errorf("Delete cluster %q (%q): %s", name, c.genName, err)
 		} else {
-			log.Printf("Deleted cluster %q (%q)", name, c.genName)
+			slog.Info("Deleted cluster",
+				slog.String("Name", name),
+				slog.String("GenName", c.genName))
 		}
 		if err := os.Remove(c.kubeConfigPath); err != nil {
 			e.t.Errorf("Failed to delete %q: %s", c.kubeConfigPath, err)
@@ -381,7 +383,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 	if err != nil {
 		return errors.Wrap(err, "get rest config")
 	}
-	log.Printf("To use the cluster, run KUBECONFIG=%s kubectl cluster-info", cluster.kubeConfigPath)
+	fmt.Printf("To use the cluster, run KUBECONFIG=%s kubectl cluster-info", cluster.kubeConfigPath)
 
 	// Setup permissive binding we also have in cloud and robot clusters.
 	ctx := context.Background()

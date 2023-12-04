@@ -62,7 +62,7 @@ require (
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible
 	github.com/golang/glog v1.1.2
 	github.com/google/go-cmp v0.6.0
-	github.com/googlecloudrobotics/ilog v0.0.0-20231123101900-2533d3d7f8e1
+	github.com/googlecloudrobotics/ilog v0.0.0-20231204130359-bb7d7c153a03
 	github.com/sirupsen/logrus v1.9.0
 	k8s.io/klog/v2 v2.110.1
 )

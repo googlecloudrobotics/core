@@ -22,11 +22,13 @@ package main
 
 import (
 	"flag"
-	"log"
+	"log/slog"
+	"os"
 	"time"
 
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client"
+	"github.com/googlecloudrobotics/ilog"
 	"go.opencensus.io/trace"
 )
 
@@ -102,14 +104,17 @@ func init() {
 
 func main() {
 	flag.Parse()
-	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+
+	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stdout)
+	slog.SetDefault(slog.New(logHandler))
 
 	if stackdriverProjectID != "" {
 		sd, err := stackdriver.NewExporter(stackdriver.Options{
 			ProjectID: stackdriverProjectID,
 		})
 		if err != nil {
-			log.Fatalf("Failed to create the Stackdriver exporter for project '%s': %v", stackdriverProjectID, err)
+			slog.Error("Failed to create the Stackdriver exporter", slog.String("Project", stackdriverProjectID), ilog.Err(err))
+			os.Exit(1)
 		} else {
 			trace.RegisterExporter(sd)
 			defer sd.Flush()

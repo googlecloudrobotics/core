@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,6 +30,7 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
+	"github.com/googlecloudrobotics/ilog"
 	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/oauth2"
@@ -92,19 +93,25 @@ func parseFlags() {
 
 	if flag.NArg() < 1 {
 		flag.Usage()
-		log.Fatal("ERROR: robot-name is required.")
+		slog.Error("robot-name is required.")
+		os.Exit(1)
 	} else if flag.NArg() > 1 {
 		flag.Usage()
-		log.Fatalf("ERROR: too many positional arguments (%d), expected 1.", flag.NArg())
+		slog.Error("too many positional arguments, expected 1.", slog.Int("Count", flag.NArg()))
+		os.Exit(1)
 	} else if errs := validation.NameIsDNS1035Label(flag.Arg(0), false); len(errs) > 0 {
-		log.Fatalf("ERROR: invalid cluster name %q: %s", flag.Arg(0), strings.Join(errs, ", "))
+		slog.Error("invalid cluster name",
+			slog.String("Name", flag.Arg(0)),
+			slog.String("Error", strings.Join(errs, ", ")))
+		os.Exit(1)
 	}
 
 	*robotName = flag.Arg(0)
 
 	if *project == "" {
 		flag.Usage()
-		log.Fatal("ERROR: --project is required.")
+		slog.Error("--project is required.")
+		os.Exit(1)
 	}
 	if *registryID == "" {
 		*registryID = fmt.Sprintf("robot-%s", *robotName)
@@ -112,7 +119,8 @@ func parseFlags() {
 
 	if *fluentd && *fluentbit {
 		flag.Usage()
-		log.Fatal("ERROR: --fluentd and --fluenetbit cannot be enabled at the same time.")
+		slog.Error("--fluentd and --fluenetbit cannot be enabled at the same time.")
+		os.Exit(1)
 	}
 }
 
@@ -164,28 +172,37 @@ func checkRobotName(ctx context.Context, client dynamic.Interface) error {
 
 func main() {
 	parseFlags()
+
+	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stdout)
+	slog.SetDefault(slog.New(logHandler))
+
 	ctx := context.Background()
 	envToken := os.Getenv("ACCESS_TOKEN")
 	if envToken == "" {
-		log.Fatal("ACCESS_TOKEN environment variable is required.")
+		slog.Error("ACCESS_TOKEN environment variable is required.")
+		os.Exit(1)
 	}
 	registry := os.Getenv("REGISTRY")
 	if registry == "" {
-		log.Fatal("REGISTRY environment variable is required.")
+		slog.Error("REGISTRY environment variable is required.")
+		os.Exit(1)
 	}
 	parsedLabels, err := parseKeyValues(*labels)
 	if err != nil {
-		log.Fatalf("Invalid labels %q: %s", *labels, err)
+		slog.Error("Invalid labels", slog.String("Labels", *labels), ilog.Err(err))
+		os.Exit(1)
 	}
 	parsedAnnotations, err := parseKeyValues(*annotations)
 	if err != nil {
-		log.Fatalf("Invalid annotations %q: %s", *annotations, err)
+		slog.Error("Invalid annotations", slog.String("Annotations", *annotations), ilog.Err(err))
+		os.Exit(1)
 	}
 
 	// Wait for in-cluster DNS to become available, otherwise
 	// configutil.ReadConfig() may fail.
 	if err := setup.WaitForDNS("storage.googleapis.com", numDNSRetries); err != nil {
-		log.Fatalf("Failed to resolve storage.googleapis.com: %s. Please retry in 5 minutes.", err)
+		slog.Error("Failed to resolve storage.googleapis.com. Please retry in 5 minutes.", ilog.Err(err))
+		os.Exit(1)
 	}
 
 	// Set up the OAuth2 token source.
@@ -193,7 +210,8 @@ func main() {
 
 	vars, err := configutil.ReadConfig(*project, option.WithTokenSource(tokenSource))
 	if err != nil {
-		log.Fatal("Failed to read config for project: ", err)
+		slog.Error("Failed to read config for project", ilog.Err(err))
+		os.Exit(1)
 	}
 	domain, ok := vars["CLOUD_ROBOTICS_DOMAIN"]
 	if !ok || domain == "" {
@@ -202,30 +220,36 @@ func main() {
 
 	// Wait until we can resolve the project domain. This may require DNS propagation.
 	if err := setup.WaitForDNS(domain, numDNSRetries); err != nil {
-		log.Fatalf("Failed to resolve cloud cluster: %s. Please retry in 5 minutes.", err)
+		slog.Error("Failed to resolve cloud cluster. Please retry in 5 minutes.", ilog.Err(err))
+		os.Exit(1)
 	}
 
 	// Connect to the surrounding k8s cluster.
 	localConfig, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatal("Failed to load in-cluster config: ", err)
+		slog.Error("Failed to load in-cluster config", ilog.Err(err))
+		os.Exit(1)
 	}
 	k8sLocalClientSet, err := kubernetes.NewForConfig(localConfig)
 	if err != nil {
-		log.Fatal("Failed to create kubernetes client set: ", err)
+		slog.Error("Failed to create kubernetes client set", ilog.Err(err))
+		os.Exit(1)
 	}
 	if _, err := k8sLocalClientSet.AppsV1().Deployments("default").Get(ctx, "app-rollout-controller", metav1.GetOptions{}); err == nil {
 		// It's important to avoid deploying the cloud-robotics
 		// metadata-server in the same cluster as the token-vendor,
 		// otherwise we'll break auth for all robot clusters.
-		log.Fatal("The local context contains a app-rollout-controller deployment. It is not safe to run robot setup on a GKE cloud cluster.")
+		slog.Error("The local context contains a app-rollout-controller deployment. It is not safe to run robot setup on a GKE cloud cluster.")
+		os.Exit(1)
 	}
 	k8sLocalDynamic, err := dynamic.NewForConfig(localConfig)
 	if err != nil {
-		log.Fatal("Failed to create dynamic client set: ", err)
+		slog.Error("Failed to create dynamic client set", ilog.Err(err))
+		os.Exit(1)
 	}
 	if err := checkRobotName(ctx, k8sLocalDynamic); err != nil {
-		log.Fatal("Error: ", err)
+		slog.Error("RobotName", ilog.Err(err))
+		os.Exit(1)
 	}
 
 	if *robotAuthentication {
@@ -237,26 +261,31 @@ func main() {
 			PublicKeyRegistryId: *registryID,
 		}
 
-		log.Println("Creating new private key")
+		slog.Info("Creating new private key")
 		if err := auth.CreatePrivateKey(); err != nil {
-			log.Fatal(err)
+			slog.Error("Failed creating key", ilog.Err(err))
+			os.Exit(1)
 		}
 		httpClient := oauth2.NewClient(ctx, tokenSource)
 		if err := setup.PublishCredentialsToCloud(httpClient, auth, numServiceRetries); err != nil {
-			log.Fatal(err)
+			slog.Error("Failed to publish credentials.", ilog.Err(err))
+			os.Exit(1)
 		}
 		if err := auth.StoreInK8sSecret(ctx, k8sLocalClientSet, baseNamespace); err != nil {
-			log.Fatal(fmt.Errorf("Failed to write auth secret: %v", err))
+			slog.Error("Failed to write auth secret", ilog.Err(err))
+			os.Exit(1)
 		}
 		if err := gcr.UpdateGcrCredentials(ctx, k8sLocalClientSet, auth); err != nil {
-			log.Fatal(err)
+			slog.Error("Failed to update credentials", ilog.Err(err))
+			os.Exit(1)
 		}
 	}
 
-	log.Println("Initializing Synk")
+	slog.Info("Initializing Synk")
 	output, err := exec.Command(synkPath, "init").CombinedOutput()
 	if err != nil {
-		log.Fatalf("Synk init failed: %v. Synk output:\n%s\n", err, output)
+		slog.Error("Synk init failed.", ilog.Err(err), slog.String("Output", string(output)))
+		os.Exit(1)
 	}
 
 	appManagement := configutil.GetBoolean(vars, "APP_MANAGEMENT", true)
@@ -270,10 +299,12 @@ func main() {
 		k8sCloudCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, domain)
 		k8sCloudDynamic, err := dynamic.NewForConfig(k8sCloudCfg)
 		if err != nil {
-			log.Fatalf("Failed to create k8s client: %v", err)
+			slog.Error("Failed to create k8s client", ilog.Err(err))
+			os.Exit(1)
 		}
 		if err := createOrUpdateRobot(ctx, k8sCloudDynamic, parsedLabels, parsedAnnotations); err != nil {
-			log.Fatalf("Failed to create/update cloud robot CR %v: %v", *robotName, err)
+			slog.Error("Failed to create/update cloud robot CR", slog.String("Name", *robotName), ilog.Err(err))
+			os.Exit(1)
 		}
 	} else {
 		// Creating a Robot CR in the cloud would make the app-rollout-controller
@@ -281,11 +312,12 @@ func main() {
 		// these would not be synced/installed.
 		// Hence we create a local Robot CR to keep the same interface.
 		if err := createOrUpdateRobot(ctx, k8sLocalDynamic, parsedLabels, parsedAnnotations); err != nil {
-			log.Fatalf("Failed to create/update local robot CR %v: %v", *robotName, err)
+			slog.Error("Failed to create/update local robot CR", slog.String("Name", *robotName), ilog.Err(err))
+			os.Exit(1)
 		}
 	}
 
-	log.Println("Setup complete")
+	slog.Info("Setup complete")
 }
 
 func helmValuesStringFromMap(varMap map[string]string) string {
@@ -306,7 +338,8 @@ func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, re
 			},
 		},
 		metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
-		log.Fatalf("Failed to create %s namespace: %v.", namespace, err)
+		slog.Error("Failed to create namespace.", slog.String("Namespace", namespace), ilog.Err(err))
+		os.Exit(1)
 	}
 
 	vars := helmValuesStringFromMap(map[string]string{
@@ -323,7 +356,9 @@ func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, re
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
 		"robot.name":           *robotName,
 	})
-	log.Printf("Installing %s chart using Synk from %s", name, chartPath)
+	slog.Info("Installing chart using Synk",
+		slog.String("Chart", name),
+		slog.String("Path", chartPath))
 
 	output, err := exec.Command(
 		helmPath,
@@ -334,7 +369,11 @@ func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, re
 		filepath.Join(filesDir, chartPath),
 	).CombinedOutput()
 	if err != nil {
-		log.Fatalf("Synk install of %s failed: %v\nHelm output:\n%s\n", name, err, output)
+		slog.Error("Synk install failed.",
+			slog.String("Chart", name),
+			ilog.Err(err),
+			slog.String("Helm output", string(output)))
+		os.Exit(1)
 	}
 	cmd := exec.Command(
 		synkPath,
@@ -348,7 +387,11 @@ func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, re
 	cmd.Stdin = bytes.NewReader(output)
 
 	if output, err = cmd.CombinedOutput(); err != nil {
-		log.Fatalf("Synk install of %s failed: %v\nSynk output:\n%s\n", name, err, output)
+		slog.Error("Synk install failed.",
+			slog.String("Chart", name),
+			ilog.Err(err),
+			slog.String("Synk output", string(output)))
+		os.Exit(1)
 	}
 }
 

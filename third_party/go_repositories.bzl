@@ -668,8 +668,8 @@ def go_repositories():
     go_repository(
         name = "com_github_googlecloudrobotics_ilog",
         importpath = "github.com/googlecloudrobotics/ilog",
-        sum = "h1:XEQxKohGzFEBOj5O2fcR1+gxDEgznOdb6G34kdG49u8=",
-        version = "v0.0.0-20231123101900-2533d3d7f8e1",
+        sum = "h1:Ilq3GVIXgijOHyN6RWNwzIOBeOA1VpTjjE1gRDpAH2c=",
+        version = "v0.0.0-20231204130359-bb7d7c153a03",
     )
     go_repository(
         name = "com_github_gophercloud_gophercloud",

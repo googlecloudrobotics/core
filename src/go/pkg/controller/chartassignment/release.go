@@ -22,6 +22,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,6 +30,7 @@ import (
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
+	"github.com/googlecloudrobotics/ilog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	core "k8s.io/api/core/v1"
@@ -231,7 +233,7 @@ func (r *release) delete(as *apps.ChartAssignment) {
 func (r *release) update(as *apps.ChartAssignment) {
 	resources, retry, err := loadAndExpandChart(as)
 	if err != nil {
-		log.Printf("Error loading chart: %v", err)
+		slog.Error("Error loading chart", ilog.Err(err))
 		r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
 		r.setFailed(err, retry)
 		return
@@ -256,7 +258,7 @@ func (r *release) update(as *apps.ChartAssignment) {
 	spanContext := trace.SpanContext{}
 	if tid, found := as.GetAnnotations()["cloudrobotics.com/trace-id"]; found {
 		if _, err := hex.Decode(spanContext.TraceID[:], []byte(tid)); err != nil {
-			log.Printf("Error: decoding TraceID: %v, %v", tid, err)
+			slog.Error("decoding TraceID", slog.String("TraceID", tid), ilog.Err(err))
 		}
 	}
 	ctx, span := trace.StartSpanWithRemoteParent(context.Background(), "Apply "+as.Name, spanContext)
