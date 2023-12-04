@@ -917,7 +917,7 @@
       },
       "maxDataPoints": 25,
       "options": {
-        "calculate": true,
+        "calculate": false,
         "calculation": {
           "yBuckets": {
             "scale": {
@@ -969,9 +969,9 @@
           },
           "editorMode": "code",
           "expr": "sum(rate(broker_responses_durations_bucket[$__interval])) by (le)",
-          "format": "time_series",
+          "format": "heatmap",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "{{le}}",
           "range": true,
           "refId": "A"
         }
@@ -1131,7 +1131,7 @@
       },
       "maxDataPoints": 25,
       "options": {
-        "calculate": true,
+        "calculate": false,
         "calculation": {},
         "cellGap": 2,
         "cellValues": {},
@@ -1177,9 +1177,9 @@
           },
           "editorMode": "code",
           "expr": "sum(rate(broker_backend_responses_durations_bucket[$__interval])) by (le)",
-          "format": "time_series",
+          "format": "heatmap",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "{{le}}",
           "range": true,
           "refId": "A"
         }
@@ -1245,7 +1245,7 @@
       },
       "maxDataPoints": 25,
       "options": {
-        "calculate": true,
+        "calculate": false,
         "calculation": {},
         "cellGap": 2,
         "cellValues": {},
@@ -1291,9 +1291,9 @@
           },
           "editorMode": "code",
           "expr": "sum(rate(broker_overhead_durations_bucket[$__interval])) by (le)",
-          "format": "time_series",
+          "format": "heatmap",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "{{le}}",
           "range": true,
           "refId": "A"
         }
