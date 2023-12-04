@@ -49,6 +49,7 @@ finalize_and_unlock() {
 PROJECT_DIR="${DIR}/deployments/robco-integration-test"
 source "${PROJECT_DIR}/config.sh"
 gcloud config set project ${GCP_PROJECT_ID}
+gcloud components install gke-gcloud-auth-plugin
 gcloud container clusters get-credentials cloud-robotics --zone=${GCP_ZONE}
 
 BUILD_IDENTIFIER=$(generate_build_id)
