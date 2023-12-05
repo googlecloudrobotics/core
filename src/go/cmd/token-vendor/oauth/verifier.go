@@ -68,7 +68,7 @@ func (v *TokenVerifier) Verify(ctx context.Context, token Token, sa string) erro
 
 // doTestIamPermissions retry parameters
 const (
-	timeout       = time.Second * 2
+	timeout       = time.Second * 5
 	retryInterval = time.Second * 1
 	retries       = 2
 )
