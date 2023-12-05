@@ -52,13 +52,8 @@ func (v *TokenVerifier) Verify(ctx context.Context, token Token, sa string) erro
 			iamActAs, resource)
 	}
 	// query IAM if not found in cache
-	preq := iam.TestIamPermissionsRequest{
-		Permissions: []string{iamActAs},
-	}
-	pcall := v.s.Projects.ServiceAccounts.TestIamPermissions(resource, &preq)
-	pcall.Header().Set("Authorization", "Bearer "+string(token))
 	ts := time.Now()
-	resp, err := pcall.Context(ctx).Do()
+	resp, err := doTestIamPermissions(ctx, v.s, string(token), resource, []string{iamActAs})
 	if err != nil {
 		return errors.Wrapf(err, "TestIamPermissions failed for resource %q with permission %q after %.3fs",
 			resource, iamActAs, time.Since(ts).Seconds())
@@ -69,6 +64,44 @@ func (v *TokenVerifier) Verify(ctx context.Context, token Token, sa string) erro
 	}
 	v.cache.add(token, resource, true)
 	return nil
+}
+
+// doTestIamPermissions retry parameters
+const (
+	timeout       = time.Second * 2
+	retryInterval = time.Second * 1
+	retries       = 2
+)
+
+func doTestIamPermissions(ctx context.Context, s *iam.Service, token, resource string, permissions []string) (*iam.TestIamPermissionsResponse, error) {
+	preq := iam.TestIamPermissionsRequest{Permissions: permissions}
+	pcall := s.Projects.ServiceAccounts.TestIamPermissions(resource, &preq)
+	pcall.Header().Set("Authorization", "Bearer "+string(token))
+
+	for i := 0; i <= retries; i++ {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+		ctx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		r, err := pcall.Context(ctx).Do()
+		if err == nil { // no error, return response
+			return r, nil
+		}
+		// continue/retry only on DeadlineExceeded errors
+		if !errors.Is(err, context.DeadlineExceeded) {
+			return nil, err
+		}
+		select {
+		case <-ctx.Done():
+			return r, ctx.Err()
+		// static retry interval
+		case <-time.After(retryInterval):
+		}
+	}
+	return nil, errors.New("")
 }
 
 func contains(s []string, str string) bool {
