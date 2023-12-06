@@ -61,19 +61,12 @@ resource "google_project_iam_member" "robot-service-roles" {
   member  = "serviceAccount:${google_service_account.robot-service.email}"
   for_each = toset([
     "roles/cloudtrace.agent",  # Upload cloud traces
+    "roles/container.clusterViewer", # Sync CRs from the GKE cluster.
     "roles/logging.logWriter", # Upload text logs to Cloud logging
     # Required to use robot-service@ for GKE clusters that simulate robots
     "roles/monitoring.viewer",
   ])
   role = each.value
-}
-
-resource "google_project_iam_member" "robot-service-kubernetes" {
-  project = data.google_project.project.project_id
-
-  role = "roles/container.clusterViewer"
-
-  member = "serviceAccount:${google_service_account.robot-service.email}"
 }
 
 resource "google_service_account" "human-acl" {
