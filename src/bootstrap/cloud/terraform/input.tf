@@ -43,16 +43,6 @@ variable "private_image_repositories" {
   default     = []
 }
 
-variable "cr_syncer_rbac" {
-  description = <<-EOD
-    If true, robot-service@ is granted the container.clusterViewer
-    role, and explicit RBAC policies must be created to let the cr-syncer
-    read/write resources in the GKE cluster. If false, robot-service@ is granted
-    the container.developer role, which gives it broad access to the GKE
-    cluster.
-  EOD
-}
-
 variable "certificate_provider" {
   description = "Certificate provider to use to generate certificates for in-cluster services. Should be one of: lets-encrypt, google-cas."
   type        = string

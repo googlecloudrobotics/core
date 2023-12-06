@@ -56,7 +56,4 @@ function include_config {
 
   CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT:-GCP}
   check_var_is_one_of CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT "GCP" "GCP-testing"
-
-  CR_SYNCER_RBAC=${CR_SYNCER_RBAC:-true}
-  check_var_is_one_of CR_SYNCER_RBAC "true" "false"
 }
