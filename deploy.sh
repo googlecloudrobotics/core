@@ -138,7 +138,6 @@ region = "${GCP_REGION}"
 shared_owner_group = "${CLOUD_ROBOTICS_SHARED_OWNER_GROUP}"
 robot_image_reference = "${SOURCE_CONTAINER_REGISTRY}/setup-robot@${ROBOT_IMAGE_DIGEST}"
 crc_version = "${CRC_VERSION}"
-cr_syncer_rbac = "${CR_SYNCER_RBAC}"
 certificate_provider = "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
 EOF
 
@@ -245,6 +244,12 @@ function terraform_post {
       --member "serviceAccount:robot-service@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
       --role "roles/storage.objectViewer"
   done
+
+  # I am paranoid that #273 will delete this binding as a result of Terraform
+  # races, so this makes sure that it is maintained.
+  gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+    --member "serviceAccount:robot-service@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+    --role "roles/container.clusterViewer" --condition=None
 }
 
 function terraform_delete {
