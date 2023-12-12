@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -81,7 +82,7 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 			log.Printf("Server port: %s", r.rsPort)
 			break
 		}
-		log.Print("Waiting for relay to be up-and-running ...")
+		slog.Info("Waiting for relay to be up-and-running ...")
 		time.Sleep(1 * time.Second)
 	}
 	if r.rsPort == "" {
@@ -109,7 +110,7 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 			connected = true
 			break
 		}
-		log.Print("Waiting for relay to be up-and-running ...")
+		slog.Info("Waiting for relay to be up-and-running ...")
 		time.Sleep(1 * time.Second)
 	}
 	if !connected {

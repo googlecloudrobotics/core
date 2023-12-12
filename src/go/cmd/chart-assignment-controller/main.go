@@ -21,6 +21,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -78,7 +79,7 @@ func main() {
 	var clusterName string
 	if *cloudCluster == true {
 		clusterName = "cloud"
-		log.Print("Starting chart-assigment-controller in cloud setup")
+		slog.Info("Starting chart-assignment-controller in cloud setup")
 	} else {
 		clusterName = os.Getenv("ROBOT_NAME")
 		log.Printf("Starting chart-assigment-controller in robot setup with cluster name %s", clusterName)
