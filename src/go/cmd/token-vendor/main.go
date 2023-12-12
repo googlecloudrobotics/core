@@ -18,7 +18,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 
@@ -34,6 +36,7 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/k8s"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/memory"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
+	"github.com/googlecloudrobotics/ilog"
 )
 
 type scopeFlags []string
@@ -64,7 +67,7 @@ var (
 		"key-store",
 		string(Kubernetes),
 		"Public key repository implementation to use. Options: "+strings.Join(keyStoreOpts, ","))
-	k8sQPS = flag.Int("k8s-qps", 25, "Limit of QPS to the Kubernetes API server.")
+	k8sQPS   = flag.Int("k8s-qps", 25, "Limit of QPS to the Kubernetes API server.")
 	k8sBurst = flag.Int("k8s-burst", 50, "Burst limit of QPS to the Kubernetes API server.")
 	// API options
 	bind     = flag.String("bind", "0.0.0.0", "Address to bind to")
@@ -103,53 +106,64 @@ func main() {
 	if *keyStore == Kubernetes {
 		config, err := rest.InClusterConfig()
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Failed to get config", ilog.Err(err))
+			os.Exit(1)
 		}
 		config.QPS = float32(*k8sQPS)
 		config.Burst = *k8sBurst
 		cs, err := kubernetes.NewForConfig(config)
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Failed to make clientset", ilog.Err(err))
+			os.Exit(1)
 		}
 		rep, err = k8s.NewK8sRepository(ctx, cs, *namespace)
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Failed to make k8s repository client", ilog.Err(err))
+			os.Exit(1)
 		}
 	} else if *keyStore == Memory {
 		rep, err = memory.NewMemoryRepository(ctx)
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Failed to make in-memory repository", ilog.Err(err))
+			os.Exit(1)
 		}
 	} else {
-		log.Panicf("unsupported key store option %q", *keyStore)
+		slog.Error("unsupported key store option", slog.String("Value", *keyStore))
+		os.Exit(1)
 	}
 	log.Infof("Using key store %q", *keyStore)
 
 	verifier, err := oauth.NewTokenVerifier(ctx, &http.Client{}, *project)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("Failed to make verifier", ilog.Err(err))
+		os.Exit(1)
 	}
 	ts, err := tokensource.NewGCPTokenSource(ctx, nil, *project, *robotName, scopes)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("Failed to make token source", ilog.Err(err))
+		os.Exit(1)
 	}
 	tv, err := app.NewTokenVendor(ctx, rep, verifier, ts, *acceptedAudience)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("Failed to make token vendor", ilog.Err(err))
+		os.Exit(1)
 	}
 
 	// register API endpoints
 	if err := api.Register(); err != nil {
-		log.Panic(err)
+		slog.Error("Failed to register root endpoints", ilog.Err(err))
+		os.Exit(1)
 	}
 	if err := apiv1.Register(tv, path.Join(*basePath, "v1")); err != nil {
-		log.Panic(err)
+		slog.Error("Failed to register v1 endpoints", ilog.Err(err))
+		os.Exit(1)
 	}
 
 	// serve API
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
 	err = api.SetupAndServe(addr)
 	if err != nil {
-		log.Panicf("failed to listen on %s: %v", addr, err)
+		slog.Error("Failed to listen", slog.String("IP", addr), ilog.Err(err))
+		os.Exit(1)
 	}
 }

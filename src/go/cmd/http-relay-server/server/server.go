@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"log/slog"
 	"math/rand"
 	"net"
 	"net/http"
@@ -32,6 +33,7 @@ import (
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
+	"github.com/googlecloudrobotics/ilog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/protobuf/proto"
 
@@ -564,6 +566,7 @@ func (s *Server) Start(port int, blockSize int) {
 		// update) or a failed liveness check (eg broker deadlock), we can't
 		// easily tell. We panic to help debugging: if the environment sets
 		// GOTRACEBACK=all they will see stacktraces after the panic.
-		log.Panicf("Server terminated abnormally: %v", err)
+		slog.Error("Server terminated abnormally", ilog.Err(err))
+		panic("Server terminated abnormally")
 	}
 }
