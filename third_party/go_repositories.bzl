@@ -1278,13 +1278,6 @@ def go_repositories():
         version = "v2.1.0",
     )
 
-    # keep
-    go_repository(
-        name = "com_github_ryanuber_go_license",
-        importpath = "github.com/ryanuber/go-license",
-        sum = "h1:tRp20LMuPNq4xTO4SLHTxVySYje3m5hLlu5RZLvaY/c=",
-        version = "v0.0.0-20180405065157-c69f41c2c8d6",
-    )
     go_repository(
         name = "com_github_saintfish_chardet",
         importpath = "github.com/saintfish/chardet",
