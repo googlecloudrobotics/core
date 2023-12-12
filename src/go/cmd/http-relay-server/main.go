@@ -80,9 +80,12 @@ package main
 import (
 	"flag"
 	"log"
+	"log/slog"
+	"os"
 
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server/server"
+	"github.com/googlecloudrobotics/ilog"
 	"go.opencensus.io/trace"
 )
 
@@ -103,7 +106,8 @@ func main() {
 			ProjectID: *stackdriverProjectID,
 		})
 		if err != nil {
-			log.Fatalf("Failed to create the Stackdriver exporter for project '%s': %v", *stackdriverProjectID, err)
+			slog.Error("Failed to create the Stackdriver exporter", slog.String("Project", *stackdriverProjectID), ilog.Err(err))
+			os.Exit(1)
 		} else {
 			trace.RegisterExporter(sd)
 			defer sd.Flush()

@@ -28,6 +28,7 @@ import (
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment"
+	"github.com/googlecloudrobotics/ilog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -69,7 +70,8 @@ func main() {
 			ProjectID: *stackdriverProjectID,
 		})
 		if err != nil {
-			log.Fatalf("Failed to create the Stackdriver exporter: %v", err)
+			slog.Error("Failed to create the Stackdriver exporter", ilog.Err(err))
+			os.Exit(1)
 		}
 		trace.RegisterExporter(sd)
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
@@ -84,19 +86,22 @@ func main() {
 		clusterName = os.Getenv("ROBOT_NAME")
 		log.Printf("Starting chart-assigment-controller in robot setup with cluster name %s", clusterName)
 		if clusterName == "" {
-			log.Fatalf("expect ROBOT_NAME environment var to be set to an non-empty string")
+			slog.Error("expect ROBOT_NAME environment var to be set to an non-empty string")
+			os.Exit(1)
 		}
 	}
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatalln(err)
+		slog.Error("Failed to load config", ilog.Err(err))
+		os.Exit(1)
 	}
 	config.QPS = float32(*maxQPS)
 	// The default value of twice the max QPS seems to work well.
 	config.Burst = *maxQPS * 2
 
-	log.Fatal(runController(ctx, config, clusterName))
+	slog.Error("Controller terminated", ilog.Err(runController(ctx, config, clusterName)))
+	os.Exit(1)
 }
 
 func runController(ctx context.Context, cfg *rest.Config, cluster string) error {
