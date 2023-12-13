@@ -17,13 +17,13 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth/jwt"
@@ -55,12 +55,12 @@ func NewTokenVendor(ctx context.Context, repo PubKeyRepository, v *oauth.TokenVe
 }
 
 func (tv *TokenVendor) PublishPublicKey(ctx context.Context, deviceID, publicKey string) error {
-	log.Info("Publishing public key for device ", deviceID)
+	slog.Info("Publishing public key", slog.String("DeviceID", deviceID))
 	return tv.repo.PublishKey(ctx, deviceID, publicKey)
 }
 
 func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (string, error) {
-	log.Debug("Returning public key for device ", deviceID)
+	slog.Debug("Returning public key", slog.String("DeviceID", deviceID))
 	return tv.repo.LookupKey(ctx, deviceID)
 }
 
@@ -127,7 +127,7 @@ func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokens
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to retrieve a cloud token for device %q", deviceID)
 	}
-	log.Info("Handing out cloud token for device ", deviceID)
+	slog.Info("Handing out cloud token", slog.String("DeviceID", deviceID))
 	return cloudToken, nil
 }
 
@@ -191,7 +191,7 @@ func (tv *TokenVendor) VerifyToken(ctx context.Context, token oauth.Token, robot
 	} else {
 		acl = "human-acl"
 	}
-	log.Debug("Verifying a token against ACL ", acl)
+	slog.Debug("Verifying token", slog.String("ACL", acl))
 	ts := time.Now()
 	err := tv.v.Verify(ctx, token, acl)
 	var state string

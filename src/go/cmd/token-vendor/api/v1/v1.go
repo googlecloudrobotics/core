@@ -27,8 +27,6 @@ import (
 	"regexp"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
@@ -383,7 +381,7 @@ func isValidJWT(jwt string) (bool, error) {
 // Register the API V1 API handler functions to the default http.DefaultServeMux
 func Register(tv *app.TokenVendor, prefix string) error {
 
-	log.Debug("mounting API V1 at ", prefix)
+	slog.Debug("mounting API V1", slog.String("Prefix", prefix))
 
 	h := NewHandlerContext(tv)
 

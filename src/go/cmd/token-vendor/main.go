@@ -24,7 +24,6 @@ import (
 	"path"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -134,7 +133,7 @@ func main() {
 		slog.Error("unsupported key store option", slog.String("Value", *keyStore))
 		os.Exit(1)
 	}
-	log.Infof("Using key store %q", *keyStore)
+	slog.Info("Set up key store", slog.String("KeyStore", *keyStore))
 
 	verifier, err := oauth.NewTokenVerifier(ctx, &http.Client{}, *project)
 	if err != nil {
