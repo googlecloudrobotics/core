@@ -20,6 +20,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"path"
@@ -31,6 +32,7 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
+	"github.com/googlecloudrobotics/ilog"
 )
 
 const (
@@ -86,7 +88,7 @@ func (h *HandlerContext) publicKeyReadHandler(w http.ResponseWriter, r *http.Req
 	publicKey, err := h.tv.ReadPublicKey(r.Context(), deviceID)
 	if err != nil {
 		api.ErrResponse(w, http.StatusInternalServerError, "request to repository failed")
-		log.Error(err)
+		slog.Error("request to repository failed", ilog.Err(err))
 		return
 	}
 	// for missing public keys (publicKey == "") we return 200 with
@@ -131,7 +133,7 @@ func (h *HandlerContext) publicKeyPublishHandler(w http.ResponseWriter, r *http.
 	err = h.tv.PublishPublicKey(r.Context(), deviceID, string(body))
 	if err != nil {
 		api.ErrResponse(w, http.StatusInternalServerError, "publish key failed")
-		log.Error(err)
+		slog.Error("publish key failed", ilog.Err(err))
 		return
 	}
 }
@@ -216,7 +218,7 @@ func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Reque
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		api.ErrResponse(w, http.StatusInternalServerError, "error reading request body")
-		log.Error(err)
+		slog.Error("error reading request body", ilog.Err(err))
 		return
 	}
 	values, err := url.ParseQuery(string(body))
@@ -242,13 +244,13 @@ func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Reque
 	token, err := h.tv.GetOAuth2Token(r.Context(), assertion)
 	if err != nil {
 		api.ErrResponse(w, http.StatusForbidden, "unable to retrieve cloud access token with given JWT")
-		log.Error(err)
+		slog.Error("unable to retrieve cloud access token with given JWT", ilog.Err(err))
 		return
 	}
 	tokenBytes, err := json.Marshal(token)
 	if err != nil {
 		api.ErrResponse(w, http.StatusInternalServerError, "failed to marshal upstream response")
-		log.Error(err)
+		slog.Error("failed to marshal upstream response", ilog.Err(err))
 		return
 	}
 	w.Header().Add(contentType, "application/json")
@@ -283,7 +285,7 @@ func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Reque
 	err = h.tv.VerifyToken(r.Context(), oauth.Token(token), robots)
 	if err != nil {
 		api.ErrResponse(w, http.StatusForbidden, "unable to verify token")
-		log.Error(err)
+		slog.Error("unable to verify token", ilog.Err(err))
 		return
 	}
 	w.Write([]byte("OK"))
