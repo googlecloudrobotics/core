@@ -25,16 +25,40 @@ prometheus:
   prometheusSpec:
     # Pick up all service monitors across all namespaces.
     serviceMonitorNamespaceSelector:
-      any: true
+      # Inverse selector selects everything
+      matchExpressions:
+      - key: "non-existent-label-for-universal-matching"
+        operator: "DoesNotExist"
     serviceMonitorSelector:
-      any: true
+      # Inverse selector selects everything
+      matchExpressions:
+      - key: "non-existent-label-for-universal-matching"
+        operator: "DoesNotExist"
+
     # Pick up all pod monitors across all namespaces.
     podMonitorNamespaceSelector:
-      any: true
+      # Inverse selector selects everything
+      matchExpressions:
+      - key: "non-existent-label-for-universal-matching"
+        operator: "DoesNotExist"
     podMonitorSelector:
-      any: true
+      # Inverse selector selects everything
+      matchExpressions:
+      - key: "non-existent-label-for-universal-matching"
+        operator: "DoesNotExist"
+
+    # Pick up all rules across all namespaces.
     ruleNamespaceSelector:
-      any: true
+      # Inverse selector selects everything
+      matchExpressions:
+      - key: "non-existent-label-for-universal-matching"
+        operator: "DoesNotExist"
+    ruleSelector:
+      # Inverse selector selects everything
+      matchExpressions:
+      - key: "non-existent-label-for-universal-matching"
+        operator: "DoesNotExist"
+
     externalUrl: "https://${CLOUD_ROBOTICS_DOMAIN}/prometheus/"
     retention: "${RETENTION_TIME}"
     retentionSize: "${RETENTION_SIZE}"
