@@ -19,9 +19,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -249,10 +249,13 @@ func (r *release) update(as *apps.ChartAssignment) {
 			if status == synk.StatusSuccess {
 				return
 			}
-			log.Printf("[%s] %s %s/%s %s: %s\n",
-				strings.ToUpper(status), action,
-				r.GetAPIVersion(), r.GetKind(),
-				r.GetName(), msg)
+			// This meant to be human-readable, which is why I'm using
+			// Sprintf().
+			slog.Warn("Error applying resource",
+				slog.String("Status", strings.ToUpper(status)),
+				slog.String("Action", string(action)),
+				slog.String("Resource", fmt.Sprintf("%s/%s %s", r.GetAPIVersion(), r.GetKind(), r.GetName())),
+				slog.String("Message", msg))
 		},
 	}
 	spanContext := trace.SpanContext{}

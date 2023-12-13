@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/url"
 	"regexp"
 	"strings"
@@ -167,7 +168,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	respChan := r.resp[id].responseStream
 	r.m.Unlock()
 
-	log.Printf("[%s] Enqueuing request", id)
+	slog.Info("Enqueuing request", slog.String("ID", id))
 	brokerRequests.WithLabelValues("client", server, cleanPath(targetUrl.Path)).Inc()
 	select {
 	// This blocks until we get a free spot in the broker's request channel.
@@ -296,7 +297,7 @@ func (r *broker) ReapInactiveRequests(threshold time.Time) {
 	r.m.Lock()
 	for id, pr := range r.resp {
 		if pr.lastActivity.Before(threshold) {
-			log.Printf("[%s] Timeout on inactive request", id)
+			slog.Info("Timeout on inactive request", slog.String("ID", id))
 			defer close(pr.requestStream)
 			defer close(pr.responseStream)
 			// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop

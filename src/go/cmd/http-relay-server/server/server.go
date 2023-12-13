@@ -222,15 +222,15 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 	if err != nil {
 		// After a failed hijack, the connection is in an unknown state and
 		// we can't report an error to the client.
-		log.Printf("[%s] Failed to hijack connection after 101: %v", backendCtx.Id, err)
+		slog.Error("Failed to hijack connection after 101", slog.String("ID", backendCtx.Id), ilog.Err(err))
 		return
 	}
-	log.Printf("[%s] Switched protocols", backendCtx.Id)
+	slog.Info("Switched protocols", slog.String("ID", backendCtx.Id))
 	defer conn.Close()
 
 	go func() {
 		// This goroutine handles the request stream from client to backend.
-		log.Printf("[%s] Trying to read from bidi-stream", backendCtx.Id)
+		slog.Info("Trying to read from bidi-stream", slog.String("ID", backendCtx.Id))
 		for {
 			// This must be a new buffer each time, as the channel is not making a copy
 			bytes := make([]byte, s.blockSize)
@@ -241,16 +241,16 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 				// we may be able to suppress the "read from closed connection" better.
 				if strings.Contains(err.Error(), "use of closed network connection") {
 					// Request ended and connection closed by HTTP server.
-					log.Printf("[%s] End of bidi-stream stream (closed socket)", backendCtx.Id)
+					slog.Info("End of bidi-stream stream (closed socket)", slog.String("ID", backendCtx.Id))
 				} else {
 					// Connection has unexpectedly failed for some other reason.
-					log.Printf("[%s] Error reading from bidi-stream: %v", backendCtx.Id, err)
+					slog.Error("Error reading from bidi-stream", slog.String("ID", backendCtx.Id), ilog.Err(err))
 				}
 				return
 			}
 			log.Printf("[%s] Read %d bytes from bidi-stream", backendCtx.Id, n)
 			if ok = s.b.PutRequestStream(backendCtx.Id, bytes[:n]); !ok {
-				log.Printf("[%s] End of bidi-stream stream", backendCtx.Id)
+				slog.Info("End of bidi-stream stream", slog.String("ID", backendCtx.Id))
 				return
 			}
 			log.Printf("[%s] Uploaded %d bytes from bidi-stream", backendCtx.Id, n)
@@ -260,7 +260,7 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 	numBytes := 0
 	for responseChunk := range responseChunks {
 		if _, err = bufrw.Write(responseChunk.Body); err != nil {
-			log.Printf("[%s] Error writing response to bidi-stream: %v", backendCtx.Id, err)
+			slog.Error("Error writing response to bidi-stream", slog.String("ID", backendCtx.Id), ilog.Err(err))
 			return
 		}
 		bufrw.Flush()
@@ -404,7 +404,7 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	numBytes := 0
 	for responseChunk := range responseChunksChan {
 		if _, err = w.Write(responseChunk.Body); err != nil {
-			log.Printf("[%s] Error writing response to user-client: %v", backendCtx.Id, err)
+			slog.Error("Error writing response to user-client", slog.String("ID", backendCtx.Id), ilog.Err(err))
 			return
 		}
 		if flush, ok := w.(http.Flusher); ok {
@@ -439,26 +439,26 @@ func (s *Server) serverRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing server query parameter", http.StatusBadRequest)
 		return
 	}
-	log.Printf("[%s] Relay client connected", server)
+	slog.Info("Relay client connected", slog.String("ServerName", server))
 
 	// Get pending request from client and sent as a reply to the relay-client.
 	request, err := s.b.GetRequest(r.Context(), server, r.URL.Path)
 	if err != nil {
-		log.Printf("[%s] Relay client got no request: %v", server, err)
+		slog.Error("Relay client got no request", slog.String("ID", server), ilog.Err(err))
 		http.Error(w, err.Error(), http.StatusRequestTimeout)
 		return
 	}
 
 	body, err := proto.Marshal(request)
 	if err != nil {
-		log.Printf("[%s] Failed to marshal request: %v", *request.Id, err)
+		slog.Error("Failed to marshal request", slog.String("ID", *request.Id), ilog.Err(err))
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpRequest")
 	w.Write(body)
-	log.Printf("[%s] Relay client accepted request", *request.Id)
+	slog.Info("Relay client accepted request", slog.String("ID", *request.Id))
 }
 
 func (s *Server) serverRequestStream(w http.ResponseWriter, r *http.Request) {
@@ -508,7 +508,7 @@ func (s *Server) serverResponse(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte("ok"))
 
-	log.Printf("[%s] Relay client sent response", *br.Id)
+	slog.Info("Relay client sent response", slog.String("ID", *br.Id))
 }
 
 func (s *Server) Start(port int, blockSize int) {
