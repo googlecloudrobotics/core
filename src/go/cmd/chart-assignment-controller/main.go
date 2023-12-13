@@ -20,7 +20,6 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -64,6 +63,8 @@ var (
 
 func main() {
 	flag.Parse()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	ctx := context.Background()
 	if *stackdriverProjectID != "" && *cloudCluster == false {
 		sd, err := stackdriver.NewExporter(stackdriver.Options{
@@ -84,7 +85,7 @@ func main() {
 		slog.Info("Starting chart-assignment-controller in cloud setup")
 	} else {
 		clusterName = os.Getenv("ROBOT_NAME")
-		log.Printf("Starting chart-assigment-controller in robot setup with cluster name %s", clusterName)
+		slog.Info("Starting chart-assigment-controller in robot setup", slog.String("Cluster", clusterName))
 		if clusterName == "" {
 			slog.Error("expect ROBOT_NAME environment var to be set to an non-empty string")
 			os.Exit(1)

@@ -79,7 +79,6 @@ package main
 
 import (
 	"flag"
-	"log"
 	"log/slog"
 	"os"
 
@@ -99,7 +98,7 @@ var (
 
 func main() {
 	flag.Parse()
-	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
 	if *stackdriverProjectID != "" {
 		sd, err := stackdriver.NewExporter(stackdriver.Options{

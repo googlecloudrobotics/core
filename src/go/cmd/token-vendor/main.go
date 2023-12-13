@@ -94,11 +94,14 @@ var (
 func main() {
 	flag.Var(&scopes, "scope", "GCP scopes included in the token given out to robots.")
 	flag.Parse()
+	level := slog.LevelInfo
 	if *verbose {
-		log.SetLevel(log.DebugLevel)
-	} else {
-		log.SetLevel(log.InfoLevel)
+		level = slog.LevelDebug
 	}
+	logHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: level,
+	})
+	slog.SetDefault(slog.New(logHandler))
 	// init components
 	ctx := context.Background()
 	var rep app.PubKeyRepository

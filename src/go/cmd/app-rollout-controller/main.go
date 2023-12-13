@@ -54,8 +54,7 @@ var (
 
 func main() {
 	flag.Parse()
-	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stdout)
-	slog.SetDefault(slog.New(logHandler))
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
 	ctx := context.Background()
 	kubernetesConfig, err := rest.InClusterConfig()
