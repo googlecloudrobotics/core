@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"log/slog"
 	"testing"
 	"time"
@@ -74,7 +73,7 @@ func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext strin
 		numNonRunningPods = 0
 		failingContainers = 0
 		for _, pod := range pods.Items {
-			log.Printf("Pod %v is in state: %s\n", pod.Name, pod.Status.Phase)
+			slog.Info("Pod state", slog.String("Name", pod.Name), slog.String("Phase", string(pod.Status.Phase)))
 			if pod.Status.Phase != "Running" && pod.Status.Phase != "Succeeded" {
 				numNonRunningPods += 1
 				break
@@ -90,16 +89,27 @@ func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext strin
 						prevRestarts = 0
 					}
 					if container.RestartCount > prevRestarts {
-						log.Printf("Warning: Container %s (%s) restarted %d times in pod %s\n", container.Name,
-							container.Image, container.RestartCount, pod.Name)
+						slog.Warn("Container restarted",
+							slog.String("Pod", pod.Name),
+							slog.String("Container", container.Name),
+							slog.String("Image", container.Image),
+							slog.Int("RestartCount", int(container.RestartCount)))
 						failingContainers += 1
 					}
 					restartCount[restartKey] = container.RestartCount
 				} else if container.State.Terminated != nil && container.State.Terminated.ExitCode != 0 {
-					log.Printf("Warning: Container %s (%s) was terminated in pod %s with error\n", container.Name, container.Image, pod.Name)
+					slog.Warn("Container terminated",
+						slog.String("Pod", pod.Name),
+						slog.String("Container", container.Name),
+						slog.String("Image", container.Image),
+						slog.Int("RestartCount", int(container.RestartCount)))
 					failingContainers += 1
 				} else if container.State.Waiting != nil {
-					log.Printf("Warning: Container %s (%s) was waiting in pod %s with error\n", container.Name, container.Image, pod.Name)
+					slog.Warn("Container waiting",
+						slog.String("Pod", pod.Name),
+						slog.String("Container", container.Name),
+						slog.String("Image", container.Image),
+						slog.Int("RestartCount", int(container.RestartCount)))
 					waitingContainerFound = true
 				}
 			}
@@ -178,9 +188,9 @@ func TestCloudClusterAppStatus(t *testing.T) {
 				t.Errorf("Failed to unmarshall AppRollout: %v", err)
 			}
 			for _, c := range ar.Status.Conditions {
-				log.Printf("AppRollout %v condition %v is %v\n", i.GetName(), c.Type, c.Status)
+				slog.Info("AppRollout condition", slog.String("Name", ar.GetName()), slog.String("Condition", string(c.Type)), slog.String("Status", string(c.Status)))
 				if c.Status != corev1.ConditionTrue {
-					log.Printf("AppRollout %v condition %v is not met\n", ar.GetName(), c.Type)
+					slog.Warn("AppRollout condition not met", slog.String("Name", ar.GetName()), slog.String("Condition", string(c.Type)))
 					numBadConditions += 1
 				}
 			}
