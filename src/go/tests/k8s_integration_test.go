@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -117,7 +118,7 @@ func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext strin
 		return fmt.Errorf("Unhealthy cluster status after waiting for %d sec: %d non-running pods, %d failing containers\n",
 			podInitializationTimeout/time.Second, numNonRunningPods, failingContainers)
 	}
-	log.Printf("All pods are happily running :)\n")
+	slog.Info("All pods are happily running :)")
 	return nil
 }
 

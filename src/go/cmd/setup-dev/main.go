@@ -105,7 +105,7 @@ func main() {
 		slog.Error("Failed to set up credentials", ilog.Err(err))
 		os.Exit(1)
 	}
-	log.Println("Setup complete.")
+	slog.Info("Setup complete.")
 }
 
 // createKubeRelayEntry writes cluster configuration to ~/.kube/config,
@@ -156,7 +156,7 @@ func setupDevCredentials(client *http.Client, domain string, robotName string) e
 		Domain:              domain,
 		PublicKeyRegistryId: makeIdentifier(hostname),
 	}
-	log.Println("Creating new private key")
+	slog.Info("Creating new private key")
 	if err := auth.CreatePrivateKey(); err != nil {
 		return err
 	}
