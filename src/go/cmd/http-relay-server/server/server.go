@@ -248,12 +248,12 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 				}
 				return
 			}
-			log.Printf("[%s] Read %d bytes from bidi-stream", backendCtx.Id, n)
+			slog.Info("Read from bidi-stream", slog.String("ID", backendCtx.Id), slog.Int("Bytes", n))
 			if ok = s.b.PutRequestStream(backendCtx.Id, bytes[:n]); !ok {
 				slog.Info("End of bidi-stream stream", slog.String("ID", backendCtx.Id))
 				return
 			}
-			log.Printf("[%s] Uploaded %d bytes from bidi-stream", backendCtx.Id, n)
+			slog.Info("Uploaded from bidi-stream", slog.String("ID", backendCtx.Id), slog.Int("Bytes", n))
 		}
 	}()
 
@@ -266,7 +266,7 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 		bufrw.Flush()
 		numBytes += len(responseChunk.Body)
 	}
-	log.Printf("[%s] Wrote %d response bytes to bidi-stream", backendCtx.Id, numBytes)
+	slog.Info("Wrote response chunk to bidi-stream", slog.String("ID", backendCtx.Id), slog.Int("Bytes", numBytes))
 }
 
 func (s *Server) readRequestBody(ctx context.Context, r *http.Request) ([]byte, error) {
@@ -415,7 +415,7 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		// Only the last chunk will actually contain trailers.
 		for _, h := range responseChunk.Trailers {
 			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
-			log.Printf("[%s] Adding real trailer: %q:%q", backendCtx.Id, *h.Name, *h.Value)
+			slog.Info("Adding real trailer", slog.String("ID", backendCtx.Id), slog.String("Name", *h.Name), slog.String("Value", *h.Value))
 		}
 	}
 
@@ -425,11 +425,11 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	for _, h := range header {
 		if strings.HasPrefix(*h.Name, "Grpc-") {
 			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
-			log.Printf("[%s] Adding trailer from header: %q:%q", backendCtx.Id, *h.Name, *h.Value)
+			slog.Info("Adding trailer from header", slog.String("ID", backendCtx.Id), slog.String("Name", *h.Name), slog.String("Value", *h.Value))
 		}
 	}
 
-	log.Printf("[%s] Wrote %d response bytes to request", backendCtx.Id, numBytes)
+	slog.Info("Wrote response chunk to request", slog.String("ID", backendCtx.Id), slog.Int("Bytes", numBytes))
 }
 
 // relay-client pulls a request
@@ -477,7 +477,7 @@ func (s *Server) serverRequestStream(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/octet-data")
 	w.Write(data)
-	log.Printf("[%s] Relay client pulled streamed request data of %d bytes", id, len(data))
+	slog.Info("Relay client pulled streamed request chunk", slog.String("ID", id), slog.Int("Bytes", len(data)))
 }
 
 // This function receives the response from the relay-client after it processed
