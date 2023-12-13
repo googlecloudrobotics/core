@@ -54,7 +54,7 @@ var (
 
 func main() {
 	flag.Parse()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
 
 	ctx := context.Background()
 	kubernetesConfig, err := rest.InClusterConfig()

@@ -104,7 +104,7 @@ func init() {
 
 func main() {
 	flag.Parse()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
 
 	if stackdriverProjectID != "" {
 		sd, err := stackdriver.NewExporter(stackdriver.Options{

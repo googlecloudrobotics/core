@@ -56,7 +56,7 @@ var (
 	RelayServerArgs = []string{
 		"--port=0",
 	}
-	rsPortMatcher = regexp.MustCompile(`Relay server listening on: 127.0.0.1:(\d\d*)\n$`)
+	rsPortMatcher = regexp.MustCompile(`Relay server listening.*"Port":(\d+)`)
 )
 
 type relay struct {
@@ -76,6 +76,7 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 	}
 	r.rsPort = ""
 	for i := 0; i < 10; i++ {
+		slog.Info("Output", slog.String("Output", rsOut.String()))
 		if m := rsPortMatcher.FindStringSubmatch(rsOut.String()); m != nil {
 			r.rsPort = m[1]
 			slog.Info("Server port", slog.String("Port", r.rsPort))

@@ -63,7 +63,7 @@ var (
 
 func main() {
 	flag.Parse()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
 
 	ctx := context.Background()
 	if *stackdriverProjectID != "" && *cloudCluster == false {

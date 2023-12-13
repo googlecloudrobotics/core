@@ -173,7 +173,7 @@ func checkRobotName(ctx context.Context, client dynamic.Interface) error {
 func main() {
 	parseFlags()
 
-	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stdout)
+	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
 	ctx := context.Background()

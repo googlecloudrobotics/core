@@ -98,7 +98,7 @@ func main() {
 	if *verbose {
 		level = slog.LevelDebug
 	}
-	logHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	logHandler := slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
 		Level: level,
 	})
 	slog.SetDefault(slog.New(logHandler))

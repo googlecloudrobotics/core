@@ -68,7 +68,7 @@ var (
 )
 
 func main() {
-	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stdout)
+	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
 	restOpts.AddFlags(cmdRoot.PersistentFlags())

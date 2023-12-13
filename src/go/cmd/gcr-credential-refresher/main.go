@@ -63,7 +63,7 @@ func updateCredentials(ctx context.Context) error {
 // on startup, and then every 10 minutes.
 func main() {
 	flag.Parse()
-	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stdout)
+	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 	ctx := context.Background()
 

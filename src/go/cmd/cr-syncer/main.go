@@ -231,7 +231,7 @@ func main() {
 	if *verbose {
 		ll = slog.LevelDebug
 	}
-	logHandler := ilog.NewLogHandler(ll, os.Stdout)
+	logHandler := ilog.NewLogHandler(ll, os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
 	localConfig, err := rest.InClusterConfig()
