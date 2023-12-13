@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"net"
 	"net/http"
@@ -79,7 +78,7 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 	for i := 0; i < 10; i++ {
 		if m := rsPortMatcher.FindStringSubmatch(rsOut.String()); m != nil {
 			r.rsPort = m[1]
-			log.Printf("Server port: %s", r.rsPort)
+			slog.Info("Server port", slog.String("Port", r.rsPort))
 			break
 		}
 		slog.Info("Waiting for relay to be up-and-running ...")
@@ -95,7 +94,7 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 		"--relay_address=127.0.0.1:" + r.rsPort,
 	}...)
 	rcArgs = append(rcArgs, extraClientArgs...)
-	log.Printf("Backend address: %s", backendAddress)
+	slog.Info("Starting backend", slog.String("Address", backendAddress))
 
 	r.rc = exec.Command(RelayClientPath, rcArgs...)
 	r.rc.Stdout = os.Stdout

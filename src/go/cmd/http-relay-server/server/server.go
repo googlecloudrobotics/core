@@ -19,7 +19,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"log/slog"
 	"math/rand"
 	"net"
@@ -357,7 +356,7 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 
 	if debugLogs {
 		dump, _ := httputil.DumpRequest(r, false)
-		log.Printf("%s", dump)
+		slog.Info("Received user client request", slog.String("HttpRequest", string(dump)))
 	}
 
 	backendCtx, err := newBackendContext(r)
@@ -539,7 +538,7 @@ func (s *Server) Start(port int, blockSize int) {
 		Addr:    fmt.Sprintf(":%d", s.port),
 		Handler: och,
 		BaseContext: func(l net.Listener) context.Context {
-			log.Printf("Relay server listening on: 127.0.0.1:%d", l.Addr().(*net.TCPAddr).Port)
+			slog.Info("Relay server listening", slog.Int("Port", l.Addr().(*net.TCPAddr).Port))
 			return mainCtx
 		},
 	}

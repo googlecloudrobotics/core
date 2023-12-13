@@ -20,7 +20,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -195,7 +194,7 @@ func stopContainerIfNeeded(container string) error {
 	} else if !exists {
 		return nil
 	}
-	log.Printf("Stopping %s container", container)
+	slog.Info("Stopping container", slog.String("Container", container))
 	cmd := exec.Command("docker", "stop", container)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
