@@ -1277,7 +1277,6 @@ def go_repositories():
         sum = "h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf35Ld67mk=",
         version = "v2.1.0",
     )
-
     go_repository(
         name = "com_github_saintfish_chardet",
         importpath = "github.com/saintfish/chardet",
