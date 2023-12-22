@@ -179,7 +179,7 @@ func TestHttpErrorPropagation(t *testing.T) {
 	for _, test := range tests {
 		// Invoke a sub-test
 		t.Run(test.name, func(t *testing.T) {
-			// Setup a backend function which just serves a string.
+			// Setup a backend function which just serves an error code.
 			httpServer := serveFunction(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(test.statusCode)
 			})
