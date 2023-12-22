@@ -154,3 +154,47 @@ func TestHttpTimeout(t *testing.T) {
 		t.Error("No timeout error received.")
 	}
 }
+
+func TestHttpErrorPropagation(t *testing.T) {
+	initRelay()
+
+	tests := []struct {
+		name       string
+		statusCode int
+	}{
+		{"Propagate http.StatusBadRequest", http.StatusBadRequest},                           // 400
+		{"Propagate http.StatusUnauthorized", http.StatusUnauthorized},                       // 401
+		{"Propagate http.StatusPaymentRequired", http.StatusPaymentRequired},                 // 402
+		{"Propagate http.StatusForbidden", http.StatusForbidden},                             // 403
+		{"Propagate http.StatusNotFound", http.StatusNotFound},                               // 404
+		{"Propagate http.StatusMethodNotAllowed", http.StatusMethodNotAllowed},               // 405
+		{"Propagate http.StatusInternalServerError", http.StatusInternalServerError},         // 500
+		{"Propagate http.StatusNotImplemented", http.StatusNotImplemented},                   // 501
+		{"Propagate http.StatusBadGateway", http.StatusBadGateway},                           // 502
+		{"Propagate http.StatusServiceUnavailable", http.StatusServiceUnavailable},           // 503
+		{"Propagate http.StatusGatewayTimeout", http.StatusGatewayTimeout},                   // 504
+		{"Propagate http.StatusHTTPVersionNotSupported", http.StatusHTTPVersionNotSupported}, // 505
+	}
+
+	for _, test := range tests {
+		// Invoke a sub-test
+		t.Run(test.name, func(t *testing.T) {
+			// Setup a backend function which just serves a string.
+			httpServer := serveFunction(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(test.statusCode)
+			})
+			defer httpServer.Shutdown(context.Background())
+
+			// Invoke the backend function through the relay.
+			relayAddress := fmt.Sprint("http://127.0.0.1:", relayPort, "/client/server_name/")
+			res, err := http.Get(relayAddress)
+			if err != nil {
+				t.Errorf("Server responeded with an error. Error %v", err)
+			}
+			if res.StatusCode != test.statusCode {
+				t.Errorf("Server responeded with an unexpected status code.\n\tExpected: %v\n\tObserved: %v", test.statusCode, res.StatusCode)
+			}
+			defer res.Body.Close()
+		})
+	}
+}
