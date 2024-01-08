@@ -7,6 +7,10 @@ build --incompatible_enable_cc_toolchain_resolution
 # correctness and repeatability of the build.
 build --incompatible_strict_action_env=true
 
+# Make sure that no regressions are introduced until the flag is flipped
+# See: https://github.com/bazelbuild/bazel/issues/8195
+build --incompatible_disallow_empty_glob
+
 # Always use the pre-configured toolchain.
 build --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 
