@@ -15,7 +15,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -26,7 +25,7 @@ const (
 )
 
 func TestDetectsDeletionOfFile(t *testing.T) {
-	tmpfile, err := ioutil.TempFile("", "tmpfile")
+	tmpfile, err := os.CreateTemp("", "tmpfile")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +45,7 @@ func TestDetectsDeletionOfFile(t *testing.T) {
 }
 
 func TestNoChangeDetectedWhenFileUnchanged(t *testing.T) {
-	tmpfile, err := ioutil.TempFile("", "tmpfile")
+	tmpfile, err := os.CreateTemp("", "tmpfile")
 	if err != nil {
 		t.Fatal(err)
 	}

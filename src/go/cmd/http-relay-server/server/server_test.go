@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -37,7 +36,7 @@ func checkResponse(t *testing.T, resp *http.Response, wantStatus int, wantBody s
 	if want, got := wantStatus, resp.StatusCode; want != got {
 		t.Errorf("Wrong response code; want %d; got %d", want, got)
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Errorf("Failed to read body stream")
 	}
@@ -222,7 +221,7 @@ func TestClientBadRequest(t *testing.T) {
 				t.Errorf("Wrong response code; want %d; got %d", tc.wantCode, got)
 			}
 			if tc.wantMsg != "" {
-				body, err := ioutil.ReadAll(resp.Body)
+				body, err := io.ReadAll(resp.Body)
 				if err != nil {
 					t.Errorf("Failed to read body stream: %v", err)
 				}
@@ -355,7 +354,7 @@ func TestServerRequestResponseHandler(t *testing.T) {
 	if want, got := 200, reqRecorder.Result().StatusCode; want != got {
 		t.Errorf("Wrong response code; want %d; got %d", want, got)
 	}
-	body, err := ioutil.ReadAll(reqRecorder.Result().Body)
+	body, err := io.ReadAll(reqRecorder.Result().Body)
 	if err != nil {
 		t.Errorf("Failed to read body stream: %v", err)
 	}

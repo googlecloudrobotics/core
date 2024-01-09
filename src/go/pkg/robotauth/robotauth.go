@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -62,7 +61,7 @@ func LoadFromFile(keyfile string) (*RobotAuth, error) {
 	if keyfile == "" {
 		keyfile = filename()
 	}
-	raw, err := ioutil.ReadFile(keyfile)
+	raw, err := os.ReadFile(keyfile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %v: %v", credentialsFile, err)
 	}
@@ -88,7 +87,7 @@ func (r *RobotAuth) StoreInFile() error {
 		return err
 	}
 
-	err = ioutil.WriteFile(file, raw, 0600)
+	err = os.WriteFile(file, raw, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to write %v: %v", credentialsFile, err)
 	}
