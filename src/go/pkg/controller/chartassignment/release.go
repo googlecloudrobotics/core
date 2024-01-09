@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -351,7 +350,7 @@ func fetchChartTar(repoURL, name, version string) (io.Reader, error) {
 		Verify:   downloader.VerifyIfPossible,
 	}
 
-	dir, err := ioutil.TempDir("", name)
+	dir, err := os.MkdirTemp("", name)
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +372,7 @@ func fetchChartTar(repoURL, name, version string) (io.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

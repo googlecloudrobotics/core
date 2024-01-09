@@ -24,7 +24,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -353,7 +352,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 	cluster.kind = kindcluster.NewProvider()
 
 	// Create kubeconfig file for use by synk or the dev.
-	kubeConfig, err := ioutil.TempFile("", "kubeconfig-")
+	kubeConfig, err := os.CreateTemp("", "kubeconfig-")
 	if err != nil {
 		return errors.Wrap(err, "create temp kubeconfig")
 	}
@@ -369,7 +368,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 	); err != nil {
 		return errors.Wrapf(err, "create cluster %q", cluster.genName)
 	}
-	kubecfgRaw, err := ioutil.ReadFile(cluster.kubeConfigPath)
+	kubecfgRaw, err := os.ReadFile(cluster.kubeConfigPath)
 	if err != nil {
 		return errors.Wrap(err, "read kube config")
 	}

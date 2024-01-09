@@ -17,7 +17,7 @@ package main
 import (
 	"context"
 	"errors"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -30,7 +30,7 @@ import (
 )
 
 func bodyOrDie(r *http.Response) string {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Fatal("Failed to read body stream")
 	}

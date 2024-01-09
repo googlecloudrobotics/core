@@ -18,7 +18,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/rand"
 	"net"
@@ -271,7 +271,7 @@ func (s *Server) readRequestBody(ctx context.Context, r *http.Request) ([]byte, 
 	_, span := trace.StartSpan(ctx, "Read request body")
 	addServiceName(span)
 	defer span.End()
-	return ioutil.ReadAll(r.Body)
+	return io.ReadAll(r.Body)
 }
 
 func (s *Server) createBackendRequest(backendCtx backendContext, r *http.Request, body []byte) *pb.HttpRequest {
@@ -483,7 +483,7 @@ func (s *Server) serverRequestStream(w http.ResponseWriter, r *http.Request) {
 // The response is stored in the response channel through which the data is relayed
 // to the initial requester.
 func (s *Server) serverResponse(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
