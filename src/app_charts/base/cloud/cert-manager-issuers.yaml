@@ -16,7 +16,7 @@ spec:
 {{ if eq .Values.certificate_provider "lets-encrypt" }}
 ---
 apiVersion: cert-manager.io/v1
-kind: Issuer
+kind: ClusterIssuer
 metadata:
   name: letsencrypt-prod
 spec:
