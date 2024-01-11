@@ -15,8 +15,11 @@ spec:
     secretName: cluster-authority
 {{ if eq .Values.certificate_provider "lets-encrypt" }}
 ---
+# While an Issuer may satisfy our current needs within the default namespace,
+# anticipating future growth and potential deployments in additional namespaces,
+# adopting a ClusterIssuer offers a more scalable and versatile solution.
 apiVersion: cert-manager.io/v1
-kind: Issuer
+kind: ClusterIssuer
 metadata:
   name: letsencrypt-prod
 spec:
