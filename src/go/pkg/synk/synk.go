@@ -481,9 +481,15 @@ func (s *Synk) populateNamespaces(
 	_, span := trace.StartSpan(ctx, "Discover server resources")
 	_, list, err := s.discovery.ServerGroupsAndResources()
 	span.End()
+
+	// Don't treat "empty response" from external metrics servers as an error.
+	// Follows precedent from: https://github.com/kubernetes/client-go/commit/0bc91705fa50a531b8a1ee9dca3ef063ca71bb0c
 	if err != nil {
-		return errors.Wrap(err, "discover server resources")
+		if !strings.Contains(err.Error(), "received empty response for: external.metrics.k8s.io/") {
+			return errors.Wrap(err, "discover server resources")
+		}
 	}
+
 	// We have to consider discoverable resources as well as CRDs that
 	// will only be added later.
 	isNamespaced := map[string]bool{}
