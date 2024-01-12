@@ -194,11 +194,14 @@ func (r *release) setGeneration(generation int64) {
 func (r *release) setFailed(err error, retry bool) {
 	r.mtx.Lock()
 	if !retry {
+		log.Printf("chart failed in phase %v: %v", r.status.phase, err)
 		// We only update the phase for non-retriable errors. This mitigates a
 		// race condition between ensureUpdated, which sets phase=Updating when
 		// retrying, and setStatus, which reads either the old phase or Updating
 		// and copies it to the chartassignment status.
 		r.status.phase = apps.ChartAssignmentPhaseFailed
+	} else {
+		log.Printf("chart failed in phase %v (retrying): %v", r.status.phase, err)
 	}
 	r.status.err = err
 	r.status.retry = retry
@@ -230,7 +233,6 @@ func (r *release) delete(as *apps.ChartAssignment) {
 func (r *release) update(as *apps.ChartAssignment) {
 	resources, retry, err := loadAndExpandChart(as)
 	if err != nil {
-		log.Printf("Error loading chart: %v", err)
 		r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
 		r.setFailed(err, retry)
 		return
