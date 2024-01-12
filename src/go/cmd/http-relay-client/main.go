@@ -23,7 +23,6 @@ package main
 import (
 	"flag"
 	"log"
-	"time"
 
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client"
@@ -31,67 +30,52 @@ import (
 )
 
 var (
-	backendScheme           string
-	backendAddress          string
-	backendPath             string
-	preserveHost            bool
-	relayScheme             string
-	relayAddress            string
-	relayPrefix             string
-	serverName              string
-	authenticationTokenFile string
-	rootCAFile              string
-	maxChunkSize            int
-	blockSize               int
-	numPendingRequests      int
-	maxIdleConnsPerHost     int
-	disableHttp2            bool
-	forceHttp2              bool
-	disableAuthForRemote    bool
-	stackdriverProjectID    string
+	config client.ClientConfig
+
+	stackdriverProjectID string
 )
 
 func init() {
-	dcc := client.DefaultClientConfig()
+	config = client.DefaultClientConfig()
 
 	// We set the default values for all command line flags to be equal to the
 	// values in the default client config to ensure consistency between the two.
-	flag.StringVar(&backendScheme, "backend_scheme", dcc.BackendScheme,
+	flag.StringVar(&config.BackendScheme, "backend_scheme", config.BackendScheme,
 		"Connection scheme (http, https) for connection from relay "+
 			"client to backend server")
-	flag.StringVar(&backendAddress, "backend_address", dcc.BackendAddress,
+	flag.StringVar(&config.BackendAddress, "backend_address", config.BackendAddress,
 		"Hostname of the backend server as seen by the relay client")
-	flag.StringVar(&backendPath, "backend_path", dcc.BackendPath,
+	flag.StringVar(&config.BackendPath, "backend_path", config.BackendPath,
 		"Path prefix for backend requests (default: none)")
-	flag.BoolVar(&preserveHost, "preserve_host", dcc.PreserveHost,
+	flag.BoolVar(&config.PreserveHost, "preserve_host", config.PreserveHost,
 		"Preserve Host header of the original request for "+
 			"compatibility with cross-origin request checks.")
-	flag.StringVar(&relayScheme, "relay_scheme", dcc.RelayScheme,
+	flag.StringVar(&config.RelayScheme, "relay_scheme", config.RelayScheme,
 		"Connection scheme (http, https) for connection from relay "+
 			"client to relay server")
-	flag.StringVar(&relayAddress, "relay_address", dcc.RelayAddress,
+	flag.StringVar(&config.RelayAddress, "relay_address", config.RelayAddress,
 		"Hostname of the relay server as seen by the relay client")
-	flag.StringVar(&relayPrefix, "relay_prefix", dcc.RelayPrefix,
+	flag.StringVar(&config.RelayPrefix, "relay_prefix", config.RelayPrefix,
 		"Path prefix for the relay server")
-	flag.StringVar(&serverName, "server_name", dcc.ServerName, "Fetch requests from "+
-		"the relay server for this server name")
-	flag.StringVar(&authenticationTokenFile, "authentication_token_file", dcc.AuthenticationTokenFile,
+	flag.StringVar(&config.ServerName, "server_name", config.ServerName,
+		"Fetch requests from the relay server for this server name")
+	flag.StringVar(&config.AuthenticationTokenFile, "authentication_token_file", config.AuthenticationTokenFile,
 		"File with authentication token for backend requests")
-	flag.StringVar(&rootCAFile, "root_ca_file", dcc.RootCAFile,
+	flag.StringVar(&config.RootCAFile, "root_ca_file", config.RootCAFile,
 		"File with root CA cert for SSL")
-	flag.IntVar(&maxChunkSize, "max_chunk_size", dcc.MaxChunkSize,
+	flag.IntVar(&config.MaxChunkSize, "max_chunk_size", config.MaxChunkSize,
 		"Max size of data in bytes to accumulate before sending to the peer")
-	flag.IntVar(&blockSize, "block_size", dcc.BlockSize,
+	flag.IntVar(&config.BlockSize, "block_size", config.BlockSize,
 		"Size of i/o buffer in bytes")
-	flag.IntVar(&numPendingRequests, "num_pending_requests", dcc.NumPendingRequests,
+	flag.IntVar(&config.NumPendingRequests, "num_pending_requests", config.NumPendingRequests,
 		"Number of pending http requests to the relay")
-	flag.IntVar(&maxIdleConnsPerHost, "max_idle_conns_per_host", dcc.MaxIdleConnsPerHost,
+	flag.IntVar(&config.MaxIdleConnsPerHost, "max_idle_conns_per_host", config.MaxIdleConnsPerHost,
 		"The maximum number of idle (keep-alive) connections to keep per-host")
-	flag.BoolVar(&disableHttp2, "disable_http2", dcc.DisableHttp2,
+	flag.BoolVar(&config.DisableHttp2, "disable_http2", config.DisableHttp2,
 		"Disable http2 protocol usage (e.g. for channels that use special streaming protocols such as SPDY).")
-	flag.BoolVar(&forceHttp2, "force_http2", dcc.ForceHttp2,
+	flag.BoolVar(&config.ForceHttp2, "force_http2", config.ForceHttp2,
 		"Force enable http2 protocol usage through the use of go's http2 transport (e.g. when relaying grpc).")
-	flag.BoolVar(&disableAuthForRemote, "disable_auth_for_remote", dcc.DisableAuthForRemote,
+	flag.BoolVar(&config.DisableAuthForRemote, "disable_auth_for_remote", config.DisableAuthForRemote,
 		"Disable auth when talking to the relay server for local testing.")
 
 	// The stackdriver project ID is a client independent variable and so we
@@ -116,34 +100,6 @@ func main() {
 		}
 	}
 
-	config := client.ClientConfig{
-		RemoteRequestTimeout:   60 * time.Second,
-		BackendResponseTimeout: 100 * time.Millisecond,
-
-		DisableAuthForRemote:    disableAuthForRemote,
-		RootCAFile:              rootCAFile,
-		AuthenticationTokenFile: authenticationTokenFile,
-
-		BackendScheme:  backendScheme,
-		BackendAddress: backendAddress,
-		BackendPath:    backendPath,
-		PreserveHost:   preserveHost,
-
-		RelayScheme:  relayScheme,
-		RelayAddress: relayAddress,
-		RelayPrefix:  relayPrefix,
-
-		ServerName: serverName,
-
-		NumPendingRequests:  numPendingRequests,
-		MaxIdleConnsPerHost: maxIdleConnsPerHost,
-
-		MaxChunkSize: maxChunkSize,
-		BlockSize:    blockSize,
-
-		DisableHttp2: disableHttp2,
-		ForceHttp2:   forceHttp2,
-	}
 	client := client.NewClient(config)
 	client.Start()
 }
