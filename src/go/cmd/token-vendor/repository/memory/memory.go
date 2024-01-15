@@ -16,8 +16,7 @@ package memory
 
 import (
 	"context"
-
-	log "github.com/sirupsen/logrus"
+	"log/slog"
 )
 
 // MemoryRepository uses a in-memory datastructure to store the keys.
@@ -31,13 +30,13 @@ func NewMemoryRepository(ctx context.Context) (*MemoryRepository, error) {
 }
 
 func (m *MemoryRepository) PublishKey(ctx context.Context, deviceID, publicKey string) error {
-	log.Debugf("Publishing public key for %q: %q", deviceID, publicKey)
+	slog.Debug("PublishKey", slog.String("DeviceID", deviceID), slog.String("PublicKey", publicKey))
 	m.keys[deviceID] = publicKey
 	return nil
 }
 
 func (m *MemoryRepository) LookupKey(ctx context.Context, deviceID string) (string, error) {
-	log.Debugf("LookupKey for device %q", deviceID)
+	slog.Debug("LookupKey", slog.String("DeviceID", deviceID))
 	// key not found does not need to be an error
 	return m.keys[deviceID], nil
 }

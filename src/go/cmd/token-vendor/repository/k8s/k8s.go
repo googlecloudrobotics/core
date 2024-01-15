@@ -17,9 +17,9 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,10 +64,10 @@ func (k *K8sRepository) ListAllDeviceIDs(ctx context.Context) ([]string, error) 
 // does not exist, we return an empty string. For any other error or a malformed
 // configmap we return an error.
 func (k *K8sRepository) LookupKey(ctx context.Context, deviceID string) (string, error) {
-	log.Debugf("looking up public key from configmap %q/%q", k.ns, deviceID)
+	slog.Debug("looking up public key", slog.String("Namespace", k.ns), slog.String("ConfigMap", deviceID))
 	cm, err := k.kcl.CoreV1().ConfigMaps(k.ns).Get(ctx, deviceID, metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
-		log.Debugf("no configmap with name %q found in namespace %q", deviceID, k.ns)
+		slog.Debug("ConfigMap not found", slog.String("Namespace", k.ns), slog.String("ConfigMap", deviceID))
 		return "", nil
 	}
 	if err != nil {
@@ -85,13 +85,14 @@ func (k *K8sRepository) LookupKey(ctx context.Context, deviceID string) (string,
 // If the configmap for a device does not exist yet it is created. If it exists
 // already the public key section of the configmap is updated.
 func (k *K8sRepository) PublishKey(ctx context.Context, deviceID, publicKey string) error {
-	log.Debug("publishing key for device ", deviceID)
+	slog.Debug("publishing key", slog.String("DeviceID", deviceID))
 	cm, err := createPubKeyDeviceConfig(deviceID, publicKey)
 	if err != nil {
 		return errors.Wrapf(err, "failed to init device configmap %q/%q", k.ns, deviceID)
 	}
 	if _, err = k.kcl.CoreV1().ConfigMaps(k.ns).Create(ctx, cm, metav1.CreateOptions{}); err == nil { // no error
-		log.Infof("created new configmap %q/%q", k.ns, deviceID)
+
+		slog.Info("created new configmap", slog.String("Namespace", k.ns), slog.String("ConfigMap", deviceID))
 		return nil
 	}
 	if !kerrors.IsAlreadyExists(err) { // any error not AlreadyExist
@@ -103,7 +104,7 @@ func (k *K8sRepository) PublishKey(ctx context.Context, deviceID, publicKey stri
 	if _, err = k.kcl.CoreV1().ConfigMaps(k.ns).Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
 		return errors.Wrapf(err, "configmap %q/%q exists but failed to update it", k.ns, deviceID)
 	}
-	log.Infof("updated configmap %q/%q with new public key", k.ns, deviceID)
+	slog.Info("updated configmap with new public key", slog.String("Namespace", k.ns), slog.String("ConfigMap", deviceID))
 	return nil
 }
 

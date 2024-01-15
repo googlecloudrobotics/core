@@ -15,11 +15,11 @@
 package api
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -53,20 +53,24 @@ func SetupAndServe(addr string) error {
 		Handler: http.TimeoutHandler(LoggingMiddleware(http.DefaultServeMux),
 			httpTimeoutHandler, "handler timeout"),
 	}
-	log.Info("api listening on ", addr)
+	slog.Info("API listening", slog.String("Address", addr))
 	return srv.ListenAndServe()
 }
 
 func LoggingMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		xFwd := r.Header.Get("X-Forwarded-For")
-		log.Debugf("[%s, for %q] [%s] %s", r.RemoteAddr, xFwd, r.Method, r.URL)
+		slog.Debug("Forwarding request",
+			slog.String("RemoteAddr", r.RemoteAddr),
+			slog.String("For", xFwd),
+			slog.String("Method", r.Method),
+			slog.String("URL", r.URL.String()))
 		handler.ServeHTTP(w, r)
 	})
 }
 
 func ErrResponse(w http.ResponseWriter, statusCode int, message string) {
-	log.Warnf("-> error [%d] %s", statusCode, message)
+	slog.Warn("Error response", slog.Int("Code", statusCode), slog.String("Message", message))
 	w.WriteHeader(statusCode)
 	w.Write([]byte(message))
 }
