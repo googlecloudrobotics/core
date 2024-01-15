@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"github.com/cenkalti/backoff"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
+	"github.com/googlecloudrobotics/ilog"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -66,6 +68,9 @@ var (
 )
 
 func main() {
+	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
+	slog.SetDefault(slog.New(logHandler))
+
 	restOpts.AddFlags(cmdRoot.PersistentFlags())
 	resourceOpts.AddFlags(cmdApply.PersistentFlags())
 
