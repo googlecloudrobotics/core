@@ -28,12 +28,6 @@ spec:
 {{ if eq .Values.certificate_provider "lets-encrypt" }}
   issuerRef:
     name: letsencrypt-prod
-  acme:
-    config:
-    - http01:
-        ingressClass: nginx
-      domains:
-      - {{ .Values.domain }}
 {{ else if eq .Values.certificate_provider "google-cas" }}
   issuerRef:
     name: google-cas
