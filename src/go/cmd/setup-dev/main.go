@@ -20,7 +20,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -33,6 +33,7 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
 	"github.com/googlecloudrobotics/core/src/go/pkg/setup/util"
+	"github.com/googlecloudrobotics/ilog"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -60,12 +61,17 @@ func parseFlags() {
 
 func main() {
 	parseFlags()
+
+	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
+	slog.SetDefault(slog.New(logHandler))
+
 	ctx := context.Background()
 	f := &util.DefaultFactory{}
 
 	vars, err := configutil.ReadConfig(*project)
 	if err != nil {
-		log.Fatal("Failed to read config for project: ", err)
+		slog.Error("Failed to read config", ilog.Err(err))
+		os.Exit(1)
 	}
 	domain, ok := vars["CLOUD_ROBOTICS_DOMAIN"]
 	if !ok || domain == "" {
@@ -74,31 +80,35 @@ func main() {
 
 	tokenSource, err := google.DefaultTokenSource(context.Background(), "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
-		log.Fatal("Failed to create OAuth2 token source: ", err)
+		slog.Error("Failed to create OAuth2 token source", ilog.Err(err))
+		os.Exit(1)
 	}
 	k8sCfg := kubeutils.BuildCloudKubernetesConfig(tokenSource, domain)
 	k8s, err := dynamic.NewForConfig(k8sCfg)
 	if err != nil {
-		log.Fatal("Failed to create kubernetes client: ", err)
+		slog.Error("Failed to create kubernetes client", ilog.Err(err))
+		os.Exit(1)
 	}
 	robotGVR := schema.GroupVersionResource{Group: "registry.cloudrobotics.com", Version: "v1alpha1", Resource: "robots"}
 	robotClient := k8s.Resource(robotGVR).Namespace("default")
 
 	*robotName, err = setup.GetRobotName(ctx, f, robotClient, *robotName)
 	if err != nil {
-		log.Fatalln("ERROR:", err)
+		slog.Error("Failed to get robot name", ilog.Err(err))
+		os.Exit(1)
 	}
 	if err := createKubeRelayEntry(*project, domain, *robotName); err != nil {
-		log.Fatalln("Failed to create kubectl context:", err)
+		slog.Error("Failed to create kubectl context", ilog.Err(err))
+		os.Exit(1)
 	}
 	// TODO(ensonic): these are only used for the ssh-app
 	// dev credentials are always created
 	client := oauth2.NewClient(context.Background(), tokenSource)
 	if err := setupDevCredentials(client, domain, *robotName); err != nil {
-		log.Fatal(err)
+		slog.Error("Failed to set up credentials", ilog.Err(err))
+		os.Exit(1)
 	}
-	log.Println("Setup complete.")
-	return
+	slog.Info("Setup complete.")
 }
 
 // createKubeRelayEntry writes cluster configuration to ~/.kube/config,
@@ -149,7 +159,7 @@ func setupDevCredentials(client *http.Client, domain string, robotName string) e
 		Domain:              domain,
 		PublicKeyRegistryId: makeIdentifier(hostname),
 	}
-	log.Println("Creating new private key")
+	slog.Info("Creating new private key")
 	if err := auth.CreatePrivateKey(); err != nil {
 		return err
 	}
@@ -165,10 +175,7 @@ func setupDevCredentials(client *http.Client, domain string, robotName string) e
 // makeIdentifier converts a string to a valid robot identifier by adding a prefix
 // and removing invalid characters.
 func makeIdentifier(base string) string {
-	invalid, err := regexp.Compile("[^a-zA-Z0-9_.~+%-]+")
-	if err != nil {
-		log.Fatalln("makeValidIdentifier: failed to compile regex:", err)
-	}
+	invalid := regexp.MustCompile("[^a-zA-Z0-9_.~+%-]+")
 	return robotPrefix + invalid.ReplaceAllString(base, "")
 }
 
@@ -191,7 +198,7 @@ func stopContainerIfNeeded(container string) error {
 	} else if !exists {
 		return nil
 	}
-	log.Printf("Stopping %s container", container)
+	slog.Info("Stopping container", slog.String("Container", container))
 	cmd := exec.Command("docker", "stop", container)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
