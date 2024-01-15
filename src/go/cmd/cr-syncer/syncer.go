@@ -17,11 +17,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
+	"github.com/googlecloudrobotics/ilog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -114,7 +116,7 @@ func removeFinalizer(ctx context.Context, client dynamic.ResourceInterface, obj 
 		if isNotFoundError(err) {
 			return
 		}
-		log.Printf("failed to remove finalizers: %v", err)
+		slog.Error("failed to remove finalizers", ilog.Err(err))
 	}
 }
 
@@ -169,8 +171,10 @@ func newCRSyncer(
 	)
 	if filterByRobotValue != "" {
 		if v, err := strconv.ParseBool(filterByRobotValue); err != nil {
-			log.Printf("Value for %s  must be boolean on %s, got %q",
-				annotationFilterByRobotName, crd.ObjectMeta.Name, filterByRobotValue)
+			slog.Error("Value must be boolean",
+				slog.String("Filter", annotationFilterByRobotName),
+				slog.String("Target", crd.ObjectMeta.Name),
+				slog.String("Got", filterByRobotValue))
 		} else {
 			filterByRobot = v
 		}
@@ -222,7 +226,7 @@ func newCRSyncer(
 			s.labelSelector = labelRobotName + "=" + robotName
 		} else {
 			// TODO(fabxc): should this return an error instead?
-			log.Printf("%s requested to filter by robot-name, but no robot-name was given to cr-syncer", crd.ObjectMeta.Name)
+			slog.Warn("request to filter by robot-name, but no robot-name was given to cr-syncer", slog.String("Requester", crd.ObjectMeta.Name))
 		}
 	}
 
@@ -294,8 +298,12 @@ func (s *crSyncer) setupInformerHandlers(
 ) {
 	receive := func(obj interface{}, action string) {
 		u := obj.(*unstructured.Unstructured)
-		log.Printf("Got %s event from %s for %s %s@v%s",
-			action, direction, u.GetKind(), u.GetName(), u.GetResourceVersion())
+		slog.Info("Got Event",
+			slog.String("Event", action),
+			slog.String("Direction", direction),
+			slog.String("Kind", u.GetKind()),
+			slog.String("Name", u.GetName()),
+			slog.String("Version", u.GetResourceVersion()))
 		if key, ok := keyFunc(obj); ok {
 			queue.AddRateLimited(key)
 		}
@@ -332,10 +340,10 @@ func (s *crSyncer) processNextWorkItem(
 	// This could occur at watchers of single CRDs while others keep working. Thus, it is less resource intensive just restarting informers of the affected CRDs rather than whoel cr-syncer
 	// Errors are counted in syncUpstream and syncDownstream functions
 	if s.conflictErrors >= *conflictErrorLimit {
-		log.Printf("Restarting informers of %s because of too many conflict errors", s.crd.GetName())
+		slog.Info("Restarting informers because of too many conflict errors", slog.String("CRD", s.crd.GetName()))
 		err := s.restartInformers()
 		if err != nil {
-			log.Printf("Restarting informers for %s failed", s.crd.GetName())
+			slog.Warn("Restarting informers failed", slog.String("CRD", s.crd.GetName()))
 			q.AddRateLimited(key)
 			return true
 		} else {
@@ -355,7 +363,10 @@ func (s *crSyncer) processNextWorkItem(
 	}
 	// Synchronization failed, retry later.
 	stats.Record(ctx, mSyncErrors.M(1))
-	log.Printf("Syncing key %q from queue %q failed: %v", key, qName, err)
+	slog.Warn("Syncing key from queue failed",
+		slog.Any("Key", key),
+		slog.String("Queue", qName),
+		ilog.Err(err))
 	q.AddRateLimited(key)
 
 	return true
@@ -365,11 +376,11 @@ func (s *crSyncer) run() {
 	defer s.upstreamQueue.ShutDown()
 	defer s.downstreamQueue.ShutDown()
 
-	log.Printf("Starting syncer for %s", s.crd.GetName())
+	slog.Info("Starting syncer", slog.String("CRD", s.crd.GetName()))
 
 	// Start informers that will populate their associated workqueue.
 	if err := s.startInformers(); err != nil {
-		log.Printf("Starting informers for %s failed: %s", s.crd.GetName(), err)
+		slog.Warn("Starting informers failed", slog.String("CRD", s.crd.GetName()), ilog.Err(err))
 		return
 	}
 
@@ -394,7 +405,7 @@ func (s *crSyncer) run() {
 }
 
 func (s *crSyncer) stop() {
-	log.Printf("Stopping syncer for %s", s.crd.GetName())
+	slog.Info("Stopping syncer", slog.String("CRD", s.crd.GetName()))
 	close(s.done)
 }
 
@@ -497,8 +508,12 @@ func (s *crSyncer) syncDownstream(key string) error {
 	if s.clusterName != cloudClusterName {
 		s.conflictErrors = 0
 	}
-	log.Printf("Copied %s %s status@v%s to upstream@v%s",
-		src.GetKind(), src.GetName(), src.GetResourceVersion(), dst.GetResourceVersion())
+	slog.Info("Copied status to upstream",
+		slog.String("Kind", src.GetKind()),
+		slog.String("Name", src.GetName()),
+		slog.Any("Source version", src.GetResourceVersion()),
+		slog.Any("Destination version", dst.GetResourceVersion()))
+
 	return nil
 }
 
@@ -558,7 +573,10 @@ func (s *crSyncer) syncUpstream(key string) error {
 		}
 		return nil
 	default:
-		log.Fatalf("unhandled condition: srcExists=%t, dstExists=%t", srcExists, dstExists)
+		slog.Error("unhandled condition",
+			slog.Bool("srcExists", srcExists),
+			slog.Bool("dstExists", dstExists))
+		os.Exit(1)
 		return nil
 	}
 
@@ -621,7 +639,7 @@ func newAPIErrorf(o *unstructured.Unstructured, format string, args ...interface
 func keyFunc(obj interface{}) (string, bool) {
 	k, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		log.Printf("deriving key failed: %s", err)
+		slog.Warn("deriving key failed", ilog.Err(err))
 		return k, false
 	}
 	return k, true
