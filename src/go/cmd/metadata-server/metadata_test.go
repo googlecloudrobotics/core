@@ -18,10 +18,11 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -32,7 +33,8 @@ import (
 func bodyOrDie(r *http.Response) string {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Fatal("Failed to read body stream")
+		slog.Error("Failed to read body stream")
+		os.Exit(1)
 	}
 	return string(body)
 }
