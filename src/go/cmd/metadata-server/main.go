@@ -121,7 +121,7 @@ func runIPTablesCommand(args []string) error {
 func main() {
 	flag.Parse()
 
-	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stdout)
+	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
 	if ip := net.ParseIP(*bindIP); ip == nil {
