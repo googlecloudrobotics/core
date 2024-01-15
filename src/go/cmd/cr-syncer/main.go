@@ -20,21 +20,21 @@
 //
 // Annotation "filter-by-robot-name"
 //
-//   cr-syncer.cloudrobotics.com/filter-by-robot-name: <bool>
+//	cr-syncer.cloudrobotics.com/filter-by-robot-name: <bool>
 //
 // If true, only sync CRs that have a label 'cloudrobotics.com/robot-name: <robot-name>'
 // that matches the robot-name arg given on the command line.
 //
 // Annotation "status-subtree"
 //
-//   cr-syncer.cloudrobotics.com/status-subtree: <string>
+//	cr-syncer.cloudrobotics.com/status-subtree: <string>
 //
 // If specified, only sync the given subtree of the Status field. This is useful
 // if resources have a shared status.
 //
 // Annotation "spec-source"
 //
-//   cr-syncer.cloudrobotics.com/spec-source: <string>
+//	cr-syncer.cloudrobotics.com/spec-source: <string>
 //
 // If set to "cloud", the source of truth for object existence and specs (upstream) is
 // the remote cluster and for status it's local (downstream). If set to "robot", the roles
@@ -44,12 +44,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/googlecloudrobotics/ilog"
 	"github.com/motemen/go-loghttp"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats/view"
@@ -200,7 +202,7 @@ func streamCrds(done <-chan struct{}, clientset crdclientset.Interface, crds cha
 
 	go informer.Run(done)
 
-	log.Printf("Syncing cache for CRDs")
+	slog.Info("Syncing cache for CRDs")
 	ok := cache.WaitForCacheSync(done, informer.HasSynced)
 	if !ok {
 		return fmt.Errorf("WaitForCacheSync failed")
@@ -225,13 +227,22 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
+	ll := slog.LevelInfo
+	if *verbose {
+		ll = slog.LevelDebug
+	}
+	logHandler := ilog.NewLogHandler(ll, os.Stderr)
+	slog.SetDefault(slog.New(logHandler))
+
 	localConfig, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("InClusterConfig", ilog.Err(err))
+		os.Exit(1)
 	}
 	localCtx, err := tag.New(ctx, tag.Insert(tagLocation, "local"))
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("tag.New", ilog.Err(err))
+		os.Exit(1)
 	}
 	localConfig.WrapTransport = func(base http.RoundTripper) http.RoundTripper {
 		if *verbose {
@@ -242,20 +253,24 @@ func main() {
 	}
 	local, err := dynamic.NewForConfig(localConfig)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("NewForConfig", ilog.Err(err))
+		os.Exit(1)
 	}
 	remoteConfig, err := restConfigForRemote(ctx)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("restConfigForRemote", ilog.Err(err))
+		os.Exit(1)
 	}
 	remote, err := dynamic.NewForConfig(remoteConfig)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("NewForConfig", ilog.Err(err))
+		os.Exit(1)
 	}
 
 	exporter, err := prometheus.NewExporter(prometheus.Options{})
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("NewExporter", ilog.Err(err))
+		os.Exit(1)
 	}
 	view.RegisterExporter(exporter)
 	view.SetReportingPeriod(time.Second)
@@ -265,13 +280,15 @@ func main() {
 
 	go func() {
 		if err := http.ListenAndServe(*listenAddr, nil); err != nil {
-			log.Fatalln(err)
+			slog.Error("ListenAndServe", ilog.Err(err))
+			os.Exit(1)
 		}
 	}()
 
 	crds := make(chan CrdChange)
 	if err := streamCrds(ctx.Done(), crdclientset.NewForConfigOrDie(localConfig), crds); err != nil {
-		log.Fatalf("Unable to stream CRDs from local Kubernetes: %v", err)
+		slog.Error("Unable to stream CRDs from local Kubernetes", ilog.Err(err))
+		os.Exit(1)
 	}
 	syncers := make(map[string]*crSyncer)
 	for crd := range crds {
@@ -279,7 +296,7 @@ func main() {
 
 		if cur, ok := syncers[name]; ok {
 			if crd.Type == watch.Added {
-				log.Printf("Warning: Already had a running sync for freshly added %s", name)
+				slog.Warn("Already had a running sync", slog.String("syncer", name))
 			}
 			cur.stop()
 			delete(syncers, name)
@@ -292,7 +309,7 @@ func main() {
 			// instead.
 			s, err := newCRSyncer(ctx, *crd.CRD, local, remote, *robotName)
 			if err != nil {
-				log.Printf("skipping custom resource %s: %s", name, err)
+				slog.Info("skipping custom resource", slog.String("Resource", name), ilog.Err(err))
 				continue
 			}
 			syncers[name] = s
