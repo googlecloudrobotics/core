@@ -170,7 +170,6 @@ spec:
         emptyDir:
           medium: Memory
       securityContext:
-        readOnlyRootFilesystem: true  
         runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
