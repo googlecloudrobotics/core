@@ -17,7 +17,15 @@ build --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 # Set a higher timeout value, just in case.
 build --remote_timeout=3600
 
-build:remote --remote_executor=grpcs://remotebuildexecution.googleapis.com
+# Platform flags
+# The toolchain container used for execution is defined in the target indicated
+# by "extra_execution_platforms", "host_platform" and "platforms".
+# More about platforms: https://docs.bazel.build/versions/master/platforms.html
+build:linux_x86_64 --extra_execution_platforms=//bazel:linux_x86_64
+build:linux_x86_64 --host_platform=//bazel:linux_x86_64
+build:linux_x86_64 --platforms=//bazel:linux_x86_64
+
+build:remote       --remote_executor=grpcs://remotebuildexecution.googleapis.com
 build:remote_cache --remote_cache=grpcs://remotebuildexecution.googleapis.com
 
 # Enable authentication. This will pick up application default credentials by
@@ -26,15 +34,9 @@ build:remote_cache --remote_cache=grpcs://remotebuildexecution.googleapis.com
 build:remote       --google_default_credentials=true
 build:remote_cache --google_default_credentials=true
 
-# Platform flags
-# The toolchain container used for execution is defined in the target indicated
-# by "extra_execution_platforms", "host_platform" and "platforms".
-# More about platforms: https://docs.bazel.build/versions/master/platforms.html
-build:remote --extra_execution_platforms=//bazel/rbe_config/config:platform
-build:remote --extra_toolchains=//bazel/rbe_config/java:all
-build:remote --host_platform=//bazel/rbe_config/config:platform
-build:remote --platforms=//bazel/rbe_config/config:platform
-build:remote --define=EXECUTOR=remote
+# RBE builds only support linux_x86_64.
+build:remote       --config=linux_x86_64
+build:remote_cache --config=linux_x86_64
 
 # Don't run integration tests and tests that need docker by default
 test --test_tag_filters="-external,-requires-docker"

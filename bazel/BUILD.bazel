@@ -4,3 +4,17 @@ exports_files([
     "container_push.bzl",
     "repositories.bzl",
 ])
+
+platform(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+        "@bazel_tools//tools/cpp:clang",
+    ],
+    exec_properties = {
+        "container-image": "docker://gcr.io/cloud-robotics-releases/bazel-rbe-executor@sha256:6650b807d35da820c154c527932fdb3034acaa20b5cf970251e7ec34c59a9cda",
+        "OSFamily": "Linux",
+    },
+    parents = ["@local_config_platform//:host"],
+)
