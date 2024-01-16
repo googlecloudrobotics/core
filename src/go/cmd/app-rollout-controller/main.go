@@ -19,12 +19,14 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/controller/approllout"
+	"github.com/googlecloudrobotics/ilog"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -51,21 +53,25 @@ var (
 )
 
 func main() {
-	log.SetFlags(log.Lshortfile | log.LstdFlags)
 	flag.Parse()
+	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
+	slog.SetDefault(slog.New(logHandler))
 
 	ctx := context.Background()
 	kubernetesConfig, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatalf("Failed to initialize Kubernetes config: %v", err)
+		slog.Error("Failed to initialize Kubernetes config", ilog.Err(err))
+		os.Exit(1)
 	}
 
 	helmParams, err := strvals.ParseString(*params)
 	if err != nil {
-		log.Fatalln("invalid Helm parameters:", err)
+		slog.Error("invalid Helm parameters", ilog.Err(err))
+		os.Exit(1)
 	}
 
-	log.Fatal(runController(ctx, kubernetesConfig, helmParams))
+	slog.Error("Exit", ilog.Err(runController(ctx, kubernetesConfig, helmParams)))
+	os.Exit(1)
 }
 
 func runController(ctx context.Context, cfg *rest.Config, params map[string]interface{}) error {
