@@ -20,7 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"reflect"
 	"regexp"
 	"sort"
@@ -30,6 +30,7 @@ import (
 
 	"github.com/cenkalti/backoff"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	"github.com/googlecloudrobotics/ilog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	corev1 "k8s.io/api/core/v1"
@@ -615,7 +616,7 @@ func canReplace(resource *unstructured.Unstructured, patchErr error) bool {
 		if err == nil && ok && v == "Retain" {
 			return true
 		}
-		log.Printf("Not replacing PersistentVolume since reclaim policy is not Retain but %q", v)
+		slog.Info("Not replacing PersistentVolume since reclaim policy is not Retain", slog.String("Policy", v))
 	}
 	if (k == "ValidatingWebhookConfiguration" || k == "MutatingWebhookConfiguration") && strings.Contains(e, "must be specified for an update") {
 		return true
@@ -669,7 +670,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 	}
 	resetAppliedAnnotation := false
 	if err := setAppliedAnnotation(resource); err != nil {
-		log.Printf("Storing Applied Annotation failed: %v", err)
+		slog.Warn("Storing Applied Annotation failed", ilog.Err(err))
 		resetAppliedAnnotation = true
 	}
 
@@ -818,7 +819,10 @@ func (s *Synk) crdAvailable(ucrd *unstructured.Unstructured) (bool, error) {
 		if err != nil {
 			// We'd like to detect "not found" vs network errors here. But unfortunately
 			// there's no canonical error being used.
-			log.Printf("ServerResourcesForGroupVersion(%s/%s) failed: %v", crd.Spec.Group, v, err)
+			slog.Warn("ServerResourcesForGroupVersion failed",
+				slog.String("Group", crd.Spec.Group),
+				slog.String("Version", v),
+				ilog.Err(err))
 			return false, nil
 		}
 		found := false
