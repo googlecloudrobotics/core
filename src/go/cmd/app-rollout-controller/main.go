@@ -70,8 +70,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Error("Exit", ilog.Err(runController(ctx, kubernetesConfig, helmParams)))
-	os.Exit(1)
+	if err := runController(ctx, kubernetesConfig, helmParams); err != nil {
+		slog.Error("Exit", ilog.Err(runController(ctx, kubernetesConfig, helmParams)))
+		os.Exit(1)
+	}
+	slog.Info("Exit")
 }
 
 func runController(ctx context.Context, cfg *rest.Config, params map[string]interface{}) error {
