@@ -19,8 +19,8 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/strvals"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -44,6 +45,9 @@ import (
 var (
 	params = flag.String("params", "",
 		"Helm configuration parameters formatted as name=value,topname.subname=value")
+
+	healthzPort = flag.Int("healthz-port", 8080,
+		"Listening port of the /healthz probe")
 
 	webhookPort = flag.Int("webhook-port", 9876,
 		"Listening port of the custom resource webhook")
@@ -89,7 +93,7 @@ func runController(ctx context.Context, cfg *rest.Config, params map[string]inte
 		Scheme:                 sc,
 		WebhookServer:          webhook.NewServer(webhook.Options{CertDir: *certDir, Port: *webhookPort}),
 		Metrics:                metricsserver.Options{BindAddress: "0"}, // disabled
-		HealthProbeBindAddress: ":8080",
+		HealthProbeBindAddress: fmt.Sprintf(":%d", *healthzPort),
 	})
 	if err != nil {
 		return errors.Wrap(err, "create controller manager")
@@ -97,7 +101,9 @@ func runController(ctx context.Context, cfg *rest.Config, params map[string]inte
 	if err := approllout.Add(ctx, mgr, chartutil.Values(params)); err != nil {
 		return errors.Wrap(err, "add AppRollout controller")
 	}
-	mgr.AddHealthzCheck("trivial", func(_ *http.Request) error { return nil })
+	if err := mgr.AddHealthzCheck("trivial", healthz.Ping); err != nil {
+		return errors.Wrap(err, "add healthz check")
+	}
 
 	srv := mgr.GetWebhookServer()
 
