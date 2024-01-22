@@ -18,19 +18,21 @@ import (
 	"bufio"
 	"context"
 	"io"
-	"log"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"cloud.google.com/go/storage"
+	"github.com/googlecloudrobotics/ilog"
 	"google.golang.org/api/option"
 )
 
 // Unescapes a bash string. Only supports the following three patterns:
-//   Hello\ \w\o\r\l\d -> Hello world
-//   "Hello \"world\"" -> Hello "world"
-//   'Hello '\''world'\''' -> Hello 'world'
+//
+//	Hello\ \w\o\r\l\d -> Hello world
+//	"Hello \"world\"" -> Hello "world"
+//	'Hello '\''world'\''' -> Hello 'world'
 func bashUnescape(s string) string {
 	if len(s) <= 1 {
 		return s
@@ -75,7 +77,8 @@ func setDefaultVars(vars map[string]string) {
 // ReadConfig reads the config.sh from the cloud storage of the given project.
 // All variables specified in the config are returned as dictionary.
 // Uses the following defaults if the variables are not set:
-//   CLOUD_ROBOTICS_CONTAINER_REGISTRY="gcr.io/<GCP_PROJECT_ID>"
+//
+//	CLOUD_ROBOTICS_CONTAINER_REGISTRY="gcr.io/<GCP_PROJECT_ID>"
 func ReadConfig(project string, opts ...option.ClientOption) (map[string]string, error) {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx, opts...)
@@ -106,7 +109,10 @@ func GetBoolean(vars map[string]string, key string, def bool) bool {
 		if b, err := strconv.ParseBool(val); err == nil {
 			return b
 		} else {
-			log.Printf("failed to convert config[%v]=%v to boolean: %v", key, val, err)
+			slog.Error("failed to convert config to boolean",
+				slog.String("Key", key),
+				slog.String("Value", val),
+				ilog.Err(err))
 		}
 	}
 	return def
