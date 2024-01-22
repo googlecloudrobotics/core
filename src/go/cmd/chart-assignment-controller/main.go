@@ -102,8 +102,11 @@ func main() {
 	// The default value of twice the max QPS seems to work well.
 	config.Burst = *maxQPS * 2
 
-	slog.Error("Controller terminated", ilog.Err(runController(ctx, config, clusterName)))
-	os.Exit(1)
+	if err := runController(ctx, config, clusterName); err != nil {
+		slog.Error("Controller terminated", ilog.Err(err))
+		os.Exit(1)
+	}
+	slog.Info("Controller finished")
 }
 
 func runController(ctx context.Context, cfg *rest.Config, cluster string) error {
