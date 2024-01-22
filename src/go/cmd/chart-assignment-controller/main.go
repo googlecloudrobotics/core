@@ -20,8 +20,8 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 
 	"contrib.go.opencensus.io/exporter/stackdriver"
@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -44,6 +45,9 @@ import (
 var (
 	cloudCluster = flag.Bool("cloud-cluster", true,
 		"Is the controller deployed in cloud cluster")
+
+	healthzPort = flag.Int("healthz-port", 8080,
+		"Listening port of the /healthz probe")
 
 	webhookEnabled = flag.Bool("webhook-enabled", true,
 		"Whether the webhook should be served")
@@ -120,7 +124,7 @@ func runController(ctx context.Context, cfg *rest.Config, cluster string) error 
 		Scheme:                 sc,
 		WebhookServer:          webhook.NewServer(webhook.Options{CertDir: *certDir, Port: *webhookPort}),
 		Metrics:                metricsserver.Options{BindAddress: "0"}, // disabled
-		HealthProbeBindAddress: ":8080",
+		HealthProbeBindAddress: fmt.Sprintf(":%d", *healthzPort),
 	})
 	if err != nil {
 		return errors.Wrap(err, "create controller manager")
@@ -128,7 +132,9 @@ func runController(ctx context.Context, cfg *rest.Config, cluster string) error 
 	if err := chartassignment.Add(ctx, mgr, *cloudCluster); err != nil {
 		return errors.Wrap(err, "add ChartAssignment controller")
 	}
-	mgr.AddHealthzCheck("trivial", func(_ *http.Request) error { return nil })
+	if err := mgr.AddHealthzCheck("trivial", healthz.Ping); err != nil {
+		return errors.Wrap(err, "add healthz check")
+	}
 
 	if *webhookEnabled {
 		webhook := chartassignment.NewValidationWebhook(mgr)
