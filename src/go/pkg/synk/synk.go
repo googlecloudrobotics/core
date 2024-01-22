@@ -472,6 +472,15 @@ func (s *Synk) initialize(
 	return &rs, resources, nil
 }
 
+// Server returning empty ResourceList for Group/Version.
+type emptyResponseError struct {
+	gv string
+}
+
+func (e *emptyResponseError) Error() string {
+	return fmt.Sprintf("received empty response for: %s", e.gv)
+}
+
 // Set default namespace on all namespaced resources.
 func (s *Synk) populateNamespaces(
 	ctx context.Context,
@@ -483,10 +492,10 @@ func (s *Synk) populateNamespaces(
 	_, list, err := s.discovery.ServerGroupsAndResources()
 	span.End()
 
-	// Don't treat "empty response" from external metrics servers as an error.
-	// Follows precedent from: https://github.com/kubernetes/client-go/commit/0bc91705fa50a531b8a1ee9dca3ef063ca71bb0c
 	if err != nil {
-		if !strings.Contains(err.Error(), "received empty response for: external.metrics.k8s.io/") {
+		// Don't treat "empty response" from e.g. metrics servers as an error.
+		// Follows precedent from: https://github.com/kubernetes/client-go/commit/0bc91705fa50a531b8a1ee9dca3ef063ca71bb0c
+		if _, ok := err.(*emptyResponseError); !ok {
 			return errors.Wrap(err, "discover server resources")
 		}
 	}
