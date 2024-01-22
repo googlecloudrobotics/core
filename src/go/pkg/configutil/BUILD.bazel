@@ -7,6 +7,7 @@ go_library(
     srcs = ["config_reader.go"],
     importpath = "github.com/googlecloudrobotics/core/src/go/pkg/configutil",
     deps = [
+        "@com_github_googlecloudrobotics_ilog//:go_default_library",
         "@com_google_cloud_go_storage//:go_default_library",
         "@org_golang_google_api//option:go_default_library",
     ],
