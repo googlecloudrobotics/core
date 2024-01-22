@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"reflect"
 	"sort"
@@ -27,6 +27,7 @@ import (
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
+	"github.com/googlecloudrobotics/ilog"
 	"github.com/pkg/errors"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -114,7 +115,7 @@ func Add(ctx context.Context, mgr manager.Manager, baseValues chartutil.Values) 
 		// so the robot ideally reappeared before we reconcile.
 		&handler.Funcs{
 			CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("AppRollout controller received create event for Robot %q", e.Object.GetName())
+				slog.Info("AppRollout controller received create event", slog.String("Robot", e.Object.GetName()))
 				r.enqueueAll(ctx, q)
 			},
 			UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
@@ -123,12 +124,12 @@ func Add(ctx context.Context, mgr manager.Manager, baseValues chartutil.Values) 
 				change := !reflect.DeepEqual(e.ObjectOld.GetLabels(), e.ObjectNew.GetLabels())
 				change = change || e.ObjectOld.GetName() != e.ObjectNew.GetName()
 				if change {
-					log.Printf("AppRollout controller received update event for Robot %q", e.ObjectNew.GetName())
+					slog.Info("AppRollout controller received update event", slog.String("Robot", e.ObjectNew.GetName()))
 					r.enqueueAll(ctx, q)
 				}
 			},
 			DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("AppRollout controller received delete event for Robot %q", e.Object.GetName())
+				slog.Info("AppRollout controller received delete event", slog.String("Robot", e.Object.GetName()))
 				time.AfterFunc(3*time.Second, func() {
 					r.enqueueAll(ctx, q)
 				})
@@ -142,15 +143,15 @@ func Add(ctx context.Context, mgr manager.Manager, baseValues chartutil.Values) 
 		source.Kind(mgr.GetCache(), &apps.App{}),
 		&handler.Funcs{
 			CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("AppRollout controller received create event for App %q", e.Object.GetName())
+				slog.Info("AppRollout controller received create event", slog.String("App", e.Object.GetName()))
 				r.enqueueForApp(ctx, e.Object, q)
 			},
 			UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("AppRollout controller received update event for App %q", e.ObjectNew.GetName())
+				slog.Info("AppRollout controller received update event", slog.String("App", e.ObjectNew.GetName()))
 				r.enqueueForApp(ctx, e.ObjectNew, q)
 			},
 			DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				log.Printf("AppRollout controller received update event for App %q", e.Object.GetName())
+				slog.Info("AppRollout controller received delete event", slog.String("App", e.Object.GetName()))
 				r.enqueueForApp(ctx, e.Object, q)
 			},
 		},
@@ -166,7 +167,7 @@ func (r *Reconciler) enqueueForApp(ctx context.Context, m metav1.Object, q workq
 	var rollouts apps.AppRolloutList
 	err := r.kube.List(ctx, &rollouts, kclient.MatchingFields(map[string]string{fieldIndexAppName: m.GetName()}))
 	if err != nil {
-		log.Printf("List AppRollouts for appName %s failed: %s", m.GetName(), err)
+		slog.Error("List AppRollouts failed", slog.String("appName", m.GetName()), ilog.Err(err))
 		return
 	}
 	for _, ar := range rollouts.Items {
@@ -193,7 +194,7 @@ func (r *Reconciler) enqueueAll(ctx context.Context, q workqueue.RateLimitingInt
 	var rollouts apps.AppRolloutList
 	err := r.kube.List(ctx, &rollouts)
 	if err != nil {
-		log.Printf("List AppRollouts failed: %s", err)
+		slog.Error("List AppRollouts failed", ilog.Err(err))
 		return
 	}
 	for _, ar := range rollouts.Items {
@@ -224,7 +225,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconcile.Result, error) {
-	log.Printf("Reconcile AppRollout %q (version: %s)", ar.Name, ar.ResourceVersion)
+	slog.Info("Reconcile AppRollout",
+		slog.String("Name", ar.Name),
+		slog.String("Version", ar.ResourceVersion))
 
 	// Apply spec.
 	var (
@@ -321,7 +324,7 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 			if err := r.kube.Create(ctx, ca); err != nil {
 				return reconcile.Result{}, errors.Wrapf(err, "create ChartAssignment %q", ca.Name)
 			}
-			log.Printf("Created ChartAssignment %q", ca.Name)
+			slog.Info("Created ChartAssignment", slog.String("Name", ca.Name))
 			continue
 		}
 		if changed, err := chartAssignmentChanged(&prev, ca); err != nil {
@@ -333,14 +336,14 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 		if err := r.kube.Update(ctx, ca); err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "update ChartAssignment %q", ca.Name)
 		}
-		log.Printf("Updated ChartAssignment %q", ca.Name)
+		slog.Info("Updated ChartAssignment", slog.String("Name", ca.Name))
 	}
 	// Delete obsolete assignments.
 	for _, ca := range dropCAs {
 		if err := r.kube.Delete(ctx, &ca); err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "delete ChartAssignment %q", ca.Name)
 		}
-		log.Printf("Deleted ChartAssignment %q", ca.Name)
+		slog.Info("Deleted ChartAssignment", slog.String("Name", ca.Name))
 	}
 
 	setStatus(ar, len(wantCAs), curCAs.Items)
@@ -469,7 +472,10 @@ func generateChartAssignments(
 			v = ""
 		}
 		if _, ok := appVersions[v]; ok {
-			log.Printf("App %q version %q already known. Going to ignore App Object %q for the same app/version", rollout.Spec.AppName, v, app.Name)
+			slog.Info("App already known. Going to ignore App Object for the same app/version",
+				slog.String("Known Name", rollout.Spec.AppName),
+				slog.String("Known Version", v),
+				slog.String("App Object", app.Name))
 		} else {
 			// only add to map if this is the first time we're adding this
 			// version for the app. The validator should ensure that this
@@ -520,7 +526,9 @@ func generateChartAssignments(
 			cas = append(cas, newCloudChartAssignment(app, rollout, baseValues, robots...))
 		}
 	} else if rollout.Spec.Cloud.Values != nil {
-		log.Printf("No canonical version of App %q. There won't be a Cloud ChartAssignment. AppRollout %q defines cloud values.", rollout.Spec.AppName, rollout.Name)
+		slog.Info("No canonical version of App. There won't be a Cloud ChartAssignment. AppRollout defines cloud values.",
+			slog.String("App Name", rollout.Spec.AppName),
+			slog.String("Rollout Name", rollout.Name))
 	}
 	sort.Slice(cas, func(i, j int) bool {
 		return cas[i].Name < cas[j].Name
