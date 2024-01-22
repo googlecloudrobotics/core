@@ -21,7 +21,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -83,7 +83,7 @@ func selectRobot(f util.Factory, robots []unstructured.Unstructured) (string, er
 	for i, robot := range robots {
 		spec, ok := robot.Object["spec"].(map[string]interface{})
 		if !ok {
-			log.Print("unmarshaling robot failed: spec is not a map")
+			slog.Warn("unmarshaling robot failed: spec is not a map")
 			continue
 		}
 		fmt.Printf("%3v %-20v %-10v %v\n", i+1, robot.GetName(), spec["type"], robot.GetCreationTimestamp().String())
@@ -116,7 +116,7 @@ func newExponentialBackoff(initialInterval time.Duration, multiplier float64, re
 // error in the case of failure. This is useful to catch errors during first
 // interaction with the cluster and cloud-project,
 func WaitForDNS(domain string, retries uint64) error {
-	log.Printf("DNS lookup for %q", domain)
+	slog.Info("DNS lookup", slog.String("Domain", domain))
 
 	if err := backoff.RetryNotify(
 		func() error {
@@ -137,7 +137,7 @@ func WaitForDNS(domain string, retries uint64) error {
 		},
 		newExponentialBackoff(time.Second, 2, retries),
 		func(_ error, _ time.Duration) {
-			log.Printf("... Retry dns for %q", domain)
+			slog.Info("... Retry dns", slog.String("Domain", domain))
 		},
 	); err != nil {
 		return fmt.Errorf("DNS lookup for %q failed: %w", domain, err)
@@ -150,7 +150,7 @@ func WaitForDNS(domain string, retries uint64) error {
 // This lets us wait for the service to be available or error with a better
 // message.
 func WaitForService(client *http.Client, url string, retries uint64) error {
-	log.Printf("Service probe for %q", url)
+	slog.Info("Service probe", slog.String("URL", url))
 
 	if err := backoff.RetryNotify(
 		func() error {
@@ -159,7 +159,7 @@ func WaitForService(client *http.Client, url string, retries uint64) error {
 		},
 		newExponentialBackoff(time.Second, 2, retries),
 		func(_ error, _ time.Duration) {
-			log.Printf("... Retry service for %q", url)
+			slog.Info("... Retry service", slog.String("URL", url))
 		},
 	); err != nil {
 		return fmt.Errorf("service probe for %q failed: %w", url, err)
@@ -198,7 +198,7 @@ func publishPublicKeyToCloudRegistry(auth *robotauth.RobotAuth, client *http.Cli
 		return err
 	}
 
-	log.Println("Publishing the robot's public key to cloud key registry")
+	slog.Info("Publishing the robot's public key to cloud key registry")
 
 	url := fmt.Sprintf(
 		"https://%s/apis/core.token-vendor/v1/public-key.publish?device-id=%s",
