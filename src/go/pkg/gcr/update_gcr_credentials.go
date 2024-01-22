@@ -21,12 +21,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/cenkalti/backoff"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
+	"github.com/googlecloudrobotics/ilog"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,7 +60,8 @@ func DockerCfgJSON(token string) []byte {
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
-		log.Fatal("unexpected error marshalling dockercfg: ", err)
+		slog.Error("unexpected error marshalling dockercfg", ilog.Err(err))
+		os.Exit(1)
 	}
 	return b
 }
@@ -123,7 +126,7 @@ func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *
 	haveError := false
 	for _, ns := range nsList.Items {
 		if ns.DeletionTimestamp != nil {
-			log.Printf("namespace %q is marked for deletion, skipping", ns.ObjectMeta.Name)
+			slog.Info("namespace is marked for deletion, skipping", slog.String("Namespace", ns.ObjectMeta.Name))
 			continue
 		}
 		namespace := ns.ObjectMeta.Name
@@ -154,14 +157,18 @@ func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *
 			Data: cfgData,
 		})
 		if err != nil {
-			log.Printf("failed to update kubernetes secret for namespace %s: %v", namespace, err)
+			slog.Error("failed to update kubernetes secret",
+				slog.String("Namespace", namespace),
+				ilog.Err(err))
 			haveError = true
 			continue
 		}
 		// Tell k8s to use this key by pointing the default SA at it.
 		err = patchServiceAccount(ctx, k8s, "default", namespace, patchData)
 		if err != nil {
-			log.Printf("failed to update kubernetes service account for namespace %s: %v", namespace, err)
+			slog.Error("failed to update kubernetes service account",
+				slog.String("Namespace", namespace),
+				ilog.Err(err))
 			haveError = true
 		}
 	}
