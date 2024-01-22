@@ -12,6 +12,7 @@ go_library(
     deps = [
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
         "@com_github_cenkalti_backoff//:go_default_library",
+        "@com_github_googlecloudrobotics_ilog//:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/apis/apiextensions/v1:go_default_library",
