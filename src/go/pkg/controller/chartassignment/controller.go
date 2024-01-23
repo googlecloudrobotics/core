@@ -18,11 +18,12 @@ package chartassignment
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
+	"github.com/googlecloudrobotics/ilog"
 	"github.com/pkg/errors"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -106,7 +107,7 @@ func (r *Reconciler) enqueueForPod(ctx context.Context, m meta.Object, q workque
 	var cas apps.ChartAssignmentList
 	err := r.kube.List(ctx, &cas, kclient.MatchingFields(map[string]string{fieldIndexNamespace: m.GetNamespace()}))
 	if err != nil {
-		log.Printf("List ChartAssignments for namespace %s failed: %s", m.GetNamespace(), err)
+		slog.Error("List ChartAssignments failed", slog.String("Namespace", m.GetNamespace()), ilog.Err(err))
 		return
 	}
 	for _, ca := range cas.Items {
@@ -136,7 +137,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	if k8serrors.IsNotFound(err) {
 		// Assignment was already deleted. We did all required cleanup
 		// when removing the finalizer. Thus, there's nothing to do.
-		log.Printf("ChartAssignment %q no longer exists, skipping reconciliation...", req.NamespacedName)
+		slog.Info("ChartAssignment no longer exists, skipping reconciliation...", slog.Any("Name", req.NamespacedName))
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, fmt.Errorf("getting ChartAssignment %q failed: %s", req, err)
@@ -294,7 +295,7 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 	// If we are scheduled for deletion, delete the Synk ResourceSet and drop our
 	// finalizer so garbage collection can continue.
 	if as.DeletionTimestamp != nil {
-		log.Printf("Ensure ChartAssignment %q cleanup", as.Name)
+		slog.Info("Ensure ChartAssignment cleanup", slog.String("Name", as.Name))
 
 		if err := r.ensureDeleted(ctx, as); err != nil {
 			return reconcile.Result{}, fmt.Errorf("ensure deleted: %s", err)
@@ -309,7 +310,7 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 	ns, err := r.ensureNamespace(ctx, as)
 	if err != nil {
 		if _, ok := err.(*namespaceDeletionError); ok {
-			log.Printf("Ensure namespace: %s", err)
+			slog.Error("Ensure namespace", ilog.Err(err))
 			// Requeue to track deletion progress.
 			return reconcile.Result{Requeue: true, RequeueAfter: requeueFast}, nil
 		}
@@ -320,7 +321,7 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 	}
 	if err := r.ensureServiceAccount(ctx, ns, as); err != nil {
 		if _, ok := err.(*missingServiceAccountError); ok {
-			log.Printf("Failed: %q. This is expected to occur rarely.", err)
+			slog.Warn("Reconcile failed. This is expected to occur rarely.", ilog.Err(err))
 			return reconcile.Result{Requeue: true, RequeueAfter: requeueFast}, nil
 		} else {
 			return reconcile.Result{}, fmt.Errorf("ensure service-account: %s", err)

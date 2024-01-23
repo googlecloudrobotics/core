@@ -19,8 +19,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,7 @@ import (
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
+	"github.com/googlecloudrobotics/ilog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	core "k8s.io/api/core/v1"
@@ -194,14 +196,14 @@ func (r *release) setGeneration(generation int64) {
 func (r *release) setFailed(err error, retry bool) {
 	r.mtx.Lock()
 	if !retry {
-		log.Printf("chart failed in phase %v: %v", r.status.phase, err)
+		slog.Warn("chart failed", slog.Any("phase", r.status.phase), ilog.Err(err))
 		// We only update the phase for non-retriable errors. This mitigates a
 		// race condition between ensureUpdated, which sets phase=Updating when
 		// retrying, and setStatus, which reads either the old phase or Updating
 		// and copies it to the chartassignment status.
 		r.status.phase = apps.ChartAssignmentPhaseFailed
 	} else {
-		log.Printf("chart failed in phase %v (retrying): %v", r.status.phase, err)
+		slog.Warn("chart failed (retrying)", slog.Any("phase", r.status.phase), ilog.Err(err))
 	}
 	r.status.err = err
 	r.status.retry = retry
@@ -248,16 +250,20 @@ func (r *release) update(as *apps.ChartAssignment) {
 			if status == synk.StatusSuccess {
 				return
 			}
-			log.Printf("[%s] %s %s/%s %s: %s\n",
-				strings.ToUpper(status), action,
-				r.GetAPIVersion(), r.GetKind(),
-				r.GetName(), msg)
+			// Resource is meant to be human-readable
+			// We should not use 'Message' as key to prevent collisions between the
+			// log message and its arguments.
+			slog.Warn("Error applying resource",
+				slog.String("Status", strings.ToUpper(status)),
+				slog.String("Action", string(action)),
+				slog.String("Resource", fmt.Sprintf("%s/%s %s", r.GetAPIVersion(), r.GetKind(), r.GetName())),
+				slog.String("Note", msg))
 		},
 	}
 	spanContext := trace.SpanContext{}
 	if tid, found := as.GetAnnotations()["cloudrobotics.com/trace-id"]; found {
 		if _, err := hex.Decode(spanContext.TraceID[:], []byte(tid)); err != nil {
-			log.Printf("Error: decoding TraceID: %v, %v", tid, err)
+			slog.Error("decoding TraceID", slog.String("TraceID", tid), ilog.Err(err))
 		}
 	}
 	ctx, span := trace.StartSpanWithRemoteParent(context.Background(), "Apply "+as.Name, spanContext)
