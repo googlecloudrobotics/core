@@ -18,12 +18,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"testing"
 	"time"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
+	"github.com/googlecloudrobotics/ilog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -58,12 +59,12 @@ func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext strin
 	timeStart := time.Now()
 
 	for time.Since(timeStart) < podInitializationTimeout {
-		log.Printf("Querying pods from context %s...", kubernetesContext)
+		slog.Info("Querying pods...", slog.String("Context", kubernetesContext))
 		pods, err := clientSet.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return fmt.Errorf("Failed to query pods: %v", err)
 		}
-		log.Printf("...done. Found %d pods in the cluster.\n", len(pods.Items))
+		slog.Info("...done.", slog.Int("PodCount", len(pods.Items)))
 
 		if len(pods.Items) == 0 {
 			return fmt.Errorf("Could not find any pods in cluster")
@@ -72,7 +73,7 @@ func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext strin
 		numNonRunningPods = 0
 		failingContainers = 0
 		for _, pod := range pods.Items {
-			log.Printf("Pod %v is in state: %s\n", pod.Name, pod.Status.Phase)
+			slog.Info("Pod state", slog.String("Name", pod.Name), slog.String("Phase", string(pod.Status.Phase)))
 			if pod.Status.Phase != "Running" && pod.Status.Phase != "Succeeded" {
 				numNonRunningPods += 1
 				break
@@ -88,16 +89,27 @@ func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext strin
 						prevRestarts = 0
 					}
 					if container.RestartCount > prevRestarts {
-						log.Printf("Warning: Container %s (%s) restarted %d times in pod %s\n", container.Name,
-							container.Image, container.RestartCount, pod.Name)
+						slog.Warn("Container restarted",
+							slog.String("Pod", pod.Name),
+							slog.String("Container", container.Name),
+							slog.String("Image", container.Image),
+							slog.Int("RestartCount", int(container.RestartCount)))
 						failingContainers += 1
 					}
 					restartCount[restartKey] = container.RestartCount
 				} else if container.State.Terminated != nil && container.State.Terminated.ExitCode != 0 {
-					log.Printf("Warning: Container %s (%s) was terminated in pod %s with error\n", container.Name, container.Image, pod.Name)
+					slog.Warn("Container terminated",
+						slog.String("Pod", pod.Name),
+						slog.String("Container", container.Name),
+						slog.String("Image", container.Image),
+						slog.Int("RestartCount", int(container.RestartCount)))
 					failingContainers += 1
 				} else if container.State.Waiting != nil {
-					log.Printf("Warning: Container %s (%s) was waiting in pod %s with error\n", container.Name, container.Image, pod.Name)
+					slog.Warn("Container waiting",
+						slog.String("Pod", pod.Name),
+						slog.String("Container", container.Name),
+						slog.String("Image", container.Image),
+						slog.Int("RestartCount", int(container.RestartCount)))
 					waitingContainerFound = true
 				}
 			}
@@ -117,7 +129,7 @@ func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext strin
 		return fmt.Errorf("Unhealthy cluster status after waiting for %d sec: %d non-running pods, %d failing containers\n",
 			podInitializationTimeout/time.Second, numNonRunningPods, failingContainers)
 	}
-	log.Printf("All pods are happily running :)\n")
+	slog.Info("All pods are happily running :)")
 	return nil
 }
 
@@ -160,14 +172,14 @@ func TestCloudClusterAppStatus(t *testing.T) {
 			Kind:    "AppRollout",
 			Version: "v1alpha1",
 		})
-		log.Printf("Querying AppRollouts from context %s...", kubernetesContext)
+		slog.Info("Querying AppRollouts...", slog.String("Context", kubernetesContext))
 		err = client.List(context.Background(), appRollouts)
 		if err != nil {
-			log.Printf("Failed to list AppRollouts: %v", err)
+			slog.Error("Failed to list AppRollouts", ilog.Err(err))
 			time.Sleep(10 * time.Second)
 			continue
 		}
-		log.Printf("...done. Found %d AppRollouts in the cluster.\n", len(appRollouts.Items))
+		slog.Info("...done.", slog.Int("AppRolloutCount", len(appRollouts.Items)))
 
 		numBadConditions = 0
 		for _, i := range appRollouts.Items {
@@ -176,9 +188,9 @@ func TestCloudClusterAppStatus(t *testing.T) {
 				t.Errorf("Failed to unmarshall AppRollout: %v", err)
 			}
 			for _, c := range ar.Status.Conditions {
-				log.Printf("AppRollout %v condition %v is %v\n", i.GetName(), c.Type, c.Status)
+				slog.Info("AppRollout condition", slog.String("Name", ar.GetName()), slog.String("Condition", string(c.Type)), slog.String("Status", string(c.Status)))
 				if c.Status != corev1.ConditionTrue {
-					log.Printf("AppRollout %v condition %v is not met\n", ar.GetName(), c.Type)
+					slog.Warn("AppRollout condition not met", slog.String("Name", ar.GetName()), slog.String("Condition", string(c.Type)))
 					numBadConditions += 1
 				}
 			}
