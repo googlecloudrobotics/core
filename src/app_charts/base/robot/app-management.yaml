@@ -27,6 +27,12 @@ spec:
           value: {{ .Values.project }}
         - name: ROBOT_NAME
           value: "{{ .Values.robot.name }}"
+        livenessProbe:
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          httpGet:
+            port: 8080
+            path: /healthz
         ports:
         - name: webhook
           containerPort: 9876
@@ -73,7 +79,6 @@ spec:
   type: ClusterIP
   ports:
   - port: 443
-    protocol: TCP
     targetPort: webhook
   selector:
     app: chart-assignment-controller
