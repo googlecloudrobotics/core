@@ -84,8 +84,8 @@ resource "google_container_node_pool" "cloud_robotics_base_pool" {
   initial_node_count = 2
 
   autoscaling {
-    min_node_count = 2
-    max_node_count = 10
+    min_node_count = 1
+    max_node_count = 16
   }
 
   node_config {
@@ -112,7 +112,7 @@ resource "google_container_node_pool" "cloud_robotics_base_pool_ar" {
   initial_node_count = 2
 
   autoscaling {
-    min_node_count = 2
+    min_node_count = 1
     max_node_count = 10
   }
 
