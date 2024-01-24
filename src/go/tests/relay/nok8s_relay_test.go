@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -56,7 +56,7 @@ var (
 	RelayServerArgs = []string{
 		"--port=0",
 	}
-	rsPortMatcher = regexp.MustCompile(`Relay server listening on: 127.0.0.1:(\d\d*)\n$`)
+	rsPortMatcher = regexp.MustCompile(`Relay server listening.*"Port":(\d+)`)
 )
 
 type relay struct {
@@ -76,12 +76,13 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 	}
 	r.rsPort = ""
 	for i := 0; i < 10; i++ {
+		slog.Info("Output", slog.String("Output", rsOut.String()))
 		if m := rsPortMatcher.FindStringSubmatch(rsOut.String()); m != nil {
 			r.rsPort = m[1]
-			log.Printf("Server port: %s", r.rsPort)
+			slog.Info("Server port", slog.String("Port", r.rsPort))
 			break
 		}
-		log.Print("Waiting for relay to be up-and-running ...")
+		slog.Info("Waiting for relay to be up-and-running ...")
 		time.Sleep(1 * time.Second)
 	}
 	if r.rsPort == "" {
@@ -94,7 +95,7 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 		"--relay_address=127.0.0.1:" + r.rsPort,
 	}...)
 	rcArgs = append(rcArgs, extraClientArgs...)
-	log.Printf("Backend address: %s", backendAddress)
+	slog.Info("Starting backend", slog.String("Address", backendAddress))
 
 	r.rc = exec.Command(RelayClientPath, rcArgs...)
 	r.rc.Stdout = os.Stdout
@@ -109,7 +110,7 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 			connected = true
 			break
 		}
-		log.Print("Waiting for relay to be up-and-running ...")
+		slog.Info("Waiting for relay to be up-and-running ...")
 		time.Sleep(1 * time.Second)
 	}
 	if !connected {

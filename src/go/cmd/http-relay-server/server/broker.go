@@ -17,7 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/url"
 	"regexp"
 	"strings"
@@ -167,7 +167,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	respChan := r.resp[id].responseStream
 	r.m.Unlock()
 
-	log.Printf("[%s] Enqueuing request", id)
+	slog.Info("Enqueuing request", slog.String("ID", id))
 	brokerRequests.WithLabelValues("client", server, cleanPath(targetUrl.Path)).Inc()
 	select {
 	// This blocks until we get a free spot in the broker's request channel.
@@ -278,15 +278,13 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	if resp.GetEof() {
 		close(pr.responseStream)
 		backendDuration := (time.Duration(resp.GetBackendDurationMs()) * time.Millisecond).Seconds()
-		backendDurStr := "N/A"
 		if backendDuration > 0.0 {
 			brokerBackendResponseDurations.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Observe(backendDuration)
 			brokerOverheadDurations.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Observe(duration - backendDuration)
-			backendDurStr = fmt.Sprintf("%.3fs", backendDuration)
 		}
-		log.Printf("[%s] Delivered final response to client (%d bytes), elapsed on server=%.3fs, backend=%s", id, len(resp.Body), duration, backendDurStr)
+		slog.Info("Delivered final response to client", slog.String("ID", id), slog.Int("Bytes", len(resp.Body)), slog.Float64("Elapsed", duration), slog.Float64("BackendDuration", backendDuration))
 	} else {
-		log.Printf("[%s] Delivered response to client (%d bytes), elapsed on server=%.3fs", id, len(resp.Body), duration)
+		slog.Info("Delivered response to client", slog.String("ID", id), slog.Int("Bytes", len(resp.Body)), slog.Float64("Elapsed", duration))
 	}
 	brokerResponses.WithLabelValues("server_response", "ok", backendName, cleanPath(pr.requestPath)).Inc()
 	return nil
@@ -296,7 +294,7 @@ func (r *broker) ReapInactiveRequests(threshold time.Time) {
 	r.m.Lock()
 	for id, pr := range r.resp {
 		if pr.lastActivity.Before(threshold) {
-			log.Printf("[%s] Timeout on inactive request", id)
+			slog.Info("Timeout on inactive request", slog.String("ID", id))
 			defer close(pr.requestStream)
 			defer close(pr.responseStream)
 			// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop

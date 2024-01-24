@@ -11,6 +11,7 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//src/go/cmd/http-relay-server/server:go_default_library",
+        "@com_github_googlecloudrobotics_ilog//:go_default_library",
         "@io_opencensus_go//trace:go_default_library",
         "@io_opencensus_go_contrib_exporter_stackdriver//:go_default_library",
     ],

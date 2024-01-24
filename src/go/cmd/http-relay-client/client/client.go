@@ -28,7 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -40,6 +40,7 @@ import (
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
+	"github.com/googlecloudrobotics/ilog"
 
 	"github.com/cenkalti/backoff"
 	"go.opencensus.io/plugin/ochttp"
@@ -171,7 +172,8 @@ func (c *Client) Start() {
 		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, remote)
 		scope := "https://www.googleapis.com/auth/cloud-platform.read-only"
 		if remote, err = google.DefaultClient(ctx, scope); err != nil {
-			log.Fatalf("unable to set up credentials for relay-server authentication: %v", err)
+			slog.Error("unable to set up credentials for relay-server authentication", ilog.Err(err))
+			os.Exit(1)
 		}
 	}
 	remote.Timeout = c.config.RemoteRequestTimeout
@@ -181,17 +183,19 @@ func (c *Client) Start() {
 		rootCAs := x509.NewCertPool()
 		certs, err := os.ReadFile(c.config.RootCAFile)
 		if err != nil {
-			log.Fatalf("Failed to read CA file %s: %v", c.config.RootCAFile, err)
+			slog.Error("Failed to read CA file", slog.String("File", c.config.RootCAFile), ilog.Err(err))
+			os.Exit(1)
 		}
 		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-			log.Fatalf("No certs found in %s", c.config.RootCAFile)
+			slog.Error("No certs found", slog.String("File", c.config.RootCAFile))
+			os.Exit(1)
 		}
 		tlsConfig = &tls.Config{RootCAs: rootCAs}
 
 		if keyLogFile := os.Getenv("SSLKEYLOGFILE"); keyLogFile != "" {
 			keyLog, err := os.OpenFile(keyLogFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 			if err != nil {
-				log.Printf("Can open keylog file %q (check SSLKEYLOGFILE env var): %v", keyLogFile, err)
+				slog.Warn("Can open keylog file (check SSLKEYLOGFILE env var)", slog.String("File", keyLogFile), ilog.Err(err))
 			} else {
 				tlsConfig.KeyLogWriter = keyLog
 			}
@@ -204,7 +208,8 @@ func (c *Client) Start() {
 		h2transport.TLSClientConfig = tlsConfig
 
 		if c.config.DisableHttp2 {
-			log.Fatal("Cannot use --force_http2 together with --disable_http2")
+			slog.Error("Cannot use --force_http2 together with --disable_http2")
+			os.Exit(1)
 		}
 
 		if c.config.BackendScheme == "http" {
@@ -262,7 +267,7 @@ func addServiceName(span *trace.Span) {
 
 func (c *Client) getRequest(remote *http.Client, relayURL string) (*pb.HttpRequest, error) {
 	if debugLogs {
-		log.Printf("Connecting to relay server to get next request for %s", c.config.ServerName)
+		slog.Info("Connecting to relay server to get next request", slog.String("ServerName", c.config.ServerName))
 	}
 
 	resp, err := remote.Get(relayURL)
@@ -318,7 +323,10 @@ func (c *Client) createBackendRequest(breq *pb.HttpRequest) (*http.Request, erro
 	targetUrl.Scheme = c.config.BackendScheme
 	targetUrl.Host = c.config.BackendAddress
 	targetUrl.Path = c.config.BackendPath + targetUrl.Path
-	log.Printf("[%s] Sending %s request to backend: %s", id, *breq.Method, targetUrl)
+	slog.Info("Sending request to backend",
+		slog.String("ID", id),
+		slog.String("Method", *breq.Method),
+		slog.Any("TargetURL", *targetUrl))
 	req, err := http.NewRequest(*breq.Method, targetUrl.String(), bytes.NewReader(breq.Body))
 	if err != nil {
 		return nil, err
@@ -337,7 +345,7 @@ func (c *Client) createBackendRequest(breq *pb.HttpRequest) (*http.Request, erro
 
 	if debugLogs {
 		dump, _ := httputil.DumpRequest(req, false)
-		log.Printf("%s", dump)
+		slog.Info("DumpRequest", slog.String("Request", string(dump)))
 	}
 
 	return req, nil
@@ -368,15 +376,19 @@ func makeBackendRequest(ctx context.Context, local *http.Client, req *http.Reque
 	defer backendResp.End()
 
 	if debugLogs {
-		log.Printf("[%s] Backend responded with status %d", id, resp.StatusCode)
+		slog.Info("Backend responded", slog.String("ID", id), slog.Int("Status", resp.StatusCode))
 
 		dump, _ := httputil.DumpResponse(resp, false)
-		log.Printf("%s", dump)
+		slog.Info("DumpRequest", slog.String("Request", string(dump)))
 		// We get 'Grpc-Status' and 'Grpc-Message' headers that we need to persist.
 		// Why is it not part of Trailers?
-		log.Printf("[%s] Headers: %+v", id, resp.Header)
+		slog.Info("Headers",
+			slog.String("ID", id),
+			slog.String("Header", fmt.Sprintf("%+v", resp.Header)))
 		// Initially only keys, values are set after body has be read (EOF)
-		log.Printf("[%s] Trailers: %+v", id, resp.Trailer)
+		slog.Info("Trailers",
+			slog.String("ID", id),
+			slog.String("Trailer", fmt.Sprintf("%+v", resp.Trailer)))
 	}
 
 	return &pb.HttpResponse{
@@ -429,22 +441,22 @@ func (c *Client) streamBytes(id string, in io.ReadCloser, out chan<- []byte) {
 		// This must be a new buffer each time, as the channel is not making a copy
 		buffer := make([]byte, c.config.BlockSize)
 		if debugLogs {
-			log.Printf("[%s] Reading from backend", id)
+			slog.Info("Reading from backend", slog.String("ID", id))
 		}
 		n, err := in.Read(buffer)
 		if err != nil && err != io.EOF {
-			log.Printf("[%s] Failed to read from backend: %v", id, err)
+			slog.Error("Failed to read from backend", slog.String("ID", id), ilog.Err(err))
 		}
 		eof = err != nil
 		if n > 0 {
 			if debugLogs {
-				log.Printf("[%s] Forward %d bytes from backend", id, n)
+				slog.Info("Forward from backend", slog.String("ID", id), slog.Int("ByteCount", n))
 			}
 			out <- buffer[:n]
 		}
 	}
 	if debugLogs {
-		log.Printf("[%s] Got EOF reading from backend", id)
+		slog.Info("Got EOF reading from backend", slog.String("ID", id))
 	}
 	close(out)
 }
@@ -468,14 +480,16 @@ func (c *Client) buildResponses(in <-chan []byte, resp *pb.HttpResponse, out cha
 			resp.Body = append(resp.Body, b...)
 			if !more {
 				if debugLogs {
-					log.Printf("[%s] Posting final response of %d bytes to relay", *resp.Id, len(resp.Body))
+					slog.Info("Posting final response to relay",
+						slog.String("ID", *resp.Id), slog.Int("ByteCount", len(resp.Body)))
 				}
 				resp.Eof = proto.Bool(true)
 				out <- resp
 				return
 			} else if len(resp.Body) > c.config.MaxChunkSize {
 				if debugLogs {
-					log.Printf("[%s] Posting intermediate response of %d bytes to relay", *resp.Id, len(resp.Body))
+					slog.Info("Posting intermediate response to relay",
+						slog.String("ID", *resp.Id), slog.Int("ByteCount", len(resp.Body)))
 				}
 				out <- resp
 				resp = &pb.HttpResponse{Id: resp.Id}
@@ -487,7 +501,8 @@ func (c *Client) buildResponses(in <-chan []byte, resp *pb.HttpResponse, out cha
 			// We send an (empty) response after 30 timeouts as a keep-alive packet.
 			if len(resp.Body) > 0 || resp.StatusCode != nil || timeouts > 30 {
 				if debugLogs {
-					log.Printf("[%s] Posting partial response of %d bytes to relay", *resp.Id, len(resp.Body))
+					slog.Info("Posting partial response to relay",
+						slog.String("ID", *resp.Id), slog.Int("ByteCount", len(resp.Body)))
 				}
 				out <- resp
 				resp = &pb.HttpResponse{Id: resp.Id}
@@ -512,7 +527,8 @@ func (c *Client) postErrorResponse(remote *http.Client, id string, message strin
 		Eof:  proto.Bool(true),
 	}
 	if err := c.postResponse(remote, resp); err != nil {
-		log.Printf("[%s] Failed to post error response to relay: %v", *resp.Id, err)
+		slog.Error("Failed to post error response to relay",
+			slog.String("ID", *resp.Id), ilog.Err(err))
 	}
 }
 
@@ -540,13 +556,14 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 		if err != nil {
 			// TODO(rodrigoq): detect transient failure and retry w/ backoff?
 			// e.g. "server status Request Timeout: No request received within timeout"
-			log.Printf("[%s] Failed to get request stream: %v", id, err)
+			slog.Error("Failed to get request stream",
+				slog.String("ID", id), ilog.Err(err))
 			return
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusGone {
 			if debugLogs {
-				log.Printf("[%s] End of request stream", id)
+				slog.Info("End of request stream", slog.String("ID", id))
 			}
 			return
 		} else if resp.StatusCode != http.StatusOK {
@@ -555,16 +572,22 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 				msg = []byte(fmt.Sprintf("<failed to read response body: %v>", err))
 			}
 			if debugLogs {
-				log.Printf("[%s] Relay server request stream responded %s: %s", id, http.StatusText(resp.StatusCode), msg)
+				slog.Info("Relay server request stream responded",
+					slog.String("ID", id),
+					slog.String("Status", http.StatusText(resp.StatusCode)),
+					slog.String("Message", string(msg)))
+
 			}
 			return
 		}
 		if n, err := io.Copy(backendWriter, resp.Body); err != nil {
-			log.Printf("[%s] Failed to write to backend: %v", id, err)
+			slog.Error("Failed to write to backend:",
+				slog.String("ID", id), ilog.Err(err))
 			return
 		} else {
 			if debugLogs {
-				log.Printf("[%s] Wrote %d bytes to backend", id, n)
+				slog.Info("Wrote to backend",
+					slog.String("ID", id), slog.Int64("ByteCount", n))
 			}
 		}
 	}
@@ -594,7 +617,8 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		// Even if we couldn't handle the backend request, send an
 		// answer to the relay that signals the error.
 		errorMessage := fmt.Sprintf("Backend request failed with error: %v", err)
-		log.Printf("[%s] %s", id, errorMessage)
+		slog.Error("BackendRequest",
+			slog.String("ID", id), slog.String("Message", errorMessage))
 		c.postErrorResponse(remote, id, errorMessage)
 		return
 	}
@@ -605,8 +629,8 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		// from client to backend.
 		bodyWriter, ok := hresp.Body.(io.WriteCloser)
 		if !ok {
-			log.Printf("Error: 101 Switching Protocols response with non-writable body.")
-			log.Printf("       This occurs when using Go <1.12 or when http.Client.Timeout > 0.")
+			slog.Warn("Error: 101 Switching Protocols response with non-writable body.")
+			slog.Warn("       This occurs when using Go <1.12 or when http.Client.Timeout > 0.")
 			c.postErrorResponse(remote, id, "Backend returned 101 Switching Protocols, which is not supported.")
 			return
 		}
@@ -650,7 +674,9 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		err := backoff.RetryNotify(
 			func() error {
 				if len(hresp.Trailer) > 0 {
-					log.Printf("[%s] Trailers: %+v", *resp.Id, hresp.Trailer)
+					slog.Info("Trailers",
+						slog.String("ID", *resp.Id),
+						slog.String("Trailer", fmt.Sprintf("%+v", hresp.Trailer)))
 					resp.Trailer = append(resp.Trailer, marshalHeader(&hresp.Trailer)...)
 				}
 				if resp.Eof != nil && *resp.Eof {
@@ -658,7 +684,10 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 					resp.BackendDurationMs = proto.Int64(duration.Milliseconds())
 					// see makeBackendRequest()
 					urlPath := strings.TrimPrefix(*pbreq.Url, "http://invalid")
-					log.Printf("[%s] Backend request duration: %.3fs (for %s)", *resp.Id, duration.Seconds(), urlPath)
+					slog.Info("Backend request",
+						slog.String("ID", *resp.Id),
+						slog.Float64("Duration", duration.Seconds()),
+						slog.String("Path", urlPath))
 				} else {
 					// Q(hauke): When are we ending up in this branch?
 					// What are the semantics and why are we not setting a request duration?
@@ -669,14 +698,16 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 			},
 			backoff.WithMaxRetries(&exponentialBackoff, 10),
 			func(err error, _ time.Duration) {
-				log.Printf("[%s] Failed to post response to relay: %v", *resp.Id, err)
+				slog.Error("Failed to post response to relay",
+					slog.String("ID", *resp.Id), ilog.Err(err))
 			},
 		)
 		// Any error suggests the request should be aborted.
 		// A missing chunk will cause clients to receive corrupted data, in most cases it is better
 		// to close the connection to avoid that.
 		if err != nil {
-			log.Printf("[%s] Closing backend connection: %v", *resp.Id, err)
+			slog.Error("Closing backend connection",
+				slog.String("ID", *resp.Id), ilog.Err(err))
 			break
 		}
 	}
@@ -696,9 +727,10 @@ func (c *Client) localProxy(remote, local *http.Client) error {
 			if errors.Is(err, ErrTimeout) {
 				return err
 			} else if errors.Is(err, ErrForbidden) {
-				log.Fatalf("failed to authenticate to cloud-api, restarting: %v", err)
+				slog.Error("failed to authenticate to cloud-api, restarting", ilog.Err(err))
+				os.Exit(1)
 			} else if errors.Is(err, syscall.ECONNREFUSED) {
-				log.Printf("Failed to connect to relay server. Retrying.")
+				slog.Warn("Failed to connect to relay server. Retrying.")
 				continue
 			} else {
 				return fmt.Errorf("failed to get request from relay: %v", err)
@@ -709,7 +741,8 @@ func (c *Client) localProxy(remote, local *http.Client) error {
 	}
 
 	if err != nil {
-		log.Fatalf("failed to connect to cloud-api, restarting: %v", err)
+		slog.Error("failed to connect to cloud-api, restarting", ilog.Err(err))
+		os.Exit(1)
 	}
 
 	// Forward the request to the backend.
@@ -718,11 +751,11 @@ func (c *Client) localProxy(remote, local *http.Client) error {
 }
 
 func (c *Client) localProxyWorker(remote, local *http.Client) {
-	log.Printf("Starting to relay server request loop for %s", c.config.ServerName)
+	slog.Info("Starting to relay server request loop", slog.String("ServerName", c.config.ServerName))
 	for {
 		err := c.localProxy(remote, local)
 		if err != nil && !errors.Is(err, ErrTimeout) {
-			log.Print(err)
+			slog.Error("localProxy", ilog.Err(err))
 			time.Sleep(1 * time.Second)
 		}
 	}

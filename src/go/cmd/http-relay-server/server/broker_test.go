@@ -17,7 +17,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"log"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -212,11 +212,11 @@ func TestTimeout(t *testing.T) {
 		wg.Done()
 	}()
 	go func() {
-		log.Printf("Getting request")
+		slog.Info("Getting request")
 		b.GetRequest(context.Background(), "foo", "/")
-		log.Printf("Reaping inactive requests")
+		slog.Info("Reaping inactive requests")
 		b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
-		log.Printf("Done")
+		slog.Info("Done")
 		wg.Done()
 	}()
 	wg.Wait()
