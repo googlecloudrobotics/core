@@ -244,12 +244,6 @@ function terraform_post {
       --member "serviceAccount:robot-service@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
       --role "roles/storage.objectViewer"
   done
-
-  # I am paranoid that #273 will delete this binding as a result of Terraform
-  # races, so this makes sure that it is maintained.
-  gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
-    --member "serviceAccount:robot-service@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
-    --role "roles/container.clusterViewer" --condition=None
 }
 
 function terraform_delete {
