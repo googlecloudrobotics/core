@@ -28,6 +28,7 @@ spec:
 {{ if eq .Values.certificate_provider "lets-encrypt" }}
   issuerRef:
     name: letsencrypt-prod
+    kind: ClusterIssuer
 {{ else if eq .Values.certificate_provider "google-cas" }}
   issuerRef:
     name: google-cas
