@@ -195,7 +195,7 @@ func (c *Client) Start() {
 		if keyLogFile := os.Getenv("SSLKEYLOGFILE"); keyLogFile != "" {
 			keyLog, err := os.OpenFile(keyLogFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 			if err != nil {
-				slog.Warn("Can open keylog file (check SSLKEYLOGFILE env var)", slog.String("File", keyLogFile), ilog.Err(err))
+				slog.Warn("Cannot open keylog file (check SSLKEYLOGFILE env var)", slog.String("File", keyLogFile), ilog.Err(err))
 			} else {
 				tlsConfig.KeyLogWriter = keyLog
 			}
@@ -379,7 +379,7 @@ func makeBackendRequest(ctx context.Context, local *http.Client, req *http.Reque
 		slog.Info("Backend responded", slog.String("ID", id), slog.Int("Status", resp.StatusCode))
 
 		dump, _ := httputil.DumpResponse(resp, false)
-		slog.Info("DumpRequest", slog.String("Request", string(dump)))
+		slog.Info("DumpResponse", slog.String("Response", string(dump)))
 		// We get 'Grpc-Status' and 'Grpc-Message' headers that we need to persist.
 		// Why is it not part of Trailers?
 		slog.Info("Headers",

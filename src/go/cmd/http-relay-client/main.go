@@ -88,7 +88,8 @@ func init() {
 
 func main() {
 	flag.Parse()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
+	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
+	slog.SetDefault(slog.New(logHandler))
 
 	if stackdriverProjectID != "" {
 		sd, err := stackdriver.NewExporter(stackdriver.Options{
