@@ -19,7 +19,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"math/rand"
 	"net"
 	"net/http"
@@ -32,6 +32,7 @@ import (
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
+	"github.com/googlecloudrobotics/ilog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/protobuf/proto"
 
@@ -220,15 +221,15 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 	if err != nil {
 		// After a failed hijack, the connection is in an unknown state and
 		// we can't report an error to the client.
-		log.Printf("[%s] Failed to hijack connection after 101: %v", backendCtx.Id, err)
+		slog.Error("Failed to hijack connection after 101", slog.String("ID", backendCtx.Id), ilog.Err(err))
 		return
 	}
-	log.Printf("[%s] Switched protocols", backendCtx.Id)
+	slog.Info("Switched protocols", slog.String("ID", backendCtx.Id))
 	defer conn.Close()
 
 	go func() {
 		// This goroutine handles the request stream from client to backend.
-		log.Printf("[%s] Trying to read from bidi-stream", backendCtx.Id)
+		slog.Info("Trying to read from bidi-stream", slog.String("ID", backendCtx.Id))
 		for {
 			// This must be a new buffer each time, as the channel is not making a copy
 			bytes := make([]byte, s.blockSize)
@@ -239,32 +240,32 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 				// we may be able to suppress the "read from closed connection" better.
 				if strings.Contains(err.Error(), "use of closed network connection") {
 					// Request ended and connection closed by HTTP server.
-					log.Printf("[%s] End of bidi-stream stream (closed socket)", backendCtx.Id)
+					slog.Info("End of bidi-stream stream (closed socket)", slog.String("ID", backendCtx.Id))
 				} else {
 					// Connection has unexpectedly failed for some other reason.
-					log.Printf("[%s] Error reading from bidi-stream: %v", backendCtx.Id, err)
+					slog.Error("Error reading from bidi-stream", slog.String("ID", backendCtx.Id), ilog.Err(err))
 				}
 				return
 			}
-			log.Printf("[%s] Read %d bytes from bidi-stream", backendCtx.Id, n)
+			slog.Info("Read from bidi-stream", slog.String("ID", backendCtx.Id), slog.Int("Bytes", n))
 			if ok = s.b.PutRequestStream(backendCtx.Id, bytes[:n]); !ok {
-				log.Printf("[%s] End of bidi-stream stream", backendCtx.Id)
+				slog.Info("End of bidi-stream stream", slog.String("ID", backendCtx.Id))
 				return
 			}
-			log.Printf("[%s] Uploaded %d bytes from bidi-stream", backendCtx.Id, n)
+			slog.Info("Uploaded from bidi-stream", slog.String("ID", backendCtx.Id), slog.Int("Bytes", n))
 		}
 	}()
 
 	numBytes := 0
 	for responseChunk := range responseChunks {
 		if _, err = bufrw.Write(responseChunk.Body); err != nil {
-			log.Printf("[%s] Error writing response to bidi-stream: %v", backendCtx.Id, err)
+			slog.Error("Error writing response to bidi-stream", slog.String("ID", backendCtx.Id), ilog.Err(err))
 			return
 		}
 		bufrw.Flush()
 		numBytes += len(responseChunk.Body)
 	}
-	log.Printf("[%s] Wrote %d response bytes to bidi-stream", backendCtx.Id, numBytes)
+	slog.Info("Wrote response chunk to bidi-stream", slog.String("ID", backendCtx.Id), slog.Int("Bytes", numBytes))
 }
 
 func (s *Server) readRequestBody(ctx context.Context, r *http.Request) ([]byte, error) {
@@ -355,7 +356,7 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 
 	if debugLogs {
 		dump, _ := httputil.DumpRequest(r, false)
-		log.Printf("%s", dump)
+		slog.Info("Received user client request", slog.String("HttpRequest", string(dump)))
 	}
 
 	backendCtx, err := newBackendContext(r)
@@ -402,7 +403,7 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	numBytes := 0
 	for responseChunk := range responseChunksChan {
 		if _, err = w.Write(responseChunk.Body); err != nil {
-			log.Printf("[%s] Error writing response to user-client: %v", backendCtx.Id, err)
+			slog.Error("Error writing response to user-client", slog.String("ID", backendCtx.Id), ilog.Err(err))
 			return
 		}
 		if flush, ok := w.(http.Flusher); ok {
@@ -413,7 +414,7 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		// Only the last chunk will actually contain trailers.
 		for _, h := range responseChunk.Trailers {
 			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
-			log.Printf("[%s] Adding real trailer: %q:%q", backendCtx.Id, *h.Name, *h.Value)
+			slog.Info("Adding real trailer", slog.String("ID", backendCtx.Id), slog.String("Name", *h.Name), slog.String("Value", *h.Value))
 		}
 	}
 
@@ -423,11 +424,11 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	for _, h := range header {
 		if strings.HasPrefix(*h.Name, "Grpc-") {
 			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
-			log.Printf("[%s] Adding trailer from header: %q:%q", backendCtx.Id, *h.Name, *h.Value)
+			slog.Info("Adding trailer from header", slog.String("ID", backendCtx.Id), slog.String("Name", *h.Name), slog.String("Value", *h.Value))
 		}
 	}
 
-	log.Printf("[%s] Wrote %d response bytes to request", backendCtx.Id, numBytes)
+	slog.Info("Wrote response chunk to request", slog.String("ID", backendCtx.Id), slog.Int("Bytes", numBytes))
 }
 
 // relay-client pulls a request
@@ -437,26 +438,26 @@ func (s *Server) serverRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing server query parameter", http.StatusBadRequest)
 		return
 	}
-	log.Printf("[%s] Relay client connected", server)
+	slog.Info("Relay client connected", slog.String("ServerName", server))
 
 	// Get pending request from client and sent as a reply to the relay-client.
 	request, err := s.b.GetRequest(r.Context(), server, r.URL.Path)
 	if err != nil {
-		log.Printf("[%s] Relay client got no request: %v", server, err)
+		slog.Error("Relay client got no request", slog.String("ID", server), ilog.Err(err))
 		http.Error(w, err.Error(), http.StatusRequestTimeout)
 		return
 	}
 
 	body, err := proto.Marshal(request)
 	if err != nil {
-		log.Printf("[%s] Failed to marshal request: %v", *request.Id, err)
+		slog.Error("Failed to marshal request", slog.String("ID", *request.Id), ilog.Err(err))
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpRequest")
 	w.Write(body)
-	log.Printf("[%s] Relay client accepted request", *request.Id)
+	slog.Info("Relay client accepted request", slog.String("ID", *request.Id))
 }
 
 func (s *Server) serverRequestStream(w http.ResponseWriter, r *http.Request) {
@@ -475,7 +476,7 @@ func (s *Server) serverRequestStream(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/octet-data")
 	w.Write(data)
-	log.Printf("[%s] Relay client pulled streamed request data of %d bytes", id, len(data))
+	slog.Info("Relay client pulled streamed request chunk", slog.String("ID", id), slog.Int("Bytes", len(data)))
 }
 
 // This function receives the response from the relay-client after it processed
@@ -506,7 +507,7 @@ func (s *Server) serverResponse(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte("ok"))
 
-	log.Printf("[%s] Relay client sent response", *br.Id)
+	slog.Info("Relay client sent response", slog.String("ID", *br.Id))
 }
 
 func (s *Server) Start(port int, blockSize int) {
@@ -537,7 +538,7 @@ func (s *Server) Start(port int, blockSize int) {
 		Addr:    fmt.Sprintf(":%d", s.port),
 		Handler: och,
 		BaseContext: func(l net.Listener) context.Context {
-			log.Printf("Relay server listening on: 127.0.0.1:%d", l.Addr().(*net.TCPAddr).Port)
+			slog.Info("Relay server listening", slog.Int("Port", l.Addr().(*net.TCPAddr).Port))
 			return mainCtx
 		},
 	}
@@ -564,6 +565,7 @@ func (s *Server) Start(port int, blockSize int) {
 		// update) or a failed liveness check (eg broker deadlock), we can't
 		// easily tell. We panic to help debugging: if the environment sets
 		// GOTRACEBACK=all they will see stacktraces after the panic.
-		log.Panicf("Server terminated abnormally: %v", err)
+		slog.Error("Server terminated abnormally", ilog.Err(err))
+		panic("Server terminated abnormally")
 	}
 }
