@@ -120,6 +120,9 @@ func createPubKeyDeviceConfig(name string, pk string) (*corev1.ConfigMap, error)
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "token-vendor",
+			},
 		},
 		Data: map[string]string{pubKey: pk},
 	}, nil
