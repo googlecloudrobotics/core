@@ -1,6 +1,6 @@
 # DO NOT SUBMIT
 steps:
-  - name: "ubuntu"
+  - name: "gcr.io/cloud-builders/kubectl"
     entrypoint: "bash"
     args: ["./.github/ci/deploy_navtest.sh"]
 
