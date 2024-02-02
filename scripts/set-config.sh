@@ -153,6 +153,8 @@ CLOUD_BUCKET="gs://${GCP_PROJECT_ID}-cloud-robotics-config"
 CONFIG_FILE="$(mktemp)"
 trap '{ rm -f ${CONFIG_FILE}; }' EXIT
 
+gsutil cat gs://robco-navtest-cloud-robotics-config/config.sh
+
 if gsutil cp "${CLOUD_BUCKET}/config.sh" "${CONFIG_FILE}" 2>/dev/null; then
   if [[ -n "${FLAG_ENSURE_CONFIG}" ]]; then
     echo "Found Cloud Robotics config."
