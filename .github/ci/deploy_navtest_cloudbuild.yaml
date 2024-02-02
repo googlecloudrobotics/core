@@ -1,7 +1,7 @@
-# DO NOT SUBMIT
+# Call deploy_navtest.sh on Cloud Build.
+# TODO(b/323509860): Run directly on the Action runner when it supports WIF.
 steps:
-  - name: "gcr.io/cloud-builders/kubectl"
+  - name: "gcr.io/cloud-builders/gcloud-slim"
     entrypoint: "bash"
     args: ["./.github/ci/deploy_navtest.sh"]
-
 timeout: 1200s
