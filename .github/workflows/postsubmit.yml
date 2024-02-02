@@ -12,8 +12,6 @@ permissions:
 jobs:
   call-bazel:
     uses: ./.github/workflows/check-bazel.yml
-    secrets:
-      ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY: ${{ secrets.ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY }}
 
   # Runs .github/ci/integration_test.sh through Cloud Build.
   # It needs to run on Cloud Build as it needs ssh access to Cloud VMs which
