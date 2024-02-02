@@ -1,0 +1,7 @@
+# DO NOT SUBMIT
+steps:
+  - name: "ubuntu"
+    entrypoint: "bash"
+    args: ["./.github/ci/deploy_navtest.sh"]
+
+timeout: 1200s

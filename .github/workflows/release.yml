@@ -49,26 +49,17 @@ jobs:
           echo $CLOUD_ROBOTICS_RELEASES_GITHUB_ROBOT_JSON_KEY > cloud_robotics_releases_credentials.json
           echo $ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY > robco_integration_test_credentials.json
           echo $ROBCO_NAVTEST_GITHUB_ROBOT_JSON_KEY > robco_navtest_credentials.json
-
-      - name: Deploy Navtest
+      - name: Deploy Navtest on Cloud Build
         run: |
-          set -euo pipefail
-
-          # Set up gke-cloud-auth-plugin in order to allow for
-          # `gcloud container clusters get-credentials`
-          # From https://cloud.google.com/sdk/docs/install#deb
-          echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
-            | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list >/dev/null
-          curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
-          sudo apt-get update -y
-          sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
-
-          ./.github/ci/deploy_navtest.sh
+          gcloud auth activate-service-account --key-file robco_navtest_credentials.json
+          gcloud builds submit \
+            --project robco-navtest \
+            --config .github/ci/deploy_navtest_cloudbuild.yaml
 
       # Now we are ready to create the release.
-      - name: Run release_binary.sh
-        env:
-          REPO: ${{ github.repository }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FULL_SHA: ${{ steps.latest-green.outputs.latest_green }}
-        run: ./.github/ci/release_binary.sh
+      # - name: Run release_binary.sh
+      #   env:
+      #     REPO: ${{ github.repository }}
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     FULL_SHA: ${{ steps.latest-green.outputs.latest_green }}
+      #   run: ./.github/ci/release_binary.sh
