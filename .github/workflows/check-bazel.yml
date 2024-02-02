@@ -16,38 +16,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # tag=v3.3.0
-      # We need to authenticate against GCP for remote builds and tests using GCR.
-      # This is done through service account key credentials for the github-robot@$PROJECT
-      # service accounts stored as org secrets.
-      # - name: Create service account credentials files
-      #   env:
-      #     ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY: ${{ secrets.ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY }}
-      #   run: |
-      #     if [[ -z "$ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY" ]] ; then
-      #       echo >&2 "This PR appears to be from a fork or authored by a non-org member, rather than from the primary repo."
-      #       echo >&2 "This means it can't run the presubmit, which requires access to GCR."
-      #       echo >&2 "If you are a project member, please push your branch to github.com/googlecloudrobotics/core instead."
-      #       echo >&2 "https://docs.github.com/en/actions/managing-workflow-runs/approving-workflow-runs-from-public-forks#about-workflow-runs-from-public-forks"
-      #       exit 1
-      #     fi
-      #     echo "$ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY" > robco_integration_test_credentials.json
-      - name: auth
-        uses: google-github-actions/auth@5a50e581162a13f4baa8916d01180d2acbc04363 # v2.1.0
+      - name: Auth
+        uses: google-github-actions/auth@5a50e581162a13f4baa8916d01180d2acbc04363 # tag=v2.1.0
         with:
-          create_credentials_file: true
+          create_credentials_file: true # also sets GOOGLE_APPLICATION_CREDENTIALS
           service_account: "github-automation-bot@gha-crc-dev.iam.gserviceaccount.com"
           workload_identity_provider: "projects/1043719249528/locations/global/workloadIdentityPools/github-automation/providers/crc-dev"
-      # - name: Create service account credentials files
-      #   if: ${{ inputs.adc_json_key }}
-      #   shell: bash
-      #   env:
-      #     ADC_JSON_KEY: ${{ inputs.adc_json_key }}
-      #   run: |
-      #     mkdir -p "${HOME}/.config/gcloud"
-      #     echo "${ADC_JSON_KEY}" > "${HOME}/.config/gcloud/application_default_credentials.json"
-      #     gcloud auth activate-service-account --key-file "${HOME}/.config/gcloud/application_default_credentials.json"
-      - name: Check credentials
-        run: "echo $GOOGLE_APPLICATION_CREDENTIALS"
       - name: Run .github/ci/presubmit.sh
         run: ./.github/ci/presubmit.sh
       - name: Get bazel server logs

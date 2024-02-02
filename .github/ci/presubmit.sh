@@ -27,7 +27,6 @@ TAG="latest" bazel_ci run \
 
 set +o xtrace  # Don't put the access token in the logs.
 ACCESS_TOKEN="$(gcloud auth application-default print-access-token)"
-# ACCESS_TOKEN="$(GOOGLE_APPLICATION_CREDENTIALS=robco_integration_test_credentials.json gcloud auth application-default print-access-token)"
 # --strategy=TestRunner=standalone means that the tests are run locally
 # and not on a remote worker (which does not have the Docker environment).
 bazel_ci test \
