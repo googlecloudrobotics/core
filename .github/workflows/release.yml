@@ -38,9 +38,8 @@ jobs:
           echo "latest_green=$sha" >> $GITHUB_OUTPUT
       - name: Checkout repository
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # tag=v3.2.0
-        # DO NOT SUBMIT
-        # with:
-        #   ref: ${{ steps.latest-green.outputs.latest_green }}
+        with:
+          ref: ${{ steps.latest-green.outputs.latest_green }}
       - name: Create service account credentials file
         env:
           CLOUD_ROBOTICS_RELEASES_GITHUB_ROBOT_JSON_KEY: ${{ secrets.CLOUD_ROBOTICS_RELEASES_GITHUB_ROBOT_JSON_KEY }}
@@ -59,9 +58,9 @@ jobs:
             --config .github/ci/deploy_navtest_cloudbuild.yaml
 
       # Now we are ready to create the release.
-      # - name: Run release_binary.sh
-      #   env:
-      #     REPO: ${{ github.repository }}
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #     FULL_SHA: ${{ steps.latest-green.outputs.latest_green }}
-      #   run: ./.github/ci/release_binary.sh
+      - name: Run release_binary.sh
+        env:
+          REPO: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FULL_SHA: ${{ steps.latest-green.outputs.latest_green }}
+        run: ./.github/ci/release_binary.sh
