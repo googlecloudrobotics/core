@@ -9,6 +9,7 @@ on:
 permissions:
   actions: read
   contents: write
+  id-token: write
   pull-requests: read
 
 # Cancel previous runs if a new one is started.
