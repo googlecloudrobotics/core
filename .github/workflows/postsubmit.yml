@@ -29,15 +29,6 @@ jobs:
           project_id: "robco-integration-test"
           service_account: "github-automation-bot@gha-crc-dev.iam.gserviceaccount.com"
           workload_identity_provider: "projects/1043719249528/locations/global/workloadIdentityPools/github-automation/providers/crc-dev"
-      - name: "Use gcloud CLI"
-        run: "gcloud info"
-      - name: "Set up Cloud SDK"
-        uses: "google-github-actions/setup-gcloud@v2"
-        with:
-          skip_install: true
-          project_id: "robco-integration-test"
-      - name: "Use gcloud CLI"
-        run: "gcloud info"
       - name: Run integration_test.sh on Cloud Build
         env:
           MANUAL_RUN: "${{ github.event_name == 'workflow_dispatch' }}"
