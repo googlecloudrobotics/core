@@ -25,32 +25,28 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       # Check out repo at latest green postsubmit commit on the main branch.
-      - name: Get latest passing commit
-        id: latest-green
-        env:
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          output=$(curl --fail-with-body -sS \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/$REPO/actions/workflows/postsubmit.yml/runs?per_page=1&branch=main&status=success")
-          sha=$(jq -r '.workflow_runs[0].head_sha' <<< $output)
-          echo "latest_green=$sha" >> $GITHUB_OUTPUT
+      # - name: Get latest passing commit
+      #   id: latest-green
+      #   env:
+      #     REPO: ${{ github.repository }}
+      #   run: |
+      #     set -euo pipefail
+      #     output=$(curl --fail-with-body -sS \
+      #       -H "Accept: application/vnd.github+json" \
+      #       -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+      #       "https://api.github.com/repos/$REPO/actions/workflows/postsubmit.yml/runs?per_page=1&branch=main&status=success")
+      #     sha=$(jq -r '.workflow_runs[0].head_sha' <<< $output)
+      #     echo "latest_green=$sha" >> $GITHUB_OUTPUT
       - name: Checkout repository
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # tag=v3.2.0
+        # with:
+        #   ref: ${{ steps.latest-green.outputs.latest_green }}
+      - name: Auth
+        uses: google-github-actions/auth@5a50e581162a13f4baa8916d01180d2acbc04363 # tag=v2.1.0
         with:
-          ref: ${{ steps.latest-green.outputs.latest_green }}
-      - name: Create service account credentials file
-        env:
-          CLOUD_ROBOTICS_RELEASES_GITHUB_ROBOT_JSON_KEY: ${{ secrets.CLOUD_ROBOTICS_RELEASES_GITHUB_ROBOT_JSON_KEY }}
-          ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY: ${{ secrets.ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY }}
-          ROBCO_NAVTEST_GITHUB_ROBOT_JSON_KEY: ${{ secrets.ROBCO_NAVTEST_GITHUB_ROBOT_JSON_KEY }}
-        run: |
-          echo $CLOUD_ROBOTICS_RELEASES_GITHUB_ROBOT_JSON_KEY > cloud_robotics_releases_credentials.json
-          echo $ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY > robco_integration_test_credentials.json
-          echo $ROBCO_NAVTEST_GITHUB_ROBOT_JSON_KEY > robco_navtest_credentials.json
-
+          create_credentials_file: true # also sets GOOGLE_APPLICATION_CREDENTIALS
+          service_account: "github-automation-bot@gha-crc-prod.iam.gserviceaccount.com"
+          workload_identity_provider: "projects/695270090783/locations/global/workloadIdentityPools/github-automation/providers/crc-prod"
       - name: Deploy Navtest on Cloud Build
         run: |
           gcloud auth activate-service-account --key-file robco_navtest_credentials.json

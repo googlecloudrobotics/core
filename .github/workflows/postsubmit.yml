@@ -26,14 +26,12 @@ jobs:
         uses: google-github-actions/auth@5a50e581162a13f4baa8916d01180d2acbc04363 # tag=v2.1.0
         with:
           create_credentials_file: true # also sets GOOGLE_APPLICATION_CREDENTIALS
-          project_id: "robco-integration-test"
           service_account: "github-automation-bot@gha-crc-dev.iam.gserviceaccount.com"
           workload_identity_provider: "projects/1043719249528/locations/global/workloadIdentityPools/github-automation/providers/crc-dev"
       - name: Run integration_test.sh on Cloud Build
         env:
           MANUAL_RUN: "${{ github.event_name == 'workflow_dispatch' }}"
         run: |
-          # gcloud auth activate-service-account --key-file robco_integration_test_credentials.json
           gcloud builds submit \
             --project robco-integration-test \
             --region europe-west1 \
