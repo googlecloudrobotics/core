@@ -45,8 +45,11 @@ jobs:
         uses: google-github-actions/auth@5a50e581162a13f4baa8916d01180d2acbc04363 # tag=v2.1.0
         with:
           create_credentials_file: true # also sets GOOGLE_APPLICATION_CREDENTIALS
-          service_account: "github-automation-bot@gha-crc-prod.iam.gserviceaccount.com"
-          workload_identity_provider: "projects/695270090783/locations/global/workloadIdentityPools/github-automation/providers/crc-prod"
+          # service_account: "github-automation-bot@gha-crc-prod.iam.gserviceaccount.com"
+          # workload_identity_provider: "projects/695270090783/locations/global/workloadIdentityPools/github-automation/providers/crc-prod"
+          service_account: "github-automation-bot@gha-crc-dev.iam.gserviceaccount.com"
+          workload_identity_provider: "projects/1043719249528/locations/global/workloadIdentityPools/github-automation/providers/crc-dev"
+
       - name: Deploy Navtest on Cloud Build
         run: |
           gcloud auth activate-service-account --key-file robco_navtest_credentials.json
