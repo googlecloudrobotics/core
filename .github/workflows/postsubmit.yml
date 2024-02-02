@@ -33,6 +33,7 @@ jobs:
           MANUAL_RUN: "${{ github.event_name == 'workflow_dispatch' }}"
         run: |
           # gcloud auth activate-service-account --key-file robco_integration_test_credentials.json
+          gcloud config set project robco-integration-test
           gcloud builds submit \
             --project robco-integration-test \
             --region europe-west1 \
