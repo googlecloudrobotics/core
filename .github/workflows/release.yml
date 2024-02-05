@@ -9,6 +9,7 @@ on:
 permissions:
   actions: read
   contents: write
+  id-token: write
   pull-requests: read
 
 # Cancel previous runs if a new one is started.
@@ -40,19 +41,19 @@ jobs:
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # tag=v3.2.0
         with:
           ref: ${{ steps.latest-green.outputs.latest_green }}
-      - name: Create service account credentials file
-        env:
-          CLOUD_ROBOTICS_RELEASES_GITHUB_ROBOT_JSON_KEY: ${{ secrets.CLOUD_ROBOTICS_RELEASES_GITHUB_ROBOT_JSON_KEY }}
-          ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY: ${{ secrets.ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY }}
-          ROBCO_NAVTEST_GITHUB_ROBOT_JSON_KEY: ${{ secrets.ROBCO_NAVTEST_GITHUB_ROBOT_JSON_KEY }}
-        run: |
-          echo $CLOUD_ROBOTICS_RELEASES_GITHUB_ROBOT_JSON_KEY > cloud_robotics_releases_credentials.json
-          echo $ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY > robco_integration_test_credentials.json
-          echo $ROBCO_NAVTEST_GITHUB_ROBOT_JSON_KEY > robco_navtest_credentials.json
+      - name: Auth
+        uses: google-github-actions/auth@5a50e581162a13f4baa8916d01180d2acbc04363 # tag=v2.1.0
+        with:
+          create_credentials_file: true # also sets GOOGLE_APPLICATION_CREDENTIALS
+          service_account: "github-automation-bot@gha-crc-prod.iam.gserviceaccount.com"
+          workload_identity_provider: "projects/695270090783/locations/global/workloadIdentityPools/github-automation/providers/crc-prod"
+      - name: "Set up gcloud"
+        uses: "google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200" # tag=v2.1.0
+        with:
+          skip_install: true
 
       - name: Deploy Navtest on Cloud Build
         run: |
-          gcloud auth activate-service-account --key-file robco_navtest_credentials.json
           gcloud builds submit \
             --project robco-navtest \
             --config .github/ci/deploy_navtest_cloudbuild.yaml

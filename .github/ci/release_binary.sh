@@ -6,7 +6,6 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # shellcheck source=ci/common.sh
 source "${DIR}/common.sh"
 
-gcloud auth activate-service-account --key-file cloud_robotics_releases_credentials.json
 gcloud auth configure-docker --quiet
 
 # Set defaults used for the release, they can only be overriden when testing

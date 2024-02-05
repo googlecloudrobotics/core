@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
   pull-requests: read
 
 # Cancel previous runs if a new one is started.
@@ -55,8 +56,6 @@ jobs:
     needs: [setup-presubmit]
     if: ${{ needs.setup-presubmit.outputs.presubmit_status != 'success' }}
     uses: ./.github/workflows/check-bazel.yml
-    secrets:
-      ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY: ${{ secrets.ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY }}
 
   presubmits-ok:
     needs: [setup-presubmit, call-check-bazel]

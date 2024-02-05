@@ -2,12 +2,10 @@ name: Check Bazel
 
 on:
   workflow_call:
-    secrets:
-      ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY:
-        required: true
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   USE_BAZEL_VERSION: "6.3.2"
@@ -18,21 +16,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # tag=v3.3.0
-      # We need to authenticate against GCP for remote builds and tests using GCR.
-      # This is done through service account key credentials for the github-robot@$PROJECT
-      # service accounts stored as org secrets.
-      - name: Create service account credentials files
-        env:
-          ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY: ${{ secrets.ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY }}
+      - name: Auth
+        uses: google-github-actions/auth@5a50e581162a13f4baa8916d01180d2acbc04363 # tag=v2.1.0
+        with:
+          create_credentials_file: true # also sets GOOGLE_APPLICATION_CREDENTIALS
+          service_account: "github-automation-bot@gha-crc-dev.iam.gserviceaccount.com"
+          workload_identity_provider: "projects/1043719249528/locations/global/workloadIdentityPools/github-automation/providers/crc-dev"
+      - name: Print error on auth fail
+        if: failure()
         run: |
-          if [[ -z "$ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY" ]] ; then
-            echo >&2 "This PR appears to be from a fork or authored by a non-org member, rather than from the primary repo."
-            echo >&2 "This means it can't run the presubmit, which requires access to GCR."
-            echo >&2 "If you are a project member, please push your branch to github.com/googlecloudrobotics/core instead."
-            echo >&2 "https://docs.github.com/en/actions/managing-workflow-runs/approving-workflow-runs-from-public-forks#about-workflow-runs-from-public-forks"
-            exit 1
-          fi
-          echo "$ROBCO_INTEGRATION_TEST_GITHUB_ROBOT_JSON_KEY" > robco_integration_test_credentials.json
+          echo >&2 "This PR appears to be from a fork or authored by a non-org member, rather than from the primary repo."
+          echo >&2 "This means it can't run the presubmit, which requires access to GCR."
+          echo >&2 "If you are a project member, please push your branch to github.com/googlecloudrobotics/core instead."
+          exit 1
       - name: Run .github/ci/presubmit.sh
         run: ./.github/ci/presubmit.sh
       - name: Get bazel server logs
