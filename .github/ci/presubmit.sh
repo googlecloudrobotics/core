@@ -18,7 +18,6 @@ echo "Timestamp: test done"
 
 # Some of the tests below pull Docker images from the repository. We need to
 # make sure they are pushed and provide an access token.
-# gcloud auth activate-service-account --key-file robco_integration_test_credentials.json
 gcloud auth configure-docker --quiet
 
 REGISTRY="gcr.io/robco-integration-test"
