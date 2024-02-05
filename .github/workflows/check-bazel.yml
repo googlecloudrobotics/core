@@ -22,6 +22,13 @@ jobs:
           create_credentials_file: true # also sets GOOGLE_APPLICATION_CREDENTIALS
           service_account: "github-automation-bot@gha-crc-dev.iam.gserviceaccount.com"
           workload_identity_provider: "projects/1043719249528/locations/global/workloadIdentityPools/github-automation/providers/crc-dev"
+      - name: Print error on auth fail
+        if: failure()
+        run: |
+          echo >&2 "This PR appears to be from a fork or authored by a non-org member, rather than from the primary repo."
+          echo >&2 "This means it can't run the presubmit, which requires access to GCR."
+          echo >&2 "If you are a project member, please push your branch to github.com/googlecloudrobotics/core instead."
+          exit 1
       - name: Run .github/ci/presubmit.sh
         run: ./.github/ci/presubmit.sh
       - name: Get bazel server logs
