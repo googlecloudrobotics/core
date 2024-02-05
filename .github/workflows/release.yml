@@ -56,7 +56,6 @@ jobs:
 
       - name: Deploy Navtest on Cloud Build
         run: |
-          gcloud auth activate-service-account --key-file robco_navtest_credentials.json
           gcloud builds submit \
             --project robco-navtest \
             --config .github/ci/deploy_navtest_cloudbuild.yaml
