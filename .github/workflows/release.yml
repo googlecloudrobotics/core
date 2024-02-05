@@ -54,16 +54,17 @@ jobs:
         with:
           skip_install: true
 
-      - name: Deploy Navtest on Cloud Build
-        run: |
-          gcloud builds submit \
-            --project robco-navtest \
-            --config .github/ci/deploy_navtest_cloudbuild.yaml
+      # - name: Deploy Navtest on Cloud Build
+      #   run: |
+      #     gcloud builds submit \
+      #       --project robco-navtest \
+      #       --config .github/ci/deploy_navtest_cloudbuild.yaml
 
       # Now we are ready to create the release.
       - name: Run release_binary.sh
         env:
           REPO: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FULL_SHA: ${{ steps.latest-green.outputs.latest_green }}
+          FULL_SHA: bc4f445730b0593ca2492ee186a92b68ea8a6414
+          # FULL_SHA: ${{ steps.latest-green.outputs.latest_green }}
         run: ./.github/ci/release_binary.sh
