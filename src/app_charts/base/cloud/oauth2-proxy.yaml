@@ -23,7 +23,7 @@ spec:
         - --http-address=0.0.0.0:8080
         - --pass-access-token
         - --pass-host-header
-        - "--scope=profile email https://www.googleapis.com/auth/cloud-platform"
+        - "--scope=profile email https://www.googleapis.com/auth/iam"
         - --cookie-expire=168h
         - --cookie-refresh=1h
         env:
