@@ -191,5 +191,5 @@ grafana:
       targetLabel: instance
 
 gf_ingress_auth_url: "${CR_GF_INGRESS_AUTH_URL}"
-gf_ingress_auth_signin: "{CR_GF_INGRESS_AUTH_SIGNIN}"
+gf_ingress_auth_signin: "${CR_GF_INGRESS_AUTH_SIGNIN}"
 gf_ingress_error_page_403: "${CR_GF_INGRESS_ERROR_PAGE_403}"
