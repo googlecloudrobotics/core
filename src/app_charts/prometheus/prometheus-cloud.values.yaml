@@ -168,8 +168,9 @@ nodeExporter:
 
 grafana:
   env:
-    GF_SERVER_DOMAIN: "${CLOUD_ROBOTICS_DOMAIN}"
-    GF_SERVER_ROOT_URL: "https://${CLOUD_ROBOTICS_DOMAIN}/grafana"
+    GF_SERVER_DOMAIN: "${CR_GF_SERVER_DOMAIN}"
+    GF_SERVER_ROOT_URL: "${CR_GF_SERVER_ROOT_URL}"
+    GF_ENFORCE_DOMAIN: "${CR_GF_ENFORCE_DOMAIN}"
     GF_AUTH_ANONYMOUS_ENABLED: "true"
   # Load dashboards from configmaps with a given label across all namespaces.
   sidecar:
