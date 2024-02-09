@@ -168,8 +168,8 @@ nodeExporter:
 
 grafana:
   env:
-    GF_SERVER_DOMAIN: "${CLOUD_ROBOTICS_DOMAIN}"
-    GF_SERVER_ROOT_URL: "https://${CLOUD_ROBOTICS_DOMAIN}/grafana"
+    GF_SERVER_DOMAIN: "${CR_GF_SERVER_DOMAIN}"
+    GF_SERVER_ROOT_URL: "${CR_GF_SERVER_ROOT_URL}"
     GF_AUTH_ANONYMOUS_ENABLED: "true"
   # Load dashboards from configmaps with a given label across all namespaces.
   sidecar:
@@ -190,3 +190,6 @@ grafana:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: instance
 
+gf_ingress_auth_url: "${CR_GF_INGRESS_AUTH_URL}"
+gf_ingress_auth_signin: "${CR_GF_INGRESS_AUTH_SIGNIN}"
+gf_ingress_error_page_403: "${CR_GF_INGRESS_ERROR_PAGE_403}"
