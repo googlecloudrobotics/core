@@ -5,14 +5,14 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
   annotations:
-    nginx.ingress.kubernetes.io/auth-url: "{{ .Values.gf_ingress_auth_url }}"
-    nginx.ingress.kubernetes.io/auth-signin: "{{ .Values.gf_ingress_auth_signin }}"
+    nginx.ingress.kubernetes.io/auth-url: "{{ tpl .Values.gf_ingress_auth_url . }}"
+    nginx.ingress.kubernetes.io/auth-signin: "{{ tpl .Values.gf_ingress_auth_signin . }}"
     nginx.ingress.kubernetes.io/backend-protocol: HTTP
     nginx.ingress.kubernetes.io/rewrite-target: /$2
     # HACK: oauth2-proxy will return 403, but nginx-ingress-controller only handles
     # 401 with an error page.
     nginx.ingress.kubernetes.io/configuration-snippet: |
-      error_page 403 = {{ .Values.gf_ingress_error_page_403 }};
+      error_page 403 = {{ tpl .Values.gf_ingress_error_page_403 . }};
 spec:
   ingressClassName: nginx
   tls:
