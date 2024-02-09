@@ -31,9 +31,8 @@ retention:
   size: "180GB"
 
 # Grafana HTTP & Ingress configuration
-gf_server_domain: "{{ .Values.domain }}"
-gf_server_root_url: "https://{{ .Values.domain }}/grafana"
-gf_enforce_domain: "true"
+gf_server_domain: "${CLOUD_ROBOTICS_DOMAIN}"
+gf_server_root_url: "https://${CLOUD_ROBOTICS_DOMAIN}/DO_NOT_SUBMIT"
 gf_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
-gf_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
-gf_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+gf_ingress_auth_signin: "https://${CLOUD_ROBOTICS_DOMAIN}/oauth2/start?rd=$escaped_request_uri"
+gf_ingress_error_page_403: "https://${CLOUD_ROBOTICS_DOMAIN}/oauth2/start?rd=$escaped_request_uri"
