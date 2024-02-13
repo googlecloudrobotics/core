@@ -1,3 +1,4 @@
+{{ if and (ne .Values.oauth2_proxy.client_id "") (ne .Values.oauth2_proxy.client_secret "") }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -104,3 +105,4 @@ spec:
             name: oauth2-proxy
             port:
               name: http
+{{ end }}
