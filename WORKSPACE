@@ -3,16 +3,14 @@ workspace(name = "cloud_robotics")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("//bazel:repositories.bzl", "cloud_robotics_repositories")
 
-BAZEL_TOOLCHAIN_TAG = "0.8.1"
-
-BAZEL_TOOLCHAIN_SHA = "751bbe30bcaa462aef792b18bbd16c401af42fc937c42ad0ae463f099dc04ea2"
+BAZEL_TOOLCHAIN_TAG = "0.10.3"
 
 http_archive(
-    name = "com_grail_bazel_toolchain",
+    name = "toolchains_llvm",
+    sha256 = "b7cd301ef7b0ece28d20d3e778697a5e3b81828393150bed04838c0c52963a01",
+    strip_prefix = "toolchains_llvm-{tag}".format(tag = BAZEL_TOOLCHAIN_TAG),
     canonical_id = BAZEL_TOOLCHAIN_TAG,
-    sha256 = BAZEL_TOOLCHAIN_SHA,
-    strip_prefix = "bazel-toolchain-{tag}".format(tag = BAZEL_TOOLCHAIN_TAG),
-    url = "https://github.com/grailbio/bazel-toolchain/archive/{tag}.tar.gz".format(tag = BAZEL_TOOLCHAIN_TAG),
+    url = "https://github.com/grailbio/bazel-toolchain/releases/download/{tag}/toolchains_llvm-{tag}.tar.gz".format(tag = BAZEL_TOOLCHAIN_TAG),
 )
 
 # Sysroot and libc
@@ -33,11 +31,11 @@ http_archive(
     ],
 )
 
-load("@com_grail_bazel_toolchain//toolchain:deps.bzl", "bazel_toolchain_dependencies")
+load("@toolchains_llvm//toolchain:deps.bzl", "bazel_toolchain_dependencies")
 
 bazel_toolchain_dependencies()
 
-load("@com_grail_bazel_toolchain//toolchain:rules.bzl", "llvm_toolchain")
+load("@toolchains_llvm//toolchain:rules.bzl", "llvm_toolchain")
 
 # How to upgrade:
 # - Pick a new version that runs on a stable OS similar enough to our sysroot from

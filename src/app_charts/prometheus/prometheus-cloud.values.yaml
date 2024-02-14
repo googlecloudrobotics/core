@@ -193,3 +193,7 @@ grafana:
 gf_ingress_auth_url: "${CR_GF_INGRESS_AUTH_URL}"
 gf_ingress_auth_signin: "${CR_GF_INGRESS_AUTH_SIGNIN}"
 gf_ingress_error_page_403: "${CR_GF_INGRESS_ERROR_PAGE_403}"
+
+prom_ingress_auth_url: "${CR_PROM_INGRESS_AUTH_URL}"
+prom_ingress_auth_signin: "${CR_PROM_INGRESS_AUTH_SIGNIN}"
+prom_ingress_error_page_403: "${CR_PROM_INGRESS_ERROR_PAGE_403}"
