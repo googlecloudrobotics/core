@@ -37,3 +37,7 @@ gf_server_root_url: "https://${CLOUD_ROBOTICS_DOMAIN}/grafana"
 gf_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
 gf_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
 gf_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+# Prometheus
+prom_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
+prom_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+prom_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"

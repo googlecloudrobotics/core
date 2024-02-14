@@ -5,12 +5,12 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
   annotations:
-    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
-    nginx.ingress.kubernetes.io/auth-signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-url: "{{ tpl .Values.prom_ingress_auth_url . }}"
+    nginx.ingress.kubernetes.io/auth-signin: "{{ tpl .Values.prom_ingress_auth_signin . }}"
     nginx.ingress.kubernetes.io/backend-protocol: HTTP
     nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/configuration-snippet: |
-      error_page 403 = /oauth2/start?rd=$escaped_request_uri;
+      error_page 403 = {{ tpl .Values.prom_ingress_error_page_403 . }};
 spec:
   ingressClassName: nginx
   tls:
