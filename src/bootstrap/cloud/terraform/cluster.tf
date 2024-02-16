@@ -4,8 +4,10 @@
 # service account for the nodes. This service account cannot be used by the
 # workloads: see workload-identity.tf for those service accounts.
 
+# Might need to update this to a later version if the version here is too far
+# behind and is removed as a valid version.
 locals {
-  min_k8s_master_version = "1.24"
+  min_k8s_master_version = "1.27"
 }
 
 resource "google_container_cluster" "cloud-robotics" {
