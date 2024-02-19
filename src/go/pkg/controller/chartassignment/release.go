@@ -392,7 +392,7 @@ func newHTTPGetter(url, certFile, keyFile, caFile string) (getter.Getter, error)
 	return getter.NewHTTPGetter(url, certFile, keyFile, caFile)
 }
 
-func decodeManifests(manifests map[string]string) (res []*unstructured.Unstructured, err error) {
+func decodeManifests(manifests map[string]string) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 	for k, v := range manifests {
 		// Sometimes README.md or NOTES.txt files make it into the template directory.
