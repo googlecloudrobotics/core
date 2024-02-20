@@ -34,7 +34,7 @@ import (
 	"go.opencensus.io/trace"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/helm/pkg/chartutil"
@@ -392,7 +392,8 @@ func newHTTPGetter(url, certFile, keyFile, caFile string) (getter.Getter, error)
 	return getter.NewHTTPGetter(url, certFile, keyFile, caFile)
 }
 
-func decodeManifests(manifests map[string]string) (res []*unstructured.Unstructured, err error) {
+func decodeManifests(manifests map[string]string) ([]*unstructured.Unstructured, error) {
+	var resources []*unstructured.Unstructured
 	for k, v := range manifests {
 		// Sometimes README.md or NOTES.txt files make it into the template directory.
 		// Filter files by extension.
@@ -401,16 +402,23 @@ func decodeManifests(manifests map[string]string) (res []*unstructured.Unstructu
 		default:
 			continue
 		}
-		dec := yaml.NewYAMLOrJSONDecoder(strings.NewReader(v), 4096)
-		for i := 0; ; i++ {
-			var u unstructured.Unstructured
-			if err := dec.Decode(&u); err == io.EOF {
-				break
-			} else if err != nil {
-				return nil, errors.Wrapf(err, "decode manifest %d in %q", i, k)
-			}
-			res = append(res, &u)
+		slog.Info("decode manifest", slog.String("name", k), slog.String("manifest", v))
+		result := resource.NewLocalBuilder().
+			ContinueOnError().
+			Unstructured().
+			Stream(bytes.NewBufferString(v), k).
+			Flatten().
+			Do()
+		if result.Err() != nil {
+			return nil, fmt.Errorf("get manifest: %w", result.Err())
+		}
+		infos, err := result.Infos()
+		if err != nil {
+			return nil, fmt.Errorf("get file information: %w", err)
+		}
+		for _, i := range infos {
+			resources = append(resources, i.Object.(*unstructured.Unstructured))
 		}
 	}
-	return res, nil
+	return resources, nil
 }
