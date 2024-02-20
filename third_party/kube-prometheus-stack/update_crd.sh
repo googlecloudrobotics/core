@@ -2,7 +2,7 @@
 
 # match the version to the app version in this command:
 # helm search repo prometheus-community/kube-prometheus-stack --version='x.y.z'
-VERSION=0.60
+VERSION=0.71
 # https://github.com/prometheus-operator/prometheus-operator/tree/main/example/prometheus-operator-crd
 # TODO(ensonic): can we tak this directly from the chart?
 BASEURL="https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/release-${VERSION}/example/prometheus-operator-crd/monitoring.coreos.com"
