@@ -4,17 +4,10 @@
 # service account for the nodes. This service account cannot be used by the
 # workloads: see workload-identity.tf for those service accounts.
 
-# Might need to update this to a later version if the version here is too far
-# behind and is removed as a valid version.
-locals {
-  min_k8s_master_version = "1.27"
-}
-
 resource "google_container_cluster" "cloud-robotics" {
   project               = data.google_project.project.project_id
   name                  = "cloud-robotics"
   location              = var.zone
-  min_master_version    = local.min_k8s_master_version
   enable_shielded_nodes = true
   depends_on            = [google_project_service.container]
 
@@ -45,7 +38,6 @@ resource "google_container_cluster" "cloud-robotics-ar" {
   project               = data.google_project.project.project_id
   name                  = format("%s-%s", each.key, "ar-cloud-robotics")
   location              = each.value.zone
-  min_master_version    = local.min_k8s_master_version
   enable_shielded_nodes = true
   depends_on            = [google_project_service.container]
 
