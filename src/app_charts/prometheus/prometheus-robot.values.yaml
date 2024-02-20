@@ -59,10 +59,9 @@ prometheus:
 
     logLevel: warn
     # Historical data is limited to the lower of `retention` and
-    # `retentionSize`.  This doesn't include the WAL (~3h of data) and the
-    # "head chunk".
+    # `retentionSize`.
     retention: "1d"
-    retentionSize: 128MiB
+    retentionSize: 512MB
     # Reduce the max chunk size (default=512MB) to reduce the headroom required
     # for the in-progress chunk.
     additionalArgs:
@@ -104,6 +103,11 @@ prometheusOperator:
         name: "selfsigned-issuer"
         kind: "ClusterIssuer"
   serviceMonitor:
+    metricRelabelings:
+    # Drop high cardinality kube state metrics
+    - action: drop
+      regex: "kube_*"
+      sourceLabels: [ __name__ ]
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: instance
@@ -113,10 +117,10 @@ kubeApiServer:
   serviceMonitor:
     interval: 10m
     metricRelabelings:
-    # Drop high cardinality apiserver buckets.
-      - action: drop
-        regex: "^apiserver_request|^etcd_request"
-        sourceLabels: [__name__]
+    # Drop high cardinality apiserver metrics.
+    - action: drop
+      regex: "apiserver_request.*|etcd_request.*|apiserver_watch.*|code_*"
+      sourceLabels: [__name__]
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: instance
@@ -125,9 +129,9 @@ kubelet:
     # From kubernetes 1.18, /metrics/resource/v1alpha1 renamed to /metrics/resource
     resourcePath: "/metrics/resource"
     metricRelabelings:
-    # Drop high cardinality container_network metrics.
+    # Drop high cardinality metrics from kubelet.
     - action: drop
-      regex: "^container_network"
+      regex: "container_network.*|container_blkio.*|kubelet_.*|kubernetes_feature_enabled|container_fs.*|container_processes|container_last_seen|storage_operation_duration_seconds_bucket"
       sourceLabels: [__name__]
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
@@ -140,6 +144,11 @@ kubelet:
 nodeExporter:
   enabled: true
   serviceMonitor:
+    metricRelabelings:
+    # Drop high cardinality metrics from node exporter.
+    - action: drop
+      regex: "node_cpu_seconds_total"
+      sourceLabels: [ __name__ ]
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: instance

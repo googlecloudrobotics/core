@@ -18,7 +18,6 @@ echo "Timestamp: test done"
 
 # Some of the tests below pull Docker images from the repository. We need to
 # make sure they are pushed and provide an access token.
-gcloud auth activate-service-account --key-file robco_integration_test_credentials.json
 gcloud auth configure-docker --quiet
 
 REGISTRY="gcr.io/robco-integration-test"
@@ -26,7 +25,7 @@ TAG="latest" bazel_ci run \
   //src/app_charts:push "${REGISTRY}"
 
 set +o xtrace  # Don't put the access token in the logs.
-ACCESS_TOKEN="$(GOOGLE_APPLICATION_CREDENTIALS=robco_integration_test_credentials.json gcloud auth application-default print-access-token)"
+ACCESS_TOKEN="$(gcloud auth application-default print-access-token)"
 # --strategy=TestRunner=standalone means that the tests are run locally
 # and not on a remote worker (which does not have the Docker environment).
 bazel_ci test \

@@ -1,10 +1,12 @@
 # Bazel config for CI/CD builds.
-# This expects robco_integration_test_credentials.json to be available locally for AuthZ.
+
+# Default to keep going
+build --keep_going
 
 # Use rbe remote execution and caching on robco-integration-test.
 build --config=remote
 build --remote_instance_name=projects/robco-integration-test/instances/default_instance
-build --google_credentials=robco_integration_test_credentials.json
+build --google_default_credentials=true
 # Slightly higher than the numer of available remote workers (10 in default_instance).
 # This has not been tuned a lot.
 build --jobs=12
