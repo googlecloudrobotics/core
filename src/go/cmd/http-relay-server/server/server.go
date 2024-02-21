@@ -143,7 +143,7 @@ func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*p
 	responseChunks := make(chan *responseChunk, 1)
 	firstMessage, more := <-in
 	if !more {
-		brokerResponses.WithLabelValues("client", "missing_message", backendCtx.ServerName, backendCtx.Path).Inc()
+		brokerResponses.WithLabelValues("client", "missing_message", backendCtx.ServerName).Inc()
 		responseChunks <- &responseChunk{
 			Body: []byte(fmt.Sprintf("Timeout after %v, indicating that the backend request took too long", inactiveRequestTimeout)),
 		}
@@ -151,7 +151,7 @@ func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*p
 		return nil, http.StatusGatewayTimeout, responseChunks
 	}
 	if firstMessage.StatusCode == nil {
-		brokerResponses.WithLabelValues("client", "missing_header", backendCtx.ServerName, backendCtx.Path).Inc()
+		brokerResponses.WithLabelValues("client", "missing_header", backendCtx.ServerName).Inc()
 		responseChunks <- &responseChunk{
 			Body: []byte("Received no header from relay client"),
 		}
@@ -169,7 +169,7 @@ func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*p
 
 	go func() {
 		for backendResp := range in {
-			brokerResponses.WithLabelValues("client", "ok", backendCtx.ServerName, backendCtx.Path).Inc()
+			brokerResponses.WithLabelValues("client", "ok", backendCtx.ServerName).Inc()
 			responseChunks <- &responseChunk{
 				Body:     []byte(backendResp.Body),
 				Trailers: []*pb.HttpHeader(backendResp.Trailer),
