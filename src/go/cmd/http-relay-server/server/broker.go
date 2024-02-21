@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -35,35 +34,35 @@ var (
 			Name: "broker_requests",
 			Help: "Number of requests to the broker",
 		},
-		[]string{"method", "backend", "request_path"},
+		[]string{"method", "backend"},
 	)
 	brokerResponses = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "broker_responses",
 			Help: "Number of responses from the broker",
 		},
-		[]string{"method", "result", "backend", "request_path"},
+		[]string{"method", "result", "backend"},
 	)
 	brokerResponseDurations = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name: "broker_responses_durations",
 			Help: "Time from request to final response in s",
 		},
-		[]string{"method", "backend", "request_path"},
+		[]string{"method", "backend"},
 	)
 	brokerBackendResponseDurations = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name: "broker_backend_responses_durations",
 			Help: "Time from backend request to final response in s",
 		},
-		[]string{"method", "backend", "request_path"},
+		[]string{"method", "backend"},
 	)
 	brokerOverheadDurations = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name: "broker_overhead_durations",
 			Help: "Extra time spend between relay server and client in s",
 		},
-		[]string{"method", "backend", "request_path"},
+		[]string{"method", "backend"},
 	)
 )
 
@@ -97,16 +96,6 @@ type RelayClientUnavailableError struct {
 
 func (e *RelayClientUnavailableError) Error() string {
 	return fmt.Sprintf("Cannot reach the client %q. Check that it's turned on, set up, and connected to the internet. (unknown client)", e.client)
-}
-
-var numberRegexp = regexp.MustCompile(`(?i)[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-f0-9]{20,}|[0-9]{2,}`)
-
-// cleanPath replaces decimal/hex numbers and GUIDS with "XXX" to make a path
-// that is more suitable as a metric label, reducing the risk of
-// high-cardinality labels with requests like
-// /api/logItems/2906532336276711024.
-func cleanPath(path string) string {
-	return numberRegexp.ReplaceAllString(path, "XXX")
 }
 
 // broker implements a thread-safe map for the request and response queues.
@@ -168,7 +157,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	r.m.Unlock()
 
 	slog.Info("Enqueuing request", slog.String("ID", id))
-	brokerRequests.WithLabelValues("client", server, cleanPath(targetUrl.Path)).Inc()
+	brokerRequests.WithLabelValues("client", server).Inc()
 	select {
 	// This blocks until we get a free spot in the broker's request channel.
 	case reqChan <- request:
@@ -200,13 +189,13 @@ func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpR
 	reqChan := r.req[server]
 	r.m.Unlock()
 
-	brokerRequests.WithLabelValues("server_request", server, cleanPath(path)).Inc()
+	brokerRequests.WithLabelValues("server_request", server).Inc()
 	select {
 	case req := <-reqChan:
-		brokerResponses.WithLabelValues("server_request", "ok", server, cleanPath(path)).Inc()
+		brokerResponses.WithLabelValues("server_request", "ok", server).Inc()
 		return req, nil
 	case <-time.After(time.Second * 30):
-		brokerResponses.WithLabelValues("server_request", "timeout", server, cleanPath(path)).Inc()
+		brokerResponses.WithLabelValues("server_request", "timeout", server).Inc()
 		return nil, fmt.Errorf("No request received within timeout")
 	case <-ctx.Done():
 		return nil, fmt.Errorf("Server is restarting")
@@ -258,7 +247,7 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	pr := r.resp[id]
 	if pr == nil {
 		r.m.Unlock()
-		brokerResponses.WithLabelValues("server_response", "invalid", backendName, "").Inc()
+		brokerResponses.WithLabelValues("server_response", "invalid", backendName).Inc()
 		return fmt.Errorf("Duplicate or invalid request ID %s", id)
 	}
 	if resp.GetEof() {
@@ -273,20 +262,20 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	pr.responseStream <- resp
 
 	r.m.Unlock()
-	brokerRequests.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Inc()
-	brokerResponseDurations.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Observe(duration)
+	brokerRequests.WithLabelValues("server_response", backendName).Inc()
+	brokerResponseDurations.WithLabelValues("server_response", backendName).Observe(duration)
 	if resp.GetEof() {
 		close(pr.responseStream)
 		backendDuration := (time.Duration(resp.GetBackendDurationMs()) * time.Millisecond).Seconds()
 		if backendDuration > 0.0 {
-			brokerBackendResponseDurations.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Observe(backendDuration)
-			brokerOverheadDurations.WithLabelValues("server_response", backendName, cleanPath(pr.requestPath)).Observe(duration - backendDuration)
+			brokerBackendResponseDurations.WithLabelValues("server_response", backendName).Observe(backendDuration)
+			brokerOverheadDurations.WithLabelValues("server_response", backendName).Observe(duration - backendDuration)
 		}
 		slog.Info("Delivered final response to client", slog.String("ID", id), slog.Int("Bytes", len(resp.Body)), slog.Float64("Elapsed", duration), slog.Float64("BackendDuration", backendDuration))
 	} else {
 		slog.Info("Delivered response to client", slog.String("ID", id), slog.Int("Bytes", len(resp.Body)), slog.Float64("Elapsed", duration))
 	}
-	brokerResponses.WithLabelValues("server_response", "ok", backendName, cleanPath(pr.requestPath)).Inc()
+	brokerResponses.WithLabelValues("server_response", "ok", backendName).Inc()
 	return nil
 }
 
