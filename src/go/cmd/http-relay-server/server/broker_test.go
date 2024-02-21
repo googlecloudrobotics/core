@@ -106,7 +106,7 @@ func runReceiverStream(t *testing.T, b *broker, s string, wg *sync.WaitGroup, do
 }
 
 func TestNormalCase(t *testing.T) {
-	b := newBroker()
+	b := newBroker(false)
 	// create the request channels in advance to avoid race conditions with the below goroutinues.
 	b.req["foo"] = make(chan *pb.HttpRequest)
 	b.req["bar"] = make(chan *pb.HttpRequest)
@@ -122,7 +122,7 @@ func TestNormalCase(t *testing.T) {
 }
 
 func TestResponseStream(t *testing.T) {
-	b := newBroker()
+	b := newBroker(false)
 	var wg sync.WaitGroup
 	done := make(chan bool)
 	wg.Add(2)
@@ -133,7 +133,7 @@ func TestResponseStream(t *testing.T) {
 }
 
 func TestMissingId(t *testing.T) {
-	b := newBroker()
+	b := newBroker(false)
 	err := b.SendResponse(&pb.HttpResponse{Id: proto.String(idOne)})
 	if err == nil {
 		t.Errorf("Invalid response did not produce an error")
@@ -141,7 +141,7 @@ func TestMissingId(t *testing.T) {
 }
 
 func TestDuplicateId(t *testing.T) {
-	b := newBroker()
+	b := newBroker(false)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go runSender(t, b, "foo", idOne, &wg)
@@ -156,7 +156,7 @@ func TestDuplicateId(t *testing.T) {
 
 func TestRequestStream(t *testing.T) {
 	// Start a request that won't terminate until we send `done`.
-	b := newBroker()
+	b := newBroker(false)
 	var wg sync.WaitGroup
 	done := make(chan bool)
 	wg.Add(2)
@@ -184,7 +184,7 @@ func TestRequestStream(t *testing.T) {
 }
 
 func TestRequestStreamUnknownID(t *testing.T) {
-	b := newBroker()
+	b := newBroker(false)
 	if ok := b.PutRequestStream(unknownID, []byte{}); ok {
 		t.Error("ok := PutRequestStream(unknownID, \"\"); ok = true, want false")
 	}
@@ -194,7 +194,7 @@ func TestRequestStreamUnknownID(t *testing.T) {
 }
 
 func TestTimeout(t *testing.T) {
-	b := newBroker()
+	b := newBroker(false)
 	// create the request channel manually to avoid race condition between the 2
 	// goroutines below
 	b.req["foo"] = make(chan *pb.HttpRequest)

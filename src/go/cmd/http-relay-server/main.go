@@ -90,10 +90,11 @@ import (
 
 var (
 	port      = flag.Int("port", 80, "Port number to listen on")
-	blockSize = flag.Int("block_size", 10*1024,
+	blockSize = flag.Int("block_size", server.DefaultBlockSize,
 		"Size of i/o buffer in bytes")
 	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "",
 		"If not empty, traces will be uploaded to this Google Cloud Project.")
+	includePathInMetrics = flag.Bool("include_path_in_metrics", false, "Include path in broker metrics (increases cardinality of the metrics though)")
 )
 
 func main() {
@@ -114,6 +115,6 @@ func main() {
 		}
 	}
 
-	server := server.NewServer()
-	server.Start(*port, *blockSize)
+	server := server.NewServer(*port, *blockSize, *includePathInMetrics)
+	server.Start()
 }

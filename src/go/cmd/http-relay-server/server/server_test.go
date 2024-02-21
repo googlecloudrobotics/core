@@ -49,7 +49,7 @@ func TestClientHandler(t *testing.T) {
 	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := httptest.NewRecorder()
-	server := NewServer()
+	server := NewServer(80, DefaultBlockSize, false)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
@@ -117,7 +117,7 @@ func TestClientHandlerWithChunkedResponse(t *testing.T) {
 	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := httptest.NewRecorder()
-	server := NewServer()
+	server := NewServer(80, DefaultBlockSize, false)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
@@ -210,7 +210,7 @@ func TestClientBadRequest(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			respRecorder := httptest.NewRecorder()
-			server := NewServer()
+			server := NewServer(80, DefaultBlockSize, false)
 			wg := sync.WaitGroup{}
 			wg.Add(1)
 			go func() { server.userClientRequest(respRecorder, tc.req); wg.Done() }()
@@ -252,7 +252,7 @@ func TestRequestStreamHandler(t *testing.T) {
 	req := httptest.NewRequest("GET", "/client/foo/bar?a=b#c", strings.NewReader("body"))
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := hijacktest.NewRecorder(wantRequestStream)
-	server := NewServer()
+	server := NewServer(80, DefaultBlockSize, false)
 	server.blockSize = blockSize
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -333,7 +333,7 @@ func TestServerRequestResponseHandler(t *testing.T) {
 	resp := httptest.NewRequest("POST", "/server/response", bytes.NewReader(backendRespBody))
 	reqRecorder := httptest.NewRecorder()
 	respRecorder := httptest.NewRecorder()
-	server := NewServer()
+	server := NewServer(80, DefaultBlockSize, false)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
@@ -392,7 +392,7 @@ func TestServerResponseHandlerWithInvalidRequestID(t *testing.T) {
 
 	resp := httptest.NewRequest("POST", "/server/response", bytes.NewReader(backendRespBody))
 	respRecorder := httptest.NewRecorder()
-	server := NewServer()
+	server := NewServer(80, DefaultBlockSize, false)
 	server.serverResponse(respRecorder, resp)
 
 	if want, got := http.StatusBadRequest, respRecorder.Result().StatusCode; want != got {
@@ -405,7 +405,7 @@ func TestServerResponseHandlerWithInvalidRequestID(t *testing.T) {
 func TestRequestToUnknownBackendResponse503(t *testing.T) {
 	req := httptest.NewRequest("GET", "/client/test/path", bytes.NewReader([]byte{}))
 	respRecorder := httptest.NewRecorder()
-	server := NewServer()
+	server := NewServer(80, DefaultBlockSize, false)
 	server.userClientRequest(respRecorder, req)
 	if respRecorder.Code != http.StatusServiceUnavailable {
 		t.Errorf("Expected status 503, got %d", respRecorder.Code)

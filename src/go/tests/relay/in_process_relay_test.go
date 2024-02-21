@@ -48,8 +48,8 @@ func initRelay() {
 		glog.Infof("Setting up relay.\n\tBackend port: %d\n\tRelay port: %d", backendPort, relayPort)
 
 		go func() {
-			relayServer := server.NewServer()
-			relayServer.Start(relayPort, blockSize)
+			relayServer := server.NewServer(relayPort, blockSize, false)
+			relayServer.Start()
 		}()
 
 		go func() {

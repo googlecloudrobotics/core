@@ -53,6 +53,8 @@ const (
 	cleanShutdownTimeout = 20 * time.Second
 	// Print more detailed logs when enabled.
 	debugLogs = false
+	// BlocDefaultBlockSizekSize is the default size of i/o buffer in bytes
+	DefaultBlockSize = 10 * 1024
 )
 
 type Server struct {
@@ -61,11 +63,11 @@ type Server struct {
 	b         *broker
 }
 
-func NewServer() *Server {
+func NewServer(port int, blockSize int, includePathInMetrics bool) *Server {
 	s := &Server{
-		port:      80,
-		blockSize: 10 * 1024,
-		b:         newBroker(),
+		port:      port,
+		blockSize: blockSize,
+		b:         newBroker(includePathInMetrics),
 	}
 	go func() {
 		for t := range time.Tick(10 * time.Second) {
@@ -510,10 +512,7 @@ func (s *Server) serverResponse(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Relay client sent response", slog.String("ID", *br.Id))
 }
 
-func (s *Server) Start(port int, blockSize int) {
-	s.port = port
-	s.blockSize = blockSize
-
+func (s *Server) Start() {
 	h := http.NewServeMux()
 	h.HandleFunc("/healthz", s.health)
 	h.HandleFunc("/", s.userClientRequest)
