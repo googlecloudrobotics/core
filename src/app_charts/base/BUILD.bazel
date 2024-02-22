@@ -37,7 +37,7 @@ sh_test(
 
 helm_template(
     name = "cert-manager-chart.robot",
-    chart = "//third_party/cert-manager:cert-manager-v1.12.1.tgz",
+    chart = "//third_party/cert-manager:cert-manager-v1.14.2.tgz",
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
     release_name = "cert-manager",
@@ -70,7 +70,7 @@ app_chart(
 
 helm_template(
     name = "cert-manager-chart.cloud",
-    chart = "//third_party/cert-manager:cert-manager-v1.12.1.tgz",
+    chart = "//third_party/cert-manager:cert-manager-v1.14.2.tgz",
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
     release_name = "cert-manager",
