@@ -10,7 +10,7 @@ http_archive(
     sha256 = "b7cd301ef7b0ece28d20d3e778697a5e3b81828393150bed04838c0c52963a01",
     strip_prefix = "toolchains_llvm-{tag}".format(tag = BAZEL_TOOLCHAIN_TAG),
     canonical_id = BAZEL_TOOLCHAIN_TAG,
-    url = "https://github.com/grailbio/bazel-toolchain/releases/download/{tag}/toolchains_llvm-{tag}.tar.gz".format(tag = BAZEL_TOOLCHAIN_TAG),
+    url = "https://github.com/bazel-contrib/toolchains_llvm/releases/download/{tag}/toolchains_llvm-{tag}.tar.gz".format(tag = BAZEL_TOOLCHAIN_TAG),
 )
 
 # Sysroot and libc
@@ -41,7 +41,7 @@ load("@toolchains_llvm//toolchain:rules.bzl", "llvm_toolchain")
 # - Pick a new version that runs on a stable OS similar enough to our sysroot from
 #   https://releases.llvm.org/download.html
 # - Documentation is in
-#   https://github.com/grailbio/bazel-toolchain/blob/master/toolchain/rules.bzl
+#   https://github.com/bazel-contrib/toolchains_llvm/blob/master/toolchain/rules.bzl
 # - If system files are not found, add them in bazel/BUILD.sysroot
 llvm_toolchain(
     name = "llvm_toolchain",
