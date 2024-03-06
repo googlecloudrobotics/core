@@ -94,6 +94,12 @@ function install_docker_deps {
     apt_install docker-ce="${DOCKER_PACKAGE_VERSION}"
     echo "Pinning Docker version..."
     sudo apt-mark hold docker-ce
+
+    # Kubeadm fails pulling images with the default apt installed containerd config.
+    # because `disabled_plugins = ["cri"]`.
+    # https://github.com/kubernetes/website/issues/33770#issuecomment-1128916638.
+    sudo rm /etc/containerd/config.toml
+    sudo systemctl restart containerd
   fi
 }
 
