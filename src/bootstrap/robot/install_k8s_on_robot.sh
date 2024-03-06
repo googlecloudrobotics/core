@@ -101,10 +101,7 @@ function install_k8s_deps {
   # Add k8s repo if necessary
   if [[ ! -f /etc/apt/sources.list.d/kubernetes.list ]] ; then
     echo "Preparing to install Kubernetes..."
-    sudo mkdir -p /etc/apt/keyrings
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR_VERSION}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-    # add_apt_key https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR_VERSION}/deb/Release.key
-    # add_apt_key https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    add_apt_key https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR_VERSION}/deb/Release.key
     sudo tee /etc/apt/sources.list.d/kubernetes.list >/dev/null \
       <<< "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR_VERSION}/deb/ /"
 
