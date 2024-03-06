@@ -76,7 +76,7 @@ gcloud compute config-ssh
 # The `name` here should match the instance name in
 # ci/terraform/robco-integration-test.sh.
 # The `|| true` and `if [[ -z ...` bits work around a gcloud issue (b/147795223).
-SIM_HOST="$(gcloud compute instances list --project ${GCP_PROJECT_ID} --filter='name=("robot-sim")' --format='value(networkInterfaces.networkIP)' || true)"
+SIM_HOST="$(gcloud compute instances list --project ${GCP_PROJECT_ID} --filter='name=("robot-sim2")' --format='value(networkInterfaces.networkIP)' || true)"
 if [[ -z "$SIM_HOST" ]] ; then
   echo "Failed to get IP of robot-sim VM instance." >&2
   exit 1

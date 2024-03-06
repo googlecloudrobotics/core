@@ -20,7 +20,8 @@
 # robot setup.
 DOCKER_VERSION="5:20.10.6"
 DOCKER_PACKAGE_VERSION="${DOCKER_VERSION}~3-0~ubuntu-focal"
-K8S_VERSION="1.21.0"
+K8S_MINOR_VERSION="1.26"
+K8S_VERSION="1.26.6"
 
 # The IP address of the host system on Docker's docker0 bridge network, along with the netmask for
 # the subnet. These are depended on in multiple places, including the allowed subnet in
@@ -102,7 +103,7 @@ function install_k8s_deps {
     echo "Preparing to install Kubernetes..."
     add_apt_key https://packages.cloud.google.com/apt/doc/apt-key.gpg
     sudo tee /etc/apt/sources.list.d/kubernetes.list >/dev/null \
-      <<< "deb http://apt.kubernetes.io/ kubernetes-xenial main"
+      <<< "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR_VERSION}/deb/ /"
 
     retry sudo apt-get update
   fi
@@ -290,7 +291,7 @@ nodeRegistration:
 ---
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
-kubernetesVersion: v1.21.0
+kubernetesVersion: v1.26.6
 apiServer:
   extraArgs:
     # Bind to the docker interface to avoid problems when external interfaces

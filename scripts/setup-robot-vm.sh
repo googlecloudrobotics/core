@@ -22,7 +22,7 @@ source ${DIR}/include-config.sh
 set -euxo pipefail
 
 GCP_PROJECT_ID=${1}
-ROBOT_NAME=${2:-robot-sim}
+ROBOT_NAME=${2:-robot-sim2}
 USER_NAME=${3:-robot}
 
 if [[ -z "${GCP_PROJECT_ID}" ]]; then
