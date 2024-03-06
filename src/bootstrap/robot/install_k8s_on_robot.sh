@@ -258,7 +258,7 @@ function create_default_kubeadm_config {
   local temp_config
   temp_config=$(mktemp -t kubeadm.XXXXXXXX.yaml)
   cat > "${temp_config}" << "EOF"
-apiVersion: kubeadm.k8s.io/v1beta2
+apiVersion: kubeadm.k8s.io/v1beta3
 kind: InitConfiguration
 localAPIEndpoint:
   # This should match `bind-address` from `apiServerExtraArgs` so that the
@@ -289,7 +289,7 @@ nodeRegistration:
   # prevented workloads running on the same node as the apiserver etc.
   taints: []
 ---
-apiVersion: kubeadm.k8s.io/v1beta2
+apiVersion: kubeadm.k8s.io/v1beta3
 kind: ClusterConfiguration
 kubernetesVersion: v1.26.6
 apiServer:

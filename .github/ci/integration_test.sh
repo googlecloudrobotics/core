@@ -64,7 +64,7 @@ lock
 trap 'set +x; finalize_and_unlock' EXIT
 
 export BAZEL_FLAGS="--bazelrc=${DIR}/.bazelrc"
-bash -x .//deploy.sh update robco-integration-test
+# bash -x .//deploy.sh update robco-integration-test
 
 DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
 CLOUD_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
@@ -81,6 +81,10 @@ if [[ -z "$SIM_HOST" ]] ; then
   echo "Failed to get IP of robot-sim VM instance." >&2
   exit 1
 fi
+
+run_on_robot_sim ${SIM_HOST} "~/robco/install_k8s_on_robot.sh"
+echo "success"
+exit 1
 
 DEPLOY_FILES="src/bootstrap/robot/setup_robot.sh \
   src/bootstrap/robot/install_k8s_on_robot.sh \
