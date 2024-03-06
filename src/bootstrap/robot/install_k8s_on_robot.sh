@@ -20,8 +20,8 @@
 # robot setup.
 DOCKER_VERSION="5:20.10.6"
 DOCKER_PACKAGE_VERSION="${DOCKER_VERSION}~3-0~ubuntu-focal"
-K8S_MINOR_VERSION="1.26"
-K8S_VERSION="1.26.6"
+K8S_MINOR_VERSION="1.24"
+K8S_VERSION="1.24.17"
 
 # The IP address of the host system on Docker's docker0 bridge network, along with the netmask for
 # the subnet. These are depended on in multiple places, including the allowed subnet in
@@ -98,21 +98,19 @@ function install_docker_deps {
     # Kubeadm fails pulling images with the default apt installed containerd config.
     # because `disabled_plugins = ["cri"]`.
     # https://github.com/kubernetes/website/issues/33770#issuecomment-1128916638.
-    sudo rm /etc/containerd/config.toml
+    sudo rm -f /etc/containerd/config.toml
     sudo systemctl restart containerd
   fi
 }
 
 function install_k8s_deps {
-  # Add k8s repo if necessary
-  if [[ ! -f /etc/apt/sources.list.d/kubernetes.list ]] ; then
-    echo "Preparing to install Kubernetes..."
-    add_apt_key https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR_VERSION}/deb/Release.key
-    sudo tee /etc/apt/sources.list.d/kubernetes.list >/dev/null \
-      <<< "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR_VERSION}/deb/ /"
+  # Add k8s repo.
+  echo "Preparing to install Kubernetes..."
+  add_apt_key https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR_VERSION}/deb/Release.key
+  sudo tee /etc/apt/sources.list.d/kubernetes.list >/dev/null \
+    <<< "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR_VERSION}/deb/ /"
 
-    retry sudo apt-get update
-  fi
+  retry sudo apt-get update
 
   # Install or upgrade k8s binaries
   if ! kubectl version --client 2>/dev/null | grep -qF "${K8S_VERSION}" ; then
@@ -297,7 +295,7 @@ nodeRegistration:
 ---
 apiVersion: kubeadm.k8s.io/v1beta3
 kind: ClusterConfiguration
-kubernetesVersion: v1.26.6
+kubernetesVersion: v1.24.17
 apiServer:
   extraArgs:
     # Bind to the docker interface to avoid problems when external interfaces
