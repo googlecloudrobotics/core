@@ -101,6 +101,7 @@ function install_k8s_deps {
   # Add k8s repo if necessary
   if [[ ! -f /etc/apt/sources.list.d/kubernetes.list ]] ; then
     echo "Preparing to install Kubernetes..."
+    sudo mkdir -p /etc/apt/keyrings
     curl -fsSL https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR_VERSION}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
     # add_apt_key https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR_VERSION}/deb/Release.key
     # add_apt_key https://packages.cloud.google.com/apt/doc/apt-key.gpg
@@ -112,17 +113,17 @@ function install_k8s_deps {
 
   # Install or upgrade k8s binaries
   if ! kubectl version --client 2>/dev/null | grep -qF "${K8S_VERSION}" ; then
-    apt_install "kubectl=${K8S_VERSION}-00"
+    apt_install "kubectl=${K8S_VERSION}-1.1"
     echo "Pinning kubectl version..."
     sudo apt-mark hold kubectl
   fi
   if ! kubelet --version 2>/dev/null | grep -qF "${K8S_VERSION}" ; then
-    apt_install "kubelet=${K8S_VERSION}-00"
+    apt_install "kubelet=${K8S_VERSION}-1.1"
     echo "Pinning kubelet version..."
     sudo apt-mark hold kubelet
   fi
   if ! kubeadm version 2>/dev/null | grep -qF "${K8S_VERSION}" ; then
-    apt_install "kubeadm=${K8S_VERSION}-00"
+    apt_install "kubeadm=${K8S_VERSION}-1.1"
     echo "Pinning kubeadm version..."
     sudo apt-mark hold kubeadm
 
