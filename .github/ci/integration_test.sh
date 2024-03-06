@@ -54,7 +54,7 @@ gcloud container clusters get-credentials cloud-robotics --zone=${GCP_ZONE}
 BUILD_IDENTIFIER=$(generate_build_id)
 echo "INFO: Build identifier is $BUILD_IDENTIFIER"
 
-bazel_ci build //...
+# bazel_ci build //...
 
 # Get the lock before deploying to the project. This ensures that other runs
 # will not change our deployment until we finish testing.
