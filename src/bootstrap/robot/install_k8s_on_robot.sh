@@ -272,13 +272,6 @@ localAPIEndpoint:
 
 nodeRegistration:
   kubeletExtraArgs:
-    # network-plugin: "" uses the "noop" network plugin, where the docker
-    # bridge provides pod networking. This is sufficient for a single-node
-    # cluster. Although "noop" is not officially supported by kubeadm (which
-    # expects the user to install a CNI plugin) it is explicitly used by
-    # minikube and seems to work well.
-    network-plugin: ""
-
     # This should match `address` in the KubeletConfiguration so that the
     # kubelet is reachable under the node IP. Otherwise, `kubectl port-forward`
     # (among other things) won't work.
