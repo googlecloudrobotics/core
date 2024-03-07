@@ -82,10 +82,13 @@ if [[ -z "$SIM_HOST" ]] ; then
   exit 1
 fi
 
-DEPLOY_FILES="src/bootstrap/robot/setup_robot.sh \
-  src/bootstrap/robot/install_k8s_on_robot.sh \
-  ./bazel-out/../../../external/kubernetes_helm/helm"
-init_robot_sim ${SIM_HOST} "${DEPLOY_FILES}"
+# BUG(https://github.com/googlecloudrobotics/core/issues/346)
+# install_k8s_on_robot is currently broken. The rest of the test will work
+# for as long as our old VM is functional.
+# DEPLOY_FILES="src/bootstrap/robot/setup_robot.sh \
+#   src/bootstrap/robot/install_k8s_on_robot.sh \
+#   ./bazel-out/../../../external/kubernetes_helm/helm"
+# init_robot_sim ${SIM_HOST} "${DEPLOY_FILES}"
 
 # Setup new robot
 NEW_ROBOT_NAME="test-robot"
@@ -140,7 +143,7 @@ bazel_ci test \
   --test_output=streamed \
   --test_tag_filters="external" \
   --strategy=TestRunner=standalone \
-  //... //src/go/tests:go_default_test //src/go/tests:relay_test
+  //...
 
 # If this is running on main (ie, not a manual run) then update the `latest`
 # binary.

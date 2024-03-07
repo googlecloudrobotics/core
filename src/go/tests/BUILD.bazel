@@ -28,10 +28,7 @@ sh_test(
     data = [
         "@kubernetes_helm//:helm",
     ],
-    tags = [
-        "external",
-        "manual",
-    ],
+    tags = ["external"],
 )
 
 go_library(
