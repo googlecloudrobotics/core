@@ -39,7 +39,6 @@ finalize_and_unlock() {
 # Need to source the project config from here
 PROJECT_DIR="${DIR}/deployments/robco-integration-test"
 source "${PROJECT_DIR}/config.sh"
-gcloud container clusters get-credentials cloud-robotics --zone=${GCP_ZONE} --project=${GCP_PROJECT_ID}
 
 BUILD_IDENTIFIER=$(generate_build_id)
 echo "INFO: Build identifier is $BUILD_IDENTIFIER"
