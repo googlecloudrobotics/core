@@ -14,9 +14,6 @@ jobs:
   call-bazel:
     uses: ./.github/workflows/check-bazel.yml
 
-  # Runs .github/ci/integration_test.sh through Cloud Build.
-  # It needs to run on Cloud Build as it needs ssh access to Cloud VMs which
-  # is blocked from the outside by the GCE Enforcer.
   integration-test:
     runs-on: ubuntu-22.04
     steps:
@@ -28,12 +25,7 @@ jobs:
           create_credentials_file: true # also sets GOOGLE_APPLICATION_CREDENTIALS
           service_account: "github-automation-bot@gha-crc-dev.iam.gserviceaccount.com"
           workload_identity_provider: "projects/1043719249528/locations/global/workloadIdentityPools/github-automation/providers/crc-dev"
-      - name: Run integration_test.sh on Cloud Build
+      - name: Run integration_test.sh
         env:
           MANUAL_RUN: "${{ github.event_name == 'workflow_dispatch' }}"
-        run: |
-          gcloud builds submit \
-            --project robco-integration-test \
-            --region europe-west1 \
-            --config .github/ci/integration_test_cloudbuild.yaml \
-            --substitutions _GITHUB_SHA=${GITHUB_SHA},_MANUAL_RUN=${MANUAL_RUN}
+        run: ./.github/ci/integration_test.sh

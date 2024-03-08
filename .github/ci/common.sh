@@ -19,56 +19,6 @@ function generate_build_id() {
    date "+daily-%Y-%m-%d-${git_hash}"
 }
 
-function run_on_robot_sim() {
-  local SIM_HOST="$1"
-  shift
-  # We don't know if this was executed with errexit on or off. Make sure that we
-  # print the status and return the correct code either way.
-  rc=0
-  ssh -o "StrictHostKeyChecking=no" -i ~/.ssh/google_compute_engine builder@${SIM_HOST} "$@" || rc=$?
-  echo "Done executing remote command: $* : ${rc}"
-  return "${rc}"
-}
-
-function init_robot_sim() {
-  local SIM_HOST="$1"
-  local DEPLOY_FILES="$2"
-
-  run_on_robot_sim ${SIM_HOST} 'rm -fr ~/robco/'
-
-  echo "Uploading setup files"
-  run_on_robot_sim ${SIM_HOST} "mkdir -p ~/robco"
-  scp -o "StrictHostKeyChecking=no" -i ~/.ssh/google_compute_engine ${DEPLOY_FILES} builder@${SIM_HOST}:~/robco/
-
-  # Terraform creates the robot-sim VM, but doesn't install the local cluster.
-  # Since this script is idempotent, we run it on every test.
-  # shellcheck disable=2088
-  run_on_robot_sim ${SIM_HOST} "~/robco/install_k8s_on_robot.sh"
-}
-
-function cleanup_old_vm_instances() {
-  # Aborted CI runs might leak VM instances, so we delete old tagged instances.
-  local instances
-  instances="$(gcloud compute instances list \
-    --filter "tags.items=delete-after-one-day AND creationTimestamp<-P1D" \
-    --project=${GCP_PROJECT_ID} --format='value(name)')"
-
-  if [[ -n "$instances" ]] ; then
-    gcloud compute instances delete $instances \
-      --quiet --project=${GCP_PROJECT_ID} --zone=${GCP_ZONE}
-  fi
-}
-
-function cleanup_old_ssh_keys() {
-  # Work around overflowing the VM metadata store (b/113859328) - delete all past builder keys.
-  local keys
-  keys="$(mktemp /tmp/keys.XXXXXX)"
-
-  gcloud compute project-info describe --format=json --project=${GCP_PROJECT_ID} | jq -r '.commonInstanceMetadata.items[] | select (.key == "ssh-keys") | .value' | egrep -v "^builder:" >${keys}
-  gcloud compute project-info add-metadata --no-user-output-enabled --metadata-from-file ssh-keys=${keys} --project=${GCP_PROJECT_ID}
-  rm -f ${keys}
-}
-
 # Pushes images and releases a binary to a specified bucket.
 # bucket: target GCS bucket to release to
 # name:  name of the release tar ball
