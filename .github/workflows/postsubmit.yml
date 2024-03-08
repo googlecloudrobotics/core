@@ -35,6 +35,7 @@ jobs:
           project_id: "robco-integration-test"
           cluster_name: "cloud-robotics"
           location: "europe-west1-c"
+          use_auth_provider: true
       - name: Run integration_test.sh
         env:
           MANUAL_RUN: "${{ github.event_name == 'workflow_dispatch' }}"
