@@ -39,8 +39,7 @@ finalize_and_unlock() {
 # Need to source the project config from here
 PROJECT_DIR="${DIR}/deployments/robco-integration-test"
 source "${PROJECT_DIR}/config.sh"
-gcloud config set project ${GCP_PROJECT_ID}
-gcloud container clusters get-credentials cloud-robotics --zone=${GCP_ZONE}
+gcloud container clusters get-credentials cloud-robotics --zone=${GCP_ZONE} --project=${GCP_PROJECT_ID}
 
 BUILD_IDENTIFIER=$(generate_build_id)
 echo "INFO: Build identifier is $BUILD_IDENTIFIER"
@@ -57,7 +56,7 @@ ROBOT_RELAY_CLUSTER="relay-test"
 bash -x ./scripts/robot-sim.sh create "${GCP_PROJECT_ID}" "${ROBOT_RELAY_CLUSTER}"
 
 export BAZEL_FLAGS="--bazelrc=${DIR}/.bazelrc"
-bash -x ./deploy.sh update robco-integration-test
+bash -x ./deploy.sh update "${GCP_PROJECT_ID}"
 
 DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
 CLOUD_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
