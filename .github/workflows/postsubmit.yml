@@ -25,28 +25,12 @@ jobs:
           create_credentials_file: true # also sets GOOGLE_APPLICATION_CREDENTIALS
           service_account: "github-automation-bot@gha-crc-dev.iam.gserviceaccount.com"
           workload_identity_provider: "projects/1043719249528/locations/global/workloadIdentityPools/github-automation/providers/crc-dev"
-      - name: "Set up gcloud"
-        uses: "google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200" # tag=v2.1.0
-        with:
-          skip_install: true
-      - name: Get GKE credentials
-        uses: "google-github-actions/get-gke-credentials@c02be8662df01db62234e9b9cff0765d1c1827ae" # tag=v2.1.0
-        with:
-          project_id: "robco-integration-test"
-          cluster_name: "cloud-robotics"
-          location: "europe-west1-c"
-      - name: "Install gke-cloud-auth-plugin"
-        run: |
-          # Set up gke-cloud-auth-plugin in order to allow for
-          # `gcloud container clusters get-credentials`
-          # From https://cloud.google.com/sdk/docs/install#deb
-          echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
-            | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list >/dev/null
-          curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
-          sudo apt-get update -y
-          sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
-          gcloud auth configure-docker --quiet
-      - name: Run integration_test.sh
+      - name: Run integration_test.sh on Cloud Build
         env:
           MANUAL_RUN: "${{ github.event_name == 'workflow_dispatch' }}"
-        run: ./.github/ci/integration_test.sh
+        run: |
+          gcloud builds submit \
+            --project robco-integration-test \
+            --region europe-west1 \
+            --config .github/ci/integration_test_cloudbuild.yaml \
+            --substitutions _GITHUB_SHA=${GITHUB_SHA},_MANUAL_RUN=${MANUAL_RUN}

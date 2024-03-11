@@ -3,6 +3,9 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${DIR}/common.sh"
 
+# Because the format from common.sh is not recognized by Cloud Build.
+export 'PS4='
+
 LOCK_OBJECT=gs://robco-integration-test-lock/lock
 LOCK_BACKOFF_SECONDS=60
 
@@ -39,6 +42,8 @@ finalize_and_unlock() {
 # Need to source the project config from here
 PROJECT_DIR="${DIR}/deployments/robco-integration-test"
 source "${PROJECT_DIR}/config.sh"
+gcloud config set project ${GCP_PROJECT_ID}
+gcloud container clusters get-credentials cloud-robotics --zone=${GCP_ZONE}
 
 BUILD_IDENTIFIER=$(generate_build_id)
 echo "INFO: Build identifier is $BUILD_IDENTIFIER"
@@ -66,6 +71,13 @@ kubectl config get-contexts || true
 kubectl --context ${CLOUD_CONTEXT} get pods || true
 kubectl --context ${GCP_PROJECT_ID}-robot get pods || true
 kubectl --context ${ROBOT_CONTEXT} get pods || true
+
+# For some reason //src/go/tests:go_default_test is expecting
+# the kubeconfig in /home/builder/.kube/config, i.e. it does not use $HOME
+# (which is /builder/home). alexanderfaxa@ could not figure out why so just
+# copy the config there.
+mkdir -p /home/builder/.kube
+cp /builder/home/.kube/config /home/builder/.kube/config
 
 bazel_ci test \
   --test_env GCP_PROJECT_ID=${GCP_PROJECT_ID} \
