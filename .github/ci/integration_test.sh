@@ -55,12 +55,12 @@ lock
 # `set +x` avoids log spam and makes error messages more obvious.
 trap 'set +x; finalize_and_unlock' EXIT
 
+export BAZEL_FLAGS="--bazelrc=${DIR}/.bazelrc"
+bash -x ./deploy.sh update "${GCP_PROJECT_ID}"
+
 # Create a GKE cluster with a single robot for the relay test.
 ROBOT_RELAY_CLUSTER="relay-test"
 bash -x ./scripts/robot-sim.sh create "${GCP_PROJECT_ID}" "${ROBOT_RELAY_CLUSTER}"
-
-export BAZEL_FLAGS="--bazelrc=${DIR}/.bazelrc"
-bash -x ./deploy.sh update "${GCP_PROJECT_ID}"
 
 DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
 CLOUD_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"

@@ -9,21 +9,12 @@ RUN \
     chmod +x /usr/bin/bazelisk && \
     ln -s /usr/bin/bazelisk /usr/bin/bazel
 
-# Install crictl, needed for setup-robot.sh
-# From https://github.com/kubernetes-sigs/cri-tools/blob/master/docs/crictl.md.
-RUN \
-    VERSION="v1.29.0" && \
-    curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-${VERSION}-linux-amd64.tar.gz --output crictl-${VERSION}-linux-amd64.tar.gz && \
-    tar zxvf crictl-$VERSION-linux-amd64.tar.gz -C /usr/bin && \
-    chmod +x /usr/bin/crictl && \
-    rm -f crictl-$VERSION-linux-amd64.tar.gz
-
 RUN mkdir -p /builder /output /workspace && chmod -R 777 /output
 
 # rules_python is not happy if bazel runs as root so create a new user
 # https://github.com/bazelbuild/rules_python/pull/713
 # https://github.com/GoogleCloudPlatform/cloud-builders/issues/641
-RUN adduser builder
+RUN adduser builder --disabled-password
 
 # Allow running sudo without password
 RUN apt-get update && apt-get install -y sudo && apt-get clean && rm -rf /var/lib/apt/lists/* && \
