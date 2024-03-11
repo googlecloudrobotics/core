@@ -18,6 +18,14 @@ RUN \
     rm -rf /var/lib/apt/lists/* && \
     ln -s /usr/bin/bazel-6.3.2 /usr/bin/bazel
 
+# Install crictl, needed for setup-robot.sh
+# From https://github.com/kubernetes-sigs/cri-tools/blob/master/docs/crictl.md.
+RUN \
+    VERSION="v1.29.0" # check latest version in https://github.com/kubernetes-sigs/cri-tools/releases \
+    curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-${VERSION}-linux-amd64.tar.gz --output crictl-${VERSION}-linux-amd64.tar.gz \
+    tar zxvf crictl-$VERSION-linux-amd64.tar.gz -C /usr/local/bin \
+    rm -f crictl-$VERSION-linux-amd64.tar.gz
+
 RUN mkdir -p /builder /output /workspace && chmod -R 777 /output
 
 # rules_python is not happy if bazel runs as root so create a new user
