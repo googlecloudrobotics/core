@@ -2,32 +2,30 @@
 # Allows access to GKE and to run Bazel commands.
 FROM gcr.io/cloud-builders/kubectl
 
-# https://bazel.build/install/ubuntu#install-on-ubuntu
+# Install Bazelisk
 RUN \
-    apt-get update && \
-    apt-get install apt-transport-https curl gnupg -y && \
-    curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor >bazel-archive-keyring.gpg && \
-    mv bazel-archive-keyring.gpg /usr/share/keyrings && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/bazel-archive-keyring.gpg] https://storage.googleapis.com/bazel-apt stable jdk1.8" | tee /etc/apt/sources.list.d/bazel.list && \
-    apt-get update && \
-    apt-get install -y \
-      bazel-6.3.2 \
-      git \
-      jq && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    ln -s /usr/bin/bazel-6.3.2 /usr/bin/bazel
+    VERSION="v1.19.0" && \
+    curl -L https://github.com/bazelbuild/bazelisk/releases/download/${VERSION}/bazelisk-linux-amd64 --output /usr/bin/bazelisk && \
+    chmod +x /usr/bin/bazelisk && \
+    ln -s /usr/bin/bazelisk /usr/bin/bazel
 
 RUN mkdir -p /builder /output /workspace && chmod -R 777 /output
 
 # rules_python is not happy if bazel runs as root so create a new user
 # https://github.com/bazelbuild/rules_python/pull/713
 # https://github.com/GoogleCloudPlatform/cloud-builders/issues/641
-RUN adduser builder
+RUN adduser builder --disabled-password
 
 # Allow running sudo without password
 RUN apt-get update && apt-get install -y sudo && apt-get clean && rm -rf /var/lib/apt/lists/* && \
     usermod -aG sudo builder && \
     echo "builder ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/builder" && chmod 440 "/etc/sudoers.d/builder"
+
+# For some reason //src/go/tests:go_default_test is expecting
+# the kubeconfig in /home/builder/.kube/config, i.e. it does not use $HOME
+# (which is /builder/home). alexanderfaxa@ could not figure out why so just
+# copy the config there.
+RUN mkdir -p /home/builder/.kube && \
+    ln -s /builder/home/.kube/config /home/builder/.kube/config
 
 USER builder

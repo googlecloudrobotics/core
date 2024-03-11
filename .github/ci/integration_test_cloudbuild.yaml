@@ -1,7 +1,5 @@
 # A Cloud Build job for running integration_test.sh.
-# We run this test on Cloud Build in order to be able to ssh to a GCE VM.
-# This is not possible when running from a GitHub Actions worker as SSH is
-# blocked by the GCE Enforcer.
+# TODO(b/323509860): Run directly on the Action runner when it supports WIF.
 steps:
   # Needed for cloud build to allow running Bazel as non-root, see
   # https://github.com/GoogleCloudPlatform/cloud-builders/issues/641#issuecomment-604599102
@@ -12,7 +10,7 @@ steps:
 
   # This runs on a custom image that has kubectl, gcloud and bazel installed.
   # See Dockerfile.integration-test-image.
-  - name: "gcr.io/robco-integration-test/integration-test-image@sha256:4861a46d7079ffa53d54999a3df080cb4a919505bb2b4803416ff5fad13efb5f"
+  - name: "gcr.io/robco-integration-test/integration-test-image@sha256:9b1aa2fed4cd936ed29ae86b30b20b18cbf565d6a846fbfefc765a7218106347"
     entrypoint: "bash"
     args: ["./.github/ci/integration_test.sh"]
     env:
@@ -26,9 +24,4 @@ substitutions:
 options:
   dynamicSubstitutions: true
   substitutionOption: "MUST_MATCH"
-  # The default Cloud Build worker pool does not have inter-project network access.
-  # We use a custom pool to be able to SSH to a GCE VM.
-  # http://b/258429105 describes the setup.
-  pool:
-    name: "projects/robco-integration-test/locations/europe-west1/workerPools/integration-test-pool"
 timeout: 1200s

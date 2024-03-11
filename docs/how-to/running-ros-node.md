@@ -22,17 +22,7 @@ For more details, refer to the [Kubernetes documentation](https://kubernetes.io/
 
 ## Installing the cluster on the robot
 
-Download and run [install\_k8s\_on\_robot.sh](https://raw.githubusercontent.com/googlecloudrobotics/core/master/src/bootstrap/robot/install_k8s_on_robot.sh). This script will take a few minutes as it downloads and installs the dependencies of the Kubernetes cluster.
-
-```shell
-$ curl https://raw.githubusercontent.com/googlecloudrobotics/core/master/src/bootstrap/robot/install_k8s_on_robot.sh | bash
-[...]
-The local Kubernetes cluster has been installed.
-```
-
-After the script successfully finishes, the Kubernetes cluster is up and running.
-
-> **Note:** You might notice instructions for creating `~/.kube/config`, deploying a pod network, and joining nodes to the cluster. You can ignore these instructions for now, as the script has already set up a single-node cluster.
+See <https://github.com/googlecloudrobotics/core/blob/main/docs/how-to/connecting-robot.md#installing-the-cluster-on-the-robot>.
 
 ## Run a ROS node with Kubernetes
 

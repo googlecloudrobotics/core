@@ -1,4 +1,3 @@
 exports_files([
-    "install_k8s_on_robot.sh",
     "setup_robot.sh",
 ])

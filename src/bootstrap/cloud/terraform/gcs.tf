@@ -27,10 +27,3 @@ resource "google_storage_bucket_object" "setup_robot" {
   bucket        = google_storage_bucket.robot.name
   cache_control = "private, max-age=0, no-transform"
 }
-
-resource "google_storage_bucket_object" "install_k8s_on_robot" {
-  name          = "install_k8s_on_robot.sh"
-  source        = "../../robot/install_k8s_on_robot.sh"
-  bucket        = google_storage_bucket.robot.name
-  cache_control = "private, max-age=0, no-transform"
-}

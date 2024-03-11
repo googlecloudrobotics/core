@@ -38,7 +38,6 @@ pkg_tar(
         "//scripts:include-config.sh",
         "//scripts:set-config.sh",
         "//scripts:show-resource-usage.sh",
-        "//src/bootstrap/robot:install_k8s_on_robot.sh",
         "//src/bootstrap/robot:setup_robot.sh",
     ],
     mode = "755",

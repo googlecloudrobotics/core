@@ -14,9 +14,6 @@ jobs:
   call-bazel:
     uses: ./.github/workflows/check-bazel.yml
 
-  # Runs .github/ci/integration_test.sh through Cloud Build.
-  # It needs to run on Cloud Build as it needs ssh access to Cloud VMs which
-  # is blocked from the outside by the GCE Enforcer.
   integration-test:
     runs-on: ubuntu-22.04
     steps:
