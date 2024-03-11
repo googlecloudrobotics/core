@@ -4,17 +4,18 @@ FROM gcr.io/cloud-builders/kubectl
 
 # Install Bazelisk
 RUN \
-    VERSION="v1.19.0" # check latest version in https://github.com/bazelbuild/bazelisk/releases \
-    curl -L https://github.com/bazelbuild/bazelisk/releases/download/$VERSION/bazelisk-linux-amd64 --output /usr/bin/bazelisk \
-    chmod +x /usr/bin/bazelisk \
+    VERSION="v1.19.0" && \
+    curl -L https://github.com/bazelbuild/bazelisk/releases/download/${VERSION}/bazelisk-linux-amd64 --output /usr/bin/bazelisk && \
+    chmod +x /usr/bin/bazelisk && \
     ln -s /usr/bin/bazelisk /usr/bin/bazel
 
 # Install crictl, needed for setup-robot.sh
 # From https://github.com/kubernetes-sigs/cri-tools/blob/master/docs/crictl.md.
 RUN \
-    VERSION="v1.29.0" # check latest version in https://github.com/kubernetes-sigs/cri-tools/releases \
-    curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-${VERSION}-linux-amd64.tar.gz --output crictl-${VERSION}-linux-amd64.tar.gz \
-    tar zxvf crictl-$VERSION-linux-amd64.tar.gz -C /usr/bin \
+    VERSION="v1.29.0" && \
+    curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-${VERSION}-linux-amd64.tar.gz --output crictl-${VERSION}-linux-amd64.tar.gz && \
+    tar zxvf crictl-$VERSION-linux-amd64.tar.gz -C /usr/bin && \
+    chmod +x /usr/bin/crictl && \
     rm -f crictl-$VERSION-linux-amd64.tar.gz
 
 RUN mkdir -p /builder /output /workspace && chmod -R 777 /output
