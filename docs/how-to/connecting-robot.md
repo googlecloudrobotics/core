@@ -40,27 +40,16 @@ Once you've done this, you can:
 
 ## Installing the cluster on the robot
 
+## Installing Kubernetes
+
 You'll need to install a Kubernetes cluster on the robot before you can connect it to the cloud. The cluster manages and supports the processes that communicate with the cloud.
 
-The installation script installs and configures:
+Please see external references for setting up k8s. For simplicity we recommend
+[k3s](https://k3s.io/) or a single node
+[kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/)
+cluster (untested).
 
-* Docker
-* A single-node Kubernetes cluster (packages: kubectl, kubeadm, kubelet)
-* Deployments in the local cluster that handle authentication and upload logs to [Stackdriver Logging](https://cloud.google.com/logging/)
-
-<!-- this comment is required to separate the lists -->
-
-1. Download and run [install\_k8s\_on\_robot.sh](https://raw.githubusercontent.com/googlecloudrobotics/core/master/src/bootstrap/robot/install_k8s_on_robot.sh). This script will take a few minutes as it downloads and installs the dependencies of the Kubernetes cluster.
-
-    ```console
-    $ curl https://raw.githubusercontent.com/googlecloudrobotics/core/master/src/bootstrap/robot/install_k8s_on_robot.sh | bash
-    [...]
-    The local Kubernetes cluster has been installed.
-    ```
-
-    After the script successfully finishes, the Kubernetes cluster is up and running.
-
-    > **Note:**  At the end of the script output, you might notice instructions for creating `~/.kube/config`, deploying a pod network, and joining nodes to the cluster. You can ignore these instructions for now, as the script has already set up a single-node cluster.
+## Setting up the robot
 
 1. Set up the robot cluster to connect to the cloud. When running `setup_robot.sh`, you'll need to enter the access token you generated earlier. You may find it easiest if you SSH into the robot from the workstation you used to set up the project.
 
@@ -79,21 +68,3 @@ The installation script installs and configures:
 ## What's next
 
 * [Using Cloud Storage from a robot](using-cloud-storage.md).
-
-## Uninstalling the local cluster
-
-You can remove the local cluster with the following command:
-
-```shell
-sudo kubeadm reset
-```
-
-You may also want to remove the following APT packages and repositories, which `install_k8s_on_robot.sh` installs if they are not present:
-
-```shell
-sudo apt-get purge kubectl kubelet kubeadm
-sudo rm /etc/apt/sources.list.d/kubernetes.list
-sudo apt-get purge docker-ce
-sudo add-apt-repository --remove \
-  "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-```
