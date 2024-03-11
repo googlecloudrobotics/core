@@ -2,28 +2,19 @@
 # Allows access to GKE and to run Bazel commands.
 FROM gcr.io/cloud-builders/kubectl
 
-# https://bazel.build/install/ubuntu#install-on-ubuntu
+# Install Bazelisk
 RUN \
-    apt-get update && \
-    apt-get install apt-transport-https curl gnupg -y && \
-    curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor >bazel-archive-keyring.gpg && \
-    mv bazel-archive-keyring.gpg /usr/share/keyrings && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/bazel-archive-keyring.gpg] https://storage.googleapis.com/bazel-apt stable jdk1.8" | tee /etc/apt/sources.list.d/bazel.list && \
-    apt-get update && \
-    apt-get install -y \
-      bazel-6.3.2 \
-      git \
-      jq && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    ln -s /usr/bin/bazel-6.3.2 /usr/bin/bazel
+    VERSION="v1.19.0" # check latest version in https://github.com/bazelbuild/bazelisk/releases \
+    curl -L https://github.com/bazelbuild/bazelisk/releases/download/$VERSION/bazelisk-linux-amd64 --output /usr/bin/bazelisk \
+    chmod +x /usr/bin/bazelisk \
+    ln -s /usr/bin/bazelisk /usr/bin/bazel
 
 # Install crictl, needed for setup-robot.sh
 # From https://github.com/kubernetes-sigs/cri-tools/blob/master/docs/crictl.md.
 RUN \
     VERSION="v1.29.0" # check latest version in https://github.com/kubernetes-sigs/cri-tools/releases \
     curl -L https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-${VERSION}-linux-amd64.tar.gz --output crictl-${VERSION}-linux-amd64.tar.gz \
-    tar zxvf crictl-$VERSION-linux-amd64.tar.gz -C /usr/local/bin \
+    tar zxvf crictl-$VERSION-linux-amd64.tar.gz -C /usr/bin \
     rm -f crictl-$VERSION-linux-amd64.tar.gz
 
 RUN mkdir -p /builder /output /workspace && chmod -R 777 /output
