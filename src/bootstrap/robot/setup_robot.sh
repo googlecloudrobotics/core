@@ -95,37 +95,37 @@ fi
 REGISTRY=${IMAGE_REFERENCE%/*}
 REGISTRY_DOMAIN=${IMAGE_REFERENCE%%/*}
 
-# if [[ "$REGISTRY" != "gcr.io/cloud-robotics-releases" ]] ; then
-#   # The user has built setup-robot from source and pushed it to a private
-#   # registry. If so, k8s may not yet have credentials that can pull from a
-#   # private registry, so do it directly.
-#   echo "Pulling image from ${REGISTRY_DOMAIN}..."
+if [[ "${SKIP_LOCAL_PULL}" == true || "$REGISTRY" != "gcr.io/cloud-robotics-releases" ]] ; then
+  # The user has built setup-robot from source and pushed it to a private
+  # registry. If so, k8s may not yet have credentials that can pull from a
+  # private registry, so do it directly.
+  echo "Pulling image from ${REGISTRY_DOMAIN}..."
 
-#   private_registry_enabled=0
-#   if hash docker &> /dev/null ; then
-#     echo ${ACCESS_TOKEN} | docker login -u oauth2accesstoken --password-stdin https://${REGISTRY_DOMAIN} || true
+  private_registry_enabled=0
+  if hash docker &> /dev/null ; then
+    echo ${ACCESS_TOKEN} | docker login -u oauth2accesstoken --password-stdin https://${REGISTRY_DOMAIN} || true
 
-#     if docker pull ${IMAGE_REFERENCE}; then
-#       private_registry_enabled=1
-#     else
-#       docker logout https://${REGISTRY_DOMAIN}
-#       echo "WARNING: failed to pull setup-robot image using 'docker pull'" >&2
-#     fi
-#     docker logout https://${REGISTRY_DOMAIN}
-#   fi
-#   if hash crictl &> /dev/null ; then
-#     if crictl pull --creds "oauth2accesstoken:${ACCESS_TOKEN}" "${IMAGE_REFERENCE}" ; then
-#       private_registry_enabled=1
-#     else
-#       echo "WARNING: failed to pull setup-robot image using 'crictl pull'" >&2
-#     fi
-#   fi
-#   if [[ $private_registry_enabled == "0" ]]; then
-#     echo "ERROR: failed to find 'crictl' or 'docker' binary. This is required when" >&2
-#     echo "       Cloud Robotics Core was deployed from source." >&2
-#     exit 1
-#   fi
-# fi
+    if docker pull ${IMAGE_REFERENCE}; then
+      private_registry_enabled=1
+    else
+      docker logout https://${REGISTRY_DOMAIN}
+      echo "WARNING: failed to pull setup-robot image using 'docker pull'" >&2
+    fi
+    docker logout https://${REGISTRY_DOMAIN}
+  fi
+  if hash crictl &> /dev/null ; then
+    if crictl pull --creds "oauth2accesstoken:${ACCESS_TOKEN}" "${IMAGE_REFERENCE}" ; then
+      private_registry_enabled=1
+    else
+      echo "WARNING: failed to pull setup-robot image using 'crictl pull'" >&2
+    fi
+  fi
+  if [[ $private_registry_enabled == "0" ]]; then
+    echo "ERROR: failed to find 'crictl' or 'docker' binary. This is required when" >&2
+    echo "       Cloud Robotics Core was deployed from source." >&2
+    exit 1
+  fi
+fi
 
 # Wait for creation of the default service account.
 # https://github.com/kubernetes/kubernetes/issues/66689

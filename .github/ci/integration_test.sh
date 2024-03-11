@@ -60,7 +60,10 @@ bash -x ./deploy.sh update "${GCP_PROJECT_ID}"
 
 # Create a GKE cluster with a single robot for the relay test.
 ROBOT_RELAY_CLUSTER="relay-test"
+export SKIP_LOCAL_PULL=true
 bash -x ./scripts/robot-sim.sh create "${GCP_PROJECT_ID}" "${ROBOT_RELAY_CLUSTER}"
+
+bazel_ci run //src/go/cmd/setup-dev -- --project="${GCP_PROJECT_ID}" --robot-name="${ROBOT_RELAY_CLUSTER}"
 
 DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
 CLOUD_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
