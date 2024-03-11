@@ -45,6 +45,7 @@ jobs:
           curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
           sudo apt-get update -y
           sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
+          gcloud auth configure-docker --quiet
       - name: Run integration_test.sh
         env:
           MANUAL_RUN: "${{ github.event_name == 'workflow_dispatch' }}"
