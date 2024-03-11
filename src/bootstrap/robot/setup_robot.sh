@@ -95,7 +95,7 @@ fi
 REGISTRY=${IMAGE_REFERENCE%/*}
 REGISTRY_DOMAIN=${IMAGE_REFERENCE%%/*}
 
-if [[ "${SKIP_LOCAL_PULL}" == true || "$REGISTRY" != "gcr.io/cloud-robotics-releases" ]] ; then
+if [[ "$SKIP_LOCAL_PULL" != "true" || "$REGISTRY" != "gcr.io/cloud-robotics-releases" ]] ; then
   # The user has built setup-robot from source and pushed it to a private
   # registry. If so, k8s may not yet have credentials that can pull from a
   # private registry, so do it directly.

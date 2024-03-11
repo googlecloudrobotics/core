@@ -75,13 +75,6 @@ kubectl --context ${CLOUD_CONTEXT} get pods || true
 kubectl --context ${GCP_PROJECT_ID}-robot get pods || true
 kubectl --context ${ROBOT_CONTEXT} get pods || true
 
-# For some reason //src/go/tests:go_default_test is expecting
-# the kubeconfig in /home/builder/.kube/config, i.e. it does not use $HOME
-# (which is /builder/home). alexanderfaxa@ could not figure out why so just
-# copy the config there.
-mkdir -p /home/builder/.kube
-cp /builder/home/.kube/config /home/builder/.kube/config
-
 bazel_ci test \
   --test_env GCP_PROJECT_ID=${GCP_PROJECT_ID} \
   --test_env GCP_REGION=${GCP_REGION} \

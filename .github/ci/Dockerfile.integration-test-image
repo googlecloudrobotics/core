@@ -21,4 +21,11 @@ RUN apt-get update && apt-get install -y sudo && apt-get clean && rm -rf /var/li
     usermod -aG sudo builder && \
     echo "builder ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/builder" && chmod 440 "/etc/sudoers.d/builder"
 
+# For some reason //src/go/tests:go_default_test is expecting
+# the kubeconfig in /home/builder/.kube/config, i.e. it does not use $HOME
+# (which is /builder/home). alexanderfaxa@ could not figure out why so just
+# copy the config there.
+RUN mkdir -p /home/builder/.kube && \
+    ln -s /builder/home/.kube/config /home/builder/.kube/config
+
 USER builder
