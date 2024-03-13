@@ -42,3 +42,5 @@ gf_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escape
 prom_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
 prom_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
 prom_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+# Prometheus: Using ${} replacement
+prom_external_url: "https://${CLOUD_ROBOTICS_DOMAIN}/prometheus/"
