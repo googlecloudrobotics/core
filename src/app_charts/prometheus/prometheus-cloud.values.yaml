@@ -59,7 +59,7 @@ prometheus:
       - key: "non-existent-label-for-universal-matching"
         operator: "DoesNotExist"
 
-    externalUrl: "https://${CLOUD_ROBOTICS_DOMAIN}/prometheus/"
+    externalUrl: "${EXTERNAL_URL}"
     retention: "${RETENTION_TIME}"
     retentionSize: "${RETENTION_SIZE}"
     walCompression: true
