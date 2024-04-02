@@ -298,7 +298,7 @@ func (s *crSyncer) setupInformerHandlers(
 ) {
 	receive := func(obj interface{}, action string) {
 		u := obj.(*unstructured.Unstructured)
-		slog.Info("Got Event",
+		slog.Debug("Got Event",
 			slog.String("Event", action),
 			slog.String("Direction", direction),
 			slog.String("Kind", u.GetKind()),
@@ -508,7 +508,7 @@ func (s *crSyncer) syncDownstream(key string) error {
 	if s.clusterName != cloudClusterName {
 		s.conflictErrors = 0
 	}
-	slog.Info("Copied status to upstream",
+	slog.Debug("Copied status to upstream",
 		slog.String("Kind", src.GetKind()),
 		slog.String("Name", src.GetName()),
 		slog.Any("Source version", src.GetResourceVersion()),
