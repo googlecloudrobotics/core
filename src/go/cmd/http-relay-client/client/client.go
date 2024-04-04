@@ -323,7 +323,7 @@ func (c *Client) createBackendRequest(breq *pb.HttpRequest) (*http.Request, erro
 	targetUrl.Scheme = c.config.BackendScheme
 	targetUrl.Host = c.config.BackendAddress
 	targetUrl.Path = c.config.BackendPath + targetUrl.Path
-	slog.Info("Sending request to backend",
+	slog.Debug("Sending request to backend",
 		slog.String("ID", id),
 		slog.String("Method", *breq.Method),
 		slog.Any("TargetURL", *targetUrl))
@@ -684,7 +684,7 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 					resp.BackendDurationMs = proto.Int64(duration.Milliseconds())
 					// see makeBackendRequest()
 					urlPath := strings.TrimPrefix(*pbreq.Url, "http://invalid")
-					slog.Info("Backend request",
+					slog.Debug("Backend request",
 						slog.String("ID", *resp.Id),
 						slog.Float64("Duration", duration.Seconds()),
 						slog.String("Path", urlPath))

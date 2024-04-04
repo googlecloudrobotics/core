@@ -35,6 +35,7 @@ var (
 	config client.ClientConfig
 
 	stackdriverProjectID string
+	logLevel             int
 )
 
 func init() {
@@ -84,11 +85,13 @@ func init() {
 	// initialize it independently.
 	flag.StringVar(&stackdriverProjectID, "trace-stackdriver-project-id", "",
 		"If not empty, traces will be uploaded to this Google Cloud Project.")
+	flag.IntVar(&logLevel, "log_level", int(slog.LevelInfo),
+		"the log message level required to be logged")
 }
 
 func main() {
 	flag.Parse()
-	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
+	logHandler := ilog.NewLogHandler(slog.Level(logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
 	if stackdriverProjectID != "" {
