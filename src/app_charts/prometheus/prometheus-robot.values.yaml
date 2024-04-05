@@ -60,7 +60,7 @@ prometheus:
     logLevel: warn
     # Historical data is limited to the lower of `retention` and
     # `retentionSize`.
-    retention: "1d"
+    retention: "3h"
     retentionSize: 512MB
     # Reduce the max chunk size (default=512MB) to reduce the headroom required
     # for the in-progress chunk.
