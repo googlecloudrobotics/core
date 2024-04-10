@@ -63,9 +63,9 @@ prometheus:
     # but Prometheus puts no limit on WAL size, so it's up to us to make
     # sure we don't have too many metrics and the WAL doesn't grow too big.
     retention: "3h"
-    # If you increase retentionSize, increase sizeLimit below as well. We don't
-    # know how much headroom is needed, but if they're equal you can still run
-    # out of disk space.
+    # If you increase retentionSize, increase sizeLimit below as well, but
+    # remember that this is RAM, not disk. We don't know how much headroom
+    # is needed, but if set equal you can still run out of disk space.
     retentionSize: 448MB
     # Reduce the max chunk size (default=512MB) to reduce the headroom required
     # for the in-progress chunk.
