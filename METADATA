@@ -3,9 +3,9 @@ name: "Cloud Robotics"
 third_party {
   # https://nvd.nist.gov/products/cpe/search
   security {
-    tag: "NVD-CPE2.3:cpe:/a:grafana:grafana:9.1.17"
+    tag: "NVD-CPE2.3:cpe:/a:grafana:grafana:10.3.1"
     tag: "NVD-CPE2.3:cpe:/a:kubernetes:ingress-nginx:1.8.4"
     tag: "NVD-CPE2.3:cpe:/a:oauth2_proxy_project:oauth2_proxy:7.5.1"
-    tag: "NVD-CPE2.3:cpe:/a:prometheus:prometheus:2.39.1"
+    tag: "NVD-CPE2.3:cpe:/a:prometheus:prometheus:2.49.1"
   }
 }
