@@ -59,18 +59,19 @@ prometheus:
 
     logLevel: warn
     # Historical data is limited to the lower of `retention` and
-    # `retentionSize`.
+    # `retentionSize`. WAL+maxChunkSize also counted toward retentionSize,
+    # but Prometheus puts no limit on WAL size, so it's up to us to make
+    # sure we don't have too many metrics and the WAL doesn't grow too big.
     retention: "3h"
-    retentionSize: 512MB
+    # If you increase retentionSize, increase sizeLimit below as well, but
+    # remember that this is RAM, not disk. We don't know how much headroom
+    # is needed, but if set equal you can still run out of disk space.
+    retentionSize: 448MB
     # Reduce the max chunk size (default=512MB) to reduce the headroom required
     # for the in-progress chunk.
     additionalArgs:
       - name: storage.tsdb.max-block-chunk-segment-size
         value: 64MB
-    # We need at least retentionSize+maxChunkSize+maxWALSize to avoid breaking
-    # Prometheus by running out of space. maxWALSize is hard to determine, at
-    # 2.5ksamples/s we expect around 180MB.
-    # https://www.robustperception.io/how-much-space-does-the-wal-take-up/
     storageSpec:
       emptyDir:
         medium: Memory
