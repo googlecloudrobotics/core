@@ -200,6 +200,7 @@ func newBackendContext(r *http.Request) (*backendContext, error) {
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	if err := s.b.Healthy(); err != nil {
+		slog.Error("Health check failed", ilog.Err(err))
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
