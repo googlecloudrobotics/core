@@ -199,6 +199,11 @@ func newBackendContext(r *http.Request) (*backendContext, error) {
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
+	timer := time.AfterFunc(8*time.Second, func() {
+		slog.Warn("While checking server health, unable to acquire lock after 8 seconds")
+	})
+	defer timer.Stop()
+
 	if err := s.b.Healthy(); err != nil {
 		slog.Error("Health check failed", ilog.Err(err))
 		http.Error(w, err.Error(), http.StatusInternalServerError)
