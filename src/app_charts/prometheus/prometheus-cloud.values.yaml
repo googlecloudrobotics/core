@@ -187,6 +187,14 @@ grafana:
       check_for_updates: false
     security:
       csrf_trusted_origins: "${CR_GF_CSRF_TRUSTED_ORIGINS}"
+    smtp:
+      enabled: "${CR_GF_SMTP_ENABLED}"
+      host: "${CR_GF_SMTP_HOST}"
+      user: "${CR_GF_SMTP_USER}"
+      password: "${CR_GF_SMTP_PASSWORD}"
+      from_address: "${CR_GF_SMTP_FROM_ADDRESS}"
+      from_name: "${CR_GF_SMTP_FROM_NAME}"
+      skip_verify: "${CR_GF_SMTP_SKIP_VERIFY}"
   serviceMonitor:
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
