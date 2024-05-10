@@ -69,9 +69,13 @@ prometheus:
     retentionSize: 448MB
     # Reduce the max chunk size (default=512MB) to reduce the headroom required
     # for the in-progress chunk.
+    # This chunk size correlates with the current retention size. Larger
+    # retention sizes make it so that WAL is not truncated as it should be.
     additionalArgs:
       - name: storage.tsdb.max-block-chunk-segment-size
-        value: 64MB
+        value: 16MB
+      - name: storage.tsdb.wal-segment-size
+        value: 16MB
     storageSpec:
       emptyDir:
         medium: Memory
