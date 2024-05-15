@@ -279,6 +279,12 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 		pr.sendingResponse.Store(false)
 		return fmt.Errorf("Closed due to inactivity")
 	}
+	// what happens if `ReapInactiveRequests` checks `sendingResponse` here?
+	// It will defer closing the stream, but we are outside the `select` already.
+	// It delete `r.resp[id]` so may be the next time this func is called it will return
+	// "Duplicate or invalid ID", or does it not get called at all?
+	// If there are no other references to `responseStream` then it will be garbage collected,
+	// but if there is then it would survive being reap.
 	pr.sendingResponse.Store(false)
 
 	brokerRequests.WithLabelValues("server_response", backendName).Inc()
