@@ -269,6 +269,7 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 		// lock here.
 		break
 	case <-pr.markReap:
+		r.m.Unlock()
 		return fmt.Errorf("Closed due to inactivity")
 	}
 	r.m.Unlock()
