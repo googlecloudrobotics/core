@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
@@ -83,11 +84,16 @@ type pendingResponse struct {
 	// The user-client sends a hanging request to the relay-server which blocks until
 	// data is received on the response channel.
 	responseStream chan *pb.HttpResponse
+	// indicates that there is an ongoing response and `responseStream` should not be closed yet
+	sendingResponse atomic.Bool
 
 	lastActivity time.Time
 	// For diagnostics only.
 	startTime   time.Time
 	requestPath string
+
+	// mark that the connection should be dropped
+	markReap chan struct{}
 }
 
 type RelayClientUnavailableError struct {
@@ -256,12 +262,24 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 		pr.lastActivity = time.Now()
 	}
 	duration := time.Since(pr.startTime).Seconds()
+	r.m.Unlock()
 
 	// Writing to this channel will notify consumers which are waiting for data
 	// on the channel returned by RelayRequest().
-	pr.responseStream <- resp
+	pr.sendingResponse.Store(true)
+	select {
+	case pr.responseStream <- resp:
+		// This is limited by how fast the user client consumes the stream so we should not
+		// lock here.
+		break
+	case <-pr.markReap:
+		slog.Info("Closing reaped response stream", slog.String("ID", id))
+		close(pr.responseStream)
+		pr.sendingResponse.Store(false)
+		return fmt.Errorf("Closed due to inactivity")
+	}
+	pr.sendingResponse.Store(false)
 
-	r.m.Unlock()
 	brokerRequests.WithLabelValues("server_response", backendName).Inc()
 	brokerResponseDurations.WithLabelValues("server_response", backendName).Observe(duration)
 	if resp.GetEof() {
@@ -285,7 +303,12 @@ func (r *broker) ReapInactiveRequests(threshold time.Time) {
 		if pr.lastActivity.Before(threshold) {
 			slog.Info("Timeout on inactive request", slog.String("ID", id))
 			defer close(pr.requestStream)
-			defer close(pr.responseStream)
+			if pr.sendingResponse.Load() {
+				slog.Info("Defer closing response stream", slog.String("ID", id))
+				pr.markReap <- struct{}{}
+			} else {
+				defer close(pr.responseStream)
+			}
 			// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop
 			delete(r.resp, id)
 		}
