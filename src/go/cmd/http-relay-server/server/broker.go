@@ -157,6 +157,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 		lastActivity:   ts,
 		startTime:      ts,
 		requestPath:    targetUrl.Path,
+		markReap:       make(chan struct{}, 1),
 	}
 	reqChan := r.req[server]
 	respChan := r.resp[id].responseStream
