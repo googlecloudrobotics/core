@@ -21,7 +21,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
@@ -84,8 +83,6 @@ type pendingResponse struct {
 	// The user-client sends a hanging request to the relay-server which blocks until
 	// data is received on the response channel.
 	responseStream chan *pb.HttpResponse
-	// indicates that there is an ongoing response and `responseStream` should not be closed yet
-	sendingResponse atomic.Bool
 
 	lastActivity time.Time
 	// For diagnostics only.
@@ -263,29 +260,18 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 		pr.lastActivity = time.Now()
 	}
 	duration := time.Since(pr.startTime).Seconds()
-	r.m.Unlock()
 
 	// Writing to this channel will notify consumers which are waiting for data
 	// on the channel returned by RelayRequest().
-	pr.sendingResponse.Store(true)
 	select {
 	case pr.responseStream <- resp:
 		// This is limited by how fast the user client consumes the stream so we should not
 		// lock here.
 		break
 	case <-pr.markReap:
-		slog.Info("Closing reaped response stream", slog.String("ID", id))
-		close(pr.responseStream)
-		pr.sendingResponse.Store(false)
 		return fmt.Errorf("Closed due to inactivity")
 	}
-	// what happens if `ReapInactiveRequests` checks `sendingResponse` here?
-	// It will defer closing the stream, but we are outside the `select` already.
-	// It delete `r.resp[id]` so may be the next time this func is called it will return
-	// "Duplicate or invalid ID", or does it not get called at all?
-	// If there are no other references to `responseStream` then it will be garbage collected,
-	// but if there is then it would survive being reap.
-	pr.sendingResponse.Store(false)
+	r.m.Unlock()
 
 	brokerRequests.WithLabelValues("server_response", backendName).Inc()
 	brokerResponseDurations.WithLabelValues("server_response", backendName).Observe(duration)
@@ -305,17 +291,21 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 }
 
 func (r *broker) ReapInactiveRequests(threshold time.Time) {
-	r.m.Lock()
+	inactiveResps := make([]string, 0)
 	for id, pr := range r.resp {
 		if pr.lastActivity.Before(threshold) {
 			slog.Info("Timeout on inactive request", slog.String("ID", id))
+			pr.markReap <- struct{}{}
+			inactiveResps = append(inactiveResps, id)
+		}
+	}
+
+	r.m.Lock()
+	for _, id := range inactiveResps {
+		pr := r.resp[id]
+		if pr.lastActivity.Before(threshold) {
 			defer close(pr.requestStream)
-			if pr.sendingResponse.Load() {
-				slog.Info("Defer closing response stream", slog.String("ID", id))
-				pr.markReap <- struct{}{}
-			} else {
-				defer close(pr.responseStream)
-			}
+			defer close(pr.responseStream)
 			// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop
 			delete(r.resp, id)
 		}
