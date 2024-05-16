@@ -83,6 +83,8 @@ type pendingResponse struct {
 	// The user-client sends a hanging request to the relay-server which blocks until
 	// data is received on the response channel.
 	responseStream chan *pb.HttpResponse
+	// This mutex should be locked when writing to `responseStream``
+	sendMutex sync.Mutex
 
 	lastActivity time.Time
 	// For diagnostics only.
@@ -154,7 +156,6 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 		lastActivity:   ts,
 		startTime:      ts,
 		requestPath:    targetUrl.Path,
-		markReap:       make(chan struct{}, 1),
 	}
 	reqChan := r.req[server]
 	respChan := r.resp[id].responseStream
@@ -254,26 +255,24 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 		brokerResponses.WithLabelValues("server_response", "invalid", backendName).Inc()
 		return fmt.Errorf("Duplicate or invalid request ID %s", id)
 	}
+	pr.sendMutex.Lock()
+	defer pr.sendMutex.Unlock()
 	if resp.GetEof() {
 		delete(r.resp, id)
 	} else {
 		pr.lastActivity = time.Now()
 	}
 	duration := time.Since(pr.startTime).Seconds()
+	r.m.Unlock()
 
 	// Writing to this channel will notify consumers which are waiting for data
 	// on the channel returned by RelayRequest().
 	select {
-	// FIXME(koonpeng): The rate at which we can write to `responseStream` is limited
-	// by the rate that the user client consumes the stream. Holding onto the lock here
-	// will greatly reduce throughput.
 	case pr.responseStream <- resp:
 		break
 	case <-pr.markReap:
-		r.m.Unlock()
 		return fmt.Errorf("Closed due to inactivity")
 	}
-	r.m.Unlock()
 
 	brokerRequests.WithLabelValues("server_response", backendName).Inc()
 	brokerResponseDurations.WithLabelValues("server_response", backendName).Observe(duration)
@@ -293,26 +292,18 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 }
 
 func (r *broker) ReapInactiveRequests(threshold time.Time) {
-	inactiveResps := make([]string, 0)
+	r.m.Lock()
 	for id, pr := range r.resp {
-		// FIXME(koonpeng): There could be a race condition when accessing `lastActivity`
+		pr.sendMutex.Lock()
 		if pr.lastActivity.Before(threshold) {
 			slog.Info("Timeout on inactive request", slog.String("ID", id))
-			pr.markReap <- struct{}{}
-			inactiveResps = append(inactiveResps, id)
+			defer close(pr.requestStream)
+			close(pr.markReap)
+			defer close(pr.responseStream)
+			// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop
+			delete(r.resp, id)
 		}
-	}
-
-	r.m.Lock()
-	for _, id := range inactiveResps {
-		if pr, found := r.resp[id]; found {
-			if pr.lastActivity.Before(threshold) {
-				defer close(pr.requestStream)
-				defer close(pr.responseStream)
-				// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop
-				delete(r.resp, id)
-			}
-		}
+		pr.sendMutex.Unlock()
 	}
 	r.m.Unlock()
 }
