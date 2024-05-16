@@ -156,6 +156,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 		lastActivity:   ts,
 		startTime:      ts,
 		requestPath:    targetUrl.Path,
+		markReap:       make(chan struct{}),
 	}
 	reqChan := r.req[server]
 	respChan := r.resp[id].responseStream
@@ -255,6 +256,8 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 		brokerResponses.WithLabelValues("server_response", "invalid", backendName).Inc()
 		return fmt.Errorf("Duplicate or invalid request ID %s", id)
 	}
+	// hold `sendMutex` throughout the function to ensure that `responseStream` is not closed
+	// while we are writing to it.
 	pr.sendMutex.Lock()
 	defer pr.sendMutex.Unlock()
 	if resp.GetEof() {
@@ -263,11 +266,14 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 		pr.lastActivity = time.Now()
 	}
 	duration := time.Since(pr.startTime).Seconds()
+	// Release the lock on the broker before we write to `responseStream` so it does not
+	// block other requests.
 	r.m.Unlock()
 
-	// Writing to this channel will notify consumers which are waiting for data
-	// on the channel returned by RelayRequest().
 	select {
+	// Writing to this channel will notify consumers which are waiting for data
+	// on the channel returned by RelayRequest(). Note that the rate that we can write
+	// is limited by the rate that the user client consumes the stream.
 	case pr.responseStream <- resp:
 		break
 	case <-pr.markReap:
