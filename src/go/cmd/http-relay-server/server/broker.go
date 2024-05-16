@@ -264,9 +264,10 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	// Writing to this channel will notify consumers which are waiting for data
 	// on the channel returned by RelayRequest().
 	select {
+	// FIXME(koonpeng): The rate at which we can write to `responseStream` is limited
+	// by the rate that the user client consumes the stream. Holding onto the lock here
+	// will greatly reduce throughput.
 	case pr.responseStream <- resp:
-		// This is limited by how fast the user client consumes the stream so we should not
-		// lock here.
 		break
 	case <-pr.markReap:
 		r.m.Unlock()
@@ -294,6 +295,7 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 func (r *broker) ReapInactiveRequests(threshold time.Time) {
 	inactiveResps := make([]string, 0)
 	for id, pr := range r.resp {
+		// FIXME(koonpeng): There could be a race condition when accessing `lastActivity`
 		if pr.lastActivity.Before(threshold) {
 			slog.Info("Timeout on inactive request", slog.String("ID", id))
 			pr.markReap <- struct{}{}
@@ -303,12 +305,13 @@ func (r *broker) ReapInactiveRequests(threshold time.Time) {
 
 	r.m.Lock()
 	for _, id := range inactiveResps {
-		pr := r.resp[id]
-		if pr.lastActivity.Before(threshold) {
-			defer close(pr.requestStream)
-			defer close(pr.responseStream)
-			// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop
-			delete(r.resp, id)
+		if pr, found := r.resp[id]; found {
+			if pr.lastActivity.Before(threshold) {
+				defer close(pr.requestStream)
+				defer close(pr.responseStream)
+				// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop
+				delete(r.resp, id)
+			}
 		}
 	}
 	r.m.Unlock()
