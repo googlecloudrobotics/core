@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+# gazelle:go_test file
+
+go_test(
+    name = "http_relay_test",
+    srcs = ["http_relay_test.go"],
+    data = [
+        "//src/go/cmd/http-relay-client:http-relay-client-app",
+        "//src/go/cmd/http-relay-server:http-relay-server-app",
+    ],
+    deps = [
+        "@com_github_cenkalti_backoff//:go_default_library",
+        "@io_bazel_rules_go//go/runfiles:go_default_library",
+    ],
+)
