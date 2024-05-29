@@ -194,6 +194,7 @@ grafana:
       password: "${CR_GF_SMTP_PASSWORD}"
       from_address: "${CR_GF_SMTP_FROM_ADDRESS}"
       from_name: "${CR_GF_SMTP_FROM_NAME}"
+      skip_verify: "${CR_GF_SMTP_SKIP_VERIFY}"
   serviceMonitor:
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
