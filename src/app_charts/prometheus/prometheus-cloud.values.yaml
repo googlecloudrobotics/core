@@ -191,6 +191,7 @@ grafana:
       enabled: "${CR_GF_SMTP_ENABLED}"
       host: "${CR_GF_SMTP_HOST}"
       user: "${CR_GF_SMTP_USER}"
+      password: "${CR_GF_SMTP_PASSWORD}"
   serviceMonitor:
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
