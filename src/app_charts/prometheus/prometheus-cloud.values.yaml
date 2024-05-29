@@ -192,6 +192,7 @@ grafana:
       host: "${CR_GF_SMTP_HOST}"
       user: "${CR_GF_SMTP_USER}"
       password: "${CR_GF_SMTP_PASSWORD}"
+      from_address: "${CR_GF_SMTP_FROM_ADDRESS}"
   serviceMonitor:
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
