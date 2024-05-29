@@ -189,6 +189,7 @@ grafana:
       csrf_trusted_origins: "${CR_GF_CSRF_TRUSTED_ORIGINS}"
     smtp:
       enabled: "${CR_GF_SMTP_ENABLED}"
+      host: "${CR_GF_SMTP_HOST}"
   serviceMonitor:
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
