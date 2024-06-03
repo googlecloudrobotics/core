@@ -257,7 +257,9 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 		return fmt.Errorf("Duplicate or invalid request ID %s", id)
 	}
 	// hold `sendMutex` throughout the function to ensure that `responseStream` is not closed
-	// while we are writing to it.
+	// while we are writing to it. We must acquire the lock while we are holding `r.m` to
+	// avoid `ReapInactiveRequests` closing `responseStream` between the time that we
+	// release `r.m` and lock `pr.sendMutex`.
 	pr.sendMutex.Lock()
 	defer pr.sendMutex.Unlock()
 	if resp.GetEof() {
@@ -300,16 +302,20 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 func (r *broker) ReapInactiveRequests(threshold time.Time) {
 	r.m.Lock()
 	for id, pr := range r.resp {
-		pr.sendMutex.Lock()
 		if pr.lastActivity.Before(threshold) {
 			slog.Info("Timeout on inactive request", slog.String("ID", id))
-			defer close(pr.requestStream)
+			close(pr.requestStream)
 			close(pr.markReap)
-			defer close(pr.responseStream)
+
+			// If we block on this lock, it means `SendResponse` is writing to the channel, since we just closed
+			// `markReap`, it should release the lock soon and we can safely close the channel.
+			pr.sendMutex.Lock()
+			close(pr.responseStream)
+			pr.sendMutex.Unlock()
+
 			// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop
 			delete(r.resp, id)
 		}
-		pr.sendMutex.Unlock()
 	}
 	r.m.Unlock()
 }
