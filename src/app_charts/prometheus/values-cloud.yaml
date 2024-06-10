@@ -44,3 +44,5 @@ prom_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped
 prom_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
 # Prometheus: Using ${} replacement
 prom_external_url: "https://${CLOUD_ROBOTICS_DOMAIN}/prometheus/"
+# Grafana SMTP configuration
+gf_smtp_enabled: false
