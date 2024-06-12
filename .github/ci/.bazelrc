@@ -18,3 +18,6 @@ build --bes_backend=buildeventservice.googleapis.com
 build --bes_results_url=https://source.cloud.google.com/results/invocations
 build --bes_timeout=600s
 build --bes_instance_name=robco-integration-test
+# Try to mitigate DEADLINE_EXCEEDED errors (b/346715839).
+# Remove experimental_ prefix when updating Bazel.
+build --experimental_build_event_upload_max_retries=8
