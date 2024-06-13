@@ -44,3 +44,12 @@ prom_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped
 prom_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
 # Prometheus: Using ${} replacement
 prom_external_url: "https://${CLOUD_ROBOTICS_DOMAIN}/prometheus/"
+# Grafana SMTP configuration
+# Notes: these need to be all string, since we apply them using the template funtion "replace"
+gf_smtp_enabled: "false"
+gf_smtp_host: "smtp-host"
+gf_smtp_user: "smtp-user"
+gf_smtp_password: "smtp-api-key"
+gf_smtp_from_address: "from-address@example.com"
+gf_smtp_from_name: "from-name"
+gf_smtp_skip_verify: "true"
