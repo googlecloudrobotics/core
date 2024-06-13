@@ -10,6 +10,10 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: integration_test
+  cancel-in-progress: true
+
 jobs:
   call-bazel:
     uses: ./.github/workflows/check-bazel.yml
