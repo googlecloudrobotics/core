@@ -1,6 +1,6 @@
 # Project configuration
 
-The project configuration that one has entered during the initial setup are
+The project configuration that one has entered during the initial setup is
 stored with the project in GCS. One can look at the options with the following
 command:
 
