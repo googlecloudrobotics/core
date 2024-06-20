@@ -56,7 +56,7 @@ You can try it out by following the [Connecting a robot to the cloud](how-to/con
 How-to Guide.
 
 Layer 1 also provides a light-weight cluster federation system that synchronizes selected custom
-resources accross the fleet. This provides developers with a pattern for command & control that is
+resources across the fleet. This provides developers with a pattern for command & control that is
 robust against intermittent connectivity and fits well with the overall declarative Kubernetes
 model. You can read more in the concept guide about [Federation](concepts/federation.md).
 
