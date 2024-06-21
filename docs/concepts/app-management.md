@@ -26,11 +26,9 @@ spec:
   version: 1.2.1
   components:
     cloud:
-      chart:
-        name: ros-cloud
+      name: ros-cloud
     robot:
-      chart:
-        name: ros-robot
+      name: ros-robot
 ```
 
 Example 2: application using inline as base64-encoded charts (development workflow)
