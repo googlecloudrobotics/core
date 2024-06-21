@@ -33,7 +33,7 @@ The setup flow is used to register a new robot cluster to a cloud project.
 
 ## Authentication
 
-The authentication flow is used to transparently make cloud api calls work for
+The authentication flow is used to transparently make cloud API calls work for
 on-prem robot clusters.
 
 ![setup](device_identity_auth.png)

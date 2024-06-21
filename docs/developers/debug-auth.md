@@ -24,7 +24,7 @@ the [Cloud console's credentials page](https://console.cloud.google.com/apis/cre
 PROJECT_NUMBER=201199916163
 JSON_CREDENTIALS=/tmp/my-project-b7364a68fa92.json
 curl -v -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $(GOOGLE_APPLICATION_CREDENTIALS=${JSON_CREDENTIALS) gcloud auth application-default print-access-token)" \
+        -H "Authorization: Bearer $(GOOGLE_APPLICATION_CREDENTIALS=${JSON_CREDENTIALS} gcloud auth application-default print-access-token)" \
         "https://cloudroboticssensordata.googleapis.com/v1eap/projects/${PROJECT_NUMBER}/sensors"
 ```
 
