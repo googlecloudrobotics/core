@@ -36,4 +36,4 @@ Most interesting bits are under `src`:
 The root directory contains a `deploy.sh` script for building and installing the software. More
 details on that are in the [building from sources](how-to/deploy-from-sources) guide.
 
-WIP
+WIP 2
