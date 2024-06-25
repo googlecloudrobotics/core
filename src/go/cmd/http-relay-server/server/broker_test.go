@@ -35,7 +35,23 @@ const (
 	unknownID = "unknownID"
 )
 
-func runSender(t *testing.T, b *broker, s string, m string, wg *sync.WaitGroup) {
+// brokerConn helps manage send/receive operations on the broker. Because the broker
+// will immediately reject user clients for a backend which it has not seen before,
+// we need to ensure that the backend side makes the connection first.
+//
+// Only one request id can be used for each `brokerConn`
+type brokerConn struct {
+	ready chan struct{}
+}
+
+func newBrokerConn() brokerConn {
+	return brokerConn{
+		ready: make(chan struct{}),
+	}
+}
+
+func (bt *brokerConn) runSender(t *testing.T, b *broker, s string, m string, wg *sync.WaitGroup) {
+	<-bt.ready
 	respChan, err := b.RelayRequest(s, &pb.HttpRequest{Id: proto.String(m), Url: proto.String("http://example.com/foo")})
 	if err != nil {
 		t.Errorf("Got relay request error: %v", err)
@@ -51,7 +67,18 @@ func runSender(t *testing.T, b *broker, s string, m string, wg *sync.WaitGroup) 
 	wg.Done()
 }
 
-func runReceiver(t *testing.T, b *broker, s string, wg *sync.WaitGroup) {
+func (bt *brokerConn) bakeRequest(b *broker, s string) {
+	// ensure that the request is created before the user client connects
+	b.m.Lock()
+	if _, found := b.req[s]; !found {
+		b.req[s] = make(chan *pb.HttpRequest)
+	}
+	b.m.Unlock()
+	close(bt.ready)
+}
+
+func (bt *brokerConn) runReceiver(t *testing.T, b *broker, s string, wg *sync.WaitGroup) {
+	bt.bakeRequest(b, s)
 	req, err := b.GetRequest(context.Background(), s, "/")
 	if err != nil {
 		t.Errorf("Error when getting request: %v", err)
@@ -64,7 +91,8 @@ func runReceiver(t *testing.T, b *broker, s string, wg *sync.WaitGroup) {
 }
 
 // runSenderStream expects two items in the response stream, and it doesn't care about the contents.
-func runSenderStream(t *testing.T, b *broker, s string, m string, wg *sync.WaitGroup) {
+func (bt *brokerConn) runSenderStream(t *testing.T, b *broker, s string, m string, wg *sync.WaitGroup) {
+	<-bt.ready
 	respChan, err := b.RelayRequest(s, &pb.HttpRequest{Id: proto.String(m), Url: proto.String("http://example.com/foo")})
 	if err != nil {
 		t.Errorf("Got relay request error: %v", err)
@@ -86,7 +114,8 @@ func runSenderStream(t *testing.T, b *broker, s string, m string, wg *sync.WaitG
 
 // runReceiverStream sends two items in the response stream, waiting before the second.
 // It returns after the first response has been sent.
-func runReceiverStream(t *testing.T, b *broker, s string, wg *sync.WaitGroup, done <-chan bool) {
+func (bt *brokerConn) runReceiverStream(t *testing.T, b *broker, s string, wg *sync.WaitGroup, done <-chan bool) {
+	bt.bakeRequest(b, s)
 	req, err := b.GetRequest(context.Background(), s, "/")
 	if err != nil {
 		t.Errorf("Error when getting request: %v", err)
@@ -107,27 +136,30 @@ func runReceiverStream(t *testing.T, b *broker, s string, wg *sync.WaitGroup, do
 
 func TestNormalCase(t *testing.T) {
 	b := newBroker()
-	// create the request channels in advance to avoid race conditions with the below goroutinues.
-	b.req["foo"] = make(chan *pb.HttpRequest)
-	b.req["bar"] = make(chan *pb.HttpRequest)
+	var bConns [3]brokerConn
+	for i := range bConns {
+		bConns[i] = newBrokerConn()
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(6)
-	go runSender(t, b, "foo", idOne, &wg)
-	go runSender(t, b, "foo", idTwo, &wg)
-	go runSender(t, b, "bar", idThree, &wg)
-	go runReceiver(t, b, "foo", &wg)
-	go runReceiver(t, b, "foo", &wg)
-	go runReceiver(t, b, "bar", &wg)
+	go bConns[0].runSender(t, b, "foo", idOne, &wg)
+	go bConns[1].runSender(t, b, "foo", idTwo, &wg)
+	go bConns[2].runSender(t, b, "bar", idThree, &wg)
+	go bConns[0].runReceiver(t, b, "foo", &wg)
+	go bConns[1].runReceiver(t, b, "foo", &wg)
+	go bConns[2].runReceiver(t, b, "bar", &wg)
 	wg.Wait()
 }
 
 func TestResponseStream(t *testing.T) {
 	b := newBroker()
+	bc := newBrokerConn()
 	var wg sync.WaitGroup
 	done := make(chan bool)
 	wg.Add(2)
-	go runSenderStream(t, b, "foo", idOne, &wg)
-	runReceiverStream(t, b, "foo", &wg, done)
+	go bc.runSenderStream(t, b, "foo", idOne, &wg)
+	bc.runReceiverStream(t, b, "foo", &wg, done)
 	done <- true
 	wg.Wait()
 }
@@ -142,10 +174,11 @@ func TestMissingId(t *testing.T) {
 
 func TestDuplicateId(t *testing.T) {
 	b := newBroker()
+	bc := newBrokerConn()
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go runSender(t, b, "foo", idOne, &wg)
-	go runReceiver(t, b, "foo", &wg)
+	go bc.runSender(t, b, "foo", idOne, &wg)
+	go bc.runReceiver(t, b, "foo", &wg)
 	wg.Wait()
 
 	err := b.SendResponse(&pb.HttpResponse{Id: proto.String(idOne)})
@@ -157,11 +190,12 @@ func TestDuplicateId(t *testing.T) {
 func TestRequestStream(t *testing.T) {
 	// Start a request that won't terminate until we send `done`.
 	b := newBroker()
+	bc := newBrokerConn()
 	var wg sync.WaitGroup
 	done := make(chan bool)
 	wg.Add(2)
-	go runSenderStream(t, b, "foo", idOne, &wg)
-	runReceiverStream(t, b, "foo", &wg, done)
+	go bc.runSenderStream(t, b, "foo", idOne, &wg)
+	bc.runReceiverStream(t, b, "foo", &wg, done)
 
 	// Send a message over the request stream and assert that it arrives.
 	go func() {
@@ -219,5 +253,53 @@ func TestTimeout(t *testing.T) {
 		slog.Info("Done")
 		wg.Done()
 	}()
+	wg.Wait()
+}
+
+func TestReapWhileSendingResponse(t *testing.T) {
+	b := newBroker()
+	b.req["foo"] = make(chan *pb.HttpRequest)
+
+	// create a broker connection between the user client and backend side, but don't
+	// start sending data. "req" is backend side and "resp" is user client side.
+	var req *pb.HttpRequest
+	var reqErr error
+	// var resp <-chan *pb.HttpResponse
+	var respErr error
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		req, reqErr = b.GetRequest(context.Background(), "foo", "/")
+		if reqErr != nil {
+			t.Errorf("GetRequest error:", reqErr)
+		}
+		wg.Done()
+	}()
+	go func() {
+		_, respErr = b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
+		if respErr != nil {
+			t.Errorf("RelayRequest error:", respErr)
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+	if reqErr != nil || respErr != nil {
+		t.Errorf("Error making broker connection")
+	}
+
+	// start sending response to user client, BUT do not start consuming the response.
+	wg.Add(1)
+	go func() {
+		reqErr = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(false)})
+		if reqErr == nil || reqErr.Error() != "Closed due to inactivity" {
+			t.Errorf("Wrong SendResponse error or no error:", reqErr)
+		}
+		wg.Done()
+	}()
+	// FIXME(koonpeng): we need to wait for the goroutinue to be blocked on writing the response, currently
+	// there is no way to confirm that so we use a sleep.
+	time.Sleep(100 * time.Millisecond)
+	// reap the request
+	b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
 	wg.Wait()
 }
