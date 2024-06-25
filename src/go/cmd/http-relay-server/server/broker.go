@@ -83,11 +83,16 @@ type pendingResponse struct {
 	// The user-client sends a hanging request to the relay-server which blocks until
 	// data is received on the response channel.
 	responseStream chan *pb.HttpResponse
+	// This mutex should be locked when writing to `responseStream``
+	sendMutex sync.Mutex
 
 	lastActivity time.Time
 	// For diagnostics only.
 	startTime   time.Time
 	requestPath string
+
+	// mark that the connection should be dropped
+	markReap chan struct{}
 }
 
 type RelayClientUnavailableError struct {
@@ -151,6 +156,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 		lastActivity:   ts,
 		startTime:      ts,
 		requestPath:    targetUrl.Path,
+		markReap:       make(chan struct{}),
 	}
 	reqChan := r.req[server]
 	respChan := r.resp[id].responseStream
@@ -247,24 +253,42 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	pr := r.resp[id]
 	if pr == nil {
 		r.m.Unlock()
-		brokerResponses.WithLabelValues("server_response", "invalid", backendName).Inc()
+		brokerResponses.WithLabelValues("server_response", "not recognized or reaches the inactivity timeout", backendName).Inc()
 		return fmt.Errorf("Duplicate or invalid request ID %s", id)
 	}
+	// hold `sendMutex` throughout the function to ensure that `responseStream` is not closed
+	// while we are writing to it. We must acquire the lock while we are holding `r.m` to
+	// avoid `ReapInactiveRequests` closing `responseStream` between the time that we
+	// release `r.m` and lock `pr.sendMutex`.
+	pr.sendMutex.Lock()
+	defer pr.sendMutex.Unlock()
 	if resp.GetEof() {
+		// remove this request from the broker to prevent `ReapInactiveRequests` from processing (and closing `pr.responseStream`)
+		// a request that is about to be closed.
 		delete(r.resp, id)
 	} else {
 		pr.lastActivity = time.Now()
 	}
 	duration := time.Since(pr.startTime).Seconds()
-
-	// Writing to this channel will notify consumers which are waiting for data
-	// on the channel returned by RelayRequest().
-	pr.responseStream <- resp
-
+	// Release the lock on the broker before we write to `responseStream` so it does not
+	// block other requests.
 	r.m.Unlock()
+
+	select {
+	// Writing to this channel will notify consumers which are waiting for data
+	// on the channel returned by RelayRequest(). Note that the rate that we can write
+	// is limited by the rate that the user client consumes the stream.
+	case pr.responseStream <- resp:
+		break
+	case <-pr.markReap:
+		return fmt.Errorf("Closed due to inactivity")
+	}
+
 	brokerRequests.WithLabelValues("server_response", backendName).Inc()
 	brokerResponseDurations.WithLabelValues("server_response", backendName).Observe(duration)
 	if resp.GetEof() {
+		// this request is already removed from the broker earlier so `ReapInactiveRequests` will not
+		// process this and attempt to close the channel twice.
 		close(pr.responseStream)
 		backendDuration := (time.Duration(resp.GetBackendDurationMs()) * time.Millisecond).Seconds()
 		if backendDuration > 0.0 {
@@ -284,8 +308,16 @@ func (r *broker) ReapInactiveRequests(threshold time.Time) {
 	for id, pr := range r.resp {
 		if pr.lastActivity.Before(threshold) {
 			slog.Info("Timeout on inactive request", slog.String("ID", id))
-			defer close(pr.requestStream)
-			defer close(pr.responseStream)
+			close(pr.requestStream)
+			// Closing `pr.markReap` tells `SendResponse` to stop waiting for the client.
+			close(pr.markReap)
+
+			// If we block on this lock, it means `SendResponse` is writing to the channel, since we just closed
+			// `markReap`, it should release the lock soon and we can safely close the channel.
+			pr.sendMutex.Lock()
+			close(pr.responseStream)
+			pr.sendMutex.Unlock()
+
 			// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop
 			delete(r.resp, id)
 		}
