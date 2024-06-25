@@ -5,10 +5,19 @@ on:
     - cron: "0 4 * * *" # Once a day at 4am.
   # Manual runs through Actions tab in the UI
   workflow_dispatch:
+    inputs:
+      force-binary-release:
+        description: >-
+          force-binary-release: Set to non-empty when running from main to
+          create a binary release that can be used by 'Create release'.
 
 permissions:
   contents: read
   id-token: write
+
+concurrency:
+  group: integration_test
+  cancel-in-progress: true
 
 jobs:
   call-bazel:
@@ -27,7 +36,7 @@ jobs:
           workload_identity_provider: "projects/1043719249528/locations/global/workloadIdentityPools/github-automation/providers/crc-dev"
       - name: Run integration_test.sh on Cloud Build
         env:
-          MANUAL_RUN: "${{ github.event_name == 'workflow_dispatch' }}"
+          MANUAL_RUN: "${{ github.event_name == 'workflow_dispatch' && inputs.force-binary-release == '' }}"
         run: |
           gcloud builds submit \
             --project robco-integration-test \

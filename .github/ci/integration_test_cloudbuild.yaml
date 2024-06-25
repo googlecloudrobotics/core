@@ -24,4 +24,4 @@ substitutions:
 options:
   dynamicSubstitutions: true
   substitutionOption: "MUST_MATCH"
-timeout: 1200s
+timeout: 1800s
