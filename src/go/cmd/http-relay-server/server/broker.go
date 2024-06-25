@@ -253,7 +253,7 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	pr := r.resp[id]
 	if pr == nil {
 		r.m.Unlock()
-		brokerResponses.WithLabelValues("server_response", "invalid", backendName).Inc()
+		brokerResponses.WithLabelValues("server_response", "not recognized or reaches the inactivity timeout", backendName).Inc()
 		return fmt.Errorf("Duplicate or invalid request ID %s", id)
 	}
 	// hold `sendMutex` throughout the function to ensure that `responseStream` is not closed
@@ -263,6 +263,8 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	pr.sendMutex.Lock()
 	defer pr.sendMutex.Unlock()
 	if resp.GetEof() {
+		// remove this request from the broker to prevent `ReapInactiveRequests` from processing (and closing `pr.responseStream`)
+		// a request that is about to be closed.
 		delete(r.resp, id)
 	} else {
 		pr.lastActivity = time.Now()
@@ -285,6 +287,8 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	brokerRequests.WithLabelValues("server_response", backendName).Inc()
 	brokerResponseDurations.WithLabelValues("server_response", backendName).Observe(duration)
 	if resp.GetEof() {
+		// this request is already removed from the broker earlier so `ReapInactiveRequests` will not
+		// process this and attempt to close the channel twice.
 		close(pr.responseStream)
 		backendDuration := (time.Duration(resp.GetBackendDurationMs()) * time.Millisecond).Seconds()
 		if backendDuration > 0.0 {
@@ -305,6 +309,7 @@ func (r *broker) ReapInactiveRequests(threshold time.Time) {
 		if pr.lastActivity.Before(threshold) {
 			slog.Info("Timeout on inactive request", slog.String("ID", id))
 			close(pr.requestStream)
+			// Closing `pr.markReap` tells `SendResponse` to stop waiting for the client.
 			close(pr.markReap)
 
 			// If we block on this lock, it means `SendResponse` is writing to the channel, since we just closed
