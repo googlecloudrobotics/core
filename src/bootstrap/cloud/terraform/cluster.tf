@@ -142,20 +142,3 @@ resource "google_project_iam_member" "gke_node_roles" {
   ])
   role    = each.key
 }
-
-resource "google_artifact_registry_repository_iam_member" "gke_node_gcrio_gar_reader" {
-  project    = data.google_project.project.project_id
-  location   = "us"
-  repository = "gcr.io"
-  role       = "roles/artifactregistry.reader"
-  member     = "serviceAccount:${google_service_account.gke_node.email}"
-}
-
-resource "google_artifact_registry_repository_iam_member" "gke_node_private_gcrio_gar_reader" {
-  project    = var.private_image_repositories[count.index]
-  count      = length(var.private_image_repositories)
-  location   = "us"
-  repository = "gcr.io"
-  role       = "roles/artifactregistry.reader"
-  member     = "serviceAccount:${google_service_account.gke_node.email}"
-}
