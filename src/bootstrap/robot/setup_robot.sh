@@ -143,7 +143,7 @@ until kc get serviceaccount default &>/dev/null; do
 done
 
 # Remove old unmanaged cert
-if ! kc get secrets cluster-authority -o yaml | grep -q "cert-manager.io/certificate-name: selfsigned-ca"; then
+if ! kc get secrets cluster-authority --ignore-not-found -o yaml | grep -q "cert-manager.io/certificate-name: selfsigned-ca"; then
   kc delete secrets cluster-authority 2> /dev/null || true
 fi
 
