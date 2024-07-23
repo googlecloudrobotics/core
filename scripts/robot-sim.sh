@@ -16,8 +16,8 @@
 
 # Manage simulated robots
 #
-# Simulated robots are does as a separate cluster, running the same components like a physical robot
-# in addition to the robot simulator.
+# Simulated robots are implemented as a separate cluster, running the same
+# components like a physical robot in addition to the robot simulator.
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${DIR}/common.sh"
