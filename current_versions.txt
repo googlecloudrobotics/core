@@ -1,5 +1,5 @@
 {
-  "cert-manager": "1.14.2",
+  "cert-manager": "1.15.1",
   "ingress-nginx": "1.8.4",
   "oauth2-proxy": "7.5.1",
   "stackdriver-logging-agent": "1.9.5"
