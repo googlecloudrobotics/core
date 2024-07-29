@@ -54,13 +54,13 @@ function include_config_and_defaults {
   CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION=${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION:-GCP_PROJECT_ID}
 
   CLOUD_ROBOTICS_OWNER_EMAIL=${CLOUD_ROBOTICS_OWNER_EMAIL:-$(gcloud config get-value account)}
-  KUBE_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"
+  CLOUD_ROBOTICS_CTX=${CLOUD_ROBOTICS_CTX:-"gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"}
 
-  SYNK="${SYNK_COMMAND} --context ${KUBE_CONTEXT}"
+  SYNK="${SYNK_COMMAND} --context ${CLOUD_ROBOTICS_CTX}"
 }
 
 function kc {
-  kubectl --context="${KUBE_CONTEXT}" "$@"
+  kubectl --context="${CLOUD_ROBOTICS_CTX}" "$@"
 }
 
 function prepare_source_install {
@@ -433,7 +433,7 @@ function helm_region_shared {
 
   # This is the main region. Only run this here!
   if [[ "${CLUSTER_NAME}" = "${PROJECT_NAME}" ]]; then
-    echo "installing platform-apps-cloud to ${KUBE_CONTEXT}..."
+    echo "installing platform-apps-cloud to ${CLOUD_ROBOTICS_CTX}..."
     ${HELM_COMMAND} --kube-context "${CLUSTER_CONTEXT}" template -n platform-apps-cloud "${values[@]}" \
         ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz \
       | ${SYNK_COMMAND} --context "${CLUSTER_CONTEXT}" apply platform-apps-cloud -f - \
@@ -446,7 +446,7 @@ function helm_main_region {
   INGRESS_IP=$(terraform_exec output ingress-ip)
 
   helm_region_shared \
-    "${KUBE_CONTEXT}" \
+    "${CLOUD_ROBOTICS_CTX}" \
     "${CLOUD_ROBOTICS_DOMAIN}" \
     "${INGRESS_IP}" \
     "${GCP_REGION}" \
