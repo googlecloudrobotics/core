@@ -166,8 +166,6 @@ else
   cp ${DIR}/config.sh.tmpl ${CONFIG_FILE}
 fi
 
-CLOUD_BUCKET="gs://${GCP_PROJECT_ID}-cloud-robotics-config"
-
 # Check that the project exists and we have access.
 gcloud projects describe "${GCP_PROJECT_ID}" >/dev/null \
   || die "ERROR: unable to access Google Cloud project: ${GCP_PROJECT_ID}"
