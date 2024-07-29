@@ -225,7 +225,23 @@ function terraform_apply {
 
 function terraform_post {
   # Post terraform adjustents/cleanups
-  :
+
+  OLD_CLOUD_ROBOTICS_CTX="${CLOUD_ROBOTICS_CTX}"
+  location=$(gcloud container clusters list --filter='name=cloud-robotics' --format='value(location)' --project="${GCP_PROJECT_ID}")
+  if [[ "${location}" == "${GCP_ZONE}" || "${location}" == "${GCP_REGION}" ]]; then
+    CLOUD_ROBOTICS_CTX="gke_${GCP_PROJECT_ID}_${location}_${PROJECT_NAME}"
+  else
+    die "no cloud-robotics cluster found"
+  fi
+  if [[ "${OLD_CLOUD_ROBOTICS_CTX}" != "${CLOUD_ROBOTICS_CTX}" ]]; then
+    echo "updating CLOUD_ROBOTICS_CTX from ${OLD_CLOUD_ROBOTICS_CTX} to ${CLOUD_ROBOTICS_CTX}"
+    # update CLOUD_ROBOTICS_CTX in config.sh
+    # TODO(ensonc): need to store the changes:
+    # a) extend set-config.sh to have --edit-var="key=value" ?
+    #   - would also need to add --verbose to supress the print of the new config ...
+    # b) duplicate code here? 
+    # bash -c "${DIR}/scripts/set-config.sh; --edit-var=CLOUD_ROBOTICS_CTX=${CLOUD_ROBOTICS_CTX}"
+  fi
 }
 
 function terraform_delete {
