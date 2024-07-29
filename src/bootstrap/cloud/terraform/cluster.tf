@@ -4,12 +4,20 @@
 # service account for the nodes. This service account cannot be used by the
 # workloads: see workload-identity.tf for those service accounts.
 
+locals {
+  zonal = true
+  #zonal = false
+}
+
 resource "google_container_cluster" "cloud-robotics" {
   project               = data.google_project.project.project_id
   name                  = "cloud-robotics"
-  location              = var.zone
+  location              = local.zonal ? var.zone : var.region
   enable_shielded_nodes = true
   depends_on            = [google_project_service.project-services["container.googleapis.com"]]
+
+  # TODO(ensonic): this is temporary for the zonal -> regional switch
+  deletion_protection = false
 
   # Make the cluster VPC-native (default for v1.21+)
   networking_mode = "VPC_NATIVE"
@@ -40,9 +48,12 @@ resource "google_container_cluster" "cloud-robotics-ar" {
   for_each              = var.additional_regions
   project               = data.google_project.project.project_id
   name                  = format("%s-%s", each.key, "ar-cloud-robotics")
-  location              = each.value.zone
+  location              = local.zonal ? each.value.zone : each.value.region
   enable_shielded_nodes = true
   depends_on            = [google_project_service.project-services["container.googleapis.com"]]
+
+  # TODO(ensonic): this is temporary for the zonal -> regional switch
+  deletion_protection = false
 
   # Make the cluster VPC-native (default for v1.21+)
   networking_mode = "VPC_NATIVE"
@@ -75,7 +86,7 @@ resource "google_container_cluster" "cloud-robotics-ar" {
 resource "google_container_node_pool" "cloud_robotics_base_pool" {
   project  = data.google_project.project.project_id
   name     = "base-pool"
-  location = var.zone
+  location = local.zonal ? var.zone : var.region
   cluster  = google_container_cluster.cloud-robotics.name
 
   initial_node_count = 2
@@ -103,7 +114,7 @@ resource "google_container_node_pool" "cloud_robotics_base_pool_ar" {
   for_each = var.additional_regions
   project  = data.google_project.project.project_id
   name     = format("%s-%s", "base-pool-ar", each.key)
-  location = each.value.zone
+  location = local.zonal ? each.value.zone : each.value.region
   cluster  = google_container_cluster.cloud-robotics-ar[each.key].name
 
   initial_node_count = 2
