@@ -226,14 +226,8 @@ function terraform_apply {
 }
 
 function terraform_post {
-  # Terraform doesn't seem to handle changes to vertical_pod_autoscaling for
-  # existing clusters, so apply the change with gcloud.
-  cluster=(cloud-robotics "--zone=${GCP_ZONE}" "--project=${GCP_PROJECT_ID}")
-  if [[ -z "$(gcloud container clusters describe "${cluster[@]}" --format 'value(verticalPodAutoscaling.enabled)')" ]] ; then
-    echo "Enabling vertical pod autoscaling in the GKE cluster. This can take a few minutes..."
-    gcloud container clusters update "${cluster[@]}" --quiet \
-      --enable-vertical-pod-autoscaling
-  fi
+  # Post terraform adjustents/cleanups
+  :
 }
 
 function terraform_delete {
