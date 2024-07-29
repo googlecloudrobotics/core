@@ -23,16 +23,7 @@ set -o pipefail -o errexit
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
 source "${DIR}/scripts/common.sh"
-
-# Escapes the input "foo bar" -> "foo\ bar".
-function escape {
-  sed 's/[^a-zA-Z0-9,._+@%/-]/\\&/g' <<< "$@"
-}
-
-# Escapes the input twice "foo bar" -> "foo\\\ bar"
-function double_escape {
-  sed 's/[^a-zA-Z0-9,._+@%/-]/\\\\\\&/g' <<< "$@"
-}
+source "${DIR}/scripts/config.sh"
 
 # Reads a variable from user input.
 function read_variable {
@@ -63,33 +54,6 @@ function print_variable {
 
   if [[ -n "${value}" ]]; then
     echo "${description}: ${value}"
-  fi
-}
-
-# Creates a substitution pattern for sed using an unprintable char as seperator.
-# This allows the user to use any normal char in the input.
-function sed_pattern {
-  local regexp="$1"
-  local replacement="$2"
-  echo s$'\001'${regexp}$'\001'${replacement}$'\001'
-}
-
-# Sets the given variable in config.sh. If $value is empty, the variable
-# assignement is commented out in config.sh.
-function save_variable {
-  local config_file="$1"
-  local name="$2"
-  local value="$3"
-
-  if [[ -z "${value}" ]]; then
-    sed -i "s/^\(${name}=.*\)$/#\1/" "${config_file}"
-  elif grep -q "^\(# *\)\{0,1\}${name}=" "${config_file}"; then
-    value=$( double_escape ${value} )
-    sed -i "$( sed_pattern "^\(# *\)\{0,1\}${name}=.*$" "${name}=${value}" )" "${config_file}"
-  else
-    value=$( escape ${value} )
-    echo >>"${config_file}"
-    echo "${name}=${value}" >>"${config_file}"
   fi
 }
 
