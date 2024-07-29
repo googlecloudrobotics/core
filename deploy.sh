@@ -18,6 +18,7 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${DIR}/scripts/common.sh"
+source "${DIR}/scripts/config.sh"
 source "${DIR}/scripts/include-config.sh"
 
 set -o pipefail -o errexit
@@ -57,6 +58,19 @@ function include_config_and_defaults {
   CLOUD_ROBOTICS_CTX=${CLOUD_ROBOTICS_CTX:-"gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"}
 
   SYNK="${SYNK_COMMAND} --context ${CLOUD_ROBOTICS_CTX}"
+}
+
+function update_config_var {
+  cloud_bucket="gs://${1}-cloud-robotics-config"
+  name="${2}"
+  value="${3}"
+
+  config_file="$(mktemp)"
+  gsutil cp "${cloud_bucket}/config.sh" "${config_file}" 2>/dev/null || return
+
+  save_variable "${config_file}" "${name}" "${value}"
+
+  gsutil mv "${config_file}" "${cloud_bucket}/config.sh"
 }
 
 function kc {
@@ -224,8 +238,6 @@ function terraform_apply {
 }
 
 function terraform_post {
-  # Post terraform adjustents/cleanups
-
   OLD_CLOUD_ROBOTICS_CTX="${CLOUD_ROBOTICS_CTX}"
   location=$(gcloud container clusters list --filter='name=cloud-robotics' --format='value(location)' --project="${GCP_PROJECT_ID}")
   if [[ "${location}" == "${GCP_ZONE}" || "${location}" == "${GCP_REGION}" ]]; then
@@ -235,12 +247,7 @@ function terraform_post {
   fi
   if [[ "${OLD_CLOUD_ROBOTICS_CTX}" != "${CLOUD_ROBOTICS_CTX}" ]]; then
     echo "updating CLOUD_ROBOTICS_CTX from ${OLD_CLOUD_ROBOTICS_CTX} to ${CLOUD_ROBOTICS_CTX}"
-    # update CLOUD_ROBOTICS_CTX in config.sh
-    # TODO(ensonc): need to store the changes:
-    # a) extend set-config.sh to have --edit-var="key=value" ?
-    #   - would also need to add --verbose to supress the print of the new config ...
-    # b) duplicate code here? 
-    # bash -c "${DIR}/scripts/set-config.sh; --edit-var=CLOUD_ROBOTICS_CTX=${CLOUD_ROBOTICS_CTX}"
+    update_config_var ${GCP_PROJECT_ID} "CLOUD_ROBOTICS_CTX" "${CLOUD_ROBOTICS_CTX}"
   fi
 }
 
