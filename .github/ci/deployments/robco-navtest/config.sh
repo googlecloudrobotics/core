@@ -11,3 +11,4 @@ TERRAFORM_GCS_BUCKET="robco-team-terraform-state"
 TERRAFORM_GCS_PREFIX="state/${GCP_PROJECT_ID}"
 CLOUD_ROBOTICS_CONTAINER_REGISTRY=gcr.io/robco-team
 PRIVATE_DOCKER_PROJECTS=robco-team
+CLOUD_ROBOTICS_CTX=gke_robco-navtest_europe-west1-c_cloud-robotics
