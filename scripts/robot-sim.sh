@@ -29,7 +29,6 @@ function set_defaults {
   local GCP_PROJECT_ID="$1"
   include_config "${GCP_PROJECT_ID}"
   INITIAL_KUBECTL_CONTEXT="$(kubectl config current-context)"
-  GKE_CLOUD_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
 
   if [[ -z "${ROBOT_LABELS}" ]]; then
     ROBOT_LABELS="simulated=true"
@@ -89,7 +88,7 @@ function delete {
 
   set_defaults "${GCP_PROJECT_ID}"
 
-  kubectl --context=${GKE_CLOUD_CONTEXT} delete robots.registry.cloudrobotics.com "${ROBOT_NAME}" || true
+  kubectl --context=${CLOUD_ROBOTICS_CTX} delete robots.registry.cloudrobotics.com "${ROBOT_NAME}" || true
   gcloud container clusters delete "${ROBOT_NAME}" \
     --zone=${GCP_ZONE} --project=${GCP_PROJECT_ID}
 }

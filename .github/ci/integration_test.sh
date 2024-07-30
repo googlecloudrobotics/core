@@ -26,12 +26,11 @@ bash -x ./scripts/robot-sim.sh create "${GCP_PROJECT_ID}" "${ROBOT_RELAY_CLUSTER
 bazel_ci run //src/go/cmd/setup-dev -- --project="${GCP_PROJECT_ID}" --robot-name="${ROBOT_RELAY_CLUSTER}"
 
 DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
-CLOUD_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
 ROBOT_CONTEXT="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${ROBOT_RELAY_CLUSTER}"
 
 # Output state of cloud and robot k8s context to inspect the health of pods.
 kubectl config get-contexts || true
-kubectl --context ${CLOUD_CONTEXT} get pods || true
+kubectl --context ${CLOUD_ROBOTICS_CTX} get pods || true
 kubectl --context ${GCP_PROJECT_ID}-robot get pods || true
 kubectl --context ${ROBOT_CONTEXT} get pods || true
 
