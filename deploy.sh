@@ -242,12 +242,8 @@ function terraform_post {
   local location
 
   OLD_CLOUD_ROBOTICS_CTX="${CLOUD_ROBOTICS_CTX}"
-  location=$(gcloud container clusters list --filter='name=cloud-robotics' --format='value(location)' --project="${GCP_PROJECT_ID}")
-  if [[ "${location}" == "${GCP_ZONE}" || "${location}" == "${GCP_REGION}" ]]; then
-    CLOUD_ROBOTICS_CTX="gke_${GCP_PROJECT_ID}_${location}_${PROJECT_NAME}"
-  else
-    die "no cloud-robotics cluster found"
-  fi
+  CLOUD_ROBOTICS_CTX=$(gke_context_name "${GCP_PROJECT_ID}" "cloud-robotics" "${GCP_REGION}" "${GCP_ZONE}")
+  [[ -z "${CLOUD_ROBOTICS_CTX}" ]] && die "no cloud-robotics cluster found"
   if [[ "${OLD_CLOUD_ROBOTICS_CTX}" != "${CLOUD_ROBOTICS_CTX}" ]]; then
     echo "updating CLOUD_ROBOTICS_CTX from ${OLD_CLOUD_ROBOTICS_CTX} to ${CLOUD_ROBOTICS_CTX}"
     update_config_var ${GCP_PROJECT_ID} "CLOUD_ROBOTICS_CTX" "${CLOUD_ROBOTICS_CTX}"
@@ -484,7 +480,7 @@ function helm_additional_region {
   INGRESS_IP=$(terraform_exec output -json ingress-ip-ar | jq -r ."\"${CLUSTER_NAME}\"")
 
   helm_region_shared \
-    "gke_${GCP_PROJECT_ID}_${AR_ZONE}_${CLUSTER_NAME}" \
+    $(gke_context_name "${GCP_PROJECT_ID}" "${CLUSTER_NAME}" "${AR_REGION}" "${AR_ZONE}") \
     "${AR_NAME}.${CLOUD_ROBOTICS_DOMAIN}" \
     "${INGRESS_IP}" \
     "${AR_REGION}" \
