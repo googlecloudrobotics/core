@@ -480,15 +480,21 @@ func (s *Synk) populateNamespaces(
 	resources ...*unstructured.Unstructured,
 ) error {
 	_, span := trace.StartSpan(ctx, "Discover server resources")
+	// Invalidate is cheap (no noticeable effect on the duration of
+	// ServerGroupsAndResources) and reduces the frequency of the "stale
+	// GroupVersion discovery" warning.
+	s.discovery.Invalidate()
 	_, list, err := s.discovery.ServerGroupsAndResources()
 	span.End()
 
-	// Don't treat "empty response" from external metrics servers as an error.
-	// Follows precedent from: https://github.com/kubernetes/client-go/commit/0bc91705fa50a531b8a1ee9dca3ef063ca71bb0c
 	if err != nil {
-		if !strings.Contains(err.Error(), "received empty response for: external.metrics.k8s.io/") {
+		if len(list) == 0 {
+			// This error is only fatal if it actually fails to discover resources.
+			// Otherwise it indicates that the apiserver has cached some bad
+			// information about an aggregated API extension.
 			return errors.Wrap(err, "discover server resources")
 		}
+		slog.Warn("Ignoring error from ServerGroupsAndResources", ilog.Err(err))
 	}
 
 	// We have to consider discoverable resources as well as CRDs that
@@ -511,7 +517,16 @@ func (s *Synk) populateNamespaces(
 		}
 	}
 	for _, r := range resources {
-		if r.GetNamespace() == "" && isNamespaced[r.GetAPIVersion()+"/"+r.GetKind()] {
+		if r.GetNamespace() != "" {
+			continue
+		}
+		gvk := r.GetAPIVersion() + "/" + r.GetKind()
+		rIsNamespaced, ok := isNamespaced[gvk]
+		if !ok {
+			slog.Warn("Neither apiserver nor chart CRDs indicate if resource is Namespaced or Cluster-scoped, assuming Cluster-scoped",
+				slog.String("Namespace", ns), slog.String("Kind", gvk))
+		}
+		if rIsNamespaced {
 			r.SetNamespace(ns)
 		}
 	}

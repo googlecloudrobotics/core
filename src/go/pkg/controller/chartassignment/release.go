@@ -402,7 +402,6 @@ func decodeManifests(manifests map[string]string) ([]*unstructured.Unstructured,
 		default:
 			continue
 		}
-		slog.Info("decode manifest", slog.String("name", k), slog.String("manifest", v))
 		result := resource.NewLocalBuilder().
 			ContinueOnError().
 			Unstructured().
