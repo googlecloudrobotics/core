@@ -10,7 +10,7 @@ export 'PS4='
 PROJECT_DIR="${DIR}/deployments/robco-integration-test"
 source "${PROJECT_DIR}/config.sh"
 gcloud config set project ${GCP_PROJECT_ID}
-gcloud container clusters get-credentials cloud-robotics --zone=${GCP_ZONE}
+gke_get_credentials "${GCP_PROJECT_ID}" "cloud-robotics" "${GCP_REGION}" "${GCP_ZONE}"
 
 BUILD_IDENTIFIER=$(generate_build_id)
 echo "INFO: Build identifier is $BUILD_IDENTIFIER"
