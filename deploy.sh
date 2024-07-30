@@ -238,6 +238,9 @@ function terraform_apply {
 }
 
 function terraform_post {
+  local OLD_CLOUD_ROBOTICS_CTX
+  local location
+
   OLD_CLOUD_ROBOTICS_CTX="${CLOUD_ROBOTICS_CTX}"
   location=$(gcloud container clusters list --filter='name=cloud-robotics' --format='value(location)' --project="${GCP_PROJECT_ID}")
   if [[ "${location}" == "${GCP_ZONE}" || "${location}" == "${GCP_REGION}" ]]; then
