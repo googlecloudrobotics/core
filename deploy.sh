@@ -534,5 +534,6 @@ if [[ "$#" -lt 2 ]] || [[ ! "$1" =~ ^(set_config|create|delete|update|fast_push|
   die "Usage: $0 {set_config|create|delete|update|fast_push|update_infra} <project id>"
 fi
 
-# call arguments verbatim:
+# log and call arguments verbatim:
+log $2 $0 $1
 "$@"

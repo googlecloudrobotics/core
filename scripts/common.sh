@@ -23,3 +23,23 @@ function is_source_install {
   # This file is present in the root folder only when installing from a binary.
   [[ ! -e "$(dirname "${BASH_SOURCE[0]}")/../INSTALL_FROM_BINARY" ]]
 }
+
+function log {
+  local project
+  project=$1
+  shift
+  gcloud logging write cloud-robotics-deploy \
+      --severity=INFO \
+      --project=${project} \
+      --payload-type=json \
+      "$(cat <<EOF
+{
+  "message": "$*",
+  "user": "${USER}",
+  "hostname": "$(hostname)",
+  "git-branch": "$(git branch --show-current)",
+  "git-ref": "$(git rev-parse --short HEAD)"
+}
+EOF
+)"
+}
