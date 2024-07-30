@@ -363,14 +363,7 @@ function helm_region_shared {
   CLUSTER_ZONE="${5}"
   CLUSTER_NAME="${6}"
 
-  local CURRENT_CONTEXT
-  CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null) \
-    || CURRENT_CONTEXT=""
-  gcloud container clusters get-credentials "${CLUSTER_NAME}" \
-    --zone "${CLUSTER_ZONE}" \
-    --project "${GCP_PROJECT_ID}" \
-    || die "create: failed to get cluster credentials"
-  [[ -n "${CURRENT_CONTEXT}" ]] && kubectl config use-context "${CURRENT_CONTEXT}"
+  gke_get_credentials "${GCP_PROJECT_ID}" "${CLUSTER_NAME}" "${CLUSTER_REGION}" "${CLUSTER_ZONE}"
 
   # Wait for the GKE cluster to be reachable.
   i=0

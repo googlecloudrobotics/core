@@ -43,3 +43,36 @@ function log {
 EOF
 )"
 }
+
+# Fetch credentials for a new GKE cluster
+function gke_get_credentials {
+  local project
+  project="$1"
+  local cluster_name
+  name="$2"
+  local region
+  region="$3"
+  local zone
+  zone="$4"
+
+  # TODO(b/116303345): usage of 'gcloud ... get-credentials' silently switches
+  # the default context.
+  local saved_ctx
+  saved_ctx=$(kubectl config current-context 2>/dev/null) || saved_ctx=""
+  trap "[[ -n ${saved_ctx} ]] && kubectl config use-context ${saved_ctx}; trap - RETURN" RETURN
+
+  local location
+  location=$(gcloud container clusters list --filter="name=${name}" --format='value(location)' --project="${project}")
+  case "${location}" in
+    ${region})
+      gcloud container clusters get-credentials "${name}" \
+        --region "${region}" \
+        --project "${project}" \
+      ;;
+    ${zone})
+      gcloud container clusters get-credentials "${name}" \
+        --zone "${zone}" \
+        --project "${project}" \
+      ;;
+  esac
+}

@@ -28,15 +28,10 @@ set -o pipefail -o errexit
 function set_defaults {
   local GCP_PROJECT_ID="$1"
   include_config "${GCP_PROJECT_ID}"
-  INITIAL_KUBECTL_CONTEXT="$(kubectl config current-context)"
 
   if [[ -z "${ROBOT_LABELS}" ]]; then
     ROBOT_LABELS="simulated=true"
   fi
-}
-
-function restore_initial_context {
-  kubectl config use-context "${INITIAL_KUBECTL_CONTEXT}"
 }
 
 function create {
@@ -68,8 +63,7 @@ function create {
     --zone=${GCP_ZONE} \
     --project=${GCP_PROJECT_ID}
 
-  gcloud container clusters get-credentials "${ROBOT_NAME}" \
-    --zone=${GCP_ZONE} --project=${GCP_PROJECT_ID}
+  gke_get_credentials "${GCP_PROJECT_ID}" "${ROBOT_NAME}" "${GCP_REGION}" "${GCP_ZONE}"
 
   # shellcheck disable=2097 disable=2098
   KUBE_CONTEXT=${GKE_SIM_CONTEXT} \
@@ -103,10 +97,6 @@ function update {
 if [[ "$#" -lt 3 ]]; then
   die "Usage: $0 {create|delete|update} <project-id> <robot-name> [<robot-type>]"
 fi
-
-# TODO(b/116303345): usage of 'gcloud' above silently switched the default context.
-# Restore it after we exit.
-trap restore_initial_context EXIT
 
 # call arguments verbatim:
 "$@"
