@@ -59,7 +59,7 @@ function gke_get_credentials {
   # the default context.
   local saved_ctx
   saved_ctx=$(kubectl config current-context 2>/dev/null) || saved_ctx=""
-  trap "[[ -n ${saved_ctx} ]] && kubectl config use-context ${saved_ctx}; trap - RETURN" RETURN
+  trap "[[ -n \"${saved_ctx}\" ]] && kubectl config use-context \"${saved_ctx}\"; trap - RETURN" RETURN
 
   local location
   location=$(gcloud container clusters list --filter="name=${name}" --format='value(location)' --project="${project}")
