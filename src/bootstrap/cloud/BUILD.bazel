@@ -37,7 +37,6 @@ pkg_tar(
         "//scripts:common.sh",
         "//scripts:include-config.sh",
         "//scripts:set-config.sh",
-        "//scripts:show-resource-usage.sh",
         "//src/bootstrap/robot:setup_robot.sh",
     ],
     mode = "755",
