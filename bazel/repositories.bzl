@@ -4,10 +4,10 @@ def cloud_robotics_repositories():
     _maybe(
         http_archive,
         name = "com_google_protobuf",
-        sha256 = "f66073dee0bc159157b0bd7f502d7d1ee0bc76b3c1eac9836927511bdc4b3fc1",
-        strip_prefix = "protobuf-3.21.9",
+        sha256 = "7d7f2ddccc37e3c1c5dfe65ad69d99923d8fe84beac68ed9cdec489909c4d8d3",
+        strip_prefix = "protobuf-27.1",
         urls = [
-            "https://github.com/protocolbuffers/protobuf/archive/v3.21.9.zip",
+            "https://github.com/protocolbuffers/protobuf/releases/download/v27.1/protobuf-27.1.zip",
         ],
     )
 
