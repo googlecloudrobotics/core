@@ -2,6 +2,7 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${DIR}/common.sh"
+source "./scripts/common.sh"
 
 # Because the format from common.sh is not recognized by Cloud Build.
 export 'PS4='
