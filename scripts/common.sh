@@ -76,3 +76,21 @@ function gke_get_credentials {
       ;;
   esac
 }
+
+# Build GKE context name for existing cluster
+function gke_context_name {
+  local project
+  project="$1"
+  local cluster_name
+  name="$2"
+  local region
+  region="$3"
+  local zone
+  zone="$4"
+
+  local location
+  location=$(gcloud container clusters list --filter="name=${name}" --format='value(location)' --project="${project}")
+  if [[ "${location}" == "${zone}" || "${location}" == "${region}" ]]; then
+    echo "gke_${project}_${location}_${name}"
+  fi
+}
