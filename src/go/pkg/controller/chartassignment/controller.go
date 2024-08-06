@@ -43,8 +43,8 @@ const (
 	// Allow the Service Account Controller some time to create the default
 	// SA in a new namespace.
 	defaultServiceAccountDeadline = time.Minute
-
-	fieldIndexNamespace = "spec.namespaceName"
+	fieldIndexNamespace           = "spec.namespaceName"
+	statusCheckingOptOutLabel     = "cloudrobotics.com/opt-out-error-checking"
 )
 
 // Add adds a controller and validation webhook for the ChartAssignment resource type
@@ -398,9 +398,17 @@ func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) er
 		if err := r.kube.List(ctx, &pods, kclient.InNamespace(as.Spec.NamespaceName)); err != nil {
 			return errors.Wrap(err, "list pods")
 		}
-		ready, total := 0, len(pods.Items)
 
-		for _, p := range pods.Items {
+		// Omit pods that have opted out of status checking.
+		var filteredPods []core.Pod
+		for _, pod := range pods.Items {
+			if val, exists := pod.Labels[statusCheckingOptOutLabel]; !exists || val != "true" {
+				filteredPods = append(filteredPods, pod)
+			}
+		}
+		ready, total := 0, len(filteredPods)
+
+		for _, p := range filteredPods {
 			switch p.Status.Phase {
 			case core.PodRunning, core.PodSucceeded:
 				ready++

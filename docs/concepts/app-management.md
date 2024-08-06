@@ -103,3 +103,10 @@ If you create a Secret in the `default` namespace labelled
 `cloudrobotics.com/copy-to-chart-namespaces=true`, it will be copied into all
 namespaces created by the chart-assignment-controller. This is useful for
 cluster-specific license keys that can be used by applications.
+
+## Opt a pod out of status checking
+
+During rollout, the chart-assignment-controller checks for Pods in the rollout being `Running` or `Completed`.
+In some cases, this check is not necessary or might need to be opted out of.
+In this case, add a label `cloudrobotics.com/opt-out-error-checking=true` to your pods. Adding this
+instructs the chart-assignment-controller to not block the status from reaching `Ready`.
