@@ -9,7 +9,7 @@ resource "google_container_cluster" "cloud-robotics" {
   name                  = "cloud-robotics"
   location              = var.zone
   enable_shielded_nodes = true
-  depends_on            = [google_project_service.container]
+  depends_on            = [google_project_service.project-services["container"]]
 
   # Make the cluster VPC-native (default for v1.21+)
   networking_mode = "VPC_NATIVE"
@@ -39,7 +39,7 @@ resource "google_container_cluster" "cloud-robotics-ar" {
   name                  = format("%s-%s", each.key, "ar-cloud-robotics")
   location              = each.value.zone
   enable_shielded_nodes = true
-  depends_on            = [google_project_service.container]
+  depends_on            = [google_project_service.project-services["container"]]
 
   # Make the cluster VPC-native (default for v1.21+)
   networking_mode = "VPC_NATIVE"
