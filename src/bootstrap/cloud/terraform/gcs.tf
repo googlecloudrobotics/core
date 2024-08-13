@@ -4,7 +4,7 @@ resource "google_storage_bucket" "robot" {
   storage_class               = "REGIONAL"
   uniform_bucket_level_access = "true"
   force_destroy               = "true"
-  depends_on                  = [google_project_service.compute]
+  depends_on                  = [google_project_service.project-services["storage-component.googleapis.com"]]
 }
 
 resource "google_storage_bucket_object" "setup_robot_image_reference" {

@@ -11,6 +11,30 @@ resource "google_project_iam_member" "owner_group" {
 
 # We can't use google_project_services because Endpoints adds services
 # dynamically.
+resource "google_project_service" "project-services" {
+  project            = data.google_project.project.project_id
+  disable_on_destroy = false
+  for_each = toset([
+    "artifactregistry.googleapis.com",
+    # Next 2 are needed for Terraform's data.google_project.project.resource to work.
+    "cloudbilling.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "compute.googleapis.com",
+    "container.googleapis.com",
+    "containersecurity.googleapis.com",
+    "dns.googleapis.com",
+    "endpoints.googleapis.com",
+    "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "logging.googleapis.com",
+    "servicecontrol.googleapis.com",
+    # Next 2 are needed fro terraform again
+    "servicemanagement.googleapis.com",
+    "serviceusage.googleapis.com",
+    "storage-component.googleapis.com",
+  ])
+  service = each.value
+}
 
 # This is needed to allow creating certificates in GCP.
 resource "google_project_service" "certificateauthority" {
@@ -18,99 +42,5 @@ resource "google_project_service" "certificateauthority" {
   # Only enable if Google CAS is the Certificate Authority
   count              = var.certificate_provider == "google-cas" ? 1 : 0
   service            = "privateca.googleapis.com"
-  disable_on_destroy = false
-}
-
-# This is needed for Terraform's data.google_project.project.resource to work.
-resource "google_project_service" "cloudbilling" {
-  project            = data.google_project.project.project_id
-  service            = "cloudbilling.googleapis.com"
-  disable_on_destroy = false
-}
-
-# This is needed for Terraform's data.google_project.project.resource to work.
-resource "google_project_service" "cloudresourcemanager" {
-  project            = data.google_project.project.project_id
-  service            = "cloudresourcemanager.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "compute" {
-  project            = data.google_project.project.project_id
-  service            = "compute.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "container" {
-  project            = data.google_project.project.project_id
-  service            = "container.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "containerregistry" {
-  project            = data.google_project.project.project_id
-  service            = "containerregistry.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "containersecurity" {
-  project            = data.google_project.project.project_id
-  service            = "containersecurity.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "dns" {
-  project            = data.google_project.project.project_id
-  service            = "dns.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "endpoints" {
-  project            = data.google_project.project.project_id
-  service            = "endpoints.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "iam" {
-  project            = data.google_project.project.project_id
-  service            = "iam.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "iamcredentials" {
-  project            = data.google_project.project.project_id
-  service            = "iamcredentials.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "logging" {
-  project            = data.google_project.project.project_id
-  service            = "logging.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "pubsub" {
-  project            = data.google_project.project.project_id
-  service            = "pubsub.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "servicecontrol" {
-  project            = data.google_project.project.project_id
-  service            = "servicecontrol.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "servicemanagement" {
-  # Needed for Terraform project management through service account
-  project            = data.google_project.project.project_id
-  service            = "servicemanagement.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "serviceusage" {
-  # Needed for Terraform to manage the enabled services.
-  project            = data.google_project.project.project_id
-  service            = "serviceusage.googleapis.com"
   disable_on_destroy = false
 }
