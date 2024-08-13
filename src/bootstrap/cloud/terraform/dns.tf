@@ -5,7 +5,7 @@ resource "google_dns_managed_zone" "external-dns" {
   # This is used to be true but is no longer, but we keep it here so that
   # Terraform doesn't delete and recreate the zone.
   description = "Automatically managed zone by kubernetes.io/external-dns"
-  depends_on  = [google_project_service.project-services["dns"]]
+  depends_on  = [google_project_service.project-services["dns.googleapis.com"]]
 }
 
 resource "google_dns_record_set" "www-entry" {
