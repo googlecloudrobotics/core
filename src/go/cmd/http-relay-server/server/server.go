@@ -450,6 +450,7 @@ func (s *Server) serverRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := s.b.GetRequest(r.Context(), server, r.URL.Path)
 	if err != nil {
 		// Expected if the relay is idle, or if the server is restarting.
+		slog.Debug("Relay client got no request", slog.String("ID", server), ilog.Err(err))
 		http.Error(w, err.Error(), http.StatusRequestTimeout)
 		return
 	}
