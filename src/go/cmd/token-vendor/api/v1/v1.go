@@ -255,14 +255,19 @@ func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Reque
 	w.Write(tokenBytes)
 }
 
-// Handle requests to verify if a given JWT is valid
+// Robots sign JWTs with their local private keys. These get verified against the
+// public keys from the keystore. If the key is present and enabled, the token
+// vendor will return status code 200.
+// This endpoint allows 3rd parties to do a check against the token-vendor before
+// the client reached the token vendor to retrieve an OAuth token.
+// It only validates whether the robot is known to the token vendor, there is no
+// further authentication or authorization done with this endpoint.
 //
-// This handler provides a backend for common proxy servers forward authentication.
-// I.e. it allows robots to sign a JWT and present it to nginx for authentication.
-//
+// URL: /apis/core.token-vendor/v1/jwt.verify
 // Method: GET
 // Headers:
-// - Authorization: Bearer ...
+// - Authorization: JWT that allows authorization
+// Response: only http status code
 func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		api.ErrResponse(w, http.StatusMethodNotAllowed,
@@ -289,6 +294,7 @@ func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request
 	jwtString := strings.TrimPrefix(authHeader[0], "Bearer ")
 
 	if _, err := h.tv.ValidateJWT(r.Context(), jwtString); err != nil {
+		slog.WarnContext(r.Context(), "JWT failed validation", ilog.Err(err))
 		api.ErrResponse(w, http.StatusForbidden, "JWT not valid")
 		return
 	}
