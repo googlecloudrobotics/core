@@ -53,6 +53,50 @@ func TestConstHandler(t *testing.T) {
 	}
 }
 
+type fakeJWTSource struct {
+	val string
+	d   time.Duration
+}
+
+func (s *fakeJWTSource) CreateJWT(_ context.Context, d time.Duration) (string, error) {
+	s.d = d
+	return s.val, nil
+}
+
+func TestIdentityHandlerServeHTTP(t *testing.T) {
+	t.Parallel()
+	h := IdentityHandler{
+		AllowedSources: &net.IPNet{net.IPv4(192, 168, 0, 0), net.CIDRMask(24, 32)},
+		robotAuth:      &fakeJWTSource{val: "value"},
+	}
+
+	t.Run("simple", func(t *testing.T) {
+		t.Parallel()
+		req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/identity", nil)
+		req.RemoteAddr = "192.168.0.101:8001"
+		respRecorder := httptest.NewRecorder()
+		h.ServeHTTP(respRecorder, req)
+
+		if want, got := http.StatusOK, respRecorder.Result().StatusCode; want != got {
+			t.Errorf("Wrong response code; want %d; got %d", want, got)
+		}
+		if want, got := "value", bodyOrDie(respRecorder.Result()); want != got {
+			t.Errorf("Wrong response body; want %s; got %s", want, got)
+		}
+	})
+	t.Run("outside-addr", func(t *testing.T) {
+		t.Parallel()
+		req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/identity", nil)
+		req.RemoteAddr = "192.168.1.101:8001"
+		respRecorder := httptest.NewRecorder()
+		h.ServeHTTP(respRecorder, req)
+
+		if want, got := http.StatusForbidden, respRecorder.Result().StatusCode; want != got {
+			t.Errorf("Wrong response code; want %d; got %d", want, got)
+		}
+	})
+}
+
 func TestTokenHandlerServesToken(t *testing.T) {
 	oldMinTokenExpiry := *minTokenExpiry
 	*minTokenExpiry = 1
