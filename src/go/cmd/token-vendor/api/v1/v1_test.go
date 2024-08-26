@@ -24,7 +24,15 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-const testPubKey = "testdata/rsa_cert.pem"
+const (
+	testPubKey    = "testdata/rsa_cert.pem"
+	jwtBodyPrefix = "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion="
+
+	jwtCorrect  = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZXN0YXVkIiwiaXNzIjoicm9ib3QtZGV2LXRlc3R1c2VyIiwiZXhwIjoxOTEzMzczMDEwLCJzY29wZXMiOiJ0ZXN0c2NvcGVzIiwiY2xhaW1zIjoidGVzdGNsYWltcyJ9.WJP0shiqynW9ZrmV4k78W3_nn_YA86XLK58IJYyqUF-8LAG92MraNqVqD0t6i-s90VBL64hCXlsA7zP3WlsMHOEvXCyRkGffhbJNIlJqIVTVfGvyF-ZmuaAr352n5kmKTrfTRi7h9LWTcvDgSosN438J8Jy9BT1FE9P-BHfyBUegZ15DWFAiAhz0r_Fgj7hAMXUnRdZfj3_dE0Nhi5IGs3L-0XzU-dE150ZJvtGMdIjc_QCqYHV3wtSgETKDYQoonD08n6g5GqC8nNkqrWFMttafLdPaDAsr8KWtj1dD1w9sw1YJClEzF9JOc63WNPZf8CgdU2enFW-V-2vHbUaekg"
+	jwtWrongSig = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZXN0YXVkIiwiaXNzIjoicm9ib3QtZGV2LXRlc3R1c2VyIiwiZXhwIjoxOTEzMzczMDEwLCJzY29wZXMiOiIuLi4iLCJjbGFpbXMiOiIuLi4ifQ.krAYHjkConzVudfXJUMiDNbVHF3RwkvOAhSCyTvOaJdlJ6sxh-TjPXo6W0yVT31qjLwhl1NYI-JlhcHX7TLiZbLCbGVXlQN2Nn4LvpbGdAH0KvSJkthqX7ld9tlVQGdlOUHCE5bBDG_9uBtpdOAv1zKUTquhyDM0qWVrQV1qUVOtwBCO6nt21l1eXgTwz50FVN33f1ZmhZfHW1u7Dq_XwBJmHFwN3aiD0NZohU7MpQiz-0u94Q9yZ588IjdZEUhSEUKrVtJjoPcxDhrXxoRMA8iP8_bMeOHteiAdYeBVBwFhu1d8pfcn6uoZROYD1xB1LWDTJx4GfQh6v3wtAwFu7Q"
+	jwtWrongAud = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhYmMiLCJpc3MiOiJyb2JvdC1kZXYtdGVzdHVzZXIiLCJleHAiOjE5MTMzNzMwMTAsInNjb3BlcyI6Ii4uLiIsImNsYWltcyI6Ii4uLiJ9.XIoSfJl7QE51XUt7XHvZTomuXAAjVKWhnBhCgZl91-dGO9aF_pVu9sc_kR-MODoZci9pUKaLfqLTbZkNgkwGvApXF4GZ1DBu0uG6ewbNzIA-2l67xztnGw_M5DrQpLnq31HT1hRlvB9cXOYj2qtVfQaOhZtSPeHviYXj1NiPzHIWdyZKGIYu-gofkAZACEKKDd8HBRv6bLOzgrJ9sxlsyIB_O-FzpgoGSH-bKj9QEbSazx1j7AdICq1pJ_ER9ovb0qcYqg1JPToeEB1L-GFGwZp2JAnVp2rbbwPfjQTVlGmmAu-NUA5SjbjrNSjwDnQZDBBhmx75uToptJsnC_xZAw"
+	jwtExpired  = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZXN0YXVkIiwiaXNzIjoicm9ib3QtZGV2LXRlc3R1c2VyIiwiZXhwIjowLCJzY29wZXMiOiJ0ZXN0c2NvcGVzIiwiY2xhaW1zIjoidGVzdGNsYWltcyJ9.VgalRggp3RrwarTeNSZu-lYcjSOyH7S7g_6BIxV_RisRavbwr1liTUXEKA1fjx5zF_1I_dsPC64wXkK14lAmJFI4pMm8-oLXMgSyUOGAqicYGrRm-CeZ_xJmA37ZCKyyf7ijGCdaAqNbtnsSER3wHTIG7ccbpcEUvb57nCQnTBzlEAVqDFXh9D-7Md2SUmWXCvmWomkALnPPg1xeeWjQygQvmbvFOo37ZgD-GbuvEYr2ccc1otJVvGtpSdJmFc1fGOWy9ZkPMR9VZyrmapYlImZTX7yOfcP-TLcbKRQegt3JJKgvffRP1dhxZaB5fTwT5o5ZTTh7aLap-MUUoZN4bg"
+)
 
 type RoundTripFunc func(req *http.Request) *http.Response
 
@@ -577,7 +585,7 @@ var TokenOAuth2HandlerTestHappyPath = TokenOAuth2HandlerTest{
 	acceptedAud: "testaud",
 	scopes:      []string{"abc", "def"},
 	// token defined in oauth/jwt/jwt_test.go
-	body:  "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZXN0YXVkIiwiaXNzIjoicm9ib3QtZGV2LXRlc3R1c2VyIiwiZXhwIjoxOTEzMzczMDEwLCJzY29wZXMiOiJ0ZXN0c2NvcGVzIiwiY2xhaW1zIjoidGVzdGNsYWltcyJ9.WJP0shiqynW9ZrmV4k78W3_nn_YA86XLK58IJYyqUF-8LAG92MraNqVqD0t6i-s90VBL64hCXlsA7zP3WlsMHOEvXCyRkGffhbJNIlJqIVTVfGvyF-ZmuaAr352n5kmKTrfTRi7h9LWTcvDgSosN438J8Jy9BT1FE9P-BHfyBUegZ15DWFAiAhz0r_Fgj7hAMXUnRdZfj3_dE0Nhi5IGs3L-0XzU-dE150ZJvtGMdIjc_QCqYHV3wtSgETKDYQoonD08n6g5GqC8nNkqrWFMttafLdPaDAsr8KWtj1dD1w9sw1YJClEzF9JOc63WNPZf8CgdU2enFW-V-2vHbUaekg",
+	body:  jwtBodyPrefix + jwtCorrect,
 	token: "abc",
 	// expire needs to be the same across all tests because checked the same across all tests
 	expire:         "2100-06-30T15:01:23.045123456Z",
@@ -595,7 +603,7 @@ func TestTokenOAuth2HandlerDifferentPrivateKey(t *testing.T) {
 	test.desc = "JWT signed with different private key"
 	// JWT is valid but signed with a different (random) private key not matching
 	// the one returned from the registry for the given device
-	test.body = "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZXN0YXVkIiwiaXNzIjoicm9ib3QtZGV2LXRlc3R1c2VyIiwiZXhwIjoxOTEzMzczMDEwLCJzY29wZXMiOiIuLi4iLCJjbGFpbXMiOiIuLi4ifQ.krAYHjkConzVudfXJUMiDNbVHF3RwkvOAhSCyTvOaJdlJ6sxh-TjPXo6W0yVT31qjLwhl1NYI-JlhcHX7TLiZbLCbGVXlQN2Nn4LvpbGdAH0KvSJkthqX7ld9tlVQGdlOUHCE5bBDG_9uBtpdOAv1zKUTquhyDM0qWVrQV1qUVOtwBCO6nt21l1eXgTwz50FVN33f1ZmhZfHW1u7Dq_XwBJmHFwN3aiD0NZohU7MpQiz-0u94Q9yZ588IjdZEUhSEUKrVtJjoPcxDhrXxoRMA8iP8_bMeOHteiAdYeBVBwFhu1d8pfcn6uoZROYD1xB1LWDTJx4GfQh6v3wtAwFu7Q"
+	test.body = jwtBodyPrefix + jwtWrongSig
 	test.wantStatusCode = 403
 	t.Run("with_k8s", func(t *testing.T) {
 		runTokenOAuth2HandlerTestWithK8s(t, test)
@@ -606,7 +614,19 @@ func TestTokenOAuth2HandlerWrongAud(t *testing.T) {
 	test := TokenOAuth2HandlerTestHappyPath
 	test.desc = "invalid JWT (junk audience)"
 	// JWT "aud" is changed to "abc"
-	test.body = "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhYmMiLCJpc3MiOiJyb2JvdC1kZXYtdGVzdHVzZXIiLCJleHAiOjE5MTMzNzMwMTAsInNjb3BlcyI6Ii4uLiIsImNsYWltcyI6Ii4uLiJ9.XIoSfJl7QE51XUt7XHvZTomuXAAjVKWhnBhCgZl91-dGO9aF_pVu9sc_kR-MODoZci9pUKaLfqLTbZkNgkwGvApXF4GZ1DBu0uG6ewbNzIA-2l67xztnGw_M5DrQpLnq31HT1hRlvB9cXOYj2qtVfQaOhZtSPeHviYXj1NiPzHIWdyZKGIYu-gofkAZACEKKDd8HBRv6bLOzgrJ9sxlsyIB_O-FzpgoGSH-bKj9QEbSazx1j7AdICq1pJ_ER9ovb0qcYqg1JPToeEB1L-GFGwZp2JAnVp2rbbwPfjQTVlGmmAu-NUA5SjbjrNSjwDnQZDBBhmx75uToptJsnC_xZAw"
+	test.body = jwtBodyPrefix + jwtWrongAud
+	test.wantStatusCode = 403
+	t.Run("with_k8s", func(t *testing.T) {
+		runTokenOAuth2HandlerTestWithK8s(t, test)
+	})
+}
+
+func TestTokenOAuth2HandlerExpired(t *testing.T) {
+	test := TokenOAuth2HandlerTestHappyPath
+	test.desc = "JWT signed correctly but expired"
+	// JWT is valid but signed with a different (random) private key not matching
+	// the one returned from the registry for the given device
+	test.body = jwtBodyPrefix + jwtExpired
 	test.wantStatusCode = 403
 	t.Run("with_k8s", func(t *testing.T) {
 		runTokenOAuth2HandlerTestWithK8s(t, test)
@@ -695,5 +715,81 @@ func runTokenOAuth2HandlerTestWithK8s(t *testing.T, test TokenOAuth2HandlerTest)
 	if resp.ExpiresIn < 1_507_248_000 || resp.ExpiresIn > 2_453_852_873 {
 		t.Fatalf("Token(..) expires in wrong, got %d, wanted far in the future, but not too far",
 			resp.ExpiresIn)
+	}
+}
+
+func Test_verifyJWTHandler(t *testing.T) {
+	testCases := []struct {
+		name         string
+		headers      map[string][]string
+		expectedCode int
+	}{
+		{
+			name:         "success",
+			headers:      map[string][]string{"Authorization": []string{jwtCorrect}},
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "no-auth-header",
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "wrong-sig",
+			headers:      map[string][]string{"Authorization": []string{jwtWrongSig}},
+			expectedCode: http.StatusForbidden,
+		},
+		{
+			name:         "wrong-aud",
+			headers:      map[string][]string{"Authorization": []string{jwtWrongAud}},
+			expectedCode: http.StatusForbidden,
+		},
+		{
+			name:         "expired",
+			headers:      map[string][]string{"Authorization": []string{jwtExpired}},
+			expectedCode: http.StatusForbidden,
+		},
+	}
+	t.Parallel()
+
+	cs := fake.NewSimpleClientset()
+	if err := populateK8sEnv(cs, "default",
+		[]*corev1.ConfigMap{
+			{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ConfigMap",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "robot-dev-testuser",
+				},
+				Data: map[string]string{"pubKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvTGUksynbWhvZkHNJn8C2oXVD400jiK4T0JoyS/SwbBGwFr3OJGlPwXCsvAPAzmpTuZpge6T3pnIcO/s97sMgyld9ZYio7SQiiRV/nwYZittGf9/yfHSNDJUvT25yhuK2p3UqRCom1a3KljeXbxXvGuYG48IH0kqAQbYBI/0lAV3H5pkdXPFZC6PHltC3jySVIOg7qPXrNuxdxmg/gmzQ9+NmKvXWKATAPax1yYoESaZtc22aCZWouIdJr3baYlfBb4w8stoJPoONuyn4ard17gywb46HHGl2XoY+Y5pihwvctsFeZXLfYwUmFPfgncQHJ02lCV3+Xyk4AAZy3xDpwIDAQAB\n-----END PUBLIC KEY-----"},
+			},
+		}); err != nil {
+		t.Fatal(err)
+	}
+	r, err := k8s.NewK8sRepository(context.TODO(), cs, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tv, err := app.NewTokenVendor(context.TODO(), r, nil, nil, "testaud")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &HandlerContext{tv: tv}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			rr := httptest.NewRecorder()
+			req := mustNewRequest(t, http.MethodGet, "", nil)
+			req.Header = tc.headers
+
+			h.verifyJWTHandler(rr, req)
+
+			if rr.Result().StatusCode != tc.expectedCode {
+				t.Errorf("verifyJWTHandler wrong status. Expected %v got %v", tc.expectedCode, rr.Result().StatusCode)
+			}
+		})
 	}
 }

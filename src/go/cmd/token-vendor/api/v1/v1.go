@@ -255,6 +255,45 @@ func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Reque
 	w.Write(tokenBytes)
 }
 
+// Handle requests to verify if a given JWT is valid
+//
+// This handler provides a backend for common proxy servers forward authentication.
+// I.e. it allows robots to sign a JWT and present it to nginx for authentication.
+//
+// Method: GET
+// Headers:
+// - Authorization: Bearer ...
+func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		api.ErrResponse(w, http.StatusMethodNotAllowed,
+			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
+		return
+	}
+
+	authHeader, ok := r.Header["Authorization"]
+	if !ok {
+		api.ErrResponse(w, http.StatusBadRequest,
+			"request did not provide Authorization header")
+		return
+	}
+
+	if len(authHeader) != 1 {
+		api.ErrResponse(w, http.StatusBadRequest,
+			fmt.Sprintf("%q auth headers provided. Only 1 allowed", len(authHeader)))
+		return
+	}
+
+	// Be slightly permissive here. Allow both forms
+	// Authorization: Bearer ...
+	// Authorization: ...
+	jwtString := strings.TrimPrefix(authHeader[0], "Bearer ")
+
+	if _, err := h.tv.ValidateJWT(r.Context(), jwtString); err != nil {
+		api.ErrResponse(w, http.StatusForbidden, "JWT not valid")
+		return
+	}
+}
+
 // Handle requests to verify if a given token has cloud access.
 //
 // The token is verified by testing if the token has `iam.serviceAccounts.actAs`
@@ -389,6 +428,7 @@ func Register(tv *app.TokenVendor, prefix string) error {
 	http.HandleFunc(path.Join(prefix, "public-key.publish"), h.publicKeyPublishHandler)
 	http.HandleFunc(path.Join(prefix, "token.oauth2"), h.tokenOAuth2Handler)
 	http.HandleFunc(path.Join(prefix, "token.verify"), h.verifyTokenHandler)
+	http.HandleFunc(path.Join(prefix, "jwt.verify"), h.verifyJWTHandler)
 
 	return nil
 }
