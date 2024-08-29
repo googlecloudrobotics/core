@@ -14,7 +14,7 @@ resource "google_project_iam_member" "owner_group" {
 resource "google_project_service" "project-services" {
   project            = data.google_project.project.project_id
   disable_on_destroy = false
-  for_each = toset([
+  for_each = toset(concat([
     "artifactregistry.googleapis.com",
     # Next 2 are needed for Terraform's data.google_project.project.resource to work.
     "cloudbilling.googleapis.com",
@@ -32,7 +32,14 @@ resource "google_project_service" "project-services" {
     "servicemanagement.googleapis.com",
     "serviceusage.googleapis.com",
     "storage-component.googleapis.com",
-  ])
+  ], length(var.additional_regions) == 0 ? [] : [
+    # Following APIs are only needed when using multi-cluster gateways.
+		"gkeconnect.googleapis.com",
+		"gkehub.googleapis.com",
+		"trafficdirector.googleapis.com",
+		"multiclusterservicediscovery.googleapis.com",
+		"multiclusteringress.googleapis.com",
+  ]))
   service = each.value
 }
 
