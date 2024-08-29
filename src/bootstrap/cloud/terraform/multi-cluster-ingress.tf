@@ -58,3 +58,22 @@ resource "google_gke_hub_membership" "cloud_robotics_ar" {
     }
   }
 }
+
+# The following IAM policies are required by the Gateway API controllers.
+resource "google_project_iam_member" "multi_cluster_service_importer_network_viewer" {
+  count = length(var.additional_regions) > 0 ? 1 : 0
+
+  project    = data.google_project.project.project_id
+  role       = "roles/compute.networkViewer"
+  member     = "serviceAccount:${data.google_project.project.project_id}.svc.id.goog[gke-mcs/gke-mcs-importer]"
+  depends_on = [google_container_cluster.cloud-robotics]
+}
+
+resource "google_project_iam_member" "multi_cluster_ingress_controller_container_admin" {
+  count = length(var.additional_regions) > 0 ? 1 : 0
+
+  project    = data.google_project.project.project_id
+  role       = "roles/container.admin"
+  member     = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-multiclusteringress.iam.gserviceaccount.com"
+  depends_on = [google_project_service.project-services["multiclusteringress.googleapis.com"]]
+}
