@@ -133,16 +133,24 @@ func NewIdentityHandler(ctx context.Context) (*IdentityHandler, error) {
 	return i, nil
 }
 
-func (h *IdentityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func fromAcceptedIP(w http.ResponseWriter, r *http.Request, allowedSources *net.IPNet) bool {
 	ipPort := strings.Split(r.RemoteAddr, ":")
 	if len(ipPort) != 2 {
 		slog.Error("Unable to obtain IP from remote address", slog.String("Address", r.RemoteAddr))
 		http.Error(w, "Unable to check authorization", http.StatusInternalServerError)
-		return
+		return false
 	}
-	if ip := net.ParseIP(ipPort[0]); ip == nil || !h.AllowedSources.Contains(ip) {
+	if ip := net.ParseIP(ipPort[0]); ip == nil || allowedSources.Contains(ip) {
 		slog.Error("Rejected remote IP", slog.String("IP", ipPort[0]))
 		http.Error(w, "Access forbidden", http.StatusForbidden)
+		return false
+	}
+
+	return true
+}
+
+func (h *IdentityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !h.fromAcceptedIP(w, r, h.AllowedSources) {
 		return
 	}
 
@@ -259,15 +267,7 @@ func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler
 // The query might also contain a 'scopes' query param, which we currently don't handle
 // (e.g.: scopes=https://www.googleapis.com/auth/devstorage.full_control,https://www.googleapis.com/auth/cloud-platform HTTP/1.1)
 func (th *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ipPort := strings.Split(r.RemoteAddr, ":")
-	if len(ipPort) != 2 {
-		slog.Error("Unable to obtain IP from remote address", slog.String("Address", r.RemoteAddr))
-		http.Error(w, "Unable to check authorization", http.StatusInternalServerError)
-		return
-	}
-	if ip := net.ParseIP(ipPort[0]); ip == nil || !th.AllowedSources.Contains(ip) {
-		slog.Error("Rejected remote IP", slog.String("IP", ipPort[0]))
-		http.Error(w, "Access forbidden", http.StatusForbidden)
+	if !th.fromAcceptedIP(w, r, th.AllowedSources) {
 		return
 	}
 
