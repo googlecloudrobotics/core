@@ -190,6 +190,12 @@ func (r *RobotAuth) CreateJWT(ctx context.Context, lifetime time.Duration) (stri
 		return "", fmt.Errorf("private key is invalid")
 	}
 
+	// We re-use the token audience here.
+	// While it would be nicer to use a specific token.verify endpoint here,
+	// the token-vendor takes a full path it verifies.
+	// This would allow this token to be used for getting an OAuth token, but
+	// the token and identity endpoints use the same access protection,
+	// so there's no functional difference either way.
 	claimSet := &jws.ClaimSet{
 		Iss: r.PublicKeyRegistryId,
 		Aud: r.getTokenEndpoint(),
