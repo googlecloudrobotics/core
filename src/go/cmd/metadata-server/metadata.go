@@ -140,7 +140,7 @@ func fromAcceptedIP(w http.ResponseWriter, r *http.Request, allowedSources *net.
 		http.Error(w, "Unable to check authorization", http.StatusInternalServerError)
 		return false
 	}
-	if ip := net.ParseIP(ipPort[0]); ip == nil || allowedSources.Contains(ip) {
+	if ip := net.ParseIP(ipPort[0]); ip == nil || !allowedSources.Contains(ip) {
 		slog.Error("Rejected remote IP", slog.String("IP", ipPort[0]))
 		http.Error(w, "Access forbidden", http.StatusForbidden)
 		return false
@@ -150,7 +150,7 @@ func fromAcceptedIP(w http.ResponseWriter, r *http.Request, allowedSources *net.
 }
 
 func (h *IdentityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !h.fromAcceptedIP(w, r, h.AllowedSources) {
+	if !fromAcceptedIP(w, r, h.AllowedSources) {
 		return
 	}
 
@@ -267,7 +267,7 @@ func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler
 // The query might also contain a 'scopes' query param, which we currently don't handle
 // (e.g.: scopes=https://www.googleapis.com/auth/devstorage.full_control,https://www.googleapis.com/auth/cloud-platform HTTP/1.1)
 func (th *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !th.fromAcceptedIP(w, r, th.AllowedSources) {
+	if !fromAcceptedIP(w, r, th.AllowedSources) {
 		return
 	}
 
@@ -307,7 +307,7 @@ func (th *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Collect some extra data for diagnostics (aka which services rely on ADCs).
 	// User-Agent: "Fluent-Bit", "gcloud-golang/0.1"
 	ua := r.Header.Get("User-Agent")
-	pod := th.getPodNameByIP(r.Context(), ipPort[0])
+	pod := th.getPodNameByIP(r.Context(), strings.Split(r.RemoteAddr, ":")[0])
 
 	w.Header().Set("Metadata-Flavor", "Google")
 	w.Header().Set("Content-Type", "application/json")
