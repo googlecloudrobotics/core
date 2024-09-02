@@ -24,3 +24,12 @@ go_test(
         "@io_k8s_client_go//kubernetes/fake:go_default_library",
     ],
 )
+
+go_test(
+    name = "go_default_test",
+    srcs = ["robotauth_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "@io_k8s_client_go//kubernetes/fake:go_default_library",
+    ],
+)

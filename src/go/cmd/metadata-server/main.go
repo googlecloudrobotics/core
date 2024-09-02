@@ -148,7 +148,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	identityHandler, err := NewIdentityHandler(ctx)
+	if err != nil {
+		slog.Error("NewIdentityHandler", slog.Any("Error", err))
+		os.Exit(1)
+	}
+
 	http.Handle("/computeMetadata/v1/instance/service-accounts/default/token", tokenHandler)
+	http.Handle("/computeMetadata/v1/instance/service-accounts/default/identity", identityHandler)
 	serviceAccountHandler := ServiceAccountHandler{}
 	http.Handle("/computeMetadata/v1/instance/service-accounts/default/", serviceAccountHandler)
 	http.Handle("/computeMetadata/v1/instance/service-accounts/", ConstHandler{[]byte("default/\n")})
