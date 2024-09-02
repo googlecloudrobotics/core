@@ -131,7 +131,7 @@ func BuildCloudKubernetesConfig(ts oauth2.TokenSource, remoteServer string) *res
 }
 
 // UpdateSecret (over-) writes a k8s secret.
-func UpdateSecret(ctx context.Context, k8s *kubernetes.Clientset, input *corev1.Secret) error {
+func UpdateSecret(ctx context.Context, k8s kubernetes.Interface, input *corev1.Secret) error {
 	s := k8s.CoreV1().Secrets(input.Namespace)
 	b := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 5)
 	return backoff.Retry(func() error {
