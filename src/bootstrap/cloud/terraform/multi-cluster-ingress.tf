@@ -11,6 +11,7 @@ resource "google_gke_hub_feature" "multi_cluster_service_discovery" {
   name = "multiclusterservicediscovery"
   location = "global"
   project = data.google_project.project.project_id
+  depends_on = [google_project_service.project-services["gkehub.googleapis.com"]]
 }
 
 resource "google_gke_hub_feature" "multi_cluster_ingress" {
@@ -24,6 +25,7 @@ resource "google_gke_hub_feature" "multi_cluster_ingress" {
       config_membership = google_gke_hub_membership.cloud_robotics[0].id
     }
   }
+  depends_on = [google_project_service.project-services["gkehub.googleapis.com"]]
 }
 
 # The GKE cluster called "cloud-robotics" is the primary cluster and the source
@@ -45,6 +47,7 @@ resource "google_gke_hub_membership" "cloud_robotics" {
       resource_link = google_container_cluster.cloud-robotics.id
     }
   }
+  depends_on = [google_project_service.project-services["gkehub.googleapis.com"]]
 }
 
 resource "google_gke_hub_membership" "cloud_robotics_ar" {
@@ -57,6 +60,7 @@ resource "google_gke_hub_membership" "cloud_robotics_ar" {
       resource_link = google_container_cluster.cloud-robotics-ar[each.key].id
     }
   }
+  depends_on = [google_project_service.project-services["gkehub.googleapis.com"]]
 }
 
 # The following IAM policies are required by the Gateway API controllers.
