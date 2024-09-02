@@ -29,6 +29,7 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
+	"github.com/googlecloudrobotics/ilog"
 	"golang.org/x/oauth2"
 	cloudresourcemanager "google.golang.org/api/cloudresourcemanager/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -103,6 +104,70 @@ func (ch ConstHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/text")
 	w.WriteHeader(http.StatusOK)
 	w.Write(ch.Body)
+}
+
+type jwtSource interface {
+	CreateJWT(context.Context, time.Duration) (string, error)
+}
+
+// IdentityHandler serves JWT identity tokens for the robot
+type IdentityHandler struct {
+	AllowedSources *net.IPNet
+	robotAuth      jwtSource
+}
+
+func NewIdentityHandler(ctx context.Context) (*IdentityHandler, error) {
+	_, allowedSources, err := net.ParseCIDR(*sourceCidr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid source CIDR %s: %w", *sourceCidr, err)
+	}
+	robotAuth, err := robotauth.LoadFromFile(*robotIdFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read robot id file %s: %w", *robotIdFile, err)
+	}
+
+	i := &IdentityHandler{
+		AllowedSources: allowedSources,
+		robotAuth:      robotAuth,
+	}
+	return i, nil
+}
+
+func fromAcceptedIP(w http.ResponseWriter, r *http.Request, allowedSources *net.IPNet) bool {
+	ipPort := strings.Split(r.RemoteAddr, ":")
+	if len(ipPort) != 2 {
+		slog.Error("Unable to obtain IP from remote address", slog.String("Address", r.RemoteAddr))
+		http.Error(w, "Unable to check authorization", http.StatusInternalServerError)
+		return false
+	}
+	if ip := net.ParseIP(ipPort[0]); ip == nil || !allowedSources.Contains(ip) {
+		slog.Error("Rejected remote IP", slog.String("IP", ipPort[0]))
+		http.Error(w, "Access forbidden", http.StatusForbidden)
+		return false
+	}
+
+	return true
+}
+
+func (h *IdentityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !fromAcceptedIP(w, r, h.AllowedSources) {
+		return
+	}
+
+	jwt, err := h.robotAuth.CreateJWT(r.Context(), time.Minute*15)
+	if err != nil {
+		slog.Error("Unable to create JWT", ilog.Err(err))
+		http.Error(w, "Unable to create jwt", http.StatusInternalServerError)
+		return
+
+	}
+
+	w.Header().Set("Metadata-Flavor", "Google")
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(jwt))
+	slog.Info("Served identity token", slog.String("Address", r.RemoteAddr))
 }
 
 // TokenHandler serves access tokens for the associated GCP service-account.
@@ -202,15 +267,7 @@ func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler
 // The query might also contain a 'scopes' query param, which we currently don't handle
 // (e.g.: scopes=https://www.googleapis.com/auth/devstorage.full_control,https://www.googleapis.com/auth/cloud-platform HTTP/1.1)
 func (th *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ipPort := strings.Split(r.RemoteAddr, ":")
-	if len(ipPort) != 2 {
-		slog.Error("Unable to obtain IP from remote address", slog.String("Address", r.RemoteAddr))
-		http.Error(w, "Unable to check authorization", http.StatusInternalServerError)
-		return
-	}
-	if ip := net.ParseIP(ipPort[0]); ip == nil || !th.AllowedSources.Contains(ip) {
-		slog.Error("Rejected remote IP", slog.String("IP", ipPort[0]))
-		http.Error(w, "Access forbidden", http.StatusForbidden)
+	if !fromAcceptedIP(w, r, th.AllowedSources) {
 		return
 	}
 
@@ -250,7 +307,7 @@ func (th *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Collect some extra data for diagnostics (aka which services rely on ADCs).
 	// User-Agent: "Fluent-Bit", "gcloud-golang/0.1"
 	ua := r.Header.Get("User-Agent")
-	pod := th.getPodNameByIP(r.Context(), ipPort[0])
+	pod := th.getPodNameByIP(r.Context(), strings.Split(r.RemoteAddr, ":")[0])
 
 	w.Header().Set("Metadata-Flavor", "Google")
 	w.Header().Set("Content-Type", "application/json")
