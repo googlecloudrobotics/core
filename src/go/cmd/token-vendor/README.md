@@ -2,7 +2,7 @@
 
 The token vendor provides authentication for requests from the robots to our cloud environment.
 The robots identity is generated during setup via a public-private key pair.
-The token vendor provides APIs for registering robots through their public key and OAuth2 workflows for authenticating the signed requests from robots to cloud resources, for example to write logs to GCP Logging. 
+The token vendor provides APIs for registering robots through their public key and OAuth2 workflows for authenticating the signed requests from robots to cloud resources, for example to write logs to GCP Logging.
 The token vendor itself is stateless and all data is stored in GCP.
 
 The following workflows are covered by the token vendor:
@@ -10,7 +10,7 @@ The following workflows are covered by the token vendor:
 * Register a robot by its public key and a unique device identifier. The public key is stored in a cloud backend.
 * Retrieve a robot's public key through the device identifier
 * Generate an scoped and time-limited IAM access token for access to GCP resources
-* Validate a given IAM access token 
+* Validate a given IAM access token
 
 ## Public Key Backends
 
@@ -48,7 +48,7 @@ key store. Write access to the public key registry needs to be restricted to
 refuse eg. robots to register other robots.
 
 * URL: /apis/core.token-vendor/v1/public-key.publish
-* Method: POST 
+* Method: POST
 * URL Params:
   * device-id: unique device name (by default robot-<robot-id>)
 * Body: application/x-pem-file
@@ -56,7 +56,7 @@ refuse eg. robots to register other robots.
 
 ### /public-key.read: Public key retrieval
 
-To verify messages send by a robot one can fetch the public key from the 
+To verify messages send by a robot one can fetch the public key from the
 keystore using this method.
 
 * URL: /apis/core.token-vendor/v1/public-key.read
@@ -90,6 +90,22 @@ token vendor just checks that IAM authorizes the request.
 
 Results are backed by a cache with a 5 minute lifetime to ease the load on the
 IAM backend.
+
+### /jwt.verify: AuthZ verification
+
+Robots sign JWTs with their local private keys. These get verified against the
+public keys from the keystore. If the key is present and enabled, the token
+vendor will return status code 200.
+This endpoint allows 3rd parties to do a check against the token-vendor before
+the client reached the token vendor to retrieve an OAuth token.
+It only validates whether the robot is known to the token vendor, there is no
+further authentication or authorization done with this endpoint.
+
+* URL: /apis/core.token-vendor/v1/jwt.verify
+* Method: GET
+* Headers:
+  * Authorization: JWT that allows authorization
+* Response: only http status code
 
 ## Interactive AuthN & AuthZ (with oauth2-proxy)
 
