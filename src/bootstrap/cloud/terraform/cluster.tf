@@ -28,6 +28,9 @@ resource "google_container_cluster" "cloud-robotics" {
     delete = "1h"
   }
 
+  gateway_api_config {
+    channel = "CHANNEL_STANDARD"
+  }
   workload_identity_config {
     workload_pool = "${data.google_project.project.project_id}.svc.id.goog"
   }
