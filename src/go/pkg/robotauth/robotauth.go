@@ -18,6 +18,7 @@
 package robotauth
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -31,6 +32,7 @@ import (
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/jws"
 	"golang.org/x/oauth2/jwt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,6 +77,23 @@ func LoadFromFile(keyfile string) (*RobotAuth, error) {
 	return &robotAuth, nil
 }
 
+func LoadFromK8sSecret(ctx context.Context, clientset kubernetes.Interface, namespace string) (*RobotAuth, error) {
+	s, err := clientset.CoreV1().Secrets(namespace).Get(ctx, "robot-auth", metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	encoded, ok := s.Data["json"]
+	if !ok {
+		return nil, fmt.Errorf("could not find json key in secret's data")
+	}
+	var ret RobotAuth
+	if err := json.NewDecoder(bytes.NewReader(encoded)).Decode(&ret); err != nil {
+		return nil, err
+	}
+
+	return &ret, nil
+}
+
 // StoreInFile writes a newly-chosen ID to disk.
 func (r *RobotAuth) StoreInFile() error {
 	raw, err := json.Marshal(r)
@@ -96,7 +115,7 @@ func (r *RobotAuth) StoreInFile() error {
 }
 
 // StoreInK8sSecret writes new robot-id to kubernetes secret.
-func (r *RobotAuth) StoreInK8sSecret(ctx context.Context, clientset *kubernetes.Clientset, namespace string) error {
+func (r *RobotAuth) StoreInK8sSecret(ctx context.Context, clientset kubernetes.Interface, namespace string) error {
 	raw, err := json.Marshal(r)
 	if err != nil {
 		return fmt.Errorf("failed to serialize ID: %v", err)
@@ -149,4 +168,46 @@ func (r *RobotAuth) CreateRobotTokenSource(ctx context.Context) oauth2.TokenSour
 		TokenURL:   r.getTokenEndpoint(),
 	}
 	return c.TokenSource(ctx)
+}
+
+// CreateJWT allows to create a JWT for authentication against the token vendor.
+// This does not grant Google Cloud access, but can be used for for explicit
+// authentication with the token vendor.
+func (r *RobotAuth) CreateJWT(ctx context.Context, lifetime time.Duration) (string, error) {
+	p, _ := pem.Decode(r.PrivateKey)
+	if p == nil {
+		return "", fmt.Errorf("decode private key")
+	}
+	parsedKey, err := x509.ParsePKCS8PrivateKey(p.Bytes)
+	if err != nil {
+		parsedKey, err = x509.ParsePKCS1PrivateKey(p.Bytes)
+		if err != nil {
+			return "", fmt.Errorf("private key should be a PEM or plain PKCS1 or PKCS8; parse error: %v", err)
+		}
+	}
+	parsed, ok := parsedKey.(*rsa.PrivateKey)
+	if !ok {
+		return "", fmt.Errorf("private key is invalid")
+	}
+
+	// We re-use the token audience here.
+	// While it would be nicer to use a specific token.verify endpoint here,
+	// the token-vendor takes a full path it verifies.
+	// This would allow this token to be used for getting an OAuth token, but
+	// the token and identity endpoints use the same access protection,
+	// so there's no functional difference either way.
+	claimSet := &jws.ClaimSet{
+		Iss: r.PublicKeyRegistryId,
+		Aud: r.getTokenEndpoint(),
+		Sub: r.RobotName,
+		Prn: r.RobotName,
+		Exp: time.Now().Add(lifetime).Unix(),
+	}
+
+	ret, err := jws.Encode(&jws.Header{Algorithm: "RS256", Typ: "JWT"}, claimSet, parsed)
+	if err != nil {
+		return "", err
+	}
+
+	return ret, nil
 }
