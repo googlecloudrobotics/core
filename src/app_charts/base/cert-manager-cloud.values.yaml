@@ -3,3 +3,8 @@
 
 # Install CRDs by helm chart that webhook works in different namespace as cert-manager
 installCRDs: true
+
+# Enable Workload Identity for DNS01 support when we have a custom domain.
+serviceAccount:
+  annotations:
+    iam.gke.io/gcp-service-account: cert-manager@PROJECT-ID.iam.gserviceaccount.com
