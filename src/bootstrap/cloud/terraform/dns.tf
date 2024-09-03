@@ -35,3 +35,20 @@ resource "google_dns_record_set" "www-entry-ar" {
   managed_zone = google_dns_managed_zone.external-dns[0].name
   project      = google_dns_managed_zone.external-dns[0].project
 }
+
+# Allow cert-manager to solve DNS01 challenges in this zone.
+data "google_iam_policy" "external-dns" {
+  binding {
+    role = "roles/dns.admin"
+    members = [
+      "serviceAccount:${google_service_account.cert_manager.email}"
+    ]
+  }
+}
+
+resource "google_dns_managed_zone_iam_policy" "external-dns" {
+  count       = var.domain == "" ? 0 : 1
+  project = google_dns_managed_zone.external-dns[0].project
+  managed_zone = google_dns_managed_zone.external-dns[0].name
+  policy_data = data.google_iam_policy.external-dns.policy_data
+}

@@ -115,9 +115,11 @@ spec:
   - port: 80
     name: http
     targetPort: 80
+    appProtocol: HTTP
   - port: 443
     name: https
     targetPort: 443
+    appProtocol: HTTPS
   selector:
     k8s-app: nginx-ingress-controller
 ---

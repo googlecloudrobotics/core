@@ -95,33 +95,42 @@ func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk string) (*tokens
 	return r, err
 }
 
-func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokensource.TokenResponse, error) {
+func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (string, error) {
 	p, err := jwt.PayloadUnsafe(jwtk)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to extract JWT payload")
+		return "", errors.Wrap(err, "failed to extract JWT payload")
 	}
 	exp := time.Unix(p.Exp, 0)
 	if exp.Before(time.Now()) {
-		return nil, fmt.Errorf("JWT has expired %v, %v ago (iss: %q)",
+		return "", fmt.Errorf("JWT has expired %v, %v ago (iss: %q)",
 			exp, time.Since(exp), p.Iss)
 	}
 	if err := acceptedAudience(p.Aud, tv.accAud); err != nil {
-		return nil, errors.Wrapf(err, "validation of JWT audience failed (iss: %q)", p.Iss)
+		return "", errors.Wrapf(err, "validation of JWT audience failed (iss: %q)", p.Iss)
 	}
 	if !IsValidDeviceID(p.Iss) {
-		return nil, fmt.Errorf("missing or invalid device identifier (`iss`: %q)", p.Iss)
+		return "", fmt.Errorf("missing or invalid device identifier (`iss`: %q)", p.Iss)
 	}
 	deviceID := p.Iss
 	pubKey, err := tv.repo.LookupKey(ctx, deviceID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to retrieve public key for device %q", deviceID)
+		return "", errors.Wrapf(err, "failed to retrieve public key for device %q", deviceID)
 	}
 	if pubKey == "" {
-		return nil, errors.Errorf("no public key found for device %q", deviceID)
+		return "", errors.Errorf("no public key found for device %q", deviceID)
 	}
 	err = jwt.VerifySignature(jwtk, pubKey)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to verify signature for device %q", deviceID)
+		return "", errors.Wrapf(err, "failed to verify signature for device %q", deviceID)
+	}
+
+	return deviceID, nil
+}
+
+func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokensource.TokenResponse, error) {
+	deviceID, err := tv.ValidateJWT(ctx, jwtk)
+	if err != nil {
+		return nil, err
 	}
 	cloudToken, err := tv.ts.Token(ctx)
 	if err != nil {

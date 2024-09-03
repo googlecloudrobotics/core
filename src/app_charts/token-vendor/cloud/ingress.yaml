@@ -64,6 +64,13 @@ spec:
             name: token-vendor
             port:
               name: token-vendor
+      - path: "/apis/core.token-vendor/v1/jwt.verify"
+        pathType: Prefix
+        backend:
+          service:
+            name: token-vendor
+            port:
+              name: token-vendor
       - path: "/apis/core.token-vendor/v1/token.oauth2"
         pathType: Prefix
         backend:
