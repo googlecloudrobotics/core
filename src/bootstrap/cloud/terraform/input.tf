@@ -63,3 +63,14 @@ variable "certificate_subject_organizational_unit" {
   type        = string
   default     = null
 }
+
+variable "cluster_type" {
+  description = "GKE cluster type. Must be one of {zonal,regional}."
+  type = string
+  default = "zonal"
+
+  validation {
+    condition     = contains(["zonal", "regional"], var.cluster_type)
+    error_message = "Must be either \"zonal\" or \"regional\"."
+  }
+}
