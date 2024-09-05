@@ -153,6 +153,17 @@ function set_default_vars {
 
   GCP_REGION=${GCP_ZONE%-?}
 
+  # Ask for gke cluster type
+  GKE_CLUSTER_TYPE="zonal"
+  while :; do
+    read_variable GKE_CLUSTER_TYPE "Should the cluster be 'zonal' or 'regional'?" "${GKE_CLUSTER_TYPE}"
+
+    if [[ "${GKE_CLUSTER_TYPE}" == "zonal" || "${GKE_CLUSTER_TYPE}" == "regional" ]]; then
+      break
+    fi
+    echo "Value must be one of: 'zonal','regional'"
+  done
+
   # Ask for Terraform bucket and location.
   OLD_TERRAFORM_GCS_BUCKET="${TERRAFORM_GCS_BUCKET}"
   OLD_TERRAFORM_GCS_PREFIX="${TERRAFORM_GCS_PREFIX}"
@@ -251,6 +262,7 @@ echo "========================"
 print_variable "GCP project ID" "${GCP_PROJECT_ID}"
 print_variable "GCP region" "${GCP_REGION}"
 print_variable "GCP zone" "${GCP_ZONE}"
+print_variable "GKE cluster type" "${GKE_CLUSTER_TYPE}"
 print_variable "Terraform state bucket" "${TERRAFORM_GCS_BUCKET}"
 print_variable "Terraform state directory" "${TERRAFORM_GCS_PREFIX}"
 print_variable "Docker container registry" "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
@@ -283,6 +295,7 @@ save_variable "${CONFIG_FILE}" GCP_PROJECT_ID "${GCP_PROJECT_ID}"
 save_variable "${CONFIG_FILE}" GCP_REGION "${GCP_REGION}"
 save_variable "${CONFIG_FILE}" GCP_ZONE "${GCP_ZONE}"
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CTX "gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
+save_variable "${CONFIG_FILE}" GKE_CLUSTER_TYPE "${GKE_CLUSTER_TYPE}"
 save_variable "${CONFIG_FILE}" TERRAFORM_GCS_BUCKET "${TERRAFORM_GCS_BUCKET}"
 save_variable "${CONFIG_FILE}" TERRAFORM_GCS_PREFIX "${TERRAFORM_GCS_PREFIX}"
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CONTAINER_REGISTRY "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"

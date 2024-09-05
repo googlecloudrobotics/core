@@ -153,6 +153,7 @@ shared_owner_group = "${CLOUD_ROBOTICS_SHARED_OWNER_GROUP}"
 robot_image_reference = "${SOURCE_CONTAINER_REGISTRY}/setup-robot@${ROBOT_IMAGE_DIGEST}"
 crc_version = "${CRC_VERSION}"
 certificate_provider = "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
+cluster_type = "${GKE_CLUSTER_TYPE}"
 EOF
 
 # Add certificate information if the configured provider requires it
