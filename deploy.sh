@@ -155,9 +155,7 @@ EOF
     fi
   fi
 
-    cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
-    additional_regions = {
-EOF
+  echo 'additional_regions = {' >> "${TERRAFORM_DIR}/terraform.tfvars"
   local AR
   for AR in "${ADDITIONAL_REGIONS[@]}"; do
     local AR_NAME
