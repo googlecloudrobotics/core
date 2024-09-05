@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -238,22 +239,10 @@ func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler
 	idHash := fnv.New64a()
 	idHash.Write([]byte(th.robotAuth.robotName()))
 
-	var projectNumber int64
-	backoff.Retry(
-		func() error {
-			var err error
-			projectNumber, err = getProjectNumber(oauth2.NewClient(ctx, th.TokenSource), th.robotAuth.projectID())
-			if err != nil {
-				slog.Info("will retry to obtain project number", slog.String("Project", th.robotAuth.projectID()), slog.Any("Error", err))
-			}
-			return err
-		},
-		backoff.NewConstantBackOff(5*time.Second),
-	)
-	return &MetadataHandler{
+	ret := &MetadataHandler{
 		ClusterName:   th.robotAuth.robotName(),
 		ProjectId:     th.robotAuth.projectID(),
-		ProjectNumber: projectNumber,
+		ProjectNumber: 0,
 		RobotName:     th.robotAuth.robotName(),
 		InstanceId:    idHash.Sum64(),
 		// This needs to be an actual Cloud zone so that it can be mapped
@@ -261,6 +250,20 @@ func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler
 		// this zone configurable to avoid confusing users.
 		Zone: "europe-west1-c",
 	}
+	go backoff.Retry(
+		func() error {
+			projectNumber, err := getProjectNumber(oauth2.NewClient(ctx, th.TokenSource), th.robotAuth.projectID())
+			if err != nil {
+				slog.Info("will retry to obtain project number", slog.String("Project", th.robotAuth.projectID()), slog.Any("Error", err))
+				return err
+			}
+
+			atomic.StoreInt64(&ret.ProjectNumber, projectNumber)
+			return nil
+		},
+		backoff.NewConstantBackOff(5*time.Second),
+	)
+	return ret
 }
 
 // Return an access token for the 'robot-service' service account
@@ -432,12 +435,19 @@ func (mh MetadataHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Metadata-Flavor", "Google")
 	w.Header().Set("Content-Type", "application/text")
 
+	projectNumber := atomic.LoadInt64(&mh.ProjectNumber)
+	if projectNumber == 0 {
+		slog.Warn("Metadata endpoint was requested before it was ready")
+		http.Error(w, "Metadata endpoint not ready yet", http.StatusInternalServerError)
+		return
+	}
+
 	metadata := map[string]string{
 		"project/project-id":                   mh.ProjectId,
-		"project/numeric-project-id":           fmt.Sprintf("%d", mh.ProjectNumber),
+		"project/numeric-project-id":           fmt.Sprintf("%d", projectNumber),
 		"instance/hostname":                    fmt.Sprintf("robot-%s", mh.RobotName),
 		"instance/id":                          fmt.Sprintf("%d", mh.InstanceId),
-		"instance/zone":                        fmt.Sprintf("projects/%d/zones/%s", mh.ProjectNumber, mh.Zone),
+		"instance/zone":                        fmt.Sprintf("projects/%d/zones/%s", projectNumber, mh.Zone),
 		"instance/attributes/":                 "kube-env\ncluster-name\ncluster-location\n",
 		"instance/attributes/kube-env":         fmt.Sprintf("CLUSTER_NAME: %s\n", mh.ClusterName),
 		"instance/attributes/cluster-name":     mh.ClusterName,
