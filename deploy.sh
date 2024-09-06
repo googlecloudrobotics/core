@@ -18,6 +18,7 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${DIR}/scripts/common.sh"
+source "${DIR}/scripts/config.sh"
 source "${DIR}/scripts/include-config.sh"
 
 set -o pipefail -o errexit
@@ -57,6 +58,19 @@ function include_config_and_defaults {
   CLOUD_ROBOTICS_CTX=${CLOUD_ROBOTICS_CTX:-"gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"}
 
   SYNK="${SYNK_COMMAND} --context ${CLOUD_ROBOTICS_CTX}"
+}
+
+function update_config_var {
+  cloud_bucket="gs://${1}-cloud-robotics-config"
+  name="${2}"
+  value="${3}"
+
+  config_file="$(mktemp)"
+  gsutil cp "${cloud_bucket}/config.sh" "${config_file}" 2>/dev/null || return
+
+  save_variable "${config_file}" "${name}" "${value}"
+
+  gsutil mv "${config_file}" "${cloud_bucket}/config.sh"
 }
 
 function kc {
@@ -139,6 +153,7 @@ shared_owner_group = "${CLOUD_ROBOTICS_SHARED_OWNER_GROUP}"
 robot_image_reference = "${SOURCE_CONTAINER_REGISTRY}/setup-robot@${ROBOT_IMAGE_DIGEST}"
 crc_version = "${CRC_VERSION}"
 certificate_provider = "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
+cluster_type = "${GKE_CLUSTER_TYPE}"
 EOF
 
 # Add certificate information if the configured provider requires it
@@ -190,6 +205,7 @@ terraform {
     bucket = "${TERRAFORM_GCS_BUCKET}"
     prefix = "${TERRAFORM_GCS_PREFIX}"
   }
+  experiments = [variable_validation]
 }
 EOF
   else
@@ -224,8 +240,16 @@ function terraform_apply {
 }
 
 function terraform_post {
-  # Post terraform adjustents/cleanups
-  :
+  local OLD_CLOUD_ROBOTICS_CTX
+  local location
+
+  OLD_CLOUD_ROBOTICS_CTX="${CLOUD_ROBOTICS_CTX}"
+  CLOUD_ROBOTICS_CTX=$(gke_context_name "${GCP_PROJECT_ID}" "cloud-robotics" "${GCP_REGION}" "${GCP_ZONE}")
+  [[ -z "${CLOUD_ROBOTICS_CTX}" ]] && die "no cloud-robotics cluster found"
+  if [[ "${OLD_CLOUD_ROBOTICS_CTX}" != "${CLOUD_ROBOTICS_CTX}" ]]; then
+    echo "updating CLOUD_ROBOTICS_CTX from ${OLD_CLOUD_ROBOTICS_CTX} to ${CLOUD_ROBOTICS_CTX}"
+    update_config_var ${GCP_PROJECT_ID} "CLOUD_ROBOTICS_CTX" "${CLOUD_ROBOTICS_CTX}"
+  fi
 }
 
 function terraform_delete {
@@ -458,7 +482,7 @@ function helm_additional_region {
   INGRESS_IP=$(terraform_exec output -json ingress-ip-ar | jq -r ."\"${CLUSTER_NAME}\"")
 
   helm_region_shared \
-    "gke_${GCP_PROJECT_ID}_${AR_ZONE}_${CLUSTER_NAME}" \
+    $(gke_context_name "${GCP_PROJECT_ID}" "${CLUSTER_NAME}" "${AR_REGION}" "${AR_ZONE}") \
     "${AR_NAME}.${CLOUD_ROBOTICS_DOMAIN}" \
     "${INGRESS_IP}" \
     "${AR_REGION}" \

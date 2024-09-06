@@ -56,4 +56,7 @@ function include_config {
 
   CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT:-GCP}
   check_var_is_one_of CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT "GCP" "GCP-testing"
+
+  GKE_CLUSTER_TYPE=${GKE_CLUSTER_TYPE:-zonal}
+  check_var_is_one_of GKE_CLUSTER_TYPE "zonal" "regional"
 }

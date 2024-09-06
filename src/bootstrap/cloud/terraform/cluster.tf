@@ -7,9 +7,12 @@
 resource "google_container_cluster" "cloud-robotics" {
   project               = data.google_project.project.project_id
   name                  = "cloud-robotics"
-  location              = var.zone
+  location              = var.cluster_type == "zonal" ? var.zone : var.region
   enable_shielded_nodes = true
   depends_on            = [google_project_service.project-services["container.googleapis.com"]]
+
+  # TODO(ensonic): this is temporary for the zonal -> regional switch
+  deletion_protection = false
 
   # Make the cluster VPC-native (default for v1.21+)
   networking_mode = "VPC_NATIVE"
@@ -44,6 +47,9 @@ resource "google_container_cluster" "cloud-robotics-ar" {
   enable_shielded_nodes = true
   depends_on            = [google_project_service.project-services["container.googleapis.com"]]
 
+  # TODO(ensonic): this is temporary for the zonal -> regional switch
+  deletion_protection = false
+
   # Make the cluster VPC-native (default for v1.21+)
   networking_mode = "VPC_NATIVE"
   ip_allocation_policy {}
@@ -75,7 +81,7 @@ resource "google_container_cluster" "cloud-robotics-ar" {
 resource "google_container_node_pool" "cloud_robotics_base_pool" {
   project  = data.google_project.project.project_id
   name     = "base-pool"
-  location = var.zone
+  location = var.cluster_type == "zonal" ? var.zone : var.region
   cluster  = google_container_cluster.cloud-robotics.name
 
   initial_node_count = 2
