@@ -35,6 +35,7 @@ pkg_tar(
     srcs = [
         "//:deploy.sh",
         "//scripts:common.sh",
+        "//scripts:config.sh",
         "//scripts:include-config.sh",
         "//scripts:set-config.sh",
         "//src/bootstrap/robot:setup_robot.sh",
