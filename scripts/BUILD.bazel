@@ -1,5 +1,6 @@
 exports_files([
     "common.sh",
+    "config.sh",
     "include-config.sh",
     "set-config.sh",
 ])
