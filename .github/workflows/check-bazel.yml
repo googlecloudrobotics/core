@@ -7,9 +7,6 @@ permissions:
   contents: read
   id-token: write
 
-env:
-  USE_BAZEL_VERSION: "6.5.0"
-
 jobs:
   check-bazel:
     runs-on: ubuntu-22.04
