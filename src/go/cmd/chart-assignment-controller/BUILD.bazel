@@ -52,6 +52,7 @@ pkg_tar(
     name = "helm-image-layer",
     package_dir = "/home/nonroot/",
     deps = [":helm-config"],
+    extension = "tar.gz",
 )
 
 go_binary(
@@ -62,6 +63,7 @@ go_binary(
 pkg_tar(
     name = "chart-assignment-controller-layer",
     srcs = [":chart-assignment-controller-app"],
+    extension = "tar.gz",
 )
 
 oci_image(

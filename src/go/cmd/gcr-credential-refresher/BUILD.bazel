@@ -26,6 +26,7 @@ go_binary(
 pkg_tar(
     name = "gcr-credential-refresher-image-layer",
     srcs = [":gcr-credential-refresher-app"],
+    extension = "tar.gz",
 )
 
 oci_image(

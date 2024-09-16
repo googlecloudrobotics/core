@@ -25,6 +25,7 @@ go_binary(
 pkg_tar(
     name = "http-relay-server-image-layer",
     srcs = [":http-relay-server-app"],
+    extension = "tar.gz",
 )
 
 oci_image(

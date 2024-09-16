@@ -39,6 +39,7 @@ go_binary(
 pkg_tar(
     name = "app-rollout-controller-image-layer",
     srcs = [":app-rollout-controller-app"],
+    extension = "tar.gz",
 )
 
 oci_image(

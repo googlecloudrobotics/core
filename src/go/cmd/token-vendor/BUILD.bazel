@@ -32,6 +32,7 @@ go_binary(
 pkg_tar(
     name = "token-vendor-image-layer",
     srcs = [":token-vendor-app"],
+    extension = "tar.gz",
 )
 
 oci_image(

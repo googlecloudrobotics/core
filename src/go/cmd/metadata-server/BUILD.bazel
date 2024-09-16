@@ -55,6 +55,7 @@ go_binary(
 pkg_tar(
     name = "metadata-server-image-layer",
     srcs = [":metadata-server-app"],
+    extension = "tar.gz",
 )
 
 oci_image(

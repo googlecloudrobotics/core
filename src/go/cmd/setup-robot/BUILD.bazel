@@ -55,6 +55,7 @@ pkg_tar(
         "@kubernetes_helm//:helm",
     ],
     package_dir = "/setup-robot-files",
+    extension = "tar.gz",
 )
 
 oci_image(
@@ -72,6 +73,7 @@ go_binary(
 pkg_tar(
     name = "setup-robot-image-layer",
     srcs = [":setup-robot-app"],
+    extension = "tar.gz",
 )
 
 oci_image(
