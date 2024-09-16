@@ -15,7 +15,7 @@ require (
 	github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590
 	github.com/getlantern/mockconn v0.0.0-20190403061815-a8ffa60494a6 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/golang/mock v1.6.0
+	github.com/golang/mock v1.7.0-rc.1
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/huandu/xstrings v1.3.3 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
@@ -31,7 +31,7 @@ require (
 	go.opencensus.io v0.24.0
 	golang.org/x/crypto v0.21.0
 	golang.org/x/net v0.23.0
-	golang.org/x/sync v0.5.0
+	golang.org/x/sync v0.6.0
 	golang.org/x/sys v0.18.0 // indirect
 	google.golang.org/api v0.149.0
 	google.golang.org/grpc v1.59.0
