@@ -8,7 +8,7 @@ set -o xtrace    # print command traces before executing command
 
 # Wraps the common Bazel flags for CI for brevity.
 function bazel_ci {
-  bazel --bazelrc="${DIR}/.bazelrc" "$@"
+  bazelisk --bazelrc="${DIR}/.bazelrc" "$@"
 }
 
 function generate_build_id() {
