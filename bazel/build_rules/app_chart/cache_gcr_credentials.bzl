@@ -33,7 +33,7 @@ cache_gcr_credentials = rule(
             doc = "If set, credentials for this GCR registry's domain will be precached",
         ),
         "_sh_tpl": attr.label(
-            default = Label("@cloud_robotics//bazel/build_rules/app_chart:cache_gcr_credentials.sh.tpl"),
+            default = Label("//bazel/build_rules/app_chart:cache_gcr_credentials.sh.tpl"),
             allow_single_file = True,
         ),
     },
