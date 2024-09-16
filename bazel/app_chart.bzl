@@ -89,7 +89,7 @@ _app_chart_backend = rule(
             doc = "Images referenced by the chart.",
         ),
         "_chart_yaml_template": attr.label(
-            default = Label("@cloud_robotics//bazel/build_rules/app_chart:Chart.yaml.template"),
+            default = Label("//bazel/build_rules/app_chart:Chart.yaml.template"),
             allow_single_file = True,
         ),
         "_helm": attr.label(
@@ -134,9 +134,9 @@ def app_chart(
 
     if not values:
         if chart == "cloud":
-            values = "@cloud_robotics//bazel/build_rules/app_chart:values-cloud.yaml"
+            values = Label("//bazel/build_rules/app_chart:values-cloud.yaml")
         else:
-            values = "@cloud_robotics//bazel/build_rules/app_chart:values-robot.yaml"
+            values = Label("//bazel/build_rules/app_chart:values-robot.yaml")
 
     # We have a dict of string:target, but bazel rules only support target:string.
     reversed_images = {}

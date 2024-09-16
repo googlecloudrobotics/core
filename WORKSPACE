@@ -69,7 +69,7 @@ http_archive(
 # Binary build of the helm package manager for Kubernetes
 http_archive(
     name = "kubernetes_helm",
-    build_file = "@cloud_robotics//third_party/helm2:BUILD.bazel",
+    build_file = "//third_party/helm2:BUILD.bazel",
     sha256 = "f3bec3c7c55f6a9eb9e6586b8c503f370af92fe987fcbf741f37707606d70296",
     strip_prefix = "linux-amd64",
     urls = [
@@ -78,7 +78,7 @@ http_archive(
 )
 http_archive(
     name = "kubernetes_helm3",
-    build_file = "@cloud_robotics//third_party/helm3:BUILD.bazel",
+    build_file = "//third_party/helm3:BUILD.bazel",
     sha256 = "1484ffb0c7a608d8069470f48b88d729e88c41a1b6602f145231e8ea7b43b50a",
     strip_prefix = "linux-amd64",
     urls = [
@@ -89,7 +89,7 @@ http_archive(
 # Binary build of the terraform infrastructure management tool
 http_archive(
     name = "hashicorp_terraform",
-    build_file = "@cloud_robotics//third_party:terraform.BUILD",
+    build_file = "//third_party:terraform.BUILD",
     sha256 = "e5eeba803bc7d8d0cae7ef04ba7c3541c0abd8f9e934a5e3297bf738b31c5c6d",
     urls = [
         "https://releases.hashicorp.com/terraform/0.12.31/terraform_0.12.31_linux_amd64.zip",
@@ -148,7 +148,7 @@ go_register_toolchains(version = "1.21.1")
 
 http_archive(
     name = "com_github_kubernetes_sigs_application",
-    build_file = "@cloud_robotics//third_party:app_crd.BUILD",
+    build_file = "//third_party:app_crd.BUILD",
     sha256 = "8bafd7fb97563d1a15d9afc68c87e3aabd664f60bd8005f1ae685d79842c1ac4",
     strip_prefix = "application-c8e2959e57a02b3877b394984a288f9178977d8b",
     urls = [

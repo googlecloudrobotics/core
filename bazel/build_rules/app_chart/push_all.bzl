@@ -44,7 +44,7 @@ _push_all = rule(
             default = {},
         ),
         "_sh_tpl": attr.label(
-            default = Label("@cloud_robotics//bazel/build_rules/app_chart:push_all.sh.tpl"),
+            default = Label("//bazel/build_rules/app_chart:push_all.sh.tpl"),
             allow_single_file = True,
         ),
     },

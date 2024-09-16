@@ -1,4 +1,4 @@
-load("@cloud_robotics//bazel/build_rules/app_chart:run_parallel.bzl", "run_parallel")
+load("//bazel/build_rules/app_chart:run_parallel.bzl", "run_parallel")
 
 def app(name, charts, visibility = None):
     """Macro for a standard Cloud Robotics app.

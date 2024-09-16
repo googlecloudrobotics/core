@@ -32,7 +32,7 @@ run_parallel = rule(
             mandatory = True,
         ),
         "_sh_tpl": attr.label(
-            default = Label("@cloud_robotics//bazel/build_rules/app_chart:run_parallel.sh.tpl"),
+            default = Label("//bazel/build_rules/app_chart:run_parallel.sh.tpl"),
             allow_single_file = True,
         ),
     },
