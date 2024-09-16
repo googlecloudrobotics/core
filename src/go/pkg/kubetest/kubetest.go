@@ -89,7 +89,7 @@ type cluster struct {
 // New creates a new test environment.
 func New(t *testing.T, cfg Config) *Environment {
 	e := &Environment{
-		helmPath: "../kubernetes_helm/helm",
+		helmPath: "../_main~non_module_deps~kubernetes_helm/helm",
 		synkPath: "src/go/cmd/synk/synk_/synk",
 		t:        t,
 		cfg:      cfg,

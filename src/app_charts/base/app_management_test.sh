@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-HELM="external/kubernetes_helm/helm template"
+HELM="external/_main~non_module_deps~kubernetes_helm/helm template"
 CLOUD_BASE="src/app_charts/base/base-cloud-0.0.1.tgz"
 ROBOT_BASE="src/app_charts/base/base-robot-0.0.1.tgz"
 
