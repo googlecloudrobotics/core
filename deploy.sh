@@ -24,10 +24,12 @@ source "${DIR}/scripts/include-config.sh"
 set -o pipefail -o errexit
 
 PROJECT_NAME="cloud-robotics"
+RUNFILES_ROOT="_main"
 
 if is_source_install; then
-  TERRAFORM="${DIR}/bazel-out/../../../external/hashicorp_terraform/terraform"
-  HELM_COMMAND="${DIR}/bazel-out/../../../external/kubernetes_helm/helm"
+  # Not using bazel run to not clobber the bazel-bin dir
+  TERRAFORM="${DIR}/bazel-out/../../../external/_main~non_module_deps~hashicorp_terraform/terraform"
+  HELM_COMMAND="${DIR}/bazel-out/../../../external/_main~non_module_deps~kubernetes_helm/helm"
   # To avoid a dependency on the host's glibc, we build synk with pure="on".
   # Because this is a non-default build configuration, it results in a separate
   # subdirectory of bazel-out/, which is not as easy to hardcode as
@@ -99,14 +101,14 @@ function prepare_source_install {
   # created projects (see b/123625511).
   local oldPwd
   oldPwd=$(pwd)
-  cd ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/cloud_robotics
+  cd ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/${RUNFILES_ROOT}
   ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh \
     --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
     --tag="latest"
 
   # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl
   # Running :push outside the build system shaves ~3 seconds off an incremental build.
-  cd ${DIR}/bazel-bin/src/app_charts/push.runfiles/cloud_robotics
+  cd ${DIR}/bazel-bin/src/app_charts/push.runfiles/${RUNFILES_ROOT}
   TAG="latest" ${DIR}/bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
 
   cd ${oldPwd}
