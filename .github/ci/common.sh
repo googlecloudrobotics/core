@@ -6,6 +6,8 @@ set -o errexit   # exit immediately, if a pipeline command fails
 set -o pipefail  # returns the last command to exit with a non-zero status
 set -o xtrace    # print command traces before executing command
 
+RUNFILES_ROOT="_main"
+
 # Wraps the common Bazel flags for CI for brevity.
 function bazel_ci {
   bazelisk --bazelrc="${DIR}/.bazelrc" "$@"
@@ -41,12 +43,12 @@ function release_binary {
   oldPwd=$(pwd)
   # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl
   for t in latest ${DOCKER_TAG}; do
-    cd ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/cloud_robotics
+    cd ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/${RUNFILES_ROOT}
     ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh \
       --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
       --tag="${t}"
 
-    cd ${oldPwd}/bazel-bin/src/app_charts/push.runfiles/cloud_robotics
+    cd ${oldPwd}/bazel-bin/src/app_charts/push.runfiles/${RUNFILES_ROOT}
     TAG="$t" ${oldPwd}/bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
   done
   cd ${oldPwd}
