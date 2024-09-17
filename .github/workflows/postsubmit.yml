@@ -2,7 +2,7 @@ name: Postsubmit
 
 on:
   schedule:
-    - cron: "0 4 * * *" # Once a day at 4am.
+    - cron: "0 */4 * * *" # Every 4 hours.
   # Manual runs through Actions tab in the UI
   workflow_dispatch:
     inputs:
