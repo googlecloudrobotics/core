@@ -74,3 +74,9 @@ variable "cluster_type" {
     error_message = "Must be either \"zonal\" or \"regional\"."
   }
 }
+
+variable "onprem_federation" {
+  description = "Enable google cloud robotics layer 1"
+  type = bool
+  default = true  
+}
