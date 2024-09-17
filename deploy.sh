@@ -50,6 +50,7 @@ function include_config_and_defaults {
 
   CLOUD_ROBOTICS_DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
   APP_MANAGEMENT=${APP_MANAGEMENT:-false}
+  ONPREM_FEDERATION=${ONPREM_FEDERATION:-true}
 
   # lets-encrypt is used as the default certificate provider for backwards compatibility purposes
   CLOUD_ROBOTICS_CERTIFICATE_PROVIDER=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER:-lets-encrypt}
@@ -156,6 +157,7 @@ robot_image_reference = "${SOURCE_CONTAINER_REGISTRY}/setup-robot@${ROBOT_IMAGE_
 crc_version = "${CRC_VERSION}"
 certificate_provider = "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
 cluster_type = "${GKE_CLUSTER_TYPE}"
+onprem_federation = "${ONPREM_FEDERATION}"
 EOF
 
 # Add certificate information if the configured provider requires it
@@ -425,6 +427,7 @@ function helm_region_shared {
     --set-string "registry=${SOURCE_CONTAINER_REGISTRY}"
     --set-string "owner_email=${CLOUD_ROBOTICS_OWNER_EMAIL}"
     --set-string "app_management=${APP_MANAGEMENT}"
+    --set-string "onprem_federation=${ONPREM_FEDERATION}"
     --set-string "certificate_provider=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
     --set-string "deploy_environment=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT}"
     --set-string "oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
