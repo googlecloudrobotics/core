@@ -102,19 +102,7 @@ function prepare_source_install {
   # created projects (see b/123625511).
   local oldPwd
   oldPwd=$(pwd)
-  if [[  -n "$MANUAL_RUN" ]]; then
-    echo "bazel-bin: --------------------"
-    find -L ${DIR}/bazel-bin/ -name index.json -exec ls -al {} \;
-    echo "bazel-bin: --------------------"
-  fi
   cd ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/${RUNFILES_ROOT}
-  # DEBUG breakage
-  if [[  -n "$MANUAL_RUN" ]]; then
-    echo "runfiles: --------------------"
-    find -L . -name index.json -exec ls -al {} \;
-    echo "runfiles: --------------------"
-  fi
-  # DEBUG breakage
   ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh \
     --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
     --tag="latest"
