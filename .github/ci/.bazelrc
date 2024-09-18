@@ -11,7 +11,7 @@ build --google_default_credentials=true
 # This has not been tuned a lot.
 build --jobs=12
 # No neeed to download every intermediate output to the local runner.
-build --remote_download_minimal
+build --remote_download_toplevel
 
 # Use Result Store to store Build and Test logs .
 build --bes_backend=buildeventservice.googleapis.com
