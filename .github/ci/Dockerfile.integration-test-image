@@ -4,7 +4,7 @@ FROM gcr.io/cloud-builders/kubectl
 
 # Install Bazelisk
 RUN \
-    VERSION="v1.19.0" && \
+    VERSION="v1.21.0" && \
     curl -L https://github.com/bazelbuild/bazelisk/releases/download/${VERSION}/bazelisk-linux-amd64 --output /usr/bin/bazelisk && \
     chmod +x /usr/bin/bazelisk && \
     ln -s /usr/bin/bazelisk /usr/bin/bazel
@@ -17,7 +17,8 @@ RUN mkdir -p /builder /output /workspace && chmod -R 777 /output
 RUN adduser builder --disabled-password
 
 # Allow running sudo without password
-RUN apt-get update && apt-get install -y sudo && apt-get clean && rm -rf /var/lib/apt/lists/* && \
+# Add libtinfo5, which is required locally until we can upgrade to LLVM 19
+RUN apt-get update && apt-get install -y sudo libtinfo5 && apt-get clean && rm -rf /var/lib/apt/lists/* && \
     usermod -aG sudo builder && \
     echo "builder ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/builder" && chmod 440 "/etc/sudoers.d/builder"
 
