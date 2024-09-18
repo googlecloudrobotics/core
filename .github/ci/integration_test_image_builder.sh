@@ -6,7 +6,6 @@
 # integration_test_cloudbuild.yaml after changing the Dockerfile.
 
 set -euo pipefail
-source gbash.sh
 
 NAME="gcr.io/robco-integration-test/integration-test-image"
 docker build --network=host -t "${NAME}" - \
