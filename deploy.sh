@@ -104,7 +104,11 @@ function prepare_source_install {
   oldPwd=$(pwd)
   cd ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/${RUNFILES_ROOT}
   # DEBUG breakage
-  test -n "$MANUAL_RUN" && ls -lR || /bin/true
+  if [[  -n "$MANUAL_RUN" ]]; then
+    echo "runfiles: --------------------"
+    find -L . -name index.json -exec ls -al {} \;
+    echo "runfiles: --------------------"
+  fi
   # DEBUG breakage
   ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh \
     --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
