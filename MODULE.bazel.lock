@@ -152,7 +152,7 @@
   "moduleExtensions": {
     "//:extension_for_rules_oci.bzl%extension_for_rules_oci": {
       "general": {
-        "bzlTransitiveDigest": "j3N9TPL3QFlitqJVatamuM+gkAB5Cc576bMEdeMbmco=",
+        "bzlTransitiveDigest": "iHEvf4ENro7+Z0Hk4P1LsiS2ouNI7KJavShxqZ1AUGE=",
         "usagesDigest": "HiSg+lQTDLzkqCYMvT2WZtrnLJxCmBXgV1YKK2Twao0=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -257,7 +257,7 @@
     },
     "//:non_module_deps.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "hWah5jWtrVJyjAjVKn/NruM5pPFJKdlVAIDRZ3swUUo=",
+        "bzlTransitiveDigest": "xNlnbuHj9Ag9EkjIFIBMy4fc7QiSGiDnd+Tas8Ql7KA=",
         "usagesDigest": "yMmQCyaR2LeIiImhTJAPwS6/IoLiWggZoM7fX4tKt0Q=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},

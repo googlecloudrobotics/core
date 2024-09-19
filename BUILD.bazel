@@ -1,14 +1,14 @@
 # Description:
 #   Root BUILD file for cloud-robotics
 
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
 package(default_visibility = ["//visibility:public"])
 
 exports_files([
     "config.sh.tmpl",
     "deploy.sh",
 ])
-
-load("@bazel_gazelle//:def.bzl", "gazelle")
 
 # Gazelle uses this to build importpath attributes.
 # gazelle:prefix github.com/googlecloudrobotics/core

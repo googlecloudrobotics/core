@@ -54,8 +54,8 @@ pkg_tar(
         "//src/go/cmd/synk",
         "@kubernetes_helm//:helm",
     ],
-    package_dir = "/setup-robot-files",
     extension = "tar.gz",
+    package_dir = "/setup-robot-files",
 )
 
 oci_image(
