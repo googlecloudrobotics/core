@@ -2,10 +2,9 @@ load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 genrule(
     name = "setup-robot-digest",
-    srcs = ["//src/go/cmd/setup-robot:setup-robot-image"],
+    srcs = ["//src/go/cmd/setup-robot:setup-robot-image.digest"],
     outs = ["setup-robot.digest"],
-    cmd = "$(JQ_BIN) -r '.manifests[0].digest' $(location //src/go/cmd/setup-robot:setup-robot-image)/index.json > $@",
-    toolchains = ["@jq_toolchains//:resolved_toolchain"],
+    cmd = "cp $(location //src/go/cmd/setup-robot:setup-robot-image.digest) $@",
 )
 
 pkg_tar(
