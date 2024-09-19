@@ -1,5 +1,5 @@
 def helm_chart(ctx, name, chart, files, templates, values, version, helm, out):
-    """Skylark function that builds a helm chart.
+    """Starlark function that builds a helm chart.
 
     Args:
       name: string. Must match the name in Chart.yaml.

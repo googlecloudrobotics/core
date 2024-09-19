@@ -50,9 +50,9 @@ oci_image(
 
 pkg_tar(
     name = "helm-image-layer",
+    extension = "tar.gz",
     package_dir = "/home/nonroot/",
     deps = [":helm-config"],
-    extension = "tar.gz",
 )
 
 go_binary(
