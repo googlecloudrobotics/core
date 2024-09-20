@@ -157,7 +157,7 @@ robot_image_reference = "${SOURCE_CONTAINER_REGISTRY}/setup-robot@${ROBOT_IMAGE_
 crc_version = "${CRC_VERSION}"
 certificate_provider = "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
 cluster_type = "${GKE_CLUSTER_TYPE}"
-onprem_federation = "${ONPREM_FEDERATION}"
+onprem_federation = ${ONPREM_FEDERATION}
 EOF
 
 # Add certificate information if the configured provider requires it

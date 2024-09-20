@@ -11,6 +11,7 @@ resource "google_service_account" "robot-service" {
   account_id   = "robot-service"
   display_name = "robot-service"
   project      = data.google_project.project.project_id
+  count = var.onprem_federation ? 1 : 0
 }
 
 # Allow the the token-vendor to impersonate the "robot-service" service account
@@ -37,35 +38,39 @@ data "google_iam_policy" "robot-service" {
 
       # This seemingly nonsensical binding is necessary for the robot auth
       # path in the K8s relay, which has to work with GCP auth tokens.
-      "serviceAccount:${google_service_account.robot-service.email}",
+      "serviceAccount:${google_service_account.robot-service[0].email}",
     ]
   }
+
+  count = var.onprem_federation ? 1 : 0
 }
 
 # Bind policy to the "robot-service" service account.
 # More: https://cloud.google.com/iam/docs/service-accounts#service_account_permissions
 resource "google_service_account_iam_policy" "robot-service" {
-  service_account_id = google_service_account.robot-service.name
-  policy_data        = data.google_iam_policy.robot-service.policy_data
+  service_account_id = google_service_account.robot-service[0].name
+  policy_data        = data.google_iam_policy.robot-service[0].policy_data
+  count              = var.onprem_federation ? 1 : 0
 }
 
+# TODO(ensonic): check if this still makes sense after GAR migration
 resource "google_project_iam_member" "robot-service-account-container-access" {
   project = var.private_image_repositories[count.index]
-  count   = length(var.private_image_repositories)
+  count   = var.onprem_federation ? length(var.private_image_repositories) : 0
   role    = "roles/storage.objectViewer"
-  member  = "serviceAccount:${google_service_account.robot-service.email}"
+  member  = "serviceAccount:${google_service_account.robot-service[0].email}"
 }
 
 resource "google_project_iam_member" "robot-service-roles" {
   project = data.google_project.project.project_id
-  member  = "serviceAccount:${google_service_account.robot-service.email}"
-  for_each = toset([
+  member  = "serviceAccount:${google_service_account.robot-service[0].email}"
+  for_each = var.onprem_federation ? toset([
     "roles/cloudtrace.agent",  # Upload cloud traces
     "roles/container.clusterViewer", # Sync CRs from the GKE cluster.
     "roles/logging.logWriter", # Upload text logs to Cloud logging
     # Required to use robot-service@ for GKE clusters that simulate robots
     "roles/monitoring.viewer",
-  ])
+  ]) : toset([])
   role = each.value
 }
 
