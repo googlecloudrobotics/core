@@ -150,111 +150,6 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
-    "//:extension_for_rules_oci.bzl%extension_for_rules_oci": {
-      "general": {
-        "bzlTransitiveDigest": "iHEvf4ENro7+Z0Hk4P1LsiS2ouNI7KJavShxqZ1AUGE=",
-        "usagesDigest": "HiSg+lQTDLzkqCYMvT2WZtrnLJxCmBXgV1YKK2Twao0=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "iptables_base_single": {
-            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
-            "ruleClassName": "oci_pull",
-            "attributes": {
-              "scheme": "https",
-              "registry": "gcr.io",
-              "repository": "google-containers/debian-iptables",
-              "identifier": "sha256:9c41b4c326304b94eb96fdd2e181aa6e9995cc4642fcdfb570cedd73a419ba39",
-              "target_name": "iptables_base_single"
-            }
-          },
-          "iptables_base": {
-            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
-            "ruleClassName": "oci_alias",
-            "attributes": {
-              "scheme": "https",
-              "registry": "gcr.io",
-              "repository": "google-containers/debian-iptables",
-              "identifier": "sha256:9c41b4c326304b94eb96fdd2e181aa6e9995cc4642fcdfb570cedd73a419ba39",
-              "platform": "@@//external:iptables_base_single",
-              "target_name": "iptables_base"
-            }
-          },
-          "distroless_cc_linux_amd64": {
-            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
-            "ruleClassName": "oci_pull",
-            "attributes": {
-              "scheme": "https",
-              "registry": "gcr.io",
-              "repository": "distroless/cc",
-              "identifier": "sha256:b82f113425c5b5c714151aaacd8039bc141821cdcd3c65202d42bdf9c43ae60b",
-              "platform": "linux/amd64",
-              "target_name": "distroless_cc_linux_amd64"
-            }
-          },
-          "distroless_base": {
-            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
-            "ruleClassName": "oci_alias",
-            "attributes": {
-              "scheme": "https",
-              "registry": "gcr.io",
-              "repository": "distroless/base",
-              "identifier": "sha256:b31a6e02605827e77b7ebb82a0ac9669ec51091edd62c2c076175e05556f4ab9",
-              "platforms": {
-                "@@platforms//cpu:x86_64": "@distroless_base_linux_amd64",
-                "@@platforms//cpu:arm64": "@distroless_base_linux_arm64"
-              },
-              "target_name": "distroless_base"
-            }
-          },
-          "distroless_base_linux_amd64": {
-            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
-            "ruleClassName": "oci_pull",
-            "attributes": {
-              "scheme": "https",
-              "registry": "gcr.io",
-              "repository": "distroless/base",
-              "identifier": "sha256:b31a6e02605827e77b7ebb82a0ac9669ec51091edd62c2c076175e05556f4ab9",
-              "platform": "linux/amd64",
-              "target_name": "distroless_base_linux_amd64"
-            }
-          },
-          "distroless_cc": {
-            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
-            "ruleClassName": "oci_alias",
-            "attributes": {
-              "scheme": "https",
-              "registry": "gcr.io",
-              "repository": "distroless/cc",
-              "identifier": "sha256:b82f113425c5b5c714151aaacd8039bc141821cdcd3c65202d42bdf9c43ae60b",
-              "platforms": {
-                "@@platforms//cpu:x86_64": "@distroless_cc_linux_amd64",
-                "@@platforms//cpu:arm64": "@distroless_cc_linux_arm64"
-              },
-              "target_name": "distroless_cc"
-            }
-          }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "",
-            "rules_oci",
-            "rules_oci~"
-          ],
-          [
-            "rules_oci~",
-            "aspect_bazel_lib",
-            "aspect_bazel_lib~"
-          ],
-          [
-            "rules_oci~",
-            "bazel_skylib",
-            "bazel_skylib~"
-          ]
-        ]
-      }
-    },
     "//:non_module_deps.bzl%non_module_deps": {
       "general": {
         "bzlTransitiveDigest": "xNlnbuHj9Ag9EkjIFIBMy4fc7QiSGiDnd+Tas8Ql7KA=",
@@ -385,7 +280,7 @@
     "@@aspect_bazel_lib~//lib:extensions.bzl%toolchains": {
       "general": {
         "bzlTransitiveDigest": "o+c8qRBWojmxp6XnxraB8cDLR3egI6E7hjYq4t1rzM8=",
-        "usagesDigest": "G8+MSNLngY4LNds25NLfnVjwLFkRYQytgwZGlosaSRY=",
+        "usagesDigest": "mgHWEnAunupPwxBJSDGT6bGj0yzq1iy/OnOZ6IonD3I=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -994,7 +889,7 @@
     "@@rules_oci~//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "kb+/sXT2w8THjLkcvD17xA39/QzFy7CIhkgpUV6+JxE=",
-        "usagesDigest": "r70L2tLfLCgj5t2kmsJn6W2Uboa8TwMejwAJIJBx210=",
+        "usagesDigest": "EtkJYPSWItik/QaX+lNPo6ahFrl6zirWJpprRt7XmiY=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1110,12 +1005,38 @@
               "platform": "linux_arm64"
             }
           },
+          "distroless_cc_linux_amd64": {
+            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "ruleClassName": "oci_pull",
+            "attributes": {
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "distroless/cc",
+              "identifier": "sha256:8aad707f96620ee89e27febef51b01c6ff244277a3560fcfcfbe68633ef09193",
+              "platform": "linux/amd64",
+              "target_name": "distroless_cc_linux_amd64",
+              "bazel_tags": []
+            }
+          },
           "oci_crane_darwin_arm64": {
             "bzlFile": "@@rules_oci~//oci:repositories.bzl",
             "ruleClassName": "crane_repositories",
             "attributes": {
               "platform": "darwin_arm64",
               "crane_version": "v0.18.0"
+            }
+          },
+          "distroless_base_linux_amd64": {
+            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "ruleClassName": "oci_pull",
+            "attributes": {
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "distroless/base",
+              "identifier": "sha256:b31a6e02605827e77b7ebb82a0ac9669ec51091edd62c2c076175e05556f4ab9",
+              "platform": "linux/amd64",
+              "target_name": "distroless_base_linux_amd64",
+              "bazel_tags": []
             }
           },
           "jq_darwin_arm64": {
@@ -1148,6 +1069,22 @@
               "crane_version": "v0.18.0"
             }
           },
+          "distroless_cc": {
+            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "ruleClassName": "oci_alias",
+            "attributes": {
+              "target_name": "distroless_cc",
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "distroless/cc",
+              "identifier": "sha256:8aad707f96620ee89e27febef51b01c6ff244277a3560fcfcfbe68633ef09193",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@distroless_cc_linux_amd64"
+              },
+              "bzlmod_repository": "distroless_cc",
+              "reproducible": true
+            }
+          },
           "oci_regctl_windows_amd64": {
             "bzlFile": "@@rules_oci~//oci:repositories.bzl",
             "ruleClassName": "regctl_repositories",
@@ -1176,6 +1113,18 @@
             "ruleClassName": "copy_to_directory_platform_repo",
             "attributes": {
               "platform": "darwin_amd64"
+            }
+          },
+          "iptables_base_single": {
+            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "ruleClassName": "oci_pull",
+            "attributes": {
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "google-containers/debian-iptables",
+              "identifier": "sha256:9c41b4c326304b94eb96fdd2e181aa6e9995cc4642fcdfb570cedd73a419ba39",
+              "target_name": "iptables_base_single",
+              "bazel_tags": []
             }
           },
           "zstd_darwin_arm64": {
@@ -1247,6 +1196,22 @@
             "attributes": {
               "platform": "darwin_amd64",
               "crane_version": "v0.18.0"
+            }
+          },
+          "distroless_base": {
+            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "ruleClassName": "oci_alias",
+            "attributes": {
+              "target_name": "distroless_base",
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "distroless/base",
+              "identifier": "sha256:b31a6e02605827e77b7ebb82a0ac9669ec51091edd62c2c076175e05556f4ab9",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@distroless_base_linux_amd64"
+              },
+              "bzlmod_repository": "distroless_base",
+              "reproducible": true
             }
           },
           "bsd_tar_darwin_arm64": {
@@ -1355,6 +1320,21 @@
               "version": "1.7"
             }
           },
+          "iptables_base": {
+            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "ruleClassName": "oci_alias",
+            "attributes": {
+              "target_name": "iptables_base",
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "google-containers/debian-iptables",
+              "identifier": "sha256:9c41b4c326304b94eb96fdd2e181aa6e9995cc4642fcdfb570cedd73a419ba39",
+              "platforms": {},
+              "platform": "@@rules_oci~//oci:iptables_base_single",
+              "bzlmod_repository": "iptables_base",
+              "reproducible": true
+            }
+          },
           "oci_regctl_linux_i386": {
             "bzlFile": "@@rules_oci~//oci:repositories.bzl",
             "ruleClassName": "regctl_repositories",
@@ -1404,7 +1384,13 @@
           }
         },
         "moduleExtensionMetadata": {
-          "explicitRootModuleDirectDeps": [],
+          "explicitRootModuleDirectDeps": [
+            "distroless_base",
+            "distroless_base_linux_amd64",
+            "distroless_cc",
+            "distroless_cc_linux_amd64",
+            "iptables_base"
+          ],
           "explicitRootModuleDirectDevDeps": [],
           "useAllRepos": "NO",
           "reproducible": false
