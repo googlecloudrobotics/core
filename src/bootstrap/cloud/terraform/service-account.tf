@@ -53,14 +53,6 @@ resource "google_service_account_iam_policy" "robot-service" {
   count              = var.onprem_federation ? 1 : 0
 }
 
-# TODO(ensonic): check if this still makes sense after GAR migration
-resource "google_project_iam_member" "robot-service-account-container-access" {
-  project = var.private_image_repositories[count.index]
-  count   = var.onprem_federation ? length(var.private_image_repositories) : 0
-  role    = "roles/storage.objectViewer"
-  member  = "serviceAccount:${google_service_account.robot-service[0].email}"
-}
-
 resource "google_project_iam_member" "robot-service-roles" {
   project = data.google_project.project.project_id
   member  = "serviceAccount:${google_service_account.robot-service[0].email}"
