@@ -14,9 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# bazel will keep changing where this file actualy it
-HELM_BIN=$(find "${TEST_SRCDIR}/_main/external/" -name "helm" | grep "kubernetes_helm/helm")
-HELM="$HELM_BIN template"
+HELM="${TEST_SRCDIR}/_main/external/_main~non_module_deps~kubernetes_helm/helm template"
 CLOUD_BASE="${TEST_SRCDIR}/_main/src/app_charts/base/base-cloud-0.0.1.tgz"
 ROBOT_BASE="${TEST_SRCDIR}/_main/src/app_charts/base/base-robot-0.0.1.tgz"
 
