@@ -25,3 +25,12 @@ Our Terraform setup is special in two ways:
     its own state file in the GCS bucket. When initializing
     ("terraform init"), you need to set -backend-config to set the right prefix.
      deploy.sh also takes care of that.
+
+To run terraform command locally, do:
+
+```shell
+bazel build @hashicorp_terraform//:terraform
+alias terraform=$(realpath bazel-out/../../../external/_main~non_module_deps~hashicorp_terraform/terraform)
+cd src/bootstrap/cloud/terraform/
+terraform init
+```
