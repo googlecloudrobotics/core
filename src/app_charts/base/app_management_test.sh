@@ -14,7 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-HELM="${TEST_SRCDIR}/_main/external/_main~non_module_deps~kubernetes_helm/helm template"
+if [[ -x "${TEST_SRCDIR}/_main/external/_main~non_module_deps~kubernetes_helm/helm" ]] ; then
+  HELM="${TEST_SRCDIR}/_main/external/_main~non_module_deps~kubernetes_helm/helm template"
+elif [[ -x "${TEST_SRCDIR}/+non_module_deps+kubernetes_helm/helm" ]] ; then
+  HELM="${TEST_SRCDIR}/+non_module_deps+kubernetes_helm/helm template"
+else
+  # If we hit this again, consider using the runfiles library:
+  # https://github.com/bazelbuild/bazel/blob/master/tools/bash/runfiles/runfiles.bash#L55-L86
+  echo >&2 "Failed to locate helm in ${TEST_SRCDIR}."
+  exit 1
+fi
+
 CLOUD_BASE="${TEST_SRCDIR}/_main/src/app_charts/base/base-cloud-0.0.1.tgz"
 ROBOT_BASE="${TEST_SRCDIR}/_main/src/app_charts/base/base-robot-0.0.1.tgz"
 
