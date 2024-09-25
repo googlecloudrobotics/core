@@ -16,7 +16,7 @@
 
 HELM="${TEST_SRCDIR}/_main/external/_main~non_module_deps~kubernetes_helm/helm"
 if [[ ! -x "${HELM}" ]] ; then
-  HELM="${TEST_SRCDIR}/+non_module_deps+kubernetes_helm/helm template"
+  HELM="${TEST_SRCDIR}/+non_module_deps+kubernetes_helm/helm"
 fi
 if [[ ! -x "${HELM}" ]] ; then
   # If we hit this again, consider using the runfiles library:
