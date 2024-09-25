@@ -30,7 +30,7 @@ To run terraform command locally, do:
 
 ```shell
 bazel build @hashicorp_terraform//:terraform
-alias terraform=$(realpath bazel-out/../../../external/_main~non_module_deps~hashicorp_terraform/terraform)
+alias terraform=$(realpath bazel-out/../../../external/*hashicorp_terraform/terraform)
 cd src/bootstrap/cloud/terraform/
 terraform init
 ```
