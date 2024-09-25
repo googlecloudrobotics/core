@@ -28,16 +28,8 @@ RUNFILES_ROOT="_main"
 
 if is_source_install; then
   # Not using bazel run to not clobber the bazel-bin dir
-  TERRAFORM="${DIR}/bazel-out/../../../external/_main~non_module_deps~hashicorp_terraform/terraform"
-  HELM_COMMAND="${DIR}/bazel-out/../../../external/_main~non_module_deps~kubernetes_helm/helm"
-  if [[ ! -x "${TERRAFORM}" ]] ; then
-    TERRAFORM="${DIR}/bazel-out/../../../external/+non_module_deps+hashicorp_terraform/terraform"
-    HELM_COMMAND="${DIR}/bazel-out/../../../external/+non_module_deps+kubernetes_helm/helm"
-  fi
-  if [[ ! -x "${TERRAFORM}" ]] ; then
-    echo >&2 "Failed to locate terraform in ${DIR}."
-    exit 1
-  fi
+  TERRAFORM="${DIR}/bazel-out/../../../external/+non_module_deps+hashicorp_terraform/terraform"
+  HELM_COMMAND="${DIR}/bazel-out/../../../external/+non_module_deps+kubernetes_helm/helm"
   # To avoid a dependency on the host's glibc, we build synk with pure="on".
   # Because this is a non-default build configuration, it results in a separate
   # subdirectory of bazel-out/, which is not as easy to hardcode as
