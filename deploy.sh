@@ -91,11 +91,11 @@ function prepare_source_install {
       //src/go/cmd/setup-robot:setup-robot.push \
       //src/go/cmd/synk
 
-  # TODO(rodrigoq): the containerregistry API would be enabled by Terraform, but
+  # TODO(rodrigoq): the artifactregistry API would be enabled by Terraform, but
   # that doesn't run until later, as it needs the digest of the setup-robot
   # image. Consider splitting prepare_source_install into source_install_build
   # and source_install_push and using Terraform to enable the API in between.
-  gcloud services enable containerregistry.googleapis.com \
+  gcloud services enable artifactregistry.googleapis.com \
     --project "${GCP_PROJECT_ID}"
 
   # `setup-robot.push` is the first container push to avoid a GCR bug with parallel pushes on newly
