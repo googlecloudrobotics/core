@@ -27,9 +27,9 @@ PROJECT_NAME="cloud-robotics"
 RUNFILES_ROOT="_main"
 
 if is_source_install; then
-  # Not using bazel run to not clobber the bazel-bin dir, sadly bazel will keep changing the exact semantics
-  TERRAFORM=$(find "${DIR}/bazel-out/../../../external/" -name "terraform" | grep "hashicorp_terraform/terraform")
-  HELM_COMMAND=$(find "${DIR}/bazel-out/../../../external/" -name "helm" | grep "kubernetes_helm/helm")
+  # Not using bazel run to not clobber the bazel-bin dir
+  TERRAFORM="${DIR}/bazel-out/../../../external/+non_module_deps+hashicorp_terraform/terraform"
+  HELM_COMMAND="${DIR}/bazel-out/../../../external/+non_module_deps+kubernetes_helm/helm"
   # To avoid a dependency on the host's glibc, we build synk with pure="on".
   # Because this is a non-default build configuration, it results in a separate
   # subdirectory of bazel-out/, which is not as easy to hardcode as
