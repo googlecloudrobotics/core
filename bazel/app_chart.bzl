@@ -41,6 +41,7 @@ def _impl(ctx):
         outputs = [values_yaml],
         inputs = ctx.files.values + source_digests,
         command = "\n".join(cmds),
+        toolchain = None,
     )
 
     helm_chart(

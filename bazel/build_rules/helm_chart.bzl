@@ -42,4 +42,5 @@ def helm_chart(ctx, name, chart, files, templates, values, version, helm, out):
         tools = [helm],
         outputs = [out],
         command = cmd,
+        toolchain = None,
     )
