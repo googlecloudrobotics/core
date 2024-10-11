@@ -1,5 +1,5 @@
 {
-  "lockFileVersion": 11,
+  "lockFileVersion": 12,
   "registryFileHashes": {
     "https://bcr.bazel.build/bazel_registry.json": "8a28e4aff06ee60aed2a8c281907fb8bcbf3b753c91fb5a5c57da3215d5b3497",
     "https://bcr.bazel.build/modules/abseil-cpp/20210324.2/MODULE.bazel": "7cd0312e064fde87c8d1cd79ba06c876bd23630c83466e9500321be55c96ace2",
@@ -249,7 +249,7 @@
         ]
       }
     },
-    "@@apple_support~//crosstool:setup.bzl%apple_cc_configure_extension": {
+    "@@apple_support+//crosstool:setup.bzl%apple_cc_configure_extension": {
       "general": {
         "bzlTransitiveDigest": "Co35oEwSoYZFy42IHjYfE7VkKR1WykyxhRlbUGSa3XA=",
         "usagesDigest": "kAiZ0pIyMCEI6oNovW/6ha6DfF+JOAUfNSIrjupvVRE=",
@@ -258,26 +258,26 @@
         "envVariables": {},
         "generatedRepoSpecs": {
           "local_config_apple_cc": {
-            "bzlFile": "@@apple_support~//crosstool:setup.bzl",
+            "bzlFile": "@@apple_support+//crosstool:setup.bzl",
             "ruleClassName": "_apple_cc_autoconf",
             "attributes": {}
           },
           "local_config_apple_cc_toolchains": {
-            "bzlFile": "@@apple_support~//crosstool:setup.bzl",
+            "bzlFile": "@@apple_support+//crosstool:setup.bzl",
             "ruleClassName": "_apple_cc_autoconf_toolchains",
             "attributes": {}
           }
         },
         "recordedRepoMappingEntries": [
           [
-            "apple_support~",
+            "apple_support+",
             "bazel_tools",
             "bazel_tools"
           ]
         ]
       }
     },
-    "@@aspect_bazel_lib~//lib:extensions.bzl%toolchains": {
+    "@@aspect_bazel_lib+//lib:extensions.bzl%toolchains": {
       "general": {
         "bzlTransitiveDigest": "o+c8qRBWojmxp6XnxraB8cDLR3egI6E7hjYq4t1rzM8=",
         "usagesDigest": "mgHWEnAunupPwxBJSDGT6bGj0yzq1iy/OnOZ6IonD3I=",
@@ -286,21 +286,21 @@
         "envVariables": {},
         "generatedRepoSpecs": {
           "expand_template_windows_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:expand_template_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:expand_template_toolchain.bzl",
             "ruleClassName": "expand_template_platform_repo",
             "attributes": {
               "platform": "windows_amd64"
             }
           },
           "copy_to_directory_windows_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_platform_repo",
             "attributes": {
               "platform": "windows_amd64"
             }
           },
           "jq_darwin_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_platform_repo",
             "attributes": {
               "platform": "darwin_amd64",
@@ -308,21 +308,21 @@
             }
           },
           "copy_to_directory_freebsd_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_platform_repo",
             "attributes": {
               "platform": "freebsd_amd64"
             }
           },
           "expand_template_linux_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:expand_template_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:expand_template_toolchain.bzl",
             "ruleClassName": "expand_template_platform_repo",
             "attributes": {
               "platform": "linux_amd64"
             }
           },
           "jq_linux_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_platform_repo",
             "attributes": {
               "platform": "linux_arm64",
@@ -330,7 +330,7 @@
             }
           },
           "coreutils_darwin_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:coreutils_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:coreutils_toolchain.bzl",
             "ruleClassName": "coreutils_platform_repo",
             "attributes": {
               "platform": "darwin_arm64",
@@ -338,28 +338,28 @@
             }
           },
           "copy_to_directory_linux_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_platform_repo",
             "attributes": {
               "platform": "linux_arm64"
             }
           },
           "bsd_tar_linux_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:tar_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:tar_toolchain.bzl",
             "ruleClassName": "bsdtar_binary_repo",
             "attributes": {
               "platform": "linux_arm64"
             }
           },
           "copy_directory_darwin_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_directory_toolchain.bzl",
             "ruleClassName": "copy_directory_platform_repo",
             "attributes": {
               "platform": "darwin_amd64"
             }
           },
           "coreutils_darwin_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:coreutils_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:coreutils_toolchain.bzl",
             "ruleClassName": "coreutils_platform_repo",
             "attributes": {
               "platform": "darwin_amd64",
@@ -367,7 +367,7 @@
             }
           },
           "coreutils_linux_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:coreutils_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:coreutils_toolchain.bzl",
             "ruleClassName": "coreutils_platform_repo",
             "attributes": {
               "platform": "linux_arm64",
@@ -375,14 +375,14 @@
             }
           },
           "zstd_linux_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:zstd_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:zstd_toolchain.bzl",
             "ruleClassName": "zstd_binary_repo",
             "attributes": {
               "platform": "linux_arm64"
             }
           },
           "yq_linux_s390x": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:yq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:yq_toolchain.bzl",
             "ruleClassName": "yq_platform_repo",
             "attributes": {
               "platform": "linux_s390x",
@@ -390,26 +390,26 @@
             }
           },
           "yq": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:yq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:yq_toolchain.bzl",
             "ruleClassName": "yq_host_alias_repo",
             "attributes": {}
           },
           "expand_template_darwin_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:expand_template_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:expand_template_toolchain.bzl",
             "ruleClassName": "expand_template_platform_repo",
             "attributes": {
               "platform": "darwin_amd64"
             }
           },
           "copy_directory_linux_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_directory_toolchain.bzl",
             "ruleClassName": "copy_directory_platform_repo",
             "attributes": {
               "platform": "linux_amd64"
             }
           },
           "jq_darwin_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_platform_repo",
             "attributes": {
               "platform": "darwin_arm64",
@@ -417,7 +417,7 @@
             }
           },
           "yq_darwin_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:yq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:yq_toolchain.bzl",
             "ruleClassName": "yq_platform_repo",
             "attributes": {
               "platform": "darwin_amd64",
@@ -425,14 +425,14 @@
             }
           },
           "copy_directory_linux_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_directory_toolchain.bzl",
             "ruleClassName": "copy_directory_platform_repo",
             "attributes": {
               "platform": "linux_arm64"
             }
           },
           "expand_template_toolchains": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:expand_template_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:expand_template_toolchain.bzl",
             "ruleClassName": "expand_template_toolchains_repo",
             "attributes": {
               "user_repository_name": "expand_template"
@@ -451,35 +451,35 @@
             }
           },
           "copy_to_directory_darwin_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_platform_repo",
             "attributes": {
               "platform": "darwin_amd64"
             }
           },
           "zstd_darwin_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:zstd_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:zstd_toolchain.bzl",
             "ruleClassName": "zstd_binary_repo",
             "attributes": {
               "platform": "darwin_arm64"
             }
           },
           "bsd_tar_linux_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:tar_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:tar_toolchain.bzl",
             "ruleClassName": "bsdtar_binary_repo",
             "attributes": {
               "platform": "linux_amd64"
             }
           },
           "yq_toolchains": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:yq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:yq_toolchain.bzl",
             "ruleClassName": "yq_toolchains_repo",
             "attributes": {
               "user_repository_name": "yq"
             }
           },
           "zstd_linux_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:zstd_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:zstd_toolchain.bzl",
             "ruleClassName": "zstd_binary_repo",
             "attributes": {
               "platform": "linux_amd64"
@@ -498,40 +498,40 @@
             }
           },
           "bsd_tar_windows_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:tar_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:tar_toolchain.bzl",
             "ruleClassName": "bsdtar_binary_repo",
             "attributes": {
               "platform": "windows_amd64"
             }
           },
           "jq": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_host_alias_repo",
             "attributes": {}
           },
           "expand_template_darwin_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:expand_template_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:expand_template_toolchain.bzl",
             "ruleClassName": "expand_template_platform_repo",
             "attributes": {
               "platform": "darwin_arm64"
             }
           },
           "bsd_tar_darwin_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:tar_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:tar_toolchain.bzl",
             "ruleClassName": "bsdtar_binary_repo",
             "attributes": {
               "platform": "darwin_arm64"
             }
           },
           "copy_to_directory_linux_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_platform_repo",
             "attributes": {
               "platform": "linux_amd64"
             }
           },
           "coreutils_linux_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:coreutils_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:coreutils_toolchain.bzl",
             "ruleClassName": "coreutils_platform_repo",
             "attributes": {
               "platform": "linux_amd64",
@@ -539,14 +539,14 @@
             }
           },
           "copy_directory_toolchains": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_directory_toolchain.bzl",
             "ruleClassName": "copy_directory_toolchains_repo",
             "attributes": {
               "user_repository_name": "copy_directory"
             }
           },
           "yq_linux_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:yq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:yq_toolchain.bzl",
             "ruleClassName": "yq_platform_repo",
             "attributes": {
               "platform": "linux_amd64",
@@ -554,35 +554,35 @@
             }
           },
           "copy_to_directory_darwin_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_platform_repo",
             "attributes": {
               "platform": "darwin_arm64"
             }
           },
           "coreutils_toolchains": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:coreutils_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:coreutils_toolchain.bzl",
             "ruleClassName": "coreutils_toolchains_repo",
             "attributes": {
               "user_repository_name": "coreutils"
             }
           },
           "copy_directory_freebsd_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_directory_toolchain.bzl",
             "ruleClassName": "copy_directory_platform_repo",
             "attributes": {
               "platform": "freebsd_amd64"
             }
           },
           "zstd_darwin_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:zstd_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:zstd_toolchain.bzl",
             "ruleClassName": "zstd_binary_repo",
             "attributes": {
               "platform": "darwin_amd64"
             }
           },
           "zstd_toolchains": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:zstd_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:zstd_toolchain.bzl",
             "ruleClassName": "zstd_toolchains_repo",
             "attributes": {
               "user_repository_name": "zstd"
@@ -601,14 +601,14 @@
             }
           },
           "expand_template_linux_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:expand_template_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:expand_template_toolchain.bzl",
             "ruleClassName": "expand_template_platform_repo",
             "attributes": {
               "platform": "linux_arm64"
             }
           },
           "jq_linux_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_platform_repo",
             "attributes": {
               "platform": "linux_amd64",
@@ -616,14 +616,14 @@
             }
           },
           "bsd_tar_darwin_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:tar_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:tar_toolchain.bzl",
             "ruleClassName": "bsdtar_binary_repo",
             "attributes": {
               "platform": "darwin_amd64"
             }
           },
           "bsd_tar_toolchains": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:tar_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:tar_toolchain.bzl",
             "ruleClassName": "tar_toolchains_repo",
             "attributes": {
               "user_repository_name": "bsd_tar"
@@ -642,7 +642,7 @@
             }
           },
           "yq_windows_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:yq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:yq_toolchain.bzl",
             "ruleClassName": "yq_platform_repo",
             "attributes": {
               "platform": "windows_amd64",
@@ -650,7 +650,7 @@
             }
           },
           "jq_windows_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_platform_repo",
             "attributes": {
               "platform": "windows_amd64",
@@ -658,14 +658,14 @@
             }
           },
           "expand_template_freebsd_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:expand_template_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:expand_template_toolchain.bzl",
             "ruleClassName": "expand_template_platform_repo",
             "attributes": {
               "platform": "freebsd_amd64"
             }
           },
           "yq_linux_ppc64le": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:yq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:yq_toolchain.bzl",
             "ruleClassName": "yq_platform_repo",
             "attributes": {
               "platform": "linux_ppc64le",
@@ -673,35 +673,35 @@
             }
           },
           "copy_to_directory_toolchains": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_toolchains_repo",
             "attributes": {
               "user_repository_name": "copy_to_directory"
             }
           },
           "jq_toolchains": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_toolchains_repo",
             "attributes": {
               "user_repository_name": "jq"
             }
           },
           "copy_directory_darwin_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_directory_toolchain.bzl",
             "ruleClassName": "copy_directory_platform_repo",
             "attributes": {
               "platform": "darwin_arm64"
             }
           },
           "copy_directory_windows_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_directory_toolchain.bzl",
             "ruleClassName": "copy_directory_platform_repo",
             "attributes": {
               "platform": "windows_amd64"
             }
           },
           "yq_darwin_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:yq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:yq_toolchain.bzl",
             "ruleClassName": "yq_platform_repo",
             "attributes": {
               "platform": "darwin_arm64",
@@ -709,7 +709,7 @@
             }
           },
           "coreutils_windows_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:coreutils_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:coreutils_toolchain.bzl",
             "ruleClassName": "coreutils_platform_repo",
             "attributes": {
               "platform": "windows_amd64",
@@ -717,7 +717,7 @@
             }
           },
           "yq_linux_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:yq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:yq_toolchain.bzl",
             "ruleClassName": "yq_platform_repo",
             "attributes": {
               "platform": "linux_arm64",
@@ -727,17 +727,17 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "aspect_bazel_lib~",
+            "aspect_bazel_lib+",
             "aspect_bazel_lib",
-            "aspect_bazel_lib~"
+            "aspect_bazel_lib+"
           ],
           [
-            "aspect_bazel_lib~",
+            "aspect_bazel_lib+",
             "bazel_skylib",
-            "bazel_skylib~"
+            "bazel_skylib+"
           ],
           [
-            "aspect_bazel_lib~",
+            "aspect_bazel_lib+",
             "bazel_tools",
             "bazel_tools"
           ]
@@ -761,7 +761,7 @@
         "recordedRepoMappingEntries": []
       }
     },
-    "@@rules_buf~//buf:extensions.bzl%ext": {
+    "@@rules_buf+//buf:extensions.bzl%ext": {
       "general": {
         "bzlTransitiveDigest": "gmPmM7QT5Jez2VVFcwbbMf/QWSRag+nJ1elFJFFTcn0=",
         "usagesDigest": "h/C6mQFlmGdKnhVtzeaMHQFgfJmI8JO3uDmuBWGy5PA=",
@@ -770,7 +770,7 @@
         "envVariables": {},
         "generatedRepoSpecs": {
           "rules_buf_toolchains": {
-            "bzlFile": "@@rules_buf~//buf/internal:toolchain.bzl",
+            "bzlFile": "@@rules_buf+//buf/internal:toolchain.bzl",
             "ruleClassName": "buf_download_releases",
             "attributes": {
               "version": "v1.27.0"
@@ -779,14 +779,14 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "rules_buf~",
+            "rules_buf+",
             "bazel_tools",
             "bazel_tools"
           ]
         ]
       }
     },
-    "@@rules_nodejs~//nodejs:extensions.bzl%node": {
+    "@@rules_nodejs+//nodejs:extensions.bzl%node": {
       "general": {
         "bzlTransitiveDigest": "N8+Tk3wV7XC+ICv9b1FAlvzCQRRo4oz/EOsvKHXwu1A=",
         "usagesDigest": "ra91/HxLYvJNMJkOfSCRDj3W73y8k6mHMvVpFFZu6e4=",
@@ -795,14 +795,14 @@
         "envVariables": {},
         "generatedRepoSpecs": {
           "nodejs_host": {
-            "bzlFile": "@@rules_nodejs~//nodejs/private:nodejs_repo_host_os_alias.bzl",
+            "bzlFile": "@@rules_nodejs+//nodejs/private:nodejs_repo_host_os_alias.bzl",
             "ruleClassName": "nodejs_repo_host_os_alias",
             "attributes": {
               "user_node_repository_name": "nodejs"
             }
           },
           "nodejs_linux_s390x": {
-            "bzlFile": "@@rules_nodejs~//nodejs:repositories.bzl",
+            "bzlFile": "@@rules_nodejs+//nodejs:repositories.bzl",
             "ruleClassName": "node_repositories",
             "attributes": {
               "platform": "linux_s390x",
@@ -810,7 +810,7 @@
             }
           },
           "nodejs_windows_amd64": {
-            "bzlFile": "@@rules_nodejs~//nodejs:repositories.bzl",
+            "bzlFile": "@@rules_nodejs+//nodejs:repositories.bzl",
             "ruleClassName": "node_repositories",
             "attributes": {
               "platform": "windows_amd64",
@@ -818,14 +818,14 @@
             }
           },
           "nodejs_toolchains": {
-            "bzlFile": "@@rules_nodejs~//nodejs/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_nodejs+//nodejs/private:toolchains_repo.bzl",
             "ruleClassName": "toolchains_repo",
             "attributes": {
               "user_node_repository_name": "nodejs"
             }
           },
           "nodejs_linux_amd64": {
-            "bzlFile": "@@rules_nodejs~//nodejs:repositories.bzl",
+            "bzlFile": "@@rules_nodejs+//nodejs:repositories.bzl",
             "ruleClassName": "node_repositories",
             "attributes": {
               "platform": "linux_amd64",
@@ -833,7 +833,7 @@
             }
           },
           "nodejs_linux_ppc64le": {
-            "bzlFile": "@@rules_nodejs~//nodejs:repositories.bzl",
+            "bzlFile": "@@rules_nodejs+//nodejs:repositories.bzl",
             "ruleClassName": "node_repositories",
             "attributes": {
               "platform": "linux_ppc64le",
@@ -841,7 +841,7 @@
             }
           },
           "nodejs_darwin_amd64": {
-            "bzlFile": "@@rules_nodejs~//nodejs:repositories.bzl",
+            "bzlFile": "@@rules_nodejs+//nodejs:repositories.bzl",
             "ruleClassName": "node_repositories",
             "attributes": {
               "platform": "darwin_amd64",
@@ -849,7 +849,7 @@
             }
           },
           "nodejs_linux_arm64": {
-            "bzlFile": "@@rules_nodejs~//nodejs:repositories.bzl",
+            "bzlFile": "@@rules_nodejs+//nodejs:repositories.bzl",
             "ruleClassName": "node_repositories",
             "attributes": {
               "platform": "linux_arm64",
@@ -857,14 +857,14 @@
             }
           },
           "nodejs": {
-            "bzlFile": "@@rules_nodejs~//nodejs/private:nodejs_repo_host_os_alias.bzl",
+            "bzlFile": "@@rules_nodejs+//nodejs/private:nodejs_repo_host_os_alias.bzl",
             "ruleClassName": "nodejs_repo_host_os_alias",
             "attributes": {
               "user_node_repository_name": "nodejs"
             }
           },
           "nodejs_darwin_arm64": {
-            "bzlFile": "@@rules_nodejs~//nodejs:repositories.bzl",
+            "bzlFile": "@@rules_nodejs+//nodejs:repositories.bzl",
             "ruleClassName": "node_repositories",
             "attributes": {
               "platform": "darwin_arm64",
@@ -874,40 +874,40 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "rules_nodejs~",
+            "rules_nodejs+",
             "bazel_skylib",
-            "bazel_skylib~"
+            "bazel_skylib+"
           ],
           [
-            "rules_nodejs~",
+            "rules_nodejs+",
             "bazel_tools",
             "bazel_tools"
           ]
         ]
       }
     },
-    "@@rules_oci~//oci:extensions.bzl%oci": {
+    "@@rules_oci+//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "kb+/sXT2w8THjLkcvD17xA39/QzFy7CIhkgpUV6+JxE=",
-        "usagesDigest": "EtkJYPSWItik/QaX+lNPo6ahFrl6zirWJpprRt7XmiY=",
+        "usagesDigest": "x0haldwzfFwf1t4X4wAEuvZ1MT7KNY2Q0FcpboDmSFk=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "bazel_features_version": {
-            "bzlFile": "@@bazel_features~//private:version_repo.bzl",
+            "bzlFile": "@@bazel_features+//private:version_repo.bzl",
             "ruleClassName": "version_repo",
             "attributes": {}
           },
           "copy_to_directory_windows_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_platform_repo",
             "attributes": {
               "platform": "windows_amd64"
             }
           },
           "jq_darwin_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_platform_repo",
             "attributes": {
               "platform": "darwin_amd64",
@@ -915,14 +915,14 @@
             }
           },
           "copy_to_directory_freebsd_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_platform_repo",
             "attributes": {
               "platform": "freebsd_amd64"
             }
           },
           "oci_crane_linux_arm64": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "crane_repositories",
             "attributes": {
               "platform": "linux_arm64",
@@ -930,7 +930,7 @@
             }
           },
           "jq_linux_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_platform_repo",
             "attributes": {
               "platform": "linux_arm64",
@@ -938,7 +938,7 @@
             }
           },
           "coreutils_darwin_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:coreutils_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:coreutils_toolchain.bzl",
             "ruleClassName": "coreutils_platform_repo",
             "attributes": {
               "platform": "darwin_arm64",
@@ -946,21 +946,21 @@
             }
           },
           "bsd_tar_linux_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:tar_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:tar_toolchain.bzl",
             "ruleClassName": "bsdtar_binary_repo",
             "attributes": {
               "platform": "linux_arm64"
             }
           },
           "copy_to_directory_linux_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_platform_repo",
             "attributes": {
               "platform": "linux_arm64"
             }
           },
           "oci_regctl_toolchains": {
-            "bzlFile": "@@rules_oci~//oci/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_oci+//oci/private:toolchains_repo.bzl",
             "ruleClassName": "toolchains_repo",
             "attributes": {
               "toolchain_type": "@rules_oci//oci:regctl_toolchain_type",
@@ -968,14 +968,14 @@
             }
           },
           "oci_regctl_windows_armv6": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "regctl_repositories",
             "attributes": {
               "platform": "windows_armv6"
             }
           },
           "oci_crane_linux_amd64": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "crane_repositories",
             "attributes": {
               "platform": "linux_amd64",
@@ -983,7 +983,7 @@
             }
           },
           "coreutils_darwin_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:coreutils_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:coreutils_toolchain.bzl",
             "ruleClassName": "coreutils_platform_repo",
             "attributes": {
               "platform": "darwin_amd64",
@@ -991,7 +991,7 @@
             }
           },
           "coreutils_linux_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:coreutils_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:coreutils_toolchain.bzl",
             "ruleClassName": "coreutils_platform_repo",
             "attributes": {
               "platform": "linux_arm64",
@@ -999,14 +999,14 @@
             }
           },
           "zstd_linux_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:zstd_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:zstd_toolchain.bzl",
             "ruleClassName": "zstd_binary_repo",
             "attributes": {
               "platform": "linux_arm64"
             }
           },
           "distroless_cc_linux_amd64": {
-            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "bzlFile": "@@rules_oci+//oci/private:pull.bzl",
             "ruleClassName": "oci_pull",
             "attributes": {
               "scheme": "https",
@@ -1019,7 +1019,7 @@
             }
           },
           "oci_crane_darwin_arm64": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "crane_repositories",
             "attributes": {
               "platform": "darwin_arm64",
@@ -1027,7 +1027,7 @@
             }
           },
           "distroless_base_linux_amd64": {
-            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "bzlFile": "@@rules_oci+//oci/private:pull.bzl",
             "ruleClassName": "oci_pull",
             "attributes": {
               "scheme": "https",
@@ -1040,7 +1040,7 @@
             }
           },
           "jq_darwin_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_platform_repo",
             "attributes": {
               "platform": "darwin_arm64",
@@ -1048,21 +1048,21 @@
             }
           },
           "oci_regctl_linux_s390x": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "regctl_repositories",
             "attributes": {
               "platform": "linux_s390x"
             }
           },
           "oci_regctl_darwin_amd64": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "regctl_repositories",
             "attributes": {
               "platform": "darwin_amd64"
             }
           },
           "oci_crane_linux_i386": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "crane_repositories",
             "attributes": {
               "platform": "linux_i386",
@@ -1070,7 +1070,7 @@
             }
           },
           "distroless_cc": {
-            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "bzlFile": "@@rules_oci+//oci/private:pull.bzl",
             "ruleClassName": "oci_alias",
             "attributes": {
               "target_name": "distroless_cc",
@@ -1086,14 +1086,14 @@
             }
           },
           "oci_regctl_windows_amd64": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "regctl_repositories",
             "attributes": {
               "platform": "windows_amd64"
             }
           },
           "oci_crane_windows_armv6": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "crane_repositories",
             "attributes": {
               "platform": "windows_armv6",
@@ -1101,7 +1101,7 @@
             }
           },
           "oci_crane_toolchains": {
-            "bzlFile": "@@rules_oci~//oci/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_oci+//oci/private:toolchains_repo.bzl",
             "ruleClassName": "toolchains_repo",
             "attributes": {
               "toolchain_type": "@rules_oci//oci:crane_toolchain_type",
@@ -1109,40 +1109,28 @@
             }
           },
           "copy_to_directory_darwin_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_platform_repo",
             "attributes": {
               "platform": "darwin_amd64"
             }
           },
-          "iptables_base_single": {
-            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
-            "ruleClassName": "oci_pull",
-            "attributes": {
-              "scheme": "https",
-              "registry": "gcr.io",
-              "repository": "google-containers/debian-iptables",
-              "identifier": "sha256:9c41b4c326304b94eb96fdd2e181aa6e9995cc4642fcdfb570cedd73a419ba39",
-              "target_name": "iptables_base_single",
-              "bazel_tags": []
-            }
-          },
           "zstd_darwin_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:zstd_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:zstd_toolchain.bzl",
             "ruleClassName": "zstd_binary_repo",
             "attributes": {
               "platform": "darwin_arm64"
             }
           },
           "bsd_tar_linux_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:tar_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:tar_toolchain.bzl",
             "ruleClassName": "bsdtar_binary_repo",
             "attributes": {
               "platform": "linux_amd64"
             }
           },
           "oci_crane_windows_amd64": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "crane_repositories",
             "attributes": {
               "platform": "windows_amd64",
@@ -1150,14 +1138,14 @@
             }
           },
           "oci_regctl_linux_arm64": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "regctl_repositories",
             "attributes": {
               "platform": "linux_arm64"
             }
           },
           "oci_crane_linux_s390x": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "crane_repositories",
             "attributes": {
               "platform": "linux_s390x",
@@ -1165,33 +1153,33 @@
             }
           },
           "zstd_linux_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:zstd_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:zstd_toolchain.bzl",
             "ruleClassName": "zstd_binary_repo",
             "attributes": {
               "platform": "linux_amd64"
             }
           },
           "oci_regctl_darwin_arm64": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "regctl_repositories",
             "attributes": {
               "platform": "darwin_arm64"
             }
           },
           "bsd_tar_windows_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:tar_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:tar_toolchain.bzl",
             "ruleClassName": "bsdtar_binary_repo",
             "attributes": {
               "platform": "windows_amd64"
             }
           },
           "jq": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_host_alias_repo",
             "attributes": {}
           },
           "oci_crane_darwin_amd64": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "crane_repositories",
             "attributes": {
               "platform": "darwin_amd64",
@@ -1199,7 +1187,7 @@
             }
           },
           "distroless_base": {
-            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "bzlFile": "@@rules_oci+//oci/private:pull.bzl",
             "ruleClassName": "oci_alias",
             "attributes": {
               "target_name": "distroless_base",
@@ -1215,21 +1203,21 @@
             }
           },
           "bsd_tar_darwin_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:tar_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:tar_toolchain.bzl",
             "ruleClassName": "bsdtar_binary_repo",
             "attributes": {
               "platform": "darwin_arm64"
             }
           },
           "copy_to_directory_linux_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_platform_repo",
             "attributes": {
               "platform": "linux_amd64"
             }
           },
           "coreutils_linux_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:coreutils_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:coreutils_toolchain.bzl",
             "ruleClassName": "coreutils_platform_repo",
             "attributes": {
               "platform": "linux_amd64",
@@ -1248,7 +1236,7 @@
             }
           },
           "oci_crane_linux_armv6": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "crane_repositories",
             "attributes": {
               "platform": "linux_armv6",
@@ -1256,35 +1244,35 @@
             }
           },
           "copy_to_directory_darwin_arm64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_platform_repo",
             "attributes": {
               "platform": "darwin_arm64"
             }
           },
           "coreutils_toolchains": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:coreutils_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:coreutils_toolchain.bzl",
             "ruleClassName": "coreutils_toolchains_repo",
             "attributes": {
               "user_repository_name": "coreutils"
             }
           },
           "zstd_darwin_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:zstd_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:zstd_toolchain.bzl",
             "ruleClassName": "zstd_binary_repo",
             "attributes": {
               "platform": "darwin_amd64"
             }
           },
           "zstd_toolchains": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:zstd_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:zstd_toolchain.bzl",
             "ruleClassName": "zstd_toolchains_repo",
             "attributes": {
               "user_repository_name": "zstd"
             }
           },
           "jq_linux_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_platform_repo",
             "attributes": {
               "platform": "linux_amd64",
@@ -1292,28 +1280,41 @@
             }
           },
           "bsd_tar_darwin_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:tar_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:tar_toolchain.bzl",
             "ruleClassName": "bsdtar_binary_repo",
             "attributes": {
               "platform": "darwin_amd64"
             }
           },
           "oci_regctl_linux_amd64": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "regctl_repositories",
             "attributes": {
               "platform": "linux_amd64"
             }
           },
+          "iptables_base_linux_amd64": {
+            "bzlFile": "@@rules_oci+//oci/private:pull.bzl",
+            "ruleClassName": "oci_pull",
+            "attributes": {
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "google-containers/debian-iptables",
+              "identifier": "sha256:656e45c00083359107b1d6ae0411ff3894ba23011a8533e229937a71be84e063",
+              "platform": "linux/amd64",
+              "target_name": "iptables_base_linux_amd64",
+              "bazel_tags": []
+            }
+          },
           "bsd_tar_toolchains": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:tar_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:tar_toolchain.bzl",
             "ruleClassName": "tar_toolchains_repo",
             "attributes": {
               "user_repository_name": "bsd_tar"
             }
           },
           "jq_windows_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_platform_repo",
             "attributes": {
               "platform": "windows_amd64",
@@ -1321,50 +1322,51 @@
             }
           },
           "iptables_base": {
-            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "bzlFile": "@@rules_oci+//oci/private:pull.bzl",
             "ruleClassName": "oci_alias",
             "attributes": {
               "target_name": "iptables_base",
               "scheme": "https",
               "registry": "gcr.io",
               "repository": "google-containers/debian-iptables",
-              "identifier": "sha256:9c41b4c326304b94eb96fdd2e181aa6e9995cc4642fcdfb570cedd73a419ba39",
-              "platforms": {},
-              "platform": "@@rules_oci~//oci:iptables_base_single",
+              "identifier": "sha256:656e45c00083359107b1d6ae0411ff3894ba23011a8533e229937a71be84e063",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@iptables_base_linux_amd64"
+              },
               "bzlmod_repository": "iptables_base",
               "reproducible": true
             }
           },
           "oci_regctl_linux_i386": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "regctl_repositories",
             "attributes": {
               "platform": "linux_i386"
             }
           },
           "jq_toolchains": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:jq_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_toolchains_repo",
             "attributes": {
               "user_repository_name": "jq"
             }
           },
           "copy_to_directory_toolchains": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:copy_to_directory_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:copy_to_directory_toolchain.bzl",
             "ruleClassName": "copy_to_directory_toolchains_repo",
             "attributes": {
               "user_repository_name": "copy_to_directory"
             }
           },
           "oci_regctl_linux_armv6": {
-            "bzlFile": "@@rules_oci~//oci:repositories.bzl",
+            "bzlFile": "@@rules_oci+//oci:repositories.bzl",
             "ruleClassName": "regctl_repositories",
             "attributes": {
               "platform": "linux_armv6"
             }
           },
           "bazel_features_globals": {
-            "bzlFile": "@@bazel_features~//private:globals_repo.bzl",
+            "bzlFile": "@@bazel_features+//private:globals_repo.bzl",
             "ruleClassName": "globals_repo",
             "attributes": {
               "globals": {
@@ -1375,7 +1377,7 @@
             }
           },
           "coreutils_windows_amd64": {
-            "bzlFile": "@@aspect_bazel_lib~//lib/private:coreutils_toolchain.bzl",
+            "bzlFile": "@@aspect_bazel_lib+//lib/private:coreutils_toolchain.bzl",
             "ruleClassName": "coreutils_platform_repo",
             "attributes": {
               "platform": "windows_amd64",
@@ -1389,7 +1391,8 @@
             "distroless_base_linux_amd64",
             "distroless_cc",
             "distroless_cc_linux_amd64",
-            "iptables_base"
+            "iptables_base",
+            "iptables_base_linux_amd64"
           ],
           "explicitRootModuleDirectDevDeps": [],
           "useAllRepos": "NO",
@@ -1397,34 +1400,34 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "aspect_bazel_lib~",
+            "aspect_bazel_lib+",
             "bazel_tools",
             "bazel_tools"
           ],
           [
-            "bazel_features~",
+            "bazel_features+",
             "bazel_tools",
             "bazel_tools"
           ],
           [
-            "rules_oci~",
+            "rules_oci+",
             "aspect_bazel_lib",
-            "aspect_bazel_lib~"
+            "aspect_bazel_lib+"
           ],
           [
-            "rules_oci~",
+            "rules_oci+",
             "bazel_features",
-            "bazel_features~"
+            "bazel_features+"
           ],
           [
-            "rules_oci~",
+            "rules_oci+",
             "bazel_skylib",
-            "bazel_skylib~"
+            "bazel_skylib+"
           ]
         ]
       }
     },
-    "@@rules_python~//python/extensions:python.bzl%python": {
+    "@@rules_python+//python/extensions:python.bzl%python": {
       "general": {
         "bzlTransitiveDigest": "uHZmn4VCpelMhuk7Rz8Q5oK94ttURW5KkyvXa6hRTfk=",
         "usagesDigest": "P7slbbUykG7SQ80qe3PKiWmS37GeZna/EoZ3AohCTGc=",
@@ -1435,7 +1438,7 @@
         },
         "generatedRepoSpecs": {
           "python_3_11_s390x-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "49520e3ff494708020f306e30b0964f079170be83e956be4504f850557378a22",
@@ -1453,7 +1456,7 @@
             }
           },
           "python_3_8_aarch64-apple-darwin": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "1825b1f7220bc93ff143f2e70b5c6a79c6469e0eeb40824e07a7277f59aabfda",
@@ -1471,7 +1474,7 @@
             }
           },
           "python_3_10_aarch64-apple-darwin": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "fd027b1dedf1ea034cdaa272e91771bdf75ddef4c8653b05d224a0645aa2ca3c",
@@ -1489,7 +1492,7 @@
             }
           },
           "python_3_10_x86_64-apple-darwin": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "be0b19b6af1f7d8c667e5abef5505ad06cf72e5a11bb5844970c395a7e5b1275",
@@ -1507,7 +1510,7 @@
             }
           },
           "python_3_11_aarch64-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "b102eaf865eb715aa98a8a2ef19037b6cc3ae7dfd4a632802650f29de635aa13",
@@ -1525,7 +1528,7 @@
             }
           },
           "python_3_10_ppc64le-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "f3f9c43eec1a0c3f72845d0b705da17a336d3906b7df212d2640b8f47e8ff375",
@@ -1543,7 +1546,7 @@
             }
           },
           "python_3_10_x86_64-pc-windows-msvc": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "b8d930ce0d04bda83037ad3653d7450f8907c88e24bb8255a29b8dab8930d6f1",
@@ -1561,7 +1564,7 @@
             }
           },
           "pythons_hub": {
-            "bzlFile": "@@rules_python~//python/private/bzlmod:pythons_hub.bzl",
+            "bzlFile": "@@rules_python+//python/private/bzlmod:pythons_hub.bzl",
             "ruleClassName": "hub_repo",
             "attributes": {
               "default_python_version": "3.11",
@@ -1596,7 +1599,7 @@
             }
           },
           "python_3_12_x86_64-pc-windows-msvc": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "fd5a9e0f41959d0341246d3643f2b8794f638adc0cec8dd5e1b6465198eae08a",
@@ -1614,7 +1617,7 @@
             }
           },
           "python_3_12_x86_64-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "74e330b8212ca22fd4d9a2003b9eec14892155566738febc8e5e572f267b9472",
@@ -1632,7 +1635,7 @@
             }
           },
           "python_3_9_host": {
-            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_python+//python/private:toolchains_repo.bzl",
             "ruleClassName": "host_toolchain",
             "attributes": {
               "python_version": "3.9.18",
@@ -1649,7 +1652,7 @@
             }
           },
           "python_3_12_aarch64-apple-darwin": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "f93f8375ca6ac0a35d58ff007043cbd3a88d9609113f1cb59cf7c8d215f064af",
@@ -1667,7 +1670,7 @@
             }
           },
           "python_3_8_x86_64-pc-windows-msvc": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "a9d203e78caed94de368d154e841610cef6f6b484738573f4ae9059d37e898a5",
@@ -1685,7 +1688,7 @@
             }
           },
           "python_3_9_ppc64le-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "101c38b22fb2f5a0945156da4259c8e9efa0c08de9d7f59afa51e7ce6e22a1cc",
@@ -1703,7 +1706,7 @@
             }
           },
           "python_3_12_s390x-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "60631211c701f8d2c56e5dd7b154e68868128a019b9db1d53a264f56c0d4aee2",
@@ -1721,7 +1724,7 @@
             }
           },
           "python_3_12_aarch64-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "236533ef20e665007a111c2f36efb59c87ae195ad7dca223b6dc03fb07064f0b",
@@ -1739,7 +1742,7 @@
             }
           },
           "python_3_11_ppc64le-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "b44e1b74afe75c7b19143413632c4386708ae229117f8f950c2094e9681d34c7",
@@ -1757,7 +1760,7 @@
             }
           },
           "python_3_9_x86_64-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "f3ff38b1ccae7dcebd8bbf2e533c9a984fac881de0ffd1636fbb61842bd924de",
@@ -1775,7 +1778,7 @@
             }
           },
           "python_3_12_host": {
-            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_python+//python/private:toolchains_repo.bzl",
             "ruleClassName": "host_toolchain",
             "attributes": {
               "python_version": "3.12.1",
@@ -1792,7 +1795,7 @@
             }
           },
           "python_3_9_s390x-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "eee31e55ffbc1f460d7b17f05dd89e45a2636f374a6f8dc29ea13d0497f7f586",
@@ -1810,7 +1813,7 @@
             }
           },
           "python_3_8_x86_64-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "1e8a3babd1500111359b0f5675d770984bcbcb2cc8890b117394f0ed342fb9ec",
@@ -1828,7 +1831,7 @@
             }
           },
           "python_3_8_host": {
-            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_python+//python/private:toolchains_repo.bzl",
             "ruleClassName": "host_toolchain",
             "attributes": {
               "python_version": "3.8.18",
@@ -1843,7 +1846,7 @@
             }
           },
           "python_3_11_host": {
-            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_python+//python/private:toolchains_repo.bzl",
             "ruleClassName": "host_toolchain",
             "attributes": {
               "python_version": "3.11.7",
@@ -1860,7 +1863,7 @@
             }
           },
           "python_3_9": {
-            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_python+//python/private:toolchains_repo.bzl",
             "ruleClassName": "toolchain_aliases",
             "attributes": {
               "python_version": "3.9.18",
@@ -1877,7 +1880,7 @@
             }
           },
           "python_3_11_aarch64-apple-darwin": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "b042c966920cf8465385ca3522986b12d745151a72c060991088977ca36d3883",
@@ -1895,7 +1898,7 @@
             }
           },
           "python_3_8_aarch64-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "236a300f386ead02ca98dbddbc026ff4ef4de6701a394106e291ff8b75445ee1",
@@ -1913,7 +1916,7 @@
             }
           },
           "python_3_8": {
-            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_python+//python/private:toolchains_repo.bzl",
             "ruleClassName": "toolchain_aliases",
             "attributes": {
               "python_version": "3.8.18",
@@ -1928,7 +1931,7 @@
             }
           },
           "python_3_11_x86_64-pc-windows-msvc": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "67077e6fa918e4f4fd60ba169820b00be7c390c497bf9bc9cab2c255ea8e6f3e",
@@ -1946,7 +1949,7 @@
             }
           },
           "python_3_9_aarch64-apple-darwin": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "fdc4054837e37b69798c2ef796222a480bc1f80e8ad3a01a95d0168d8282a007",
@@ -1964,7 +1967,7 @@
             }
           },
           "python_3_8_x86_64-apple-darwin": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "fcf04532e644644213977242cd724fe5e84c0a5ac92ae038e07f1b01b474fca3",
@@ -1982,7 +1985,7 @@
             }
           },
           "python_3_9_x86_64-pc-windows-msvc": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "02ea7bb64524886bd2b05d6b6be4401035e4ba4319146f274f0bcd992822cd75",
@@ -2000,7 +2003,7 @@
             }
           },
           "python_3_12": {
-            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_python+//python/private:toolchains_repo.bzl",
             "ruleClassName": "toolchain_aliases",
             "attributes": {
               "python_version": "3.12.1",
@@ -2017,7 +2020,7 @@
             }
           },
           "python_3_12_x86_64-apple-darwin": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "eca96158c1568dedd9a0b3425375637a83764d1fa74446438293089a8bfac1f8",
@@ -2035,7 +2038,7 @@
             }
           },
           "python_3_9_aarch64-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "1e0a3e8ce8e58901a259748c0ab640d2b8294713782d14229e882c6898b2fb36",
@@ -2053,7 +2056,7 @@
             }
           },
           "python_3_10_aarch64-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "8675915ff454ed2f1597e27794bc7df44f5933c26b94aa06af510fe91b58bb97",
@@ -2071,7 +2074,7 @@
             }
           },
           "python_3_11": {
-            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_python+//python/private:toolchains_repo.bzl",
             "ruleClassName": "toolchain_aliases",
             "attributes": {
               "python_version": "3.11.7",
@@ -2088,7 +2091,7 @@
             }
           },
           "python_3_10_s390x-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "859f6cfe9aedb6e8858892fdc124037e83ab05f28d42a7acd314c6a16d6bd66c",
@@ -2106,7 +2109,7 @@
             }
           },
           "python_3_10": {
-            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_python+//python/private:toolchains_repo.bzl",
             "ruleClassName": "toolchain_aliases",
             "attributes": {
               "python_version": "3.10.13",
@@ -2123,7 +2126,7 @@
             }
           },
           "python_3_11_x86_64-apple-darwin": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "a0e615eef1fafdc742da0008425a9030b7ea68a4ae4e73ac557ef27b112836d4",
@@ -2141,7 +2144,7 @@
             }
           },
           "python_versions": {
-            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_python+//python/private:toolchains_repo.bzl",
             "ruleClassName": "multi_toolchain_aliases",
             "attributes": {
               "python_versions": {
@@ -2154,7 +2157,7 @@
             }
           },
           "python_3_9_x86_64-apple-darwin": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "82231cb77d4a5c8081a1a1d5b8ae440abe6993514eb77a926c826e9a69a94fb1",
@@ -2172,7 +2175,7 @@
             }
           },
           "python_3_10_x86_64-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "5d0429c67c992da19ba3eb58b3acd0b35ec5e915b8cae9a4aa8ca565c423847a",
@@ -2190,7 +2193,7 @@
             }
           },
           "python_3_12_ppc64le-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "78051f0d1411ee62bc2af5edfccf6e8400ac4ef82887a2affc19a7ace6a05267",
@@ -2208,7 +2211,7 @@
             }
           },
           "python_3_10_host": {
-            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "bzlFile": "@@rules_python+//python/private:toolchains_repo.bzl",
             "ruleClassName": "host_toolchain",
             "attributes": {
               "python_version": "3.10.13",
@@ -2225,7 +2228,7 @@
             }
           },
           "python_3_11_x86_64-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "bzlFile": "@@rules_python+//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
               "sha256": "4a51ce60007a6facf64e5495f4cf322e311ba9f39a8cd3f3e4c026eae488e140",
@@ -2245,19 +2248,19 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "rules_python~",
+            "rules_python+",
             "bazel_skylib",
-            "bazel_skylib~"
+            "bazel_skylib+"
           ],
           [
-            "rules_python~",
+            "rules_python+",
             "bazel_tools",
             "bazel_tools"
           ]
         ]
       }
     },
-    "@@rules_python~//python/private/bzlmod:internal_deps.bzl%internal_deps": {
+    "@@rules_python+//python/private/bzlmod:internal_deps.bzl%internal_deps": {
       "general": {
         "bzlTransitiveDigest": "k05IAnu/N6e9CnPr7q0UXa7U54cIegSInQS0KZiOV9Y=",
         "usagesDigest": "4Fj9JSpEDoJSLPRSbvSTol2bTL7baZjuA3k9U7kG/1k=",
@@ -2376,7 +2379,7 @@
             }
           },
           "rules_python_internal": {
-            "bzlFile": "@@rules_python~//python/private:internal_config_repo.bzl",
+            "bzlFile": "@@rules_python+//python/private:internal_config_repo.bzl",
             "ruleClassName": "internal_config_repo",
             "attributes": {}
           },
@@ -2423,14 +2426,14 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "rules_python~",
+            "rules_python+",
             "bazel_tools",
             "bazel_tools"
           ]
         ]
       }
     },
-    "@@rules_rust~//rust:extensions.bzl%rust": {
+    "@@rules_rust+//rust:extensions.bzl%rust": {
       "general": {
         "bzlTransitiveDigest": "lRLzLdaWGwvBiC5AIGKi8hCc3fetRQK3bdMohvXS+oo=",
         "usagesDigest": "YgZzPONIiUVytXmSETtcAhTA0HRwkQjuU+TUli/EGu0=",
@@ -2439,7 +2442,7 @@
         "envVariables": {},
         "generatedRepoSpecs": {
           "rust_linux_x86_64__x86_64-unknown-linux-gnu__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-unknown-linux-gnu",
@@ -2464,7 +2467,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__aarch64-apple-darwin_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rustfmt_toolchain_tools_repository",
             "attributes": {
               "version": "nightly",
@@ -2480,7 +2483,7 @@
             }
           },
           "rust_windows_x86_64__wasm32-wasi__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-pc-windows-msvc",
@@ -2505,7 +2508,7 @@
             }
           },
           "rust_darwin_aarch64__wasm32-wasi__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-apple-darwin",
@@ -2530,7 +2533,7 @@
             }
           },
           "rust_darwin_x86_64__wasm32-wasi__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-apple-darwin",
@@ -2555,7 +2558,7 @@
             }
           },
           "rust_linux_aarch64__aarch64-unknown-linux-gnu__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-unknown-linux-gnu",
@@ -2580,7 +2583,7 @@
             }
           },
           "rust_windows_x86_64": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_set_repository",
             "attributes": {
               "toolchains": [
@@ -2594,7 +2597,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__x86_64-apple-darwin": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rustfmt_nightly-2024-05-02__x86_64-apple-darwin_tools//:rustfmt_toolchain",
@@ -2608,7 +2611,7 @@
             }
           },
           "rust_windows_aarch64__aarch64-pc-windows-msvc__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_windows_aarch64__aarch64-pc-windows-msvc__nightly_tools//:rust_toolchain",
@@ -2627,7 +2630,7 @@
             }
           },
           "rust_windows_aarch64__wasm32-wasi__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-pc-windows-msvc",
@@ -2652,7 +2655,7 @@
             }
           },
           "rust_windows_aarch64__aarch64-pc-windows-msvc__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-pc-windows-msvc",
@@ -2677,7 +2680,7 @@
             }
           },
           "rust_windows_aarch64": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_set_repository",
             "attributes": {
               "toolchains": [
@@ -2691,7 +2694,7 @@
             }
           },
           "rust_linux_x86_64__wasm32-unknown-unknown__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_linux_x86_64__wasm32-unknown-unknown__stable_tools//:rust_toolchain",
@@ -2710,7 +2713,7 @@
             }
           },
           "rust_windows_x86_64__x86_64-pc-windows-msvc__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-pc-windows-msvc",
@@ -2735,7 +2738,7 @@
             }
           },
           "rust_freebsd_x86_64__wasm32-unknown-unknown__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-unknown-freebsd",
@@ -2760,7 +2763,7 @@
             }
           },
           "rust_linux_x86_64__wasm32-unknown-unknown__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_linux_x86_64__wasm32-unknown-unknown__nightly_tools//:rust_toolchain",
@@ -2779,7 +2782,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__aarch64-pc-windows-msvc": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rustfmt_nightly-2024-05-02__aarch64-pc-windows-msvc_tools//:rustfmt_toolchain",
@@ -2793,7 +2796,7 @@
             }
           },
           "rust_windows_aarch64__wasm32-wasi__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_windows_aarch64__wasm32-wasi__nightly_tools//:rust_toolchain",
@@ -2812,7 +2815,7 @@
             }
           },
           "rust_darwin_aarch64__wasm32-unknown-unknown__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_darwin_aarch64__wasm32-unknown-unknown__stable_tools//:rust_toolchain",
@@ -2831,7 +2834,7 @@
             }
           },
           "rust_windows_x86_64__wasm32-wasi__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_windows_x86_64__wasm32-wasi__stable_tools//:rust_toolchain",
@@ -2850,7 +2853,7 @@
             }
           },
           "rust_linux_aarch64__wasm32-wasi__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_linux_aarch64__wasm32-wasi__nightly_tools//:rust_toolchain",
@@ -2869,7 +2872,7 @@
             }
           },
           "rust_windows_x86_64__x86_64-pc-windows-msvc__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-pc-windows-msvc",
@@ -2894,7 +2897,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__aarch64-unknown-linux-gnu": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rustfmt_nightly-2024-05-02__aarch64-unknown-linux-gnu_tools//:rustfmt_toolchain",
@@ -2908,7 +2911,7 @@
             }
           },
           "rust_windows_aarch64__wasm32-wasi__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_windows_aarch64__wasm32-wasi__stable_tools//:rust_toolchain",
@@ -2927,7 +2930,7 @@
             }
           },
           "rust_darwin_x86_64__wasm32-unknown-unknown__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-apple-darwin",
@@ -2952,7 +2955,7 @@
             }
           },
           "rust_linux_aarch64__wasm32-wasi__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_linux_aarch64__wasm32-wasi__stable_tools//:rust_toolchain",
@@ -2971,7 +2974,7 @@
             }
           },
           "rust_darwin_aarch64__aarch64-apple-darwin__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-apple-darwin",
@@ -2996,7 +2999,7 @@
             }
           },
           "rust_linux_x86_64__wasm32-unknown-unknown__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-unknown-linux-gnu",
@@ -3021,7 +3024,7 @@
             }
           },
           "rust_darwin_x86_64__wasm32-unknown-unknown__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_darwin_x86_64__wasm32-unknown-unknown__nightly_tools//:rust_toolchain",
@@ -3040,7 +3043,7 @@
             }
           },
           "rust_windows_aarch64__wasm32-wasi__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-pc-windows-msvc",
@@ -3065,7 +3068,7 @@
             }
           },
           "rust_darwin_x86_64__wasm32-wasi__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-apple-darwin",
@@ -3090,7 +3093,7 @@
             }
           },
           "rust_freebsd_x86_64__wasm32-wasi__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-unknown-freebsd",
@@ -3115,7 +3118,7 @@
             }
           },
           "rust_freebsd_x86_64__wasm32-unknown-unknown__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_freebsd_x86_64__wasm32-unknown-unknown__stable_tools//:rust_toolchain",
@@ -3134,7 +3137,7 @@
             }
           },
           "rust_freebsd_x86_64": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_set_repository",
             "attributes": {
               "toolchains": [
@@ -3148,7 +3151,7 @@
             }
           },
           "rust_windows_x86_64__wasm32-unknown-unknown__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_windows_x86_64__wasm32-unknown-unknown__stable_tools//:rust_toolchain",
@@ -3167,7 +3170,7 @@
             }
           },
           "rust_darwin_x86_64__wasm32-unknown-unknown__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-apple-darwin",
@@ -3192,7 +3195,7 @@
             }
           },
           "rust_linux_x86_64__x86_64-unknown-linux-gnu__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_linux_x86_64__x86_64-unknown-linux-gnu__stable_tools//:rust_toolchain",
@@ -3211,7 +3214,7 @@
             }
           },
           "rust_windows_x86_64__wasm32-wasi__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-pc-windows-msvc",
@@ -3236,7 +3239,7 @@
             }
           },
           "rust_windows_x86_64__x86_64-pc-windows-msvc__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_windows_x86_64__x86_64-pc-windows-msvc__stable_tools//:rust_toolchain",
@@ -3255,7 +3258,7 @@
             }
           },
           "rust_linux_x86_64__wasm32-wasi__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_linux_x86_64__wasm32-wasi__stable_tools//:rust_toolchain",
@@ -3274,7 +3277,7 @@
             }
           },
           "rust_darwin_aarch64__wasm32-wasi__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_darwin_aarch64__wasm32-wasi__nightly_tools//:rust_toolchain",
@@ -3293,7 +3296,7 @@
             }
           },
           "rust_darwin_x86_64__x86_64-apple-darwin__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-apple-darwin",
@@ -3318,7 +3321,7 @@
             }
           },
           "rust_darwin_aarch64__aarch64-apple-darwin__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-apple-darwin",
@@ -3343,7 +3346,7 @@
             }
           },
           "rust_linux_aarch64__wasm32-wasi__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-unknown-linux-gnu",
@@ -3368,7 +3371,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__x86_64-unknown-freebsd": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rustfmt_nightly-2024-05-02__x86_64-unknown-freebsd_tools//:rustfmt_toolchain",
@@ -3382,7 +3385,7 @@
             }
           },
           "rust_linux_aarch64__aarch64-unknown-linux-gnu__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-unknown-linux-gnu",
@@ -3407,7 +3410,7 @@
             }
           },
           "rust_linux_x86_64__wasm32-wasi__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_linux_x86_64__wasm32-wasi__nightly_tools//:rust_toolchain",
@@ -3426,7 +3429,7 @@
             }
           },
           "rust_windows_aarch64__wasm32-unknown-unknown__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_windows_aarch64__wasm32-unknown-unknown__stable_tools//:rust_toolchain",
@@ -3445,7 +3448,7 @@
             }
           },
           "rust_linux_aarch64": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_set_repository",
             "attributes": {
               "toolchains": [
@@ -3459,7 +3462,7 @@
             }
           },
           "rust_freebsd_x86_64__wasm32-wasi__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_freebsd_x86_64__wasm32-wasi__nightly_tools//:rust_toolchain",
@@ -3478,7 +3481,7 @@
             }
           },
           "rust_darwin_x86_64__wasm32-wasi__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_darwin_x86_64__wasm32-wasi__nightly_tools//:rust_toolchain",
@@ -3497,7 +3500,7 @@
             }
           },
           "rust_freebsd_x86_64__x86_64-unknown-freebsd__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-unknown-freebsd",
@@ -3522,7 +3525,7 @@
             }
           },
           "rust_darwin_x86_64__x86_64-apple-darwin__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_darwin_x86_64__x86_64-apple-darwin__nightly_tools//:rust_toolchain",
@@ -3541,7 +3544,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__aarch64-unknown-linux-gnu_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rustfmt_toolchain_tools_repository",
             "attributes": {
               "version": "nightly",
@@ -3557,7 +3560,7 @@
             }
           },
           "rust_windows_aarch64__aarch64-pc-windows-msvc__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_windows_aarch64__aarch64-pc-windows-msvc__stable_tools//:rust_toolchain",
@@ -3576,7 +3579,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__aarch64-apple-darwin": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rustfmt_nightly-2024-05-02__aarch64-apple-darwin_tools//:rustfmt_toolchain",
@@ -3590,7 +3593,7 @@
             }
           },
           "rust_darwin_aarch64__aarch64-apple-darwin__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_darwin_aarch64__aarch64-apple-darwin__nightly_tools//:rust_toolchain",
@@ -3609,7 +3612,7 @@
             }
           },
           "rust_linux_aarch64__wasm32-unknown-unknown__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-unknown-linux-gnu",
@@ -3634,7 +3637,7 @@
             }
           },
           "rust_toolchains": {
-            "bzlFile": "@@rules_rust~//rust/private:repository_utils.bzl",
+            "bzlFile": "@@rules_rust+//rust/private:repository_utils.bzl",
             "ruleClassName": "toolchain_repository_hub",
             "attributes": {
               "toolchain_names": [
@@ -4173,7 +4176,7 @@
             }
           },
           "rust_linux_aarch64__wasm32-unknown-unknown__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-unknown-linux-gnu",
@@ -4198,7 +4201,7 @@
             }
           },
           "rust_darwin_x86_64__x86_64-apple-darwin__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-apple-darwin",
@@ -4223,7 +4226,7 @@
             }
           },
           "rust_darwin_aarch64__wasm32-unknown-unknown__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_darwin_aarch64__wasm32-unknown-unknown__nightly_tools//:rust_toolchain",
@@ -4242,7 +4245,7 @@
             }
           },
           "rust_freebsd_x86_64__wasm32-unknown-unknown__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-unknown-freebsd",
@@ -4267,7 +4270,7 @@
             }
           },
           "rust_freebsd_x86_64__wasm32-wasi__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_freebsd_x86_64__wasm32-wasi__stable_tools//:rust_toolchain",
@@ -4286,7 +4289,7 @@
             }
           },
           "rust_darwin_aarch64__wasm32-unknown-unknown__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-apple-darwin",
@@ -4311,7 +4314,7 @@
             }
           },
           "rust_linux_aarch64__aarch64-unknown-linux-gnu__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_linux_aarch64__aarch64-unknown-linux-gnu__stable_tools//:rust_toolchain",
@@ -4330,7 +4333,7 @@
             }
           },
           "rust_linux_aarch64__wasm32-unknown-unknown__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_linux_aarch64__wasm32-unknown-unknown__stable_tools//:rust_toolchain",
@@ -4349,7 +4352,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__aarch64-pc-windows-msvc_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rustfmt_toolchain_tools_repository",
             "attributes": {
               "version": "nightly",
@@ -4365,7 +4368,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__x86_64-pc-windows-msvc": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rustfmt_nightly-2024-05-02__x86_64-pc-windows-msvc_tools//:rustfmt_toolchain",
@@ -4379,7 +4382,7 @@
             }
           },
           "rust_linux_x86_64__x86_64-unknown-linux-gnu__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-unknown-linux-gnu",
@@ -4404,7 +4407,7 @@
             }
           },
           "rust_analyzer_1.78.0_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_analyzer_toolchain_tools_repository",
             "attributes": {
               "version": "1.78.0",
@@ -4419,7 +4422,7 @@
             }
           },
           "rust_linux_aarch64__wasm32-wasi__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-unknown-linux-gnu",
@@ -4444,7 +4447,7 @@
             }
           },
           "rust_freebsd_x86_64__wasm32-wasi__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-unknown-freebsd",
@@ -4469,7 +4472,7 @@
             }
           },
           "rust_windows_x86_64__x86_64-pc-windows-msvc__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_windows_x86_64__x86_64-pc-windows-msvc__nightly_tools//:rust_toolchain",
@@ -4488,7 +4491,7 @@
             }
           },
           "rust_freebsd_x86_64__x86_64-unknown-freebsd__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-unknown-freebsd",
@@ -4513,7 +4516,7 @@
             }
           },
           "rust_darwin_x86_64__wasm32-unknown-unknown__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_darwin_x86_64__wasm32-unknown-unknown__stable_tools//:rust_toolchain",
@@ -4532,7 +4535,7 @@
             }
           },
           "rust_darwin_aarch64__aarch64-apple-darwin__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_darwin_aarch64__aarch64-apple-darwin__stable_tools//:rust_toolchain",
@@ -4551,7 +4554,7 @@
             }
           },
           "rust_windows_x86_64__wasm32-unknown-unknown__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-pc-windows-msvc",
@@ -4576,7 +4579,7 @@
             }
           },
           "rust_linux_x86_64__wasm32-wasi__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-unknown-linux-gnu",
@@ -4601,7 +4604,7 @@
             }
           },
           "rust_darwin_x86_64": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_set_repository",
             "attributes": {
               "toolchains": [
@@ -4615,7 +4618,7 @@
             }
           },
           "rust_windows_aarch64__wasm32-unknown-unknown__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-pc-windows-msvc",
@@ -4640,7 +4643,7 @@
             }
           },
           "rust_darwin_aarch64__wasm32-unknown-unknown__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-apple-darwin",
@@ -4665,7 +4668,7 @@
             }
           },
           "rust_windows_x86_64__wasm32-unknown-unknown__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-pc-windows-msvc",
@@ -4690,7 +4693,7 @@
             }
           },
           "rust_darwin_aarch64": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_set_repository",
             "attributes": {
               "toolchains": [
@@ -4704,7 +4707,7 @@
             }
           },
           "rust_darwin_x86_64__x86_64-apple-darwin__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_darwin_x86_64__x86_64-apple-darwin__stable_tools//:rust_toolchain",
@@ -4723,7 +4726,7 @@
             }
           },
           "rust_darwin_x86_64__wasm32-wasi__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_darwin_x86_64__wasm32-wasi__stable_tools//:rust_toolchain",
@@ -4742,7 +4745,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__x86_64-unknown-linux-gnu": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rustfmt_nightly-2024-05-02__x86_64-unknown-linux-gnu_tools//:rustfmt_toolchain",
@@ -4756,7 +4759,7 @@
             }
           },
           "rust_linux_x86_64__wasm32-wasi__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-unknown-linux-gnu",
@@ -4781,7 +4784,7 @@
             }
           },
           "rust_linux_x86_64": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_set_repository",
             "attributes": {
               "toolchains": [
@@ -4795,7 +4798,7 @@
             }
           },
           "rust_windows_aarch64__wasm32-unknown-unknown__stable_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-pc-windows-msvc",
@@ -4820,7 +4823,7 @@
             }
           },
           "rust_linux_aarch64__wasm32-unknown-unknown__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_linux_aarch64__wasm32-unknown-unknown__nightly_tools//:rust_toolchain",
@@ -4839,7 +4842,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__x86_64-pc-windows-msvc_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rustfmt_toolchain_tools_repository",
             "attributes": {
               "version": "nightly",
@@ -4855,7 +4858,7 @@
             }
           },
           "rust_linux_x86_64__x86_64-unknown-linux-gnu__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_linux_x86_64__x86_64-unknown-linux-gnu__nightly_tools//:rust_toolchain",
@@ -4874,7 +4877,7 @@
             }
           },
           "rust_windows_aarch64__wasm32-unknown-unknown__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_windows_aarch64__wasm32-unknown-unknown__nightly_tools//:rust_toolchain",
@@ -4893,7 +4896,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__x86_64-unknown-linux-gnu_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rustfmt_toolchain_tools_repository",
             "attributes": {
               "version": "nightly",
@@ -4909,7 +4912,7 @@
             }
           },
           "rust_windows_x86_64__wasm32-unknown-unknown__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_windows_x86_64__wasm32-unknown-unknown__nightly_tools//:rust_toolchain",
@@ -4928,7 +4931,7 @@
             }
           },
           "rust_windows_x86_64__wasm32-wasi__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_windows_x86_64__wasm32-wasi__nightly_tools//:rust_toolchain",
@@ -4947,7 +4950,7 @@
             }
           },
           "rust_linux_aarch64__aarch64-unknown-linux-gnu__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_linux_aarch64__aarch64-unknown-linux-gnu__nightly_tools//:rust_toolchain",
@@ -4966,7 +4969,7 @@
             }
           },
           "rust_darwin_aarch64__wasm32-wasi__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_darwin_aarch64__wasm32-wasi__stable_tools//:rust_toolchain",
@@ -4985,7 +4988,7 @@
             }
           },
           "rust_freebsd_x86_64__wasm32-unknown-unknown__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_freebsd_x86_64__wasm32-unknown-unknown__nightly_tools//:rust_toolchain",
@@ -5004,7 +5007,7 @@
             }
           },
           "rust_windows_aarch64__aarch64-pc-windows-msvc__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-pc-windows-msvc",
@@ -5029,7 +5032,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__x86_64-apple-darwin_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rustfmt_toolchain_tools_repository",
             "attributes": {
               "version": "nightly",
@@ -5045,7 +5048,7 @@
             }
           },
           "rust_darwin_aarch64__wasm32-wasi__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "aarch64-apple-darwin",
@@ -5070,7 +5073,7 @@
             }
           },
           "rustfmt_nightly-2024-05-02__x86_64-unknown-freebsd_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rustfmt_toolchain_tools_repository",
             "attributes": {
               "version": "nightly",
@@ -5086,7 +5089,7 @@
             }
           },
           "rust_freebsd_x86_64__x86_64-unknown-freebsd__stable": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_freebsd_x86_64__x86_64-unknown-freebsd__stable_tools//:rust_toolchain",
@@ -5105,7 +5108,7 @@
             }
           },
           "rust_freebsd_x86_64__x86_64-unknown-freebsd__nightly": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_freebsd_x86_64__x86_64-unknown-freebsd__nightly_tools//:rust_toolchain",
@@ -5124,7 +5127,7 @@
             }
           },
           "rust_analyzer_1.78.0": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "toolchain_repository_proxy",
             "attributes": {
               "toolchain": "@rust_analyzer_1.78.0_tools//:rust_analyzer_toolchain",
@@ -5134,7 +5137,7 @@
             }
           },
           "rust_linux_x86_64__wasm32-unknown-unknown__nightly_tools": {
-            "bzlFile": "@@rules_rust~//rust:repositories.bzl",
+            "bzlFile": "@@rules_rust+//rust:repositories.bzl",
             "ruleClassName": "rust_toolchain_tools_repository",
             "attributes": {
               "exec_triple": "x86_64-unknown-linux-gnu",
@@ -5161,39 +5164,39 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "bazel_features~",
+            "bazel_features+",
             "bazel_features_globals",
-            "bazel_features~~version_extension~bazel_features_globals"
+            "bazel_features++version_extension+bazel_features_globals"
           ],
           [
-            "bazel_features~",
+            "bazel_features+",
             "bazel_features_version",
-            "bazel_features~~version_extension~bazel_features_version"
+            "bazel_features++version_extension+bazel_features_version"
           ],
           [
-            "rules_rust~",
+            "rules_rust+",
             "bazel_features",
-            "bazel_features~"
+            "bazel_features+"
           ],
           [
-            "rules_rust~",
+            "rules_rust+",
             "bazel_skylib",
-            "bazel_skylib~"
+            "bazel_skylib+"
           ],
           [
-            "rules_rust~",
+            "rules_rust+",
             "bazel_tools",
             "bazel_tools"
           ],
           [
-            "rules_rust~",
+            "rules_rust+",
             "rules_rust",
-            "rules_rust~"
+            "rules_rust+"
           ]
         ]
       }
     },
-    "@@toolchains_llvm~//toolchain/extensions:llvm.bzl%llvm": {
+    "@@toolchains_llvm+//toolchain/extensions:llvm.bzl%llvm": {
       "general": {
         "bzlTransitiveDigest": "y9h5L2NtWbogyWSOJgqnUaU50MTPWAW+waelXSirMVg=",
         "usagesDigest": "fMMTt5cHbaWF+fGFgqOo3Vhg9UlIOVlVzn9Iov7hDio=",
@@ -5202,7 +5205,7 @@
         "envVariables": {},
         "generatedRepoSpecs": {
           "llvm_toolchain": {
-            "bzlFile": "@@toolchains_llvm~//toolchain:rules.bzl",
+            "bzlFile": "@@toolchains_llvm+//toolchain:rules.bzl",
             "ruleClassName": "toolchain",
             "attributes": {
               "absolute_paths": false,
@@ -5228,12 +5231,12 @@
               "unfiltered_compile_flags": {},
               "toolchain_roots": {},
               "sysroot": {
-                "linux-x86_64": "'@@_main~non_module_deps~com_googleapis_storage_chrome_linux_amd64_sysroot//:all_files'"
+                "linux-x86_64": "'@@+non_module_deps+com_googleapis_storage_chrome_linux_amd64_sysroot//:all_files'"
               }
             }
           },
           "llvm_toolchain_llvm": {
-            "bzlFile": "@@toolchains_llvm~//toolchain:rules.bzl",
+            "bzlFile": "@@toolchains_llvm+//toolchain:rules.bzl",
             "ruleClassName": "llvm",
             "attributes": {
               "alternative_llvm_sources": [],
@@ -5253,19 +5256,19 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "toolchains_llvm~",
+            "toolchains_llvm+",
             "bazel_skylib",
-            "bazel_skylib~"
+            "bazel_skylib+"
           ],
           [
-            "toolchains_llvm~",
+            "toolchains_llvm+",
             "bazel_tools",
             "bazel_tools"
           ],
           [
-            "toolchains_llvm~",
+            "toolchains_llvm+",
             "toolchains_llvm",
-            "toolchains_llvm~"
+            "toolchains_llvm+"
           ]
         ]
       }
