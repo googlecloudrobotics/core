@@ -54,6 +54,21 @@ refuse eg. robots to register other robots.
 * Body: application/x-pem-file
 * Response: only http status code
 
+### /public-key.configure: Customize robot registration
+
+Status: Proposed
+
+Configure optional properties of the on-prem robot registration.
+
+* URL: /apis/core.token-vendor/v1/public-key.configure
+* Method: POST
+* URL Params:
+  * device-id: unique device name (by default robot-<robot-id>)
+* Body: json {
+  service-account: str, defaults to robot-service@<gcp-project>.iam.gserviceaccount.com"
+}
+* Response: only http status code
+
 ### /public-key.read: Public key retrieval
 
 To verify messages send by a robot one can fetch the public key from the
