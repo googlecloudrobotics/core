@@ -35,8 +35,8 @@ func (m *MemoryRepository) PublishKey(ctx context.Context, deviceID, publicKey s
 	return nil
 }
 
-func (m *MemoryRepository) LookupKey(ctx context.Context, deviceID string) (string, error) {
+func (m *MemoryRepository) LookupKey(ctx context.Context, deviceID string) (string, string, error) {
 	slog.Debug("LookupKey", slog.String("DeviceID", deviceID))
 	// key not found does not need to be an error
-	return m.keys[deviceID], nil
+	return m.keys[deviceID], "", nil
 }

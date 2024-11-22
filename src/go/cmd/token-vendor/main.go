@@ -87,7 +87,7 @@ var (
 		"", "Endpoint URL of the token vendor. Used for verification of JWTs send by robots.")
 	scopes    = scopeFlags{}
 	robotName = flag.String("service_account", "robot-service",
-		"Name of the service account to generate cloud access tokens for.")
+		"Name of the service account to generate cloud access tokens for (unless specified per on-prem robot).")
 )
 
 func main() {

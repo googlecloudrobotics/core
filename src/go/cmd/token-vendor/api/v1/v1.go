@@ -293,7 +293,7 @@ func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request
 	// Authorization: ...
 	jwtString := strings.TrimPrefix(authHeader[0], "Bearer ")
 
-	if _, err := h.tv.ValidateJWT(r.Context(), jwtString); err != nil {
+	if _, _, err := h.tv.ValidateJWT(r.Context(), jwtString); err != nil {
 		slog.WarnContext(r.Context(), "JWT failed validation", ilog.Err(err))
 		api.ErrResponse(w, http.StatusForbidden, "JWT not valid")
 		return

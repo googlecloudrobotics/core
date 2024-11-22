@@ -32,13 +32,13 @@ func TestMemoryBackend(t *testing.T) {
 		t.Fatal(err)
 	}
 	var k string
-	if k, err = m.LookupKey(context.TODO(), "a"); err != nil {
+	if k, _, err = m.LookupKey(context.TODO(), "a"); err != nil {
 		t.Fatal(err)
 	}
 	if k != "akey" {
 		t.Fatalf("Key for a: got %q, want %q", k, "akey")
 	}
-	if k, err = m.LookupKey(context.TODO(), "b"); err != nil {
+	if k, _, err = m.LookupKey(context.TODO(), "b"); err != nil {
 		t.Fatal(err)
 	}
 	if k != "bkey" {
@@ -52,7 +52,7 @@ func TestMemoryNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 	var k string
-	if k, err = m.LookupKey(context.TODO(), "a"); err != nil {
+	if k, _, err = m.LookupKey(context.TODO(), "a"); err != nil {
 		t.Fatal(err)
 	}
 	if k != "" {

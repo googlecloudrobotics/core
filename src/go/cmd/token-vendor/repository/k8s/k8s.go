@@ -43,6 +43,8 @@ func NewK8sRepository(ctx context.Context, kcl kubernetes.Interface, ns string) 
 
 const (
 	pubKey = "pubKey" // Configmap key for the public key
+	// Configmap annotation specifies the service account to use (optional)
+	serviceAccountAnnotation = "cloudrobotics.com/gcp-service-account"
 )
 
 // ListAllDeviceIDs returns a slice of all device identifiers found in the namespace.
@@ -63,21 +65,22 @@ func (k *K8sRepository) ListAllDeviceIDs(ctx context.Context) ([]string, error) 
 // The public key is stored under a specific key in the configmap. If the configmap
 // does not exist, we return an empty string. For any other error or a malformed
 // configmap we return an error.
-func (k *K8sRepository) LookupKey(ctx context.Context, deviceID string) (string, error) {
+func (k *K8sRepository) LookupKey(ctx context.Context, deviceID string) (string, string, error) {
 	slog.Debug("looking up public key", slog.String("Namespace", k.ns), slog.String("ConfigMap", deviceID))
 	cm, err := k.kcl.CoreV1().ConfigMaps(k.ns).Get(ctx, deviceID, metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
 		slog.Debug("ConfigMap not found", slog.String("Namespace", k.ns), slog.String("ConfigMap", deviceID))
-		return "", nil
+		return "", "", nil
 	}
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to retrieve configmap %q/%q", k.ns, deviceID)
+		return "", "", errors.Wrapf(err, "failed to retrieve configmap %q/%q", k.ns, deviceID)
 	}
 	key, found := cm.Data[pubKey]
 	if !found {
-		return "", fmt.Errorf("configmap %q/%q does not contain key %q", k.ns, deviceID, pubKey)
+		return "", "", fmt.Errorf("configmap %q/%q does not contain key %q", k.ns, deviceID, pubKey)
 	}
-	return key, nil
+	sa, _ := cm.ObjectMeta.Annotations[serviceAccountAnnotation]
+	return key, sa, nil
 }
 
 // PublishKey sets or updates a public key for a given device identifier.

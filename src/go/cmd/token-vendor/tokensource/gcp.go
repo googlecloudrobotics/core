@@ -44,15 +44,19 @@ func NewGCPTokenSource(ctx context.Context, client *http.Client, project, sa str
 // Token returns an access token for the configured service account and scopes.
 //
 // API: https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/generateAccessToken
-func (g *GCPTokenSource) Token(ctx context.Context) (*TokenResponse, error) {
+func (g *GCPTokenSource) Token(ctx context.Context, saName string) (*TokenResponse, error) {
 	req := iam.GenerateAccessTokenRequest{Scope: g.scopes}
+	resource := g.resource
+	if saName != "" {
+		resource = "projects/-/serviceAccounts/" + saName
+	}
 	// We don't set a 'lifetime' on the request, so we get the default value (3600 sec = 1h).
 	// This needs to be in sync with the min(cookie-expire,cookie-refresh) duration
 	// configured on oauth2-proxy.
 	resp, err := g.service.Projects.ServiceAccounts.
-		GenerateAccessToken(g.resource, &req).Context(ctx).Do()
+		GenerateAccessToken(resource, &req).Context(ctx).Do()
 	if err != nil {
-		return nil, errors.Wrapf(err, "GenerateAccessToken(..) for %q failed", g.resource)
+		return nil, errors.Wrapf(err, "GenerateAccessToken(..) for %q failed", resource)
 	}
 	tok, err := tokenResponse(resp, g.scopes, time.Now())
 	if err != nil {

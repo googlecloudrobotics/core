@@ -36,7 +36,7 @@ type PubKeyRepository interface {
 	// LookupKey retrieves the public key of a device from the repository.
 	// An empty string return indicates that no key exists for the given identifier or
 	// that the device is blocked.
-	LookupKey(ctx context.Context, deviceID string) (string, error)
+	LookupKey(ctx context.Context, deviceID string) (string, string, error)
 	PublishKey(ctx context.Context, deviceID, publicKey string) error
 }
 
@@ -61,7 +61,8 @@ func (tv *TokenVendor) PublishPublicKey(ctx context.Context, deviceID, publicKey
 
 func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (string, error) {
 	slog.Debug("Returning public key", slog.String("DeviceID", deviceID))
-	return tv.repo.LookupKey(ctx, deviceID)
+	key, _, err := tv.repo.LookupKey(ctx, deviceID)
+	return key, err
 }
 
 var (
@@ -95,48 +96,48 @@ func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk string) (*tokens
 	return r, err
 }
 
-func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (string, error) {
+func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (string, string, error) {
 	p, err := jwt.PayloadUnsafe(jwtk)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to extract JWT payload")
+		return "", "", errors.Wrap(err, "failed to extract JWT payload")
 	}
 	exp := time.Unix(p.Exp, 0)
 	if exp.Before(time.Now()) {
-		return "", fmt.Errorf("JWT has expired %v, %v ago (iss: %q)",
+		return "", "", fmt.Errorf("JWT has expired %v, %v ago (iss: %q)",
 			exp, time.Since(exp), p.Iss)
 	}
 	if err := acceptedAudience(p.Aud, tv.accAud); err != nil {
-		return "", errors.Wrapf(err, "validation of JWT audience failed (iss: %q)", p.Iss)
+		return "", "", errors.Wrapf(err, "validation of JWT audience failed (iss: %q)", p.Iss)
 	}
 	if !IsValidDeviceID(p.Iss) {
-		return "", fmt.Errorf("missing or invalid device identifier (`iss`: %q)", p.Iss)
+		return "", "", fmt.Errorf("missing or invalid device identifier (`iss`: %q)", p.Iss)
 	}
 	deviceID := p.Iss
-	pubKey, err := tv.repo.LookupKey(ctx, deviceID)
+	pubKey, sa, err := tv.repo.LookupKey(ctx, deviceID)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to retrieve public key for device %q", deviceID)
+		return "", "", errors.Wrapf(err, "failed to retrieve public key for device %q", deviceID)
 	}
 	if pubKey == "" {
-		return "", errors.Errorf("no public key found for device %q", deviceID)
+		return "", "", errors.Errorf("no public key found for device %q", deviceID)
 	}
 	err = jwt.VerifySignature(jwtk, pubKey)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to verify signature for device %q", deviceID)
+		return "", "", errors.Wrapf(err, "failed to verify signature for device %q", deviceID)
 	}
 
-	return deviceID, nil
+	return deviceID, sa, nil
 }
 
 func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokensource.TokenResponse, error) {
-	deviceID, err := tv.ValidateJWT(ctx, jwtk)
+	deviceID, sa, err := tv.ValidateJWT(ctx, jwtk)
 	if err != nil {
 		return nil, err
 	}
-	cloudToken, err := tv.ts.Token(ctx)
+	cloudToken, err := tv.ts.Token(ctx, sa)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to retrieve a cloud token for device %q", deviceID)
 	}
-	slog.Info("Handing out cloud token", slog.String("DeviceID", deviceID))
+	slog.Info("Handing out cloud token", slog.String("DeviceID", deviceID), slog.String("ServiceAccount", sa))
 	return cloudToken, nil
 }
 
