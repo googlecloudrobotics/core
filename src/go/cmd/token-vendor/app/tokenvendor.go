@@ -33,17 +33,18 @@ import (
 )
 
 type TokenVendor struct {
-	repo   repository.PubKeyRepository
-	v      *oauth.TokenVerifier
-	ts     *tokensource.GCPTokenSource
-	accAud string
+	repo          repository.PubKeyRepository
+	v             *oauth.TokenVerifier
+	ts            *tokensource.GCPTokenSource
+	accAud        string
+	defaultSAName string
 }
 
-func NewTokenVendor(ctx context.Context, repo repository.PubKeyRepository, v *oauth.TokenVerifier, ts *tokensource.GCPTokenSource, acceptedAudience string) (*TokenVendor, error) {
+func NewTokenVendor(ctx context.Context, repo repository.PubKeyRepository, v *oauth.TokenVerifier, ts *tokensource.GCPTokenSource, acceptedAudience, defaultSAName string) (*TokenVendor, error) {
 	if acceptedAudience == "" {
 		return nil, errors.New("accepted audience must not be empty")
 	}
-	return &TokenVendor{repo: repo, v: v, accAud: acceptedAudience, ts: ts}, nil
+	return &TokenVendor{repo: repo, v: v, ts: ts, accAud: acceptedAudience, defaultSAName: defaultSAName}, nil
 }
 
 func (tv *TokenVendor) PublishPublicKey(ctx context.Context, deviceID, publicKey string) error {
@@ -127,6 +128,9 @@ func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokens
 	deviceID, sa, err := tv.ValidateJWT(ctx, jwtk)
 	if err != nil {
 		return nil, err
+	}
+	if sa == "" {
+		sa = tv.defaultSAName
 	}
 	cloudToken, err := tv.ts.Token(ctx, sa)
 	if err != nil {

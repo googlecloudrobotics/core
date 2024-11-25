@@ -27,6 +27,7 @@ import (
 const (
 	testPubKey    = "testdata/rsa_cert.pem"
 	jwtBodyPrefix = "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion="
+	saName        = "robot-service@testproject.iam.gserviceaccount.com"
 
 	jwtCorrect  = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZXN0YXVkIiwiaXNzIjoicm9ib3QtZGV2LXRlc3R1c2VyIiwiZXhwIjoxOTEzMzczMDEwLCJzY29wZXMiOiJ0ZXN0c2NvcGVzIiwiY2xhaW1zIjoidGVzdGNsYWltcyJ9.WJP0shiqynW9ZrmV4k78W3_nn_YA86XLK58IJYyqUF-8LAG92MraNqVqD0t6i-s90VBL64hCXlsA7zP3WlsMHOEvXCyRkGffhbJNIlJqIVTVfGvyF-ZmuaAr352n5kmKTrfTRi7h9LWTcvDgSosN438J8Jy9BT1FE9P-BHfyBUegZ15DWFAiAhz0r_Fgj7hAMXUnRdZfj3_dE0Nhi5IGs3L-0XzU-dE150ZJvtGMdIjc_QCqYHV3wtSgETKDYQoonD08n6g5GqC8nNkqrWFMttafLdPaDAsr8KWtj1dD1w9sw1YJClEzF9JOc63WNPZf8CgdU2enFW-V-2vHbUaekg"
 	jwtWrongSig = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZXN0YXVkIiwiaXNzIjoicm9ib3QtZGV2LXRlc3R1c2VyIiwiZXhwIjoxOTEzMzczMDEwLCJzY29wZXMiOiIuLi4iLCJjbGFpbXMiOiIuLi4ifQ.krAYHjkConzVudfXJUMiDNbVHF3RwkvOAhSCyTvOaJdlJ6sxh-TjPXo6W0yVT31qjLwhl1NYI-JlhcHX7TLiZbLCbGVXlQN2Nn4LvpbGdAH0KvSJkthqX7ld9tlVQGdlOUHCE5bBDG_9uBtpdOAv1zKUTquhyDM0qWVrQV1qUVOtwBCO6nt21l1eXgTwz50FVN33f1ZmhZfHW1u7Dq_XwBJmHFwN3aiD0NZohU7MpQiz-0u94Q9yZ588IjdZEUhSEUKrVtJjoPcxDhrXxoRMA8iP8_bMeOHteiAdYeBVBwFhu1d8pfcn6uoZROYD1xB1LWDTJx4GfQh6v3wtAwFu7Q"
@@ -129,7 +130,7 @@ func runPublicKeyReadHandlerWithK8sCase(t *testing.T, test *publicKeyReadHandler
 		t.Fatal(err)
 	}
 	// Setup app & API handler
-	tv, err := app.NewTokenVendor(context.TODO(), kcl, nil, nil, "aud")
+	tv, err := app.NewTokenVendor(context.TODO(), kcl, nil, nil, "aud", saName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +253,7 @@ func runPublicKeyPublishHandlerWithK8sCase(t *testing.T, test *publicKeyPublishH
 		t.Fatal(err)
 	}
 	// Setup app & API handler
-	tv, err := app.NewTokenVendor(context.TODO(), kcl, nil, nil, "aud")
+	tv, err := app.NewTokenVendor(context.TODO(), kcl, nil, nil, "aud", saName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -544,7 +545,7 @@ func runVerifyTokenHandlerTest(t *testing.T, test *VerifyTokenHandlerTest) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), nil, tver, nil, "aud")
+	tv, err := app.NewTokenVendor(context.TODO(), nil, tver, nil, "aud", saName)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -636,7 +637,7 @@ func TestTokenOAuth2HandlerExpired(t *testing.T) {
 func runTokenOAuth2HandlerTestWithK8s(t *testing.T, test TokenOAuth2HandlerTest) {
 	// fake GCP IAM response for an access token
 	fakeIAMAPI := func(req *http.Request) *http.Response {
-		const wantUrl = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/testsa@testproject.iam.gserviceaccount.com:generateAccessToken?alt=json&prettyPrint=false"
+		const wantUrl = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/robot-service@testproject.iam.gserviceaccount.com:generateAccessToken?alt=json&prettyPrint=false"
 		if req.URL.String() != wantUrl {
 			t.Fatalf("wrong IAM URL, got %q, want %q", req.URL, wantUrl)
 		}
@@ -652,8 +653,7 @@ func runTokenOAuth2HandlerTestWithK8s(t *testing.T, test TokenOAuth2HandlerTest)
 	}
 	// setup app and http client
 	clientIAM := NewTestHTTPClient(fakeIAMAPI)
-	ts, err := tokensource.NewGCPTokenSource(context.TODO(), clientIAM, "testproject", "testsa",
-		test.scopes)
+	ts, err := tokensource.NewGCPTokenSource(context.TODO(), clientIAM, test.scopes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -677,7 +677,7 @@ func runTokenOAuth2HandlerTestWithK8s(t *testing.T, test TokenOAuth2HandlerTest)
 	if err != nil {
 		t.Fatal(err)
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), r, nil, ts, test.acceptedAud)
+	tv, err := app.NewTokenVendor(context.TODO(), r, nil, ts, test.acceptedAud, saName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -771,7 +771,7 @@ func Test_verifyJWTHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), r, nil, nil, "testaud")
+	tv, err := app.NewTokenVendor(context.TODO(), r, nil, nil, "testaud", saName)
 	if err != nil {
 		t.Fatal(err)
 	}

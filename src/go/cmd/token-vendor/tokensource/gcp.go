@@ -15,9 +15,7 @@ import (
 
 type GCPTokenSource struct {
 	service *iam.Service
-	// the FQN of the service account
-	defaultResource string
-	scopes          []string
+	scopes  []string
 }
 
 type TokenResponse struct {
@@ -34,13 +32,12 @@ type TokenResponse struct {
 // authentication information is looked up from the environment.
 // `defaultSAName` specifies the GCP IAM service accoutn name to use if no
 // dedicated service account is configurred on the key.
-func NewGCPTokenSource(ctx context.Context, client *http.Client, project, defaultSAName string, scopes []string) (*GCPTokenSource, error) {
+func NewGCPTokenSource(ctx context.Context, client *http.Client, scopes []string) (*GCPTokenSource, error) {
 	service, err := iam.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create IAM service client")
 	}
-	resource := fmt.Sprintf("projects/-/serviceAccounts/%s@%s.iam.gserviceaccount.com", defaultSAName, project)
-	return &GCPTokenSource{service: service, defaultResource: resource, scopes: scopes}, nil
+	return &GCPTokenSource{service: service, scopes: scopes}, nil
 }
 
 // Token returns an access token for the configured service account and scopes.
@@ -48,10 +45,10 @@ func NewGCPTokenSource(ctx context.Context, client *http.Client, project, defaul
 // API: https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/generateAccessToken
 func (g *GCPTokenSource) Token(ctx context.Context, saName string) (*TokenResponse, error) {
 	req := iam.GenerateAccessTokenRequest{Scope: g.scopes}
-	resource := g.defaultResource
-	if saName != "" {
-		resource = "projects/-/serviceAccounts/" + saName
+	if saName == "" {
+		return nil, fmt.Errorf("saName must not be empty")
 	}
+	resource := "projects/-/serviceAccounts/" + saName
 	// We don't set a 'lifetime' on the request, so we get the default value (3600 sec = 1h).
 	// This needs to be in sync with the min(cookie-expire,cookie-refresh) duration
 	// configured on oauth2-proxy.
