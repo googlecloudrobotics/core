@@ -139,12 +139,13 @@ func main() {
 		slog.Error("Failed to make verifier", ilog.Err(err))
 		os.Exit(1)
 	}
-	ts, err := tokensource.NewGCPTokenSource(ctx, nil, *project, *robotName, scopes)
+	ts, err := tokensource.NewGCPTokenSource(ctx, nil, scopes)
 	if err != nil {
 		slog.Error("Failed to make token source", ilog.Err(err))
 		os.Exit(1)
 	}
-	tv, err := app.NewTokenVendor(ctx, rep, verifier, ts, *acceptedAudience)
+	saName := fmt.Sprintf("%s@%s.iam.gserviceaccount.com", *robotName, *project)
+	tv, err := app.NewTokenVendor(ctx, rep, verifier, ts, *acceptedAudience, saName)
 	if err != nil {
 		slog.Error("Failed to make token vendor", ilog.Err(err))
 		os.Exit(1)
