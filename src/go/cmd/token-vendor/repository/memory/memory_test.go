@@ -31,17 +31,18 @@ func TestMemoryBackend(t *testing.T) {
 	if err := m.PublishKey(context.TODO(), "b", "bkey"); err != nil {
 		t.Fatal(err)
 	}
-	var k string
-	if k, err = m.LookupKey(context.TODO(), "a"); err != nil {
+	k, err := m.LookupKey(context.TODO(), "a")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if k != "akey" {
+	if k.PublicKey != "akey" {
 		t.Fatalf("Key for a: got %q, want %q", k, "akey")
 	}
-	if k, err = m.LookupKey(context.TODO(), "b"); err != nil {
+	k, err = m.LookupKey(context.TODO(), "b")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if k != "bkey" {
+	if k.PublicKey != "bkey" {
 		t.Fatalf("Key for b: got %q, want %q", k, "bkey")
 	}
 }
@@ -51,11 +52,11 @@ func TestMemoryNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var k string
-	if k, err = m.LookupKey(context.TODO(), "a"); err != nil {
+	k, err := m.LookupKey(context.TODO(), "a")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if k != "" {
+	if k != nil {
 		t.Fatalf("LookupKey: got %q, expected empty response", k)
 	}
 }

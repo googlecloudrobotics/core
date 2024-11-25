@@ -5,6 +5,9 @@ go_library(
     srcs = ["memory.go"],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/memory",
     visibility = ["//visibility:public"],
+    deps = [
+        "//src/go/cmd/token-vendor/repository:go_default_library",
+    ]
 )
 
 go_test(

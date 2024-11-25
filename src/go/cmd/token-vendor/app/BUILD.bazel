@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//src/go/cmd/token-vendor/oauth:go_default_library",
         "//src/go/cmd/token-vendor/oauth/jwt:go_default_library",
+        "//src/go/cmd/token-vendor/repository:go_default_library",
         "//src/go/cmd/token-vendor/tokensource:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
