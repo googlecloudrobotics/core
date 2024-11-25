@@ -32,6 +32,7 @@ import (
 	apiv1 "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api/v1"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/k8s"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/memory"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
@@ -101,7 +102,7 @@ func main() {
 	slog.SetDefault(slog.New(logHandler))
 	// init components
 	ctx := context.Background()
-	var rep app.PubKeyRepository
+	var rep repository.PubKeyRepository
 	var err error
 	if *keyStore == Kubernetes {
 		config, err := rest.InClusterConfig()

@@ -33,7 +33,7 @@ func TestPublishListLookup(t *testing.T) {
 	if err = kcl.PublishKey(context.TODO(), id, key); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err = kcl.LookupKey(context.TODO(), id); err != nil {
+	if _, err = kcl.LookupKey(context.TODO(), id); err != nil {
 		t.Fatal(err)
 	}
 	devices, err := kcl.ListAllDeviceIDs(context.TODO())
@@ -60,12 +60,12 @@ func TestPublishKeyUpdate(t *testing.T) {
 	if err = kcl.PublishKey(context.TODO(), id, key2); err != nil {
 		t.Fatal(err)
 	}
-	k, _, err := kcl.LookupKey(context.TODO(), id)
+	k, err := kcl.LookupKey(context.TODO(), id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if k != key2 {
-		t.Fatalf("LookupKey(..) = %q, want %q", k, key2)
+	if k.PublicKey != key2 {
+		t.Fatalf("LookupKey(..) = %q, want %q", k.PublicKey, key2)
 	}
 }
 
@@ -76,11 +76,11 @@ func TestLookupDoesNotExist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	k, _, err := kcl.LookupKey(context.TODO(), "testdevice")
+	k, err := kcl.LookupKey(context.TODO(), "testdevice")
 	if err != nil {
 		t.Fatalf("LookupKey produced error %v, want nil", err)
 	}
-	if k != "" {
+	if k != nil {
 		t.Fatalf("LookupKey(..) = %q, want empty string", k)
 	}
 }

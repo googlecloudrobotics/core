@@ -17,6 +17,8 @@ package memory
 import (
 	"context"
 	"log/slog"
+
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository"
 )
 
 // MemoryRepository uses a in-memory datastructure to store the keys.
@@ -35,8 +37,12 @@ func (m *MemoryRepository) PublishKey(ctx context.Context, deviceID, publicKey s
 	return nil
 }
 
-func (m *MemoryRepository) LookupKey(ctx context.Context, deviceID string) (string, string, error) {
+func (m *MemoryRepository) LookupKey(ctx context.Context, deviceID string) (*repository.Key, error) {
 	slog.Debug("LookupKey", slog.String("DeviceID", deviceID))
 	// key not found does not need to be an error
-	return m.keys[deviceID], "", nil
+	k, found := m.keys[deviceID]
+	if !found {
+		return nil, nil
+	}
+	return &repository.Key{k, ""}, nil
 }

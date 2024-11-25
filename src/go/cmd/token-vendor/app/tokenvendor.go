@@ -27,27 +27,19 @@ import (
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth/jwt"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
 	"github.com/pkg/errors"
 )
 
-type PubKeyRepository interface {
-
-	// LookupKey retrieves the public key of a device from the repository.
-	// An empty string return indicates that no key exists for the given identifier or
-	// that the device is blocked.
-	LookupKey(ctx context.Context, deviceID string) (string, string, error)
-	PublishKey(ctx context.Context, deviceID, publicKey string) error
-}
-
 type TokenVendor struct {
-	repo   PubKeyRepository
+	repo   repository.PubKeyRepository
 	v      *oauth.TokenVerifier
 	ts     *tokensource.GCPTokenSource
 	accAud string
 }
 
-func NewTokenVendor(ctx context.Context, repo PubKeyRepository, v *oauth.TokenVerifier, ts *tokensource.GCPTokenSource, acceptedAudience string) (*TokenVendor, error) {
+func NewTokenVendor(ctx context.Context, repo repository.PubKeyRepository, v *oauth.TokenVerifier, ts *tokensource.GCPTokenSource, acceptedAudience string) (*TokenVendor, error) {
 	if acceptedAudience == "" {
 		return nil, errors.New("accepted audience must not be empty")
 	}
@@ -61,8 +53,11 @@ func (tv *TokenVendor) PublishPublicKey(ctx context.Context, deviceID, publicKey
 
 func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (string, error) {
 	slog.Debug("Returning public key", slog.String("DeviceID", deviceID))
-	key, _, err := tv.repo.LookupKey(ctx, deviceID)
-	return key, err
+	key, err := tv.repo.LookupKey(ctx, deviceID)
+	if key != nil {
+		return key.PublicKey, nil
+	}
+	return "", err
 }
 
 var (
@@ -113,19 +108,19 @@ func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (string, st
 		return "", "", fmt.Errorf("missing or invalid device identifier (`iss`: %q)", p.Iss)
 	}
 	deviceID := p.Iss
-	pubKey, sa, err := tv.repo.LookupKey(ctx, deviceID)
+	k, err := tv.repo.LookupKey(ctx, deviceID)
 	if err != nil {
 		return "", "", errors.Wrapf(err, "failed to retrieve public key for device %q", deviceID)
 	}
-	if pubKey == "" {
+	if k.PublicKey == "" {
 		return "", "", errors.Errorf("no public key found for device %q", deviceID)
 	}
-	err = jwt.VerifySignature(jwtk, pubKey)
+	err = jwt.VerifySignature(jwtk, k.PublicKey)
 	if err != nil {
 		return "", "", errors.Wrapf(err, "failed to verify signature for device %q", deviceID)
 	}
 
-	return deviceID, sa, nil
+	return deviceID, k.SAName, nil
 }
 
 func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokensource.TokenResponse, error) {
