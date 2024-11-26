@@ -32,6 +32,7 @@ import (
 	apiv1 "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api/v1"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/k8s"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/memory"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
@@ -87,7 +88,7 @@ var (
 		"", "Endpoint URL of the token vendor. Used for verification of JWTs send by robots.")
 	scopes    = scopeFlags{}
 	robotName = flag.String("service_account", "robot-service",
-		"Name of the service account to generate cloud access tokens for.")
+		"Name of the service account to generate cloud access tokens for (unless specified per on-prem robot).")
 )
 
 func main() {
@@ -101,7 +102,7 @@ func main() {
 	slog.SetDefault(slog.New(logHandler))
 	// init components
 	ctx := context.Background()
-	var rep app.PubKeyRepository
+	var rep repository.PubKeyRepository
 	var err error
 	if *keyStore == Kubernetes {
 		config, err := rest.InClusterConfig()
@@ -138,12 +139,13 @@ func main() {
 		slog.Error("Failed to make verifier", ilog.Err(err))
 		os.Exit(1)
 	}
-	ts, err := tokensource.NewGCPTokenSource(ctx, nil, *project, *robotName, scopes)
+	ts, err := tokensource.NewGCPTokenSource(ctx, nil, scopes)
 	if err != nil {
 		slog.Error("Failed to make token source", ilog.Err(err))
 		os.Exit(1)
 	}
-	tv, err := app.NewTokenVendor(ctx, rep, verifier, ts, *acceptedAudience)
+	saName := fmt.Sprintf("%s@%s.iam.gserviceaccount.com", *robotName, *project)
+	tv, err := app.NewTokenVendor(ctx, rep, verifier, ts, *acceptedAudience, saName)
 	if err != nil {
 		slog.Error("Failed to make token vendor", ilog.Err(err))
 		os.Exit(1)

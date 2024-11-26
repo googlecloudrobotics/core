@@ -64,8 +64,8 @@ func TestPublishKeyUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if k != key2 {
-		t.Fatalf("LookupKey(..) = %q, want %q", k, key2)
+	if k.PublicKey != key2 {
+		t.Fatalf("LookupKey(..) = %q, want %q", k.PublicKey, key2)
 	}
 }
 
@@ -80,7 +80,7 @@ func TestLookupDoesNotExist(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LookupKey produced error %v, want nil", err)
 	}
-	if k != "" {
+	if k != nil {
 		t.Fatalf("LookupKey(..) = %q, want empty string", k)
 	}
 }
