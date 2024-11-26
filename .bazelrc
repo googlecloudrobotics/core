@@ -15,7 +15,7 @@ build --incompatible_disallow_empty_glob
 
 # Use the new paths.
 # https://github.com/bazelbuild/bazel/issues/23127
-build --incompatible_use_plus_in_repo_names
+common --incompatible_use_plus_in_repo_names
 
 # Always use the pre-configured toolchain.
 build --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
