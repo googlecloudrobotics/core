@@ -30,12 +30,14 @@ else
   COMMAND="$3"
 fi
 
-if [[ -z "${GCP_PROJECT_ID}" || ! "${COMMAND}" =~ ^(|--set-config|--set-oauth|--delete)$ ]]; then
+if [[ -z "${GCP_PROJECT_ID}" || ! "${COMMAND}" =~ ^(|--set-config|--set-oauth|--delete|--terraform)$ ]]; then
   echo "Usage: $0 <project id> [<version-file>|<tarball>] [<command>]"
   echo "Supported commands:"
   echo "  --set-config    Updates the cloud config interactively."
   echo "  --set-oauth     Enables and configures OAuth interactively."
   echo "  --delete        Deletes Cloud Robotics from the cloud project."
+  echo "  --terraform     Apply only terraform changes."
+  echo "  (default)       Install the specifies version."
   exit 1
 fi
 
@@ -66,7 +68,11 @@ else
   # cloud and robot-installations are in sync
   export TARGET
   $BASH scripts/set-config.sh "${GCP_PROJECT_ID}" --ensure-config
-  $BASH ./deploy.sh create "${GCP_PROJECT_ID}"
+  if [[ "${COMMAND}" = "--terraform" ]]; then
+    $BASH ./deploy.sh update_infra "${GCP_PROJECT_ID}"
+  else
+    $BASH ./deploy.sh create "${GCP_PROJECT_ID}"
+  fi
 fi
 
 cd ${DIR}
