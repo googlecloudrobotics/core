@@ -718,31 +718,42 @@ func (c *Client) localProxy(remote, local *http.Client) error {
 	relayURL := c.buildRelayURL()
 
 	var req *pb.HttpRequest = nil
-	var err error = nil
 
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		req, err = c.getRequest(remote, relayURL)
-		if err != nil {
-			if errors.Is(err, ErrTimeout) {
-				return err
-			} else if errors.Is(err, ErrForbidden) {
-				slog.Error("failed to authenticate to cloud-api, restarting", ilog.Err(err))
-				os.Exit(1)
-			} else if errors.Is(err, syscall.ECONNREFUSED) {
-				slog.Warn("Failed to connect to relay server. Retrying.")
-				continue
-			} else {
-				return fmt.Errorf("failed to get request from relay: %v", err)
-			}
-		} else {
-			break
-		}
+	exponentialBackoff := backoff.ExponentialBackOff{
+		InitialInterval:     time.Second,
+		RandomizationFactor: 0,
+		Multiplier:          1.5,
+		MaxInterval:         10 * time.Second,
+		MaxElapsedTime:      60 * time.Second,
+		Clock:               backoff.SystemClock,
 	}
 
+	err := backoff.RetryNotify(func() error {
+		var err error
+		req, err = c.getRequest(remote, relayURL)
+		if errors.Is(err, ErrTimeout) {
+			return backoff.Permanent(err)
+		}
+		return err
+	}, &exponentialBackoff, func(err error, _ time.Duration) {
+		if err == nil {
+			return
+		}
+		if errors.Is(err, ErrForbidden) {
+			slog.Error("failed to authenticate to cloud-api, restarting", ilog.Err(err))
+			os.Exit(1)
+		} else if errors.Is(err, syscall.ECONNREFUSED) {
+			slog.Warn("Failed to connect to relay server. Retrying.")
+			return
+		}
+	})
+
 	if err != nil {
-		slog.Error("failed to connect to cloud-api, restarting", ilog.Err(err))
-		os.Exit(1)
+		if pe, ok := err.(*backoff.PermanentError); ok {
+			return fmt.Errorf("failed to get request from relay: %v", pe.Err)
+		} else {
+			return err
+		}
 	}
 
 	// Forward the request to the backend.
