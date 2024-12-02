@@ -1,3 +1,4 @@
+{{ if .Values.onprem_federation }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -7,20 +8,6 @@ metadata:
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"  # seconds
     nginx.ingress.kubernetes.io/client-body-buffer-size: "50m"
-    # The web client will reach us through the oauth2-proxy and we need
-    # to copy the forwarded access token to an authorization header. Prefer
-    # X-Forwarded-Access-Token in case the browser sends a spurious Authorization.
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-        set_by_lua_block $auth {
-          if ngx.var.http_x_forwarded_access_token then
-            return "Bearer " .. ngx.var.http_x_forwarded_access_token
-          end
-          if ngx.var.http_authorization then
-            return ngx.var.http_authorization
-          end
-          return ""
-        }
-        proxy_set_header Authorization $auth;
 spec:
   ingressClassName: nginx
   tls:
@@ -37,3 +24,4 @@ spec:
             name: kubernetes
             port:
               number: 443
+{{ end }}
