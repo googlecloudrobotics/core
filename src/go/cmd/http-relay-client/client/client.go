@@ -720,7 +720,7 @@ func (c *Client) localProxy(remote, local *http.Client) error {
 	var req *pb.HttpRequest = nil
 
 	exponentialBackoff := backoff.ExponentialBackOff{
-		InitialInterval:     time.Second,
+		InitialInterval:     100 * time.Millisecond,
 		RandomizationFactor: 0,
 		Multiplier:          1.5,
 		MaxInterval:         10 * time.Second,
@@ -749,11 +749,7 @@ func (c *Client) localProxy(remote, local *http.Client) error {
 	})
 
 	if err != nil {
-		if pe, ok := err.(*backoff.PermanentError); ok {
-			return fmt.Errorf("failed to get request from relay: %v", pe.Err)
-		} else {
-			return err
-		}
+		return err
 	}
 
 	// Forward the request to the backend.
