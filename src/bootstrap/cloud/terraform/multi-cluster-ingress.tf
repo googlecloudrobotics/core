@@ -8,18 +8,18 @@
 resource "google_gke_hub_feature" "multi_cluster_service_discovery" {
   count = length(var.additional_regions) > 0 ? 1 : 0
 
-  name = "multiclusterservicediscovery"
-  location = "global"
-  project = data.google_project.project.project_id
+  name       = "multiclusterservicediscovery"
+  location   = "global"
+  project    = data.google_project.project.project_id
   depends_on = [google_project_service.project-services["gkehub.googleapis.com"]]
 }
 
 resource "google_gke_hub_feature" "multi_cluster_ingress" {
   count = length(var.additional_regions) > 0 ? 1 : 0
 
-  name = "multiclusteringress"
+  name     = "multiclusteringress"
   location = "global"
-  project = data.google_project.project.project_id
+  project  = data.google_project.project.project_id
   spec {
     multiclusteringress {
       config_membership = google_gke_hub_membership.cloud_robotics[0].id
@@ -40,8 +40,8 @@ resource "google_gke_hub_membership" "cloud_robotics" {
   count = length(var.additional_regions) > 0 ? 1 : 0
 
   membership_id = "cloud-robotics"
-  project = data.google_project.project.project_id
-  location = var.region
+  project       = data.google_project.project.project_id
+  location      = var.region
   endpoint {
     gke_cluster {
       resource_link = google_container_cluster.cloud-robotics.id
@@ -51,10 +51,10 @@ resource "google_gke_hub_membership" "cloud_robotics" {
 }
 
 resource "google_gke_hub_membership" "cloud_robotics_ar" {
-  for_each              = var.additional_regions
-  project               = data.google_project.project.project_id
-  membership_id         = format("%s-%s", each.key, "ar-cloud-robotics")
-  location = each.value.region
+  for_each      = var.additional_regions
+  project       = data.google_project.project.project_id
+  membership_id = format("%s-%s", each.key, "ar-cloud-robotics")
+  location      = each.value.region
   endpoint {
     gke_cluster {
       resource_link = google_container_cluster.cloud-robotics-ar[each.key].id

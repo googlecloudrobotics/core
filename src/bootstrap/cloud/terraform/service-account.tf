@@ -11,7 +11,7 @@ resource "google_service_account" "robot-service" {
   account_id   = "robot-service"
   display_name = "robot-service"
   project      = data.google_project.project.project_id
-  count = var.onprem_federation ? 1 : 0
+  count        = var.onprem_federation ? 1 : 0
 }
 
 # Allow the the token-vendor to impersonate the "robot-service" service account
@@ -57,9 +57,9 @@ resource "google_project_iam_member" "robot-service-roles" {
   project = data.google_project.project.project_id
   member  = "serviceAccount:${google_service_account.robot-service[0].email}"
   for_each = var.onprem_federation ? toset([
-    "roles/cloudtrace.agent",  # Upload cloud traces
+    "roles/cloudtrace.agent",        # Upload cloud traces
     "roles/container.clusterViewer", # Sync CRs from the GKE cluster.
-    "roles/logging.logWriter", # Upload text logs to Cloud logging
+    "roles/logging.logWriter",       # Upload text logs to Cloud logging
     # Required to use robot-service@ for GKE clusters that simulate robots
     "roles/monitoring.viewer",
   ]) : toset([])

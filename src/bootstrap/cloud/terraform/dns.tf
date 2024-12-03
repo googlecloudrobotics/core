@@ -1,7 +1,7 @@
 resource "google_dns_managed_zone" "external-dns" {
-  name        = "external-dns"
-  dns_name    = "${var.domain}."
-  count       = var.domain == "" ? 0 : 1
+  name     = "external-dns"
+  dns_name = "${var.domain}."
+  count    = var.domain == "" ? 0 : 1
   # This is used to be true but is no longer, but we keep it here so that
   # Terraform doesn't delete and recreate the zone.
   description = "Automatically managed zone by kubernetes.io/external-dns"
@@ -47,8 +47,8 @@ data "google_iam_policy" "external-dns" {
 }
 
 resource "google_dns_managed_zone_iam_policy" "external-dns" {
-  count       = var.domain == "" ? 0 : 1
-  project = google_dns_managed_zone.external-dns[0].project
+  count        = var.domain == "" ? 0 : 1
+  project      = google_dns_managed_zone.external-dns[0].project
   managed_zone = google_dns_managed_zone.external-dns[0].name
-  policy_data = data.google_iam_policy.external-dns.policy_data
+  policy_data  = data.google_iam_policy.external-dns.policy_data
 }
