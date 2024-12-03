@@ -229,6 +229,9 @@ function terraform_apply {
   # We've stopped managing Google Cloud projects in Terraform, make sure they
   # aren't deleted.
   terraform_exec state rm google_project.project 2>/dev/null || true
+  # We did not always create the bucket here, but sometimes elsewhere. Import it
+  # to consitently manage it from here now.
+  terraform_exec import google_storage_bucket.config_store "${GCP_PROJECT_ID}-cloud-robotics-config" 2>/dev/null || true
 
   terraform_exec apply ${TERRAFORM_APPLY_FLAGS} \
     || die "terraform apply failed"
