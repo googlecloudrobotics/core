@@ -66,8 +66,8 @@ variable "certificate_subject_organizational_unit" {
 
 variable "cluster_type" {
   description = "GKE cluster type. Must be one of {zonal,regional}."
-  type = string
-  default = "zonal"
+  type        = string
+  default     = "zonal"
 
   validation {
     condition     = contains(["zonal", "regional"], var.cluster_type)
@@ -77,6 +77,6 @@ variable "cluster_type" {
 
 variable "onprem_federation" {
   description = "Enable google cloud robotics layer 1"
-  type = bool
-  default = true  
+  type        = bool
+  default     = true
 }

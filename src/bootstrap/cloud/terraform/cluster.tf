@@ -149,5 +149,5 @@ resource "google_project_iam_member" "gke_node_roles" {
     "roles/monitoring.metricWriter",
     "roles/stackdriver.resourceMetadata.writer",
   ])
-  role    = each.key
+  role = each.key
 }

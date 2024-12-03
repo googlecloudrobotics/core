@@ -32,13 +32,13 @@ resource "google_project_service" "project-services" {
     "servicemanagement.googleapis.com",
     "serviceusage.googleapis.com",
     "storage-component.googleapis.com",
-  ], length(var.additional_regions) == 0 ? [] : [
+    ], length(var.additional_regions) == 0 ? [] : [
     # Following APIs are only needed when using multi-cluster gateways.
-		"gkeconnect.googleapis.com",
-		"gkehub.googleapis.com",
-		"trafficdirector.googleapis.com",
-		"multiclusterservicediscovery.googleapis.com",
-		"multiclusteringress.googleapis.com",
+    "gkeconnect.googleapis.com",
+    "gkehub.googleapis.com",
+    "trafficdirector.googleapis.com",
+    "multiclusterservicediscovery.googleapis.com",
+    "multiclusteringress.googleapis.com",
   ]))
   service = each.value
 }
