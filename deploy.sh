@@ -229,13 +229,13 @@ function terraform_apply {
   # We've stopped managing Google Cloud projects in Terraform, make sure they
   # aren't deleted.
   terraform_exec state rm google_project.project 2>/dev/null || true
-#  echo "Importing CA resources"
-#  echo -n "CA: "
-  terraform_exec state rm google_privateca_certificate_authority.ca
-#  terraform_exec import google_privateca_certificate_authority.ca robco-ensonic/europe-west1/robco-ensonic-ca-pool/robco-ensonic-ca
-#  echo -n "CA Pool: "
-#  terraform_exec state rm google_privateca_ca_pool.ca_pool
-#  terraform_exec import google_privateca_ca_pool.ca_pool robco-ensonic/europe-west1/robco-ensonic-ca-pool
+  #  echo "Importing CA resources"
+  #  echo -n "CA: "
+  terraform_exec state rm google_privateca_certificate_authority.ca  2>/dev/null || true
+  #  terraform_exec import google_privateca_certificate_authority.ca robco-ensonic/europe-west1/robco-ensonic-ca-pool/robco-ensonic-ca
+  #  echo -n "CA Pool: "
+  #  terraform_exec state rm google_privateca_ca_pool.ca_pool
+  #  terraform_exec import google_privateca_ca_pool.ca_pool robco-ensonic/europe-west1/robco-ensonic-ca-pool
 
   terraform_exec apply ${TERRAFORM_APPLY_FLAGS} \
     || die "terraform apply failed"
