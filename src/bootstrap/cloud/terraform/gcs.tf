@@ -31,3 +31,24 @@ resource "google_storage_bucket_object" "setup_robot" {
   cache_control = "private, max-age=0, no-transform"
   count         = var.onprem_federation ? 1 : 0
 }
+
+# We need terraform 1.5.4 for this
+# import {
+#   to = google_storage_bucket.config_store
+#   id = "${var.id}-cloud-robotics-config"
+# }
+
+resource "google_storage_bucket" "config_store" {
+  name                        = "${var.id}-cloud-robotics-config"
+  location                    = "US"
+  storage_class               = "STANDARD"
+  force_destroy               = true
+  uniform_bucket_level_access = true
+}
+
+resource "google_storage_bucket_object" "config_store_crc_version" {
+  name          = "crc_version.txt"
+  content       = var.crc_version
+  bucket        = google_storage_bucket.config_store.name
+  cache_control = "private, max-age=0, no-transform"
+}
