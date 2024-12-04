@@ -209,7 +209,6 @@ terraform {
     bucket = "${TERRAFORM_GCS_BUCKET}"
     prefix = "${TERRAFORM_GCS_PREFIX}"
   }
-  experiments = [variable_validation]
 }
 EOF
   else
