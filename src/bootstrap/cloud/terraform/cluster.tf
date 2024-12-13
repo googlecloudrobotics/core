@@ -37,6 +37,9 @@ resource "google_container_cluster" "cloud-robotics" {
   workload_identity_config {
     workload_pool = "${data.google_project.project.project_id}.svc.id.goog"
   }
+  secret_manager_config {
+    enabled = var.secret_manager_plugin
+  }
 }
 
 resource "google_container_cluster" "cloud-robotics-ar" {

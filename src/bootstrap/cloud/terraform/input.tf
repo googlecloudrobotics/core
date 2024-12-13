@@ -80,3 +80,9 @@ variable "onprem_federation" {
   type        = bool
   default     = true
 }
+
+variable "secret_manager_plugin" {
+  description = "Enable GKE secret manager integration with GKE"
+  type        = bool
+  default     = false
+}

@@ -51,6 +51,7 @@ function include_config_and_defaults {
   CLOUD_ROBOTICS_DOMAIN=${CLOUD_ROBOTICS_DOMAIN:-"www.endpoints.${GCP_PROJECT_ID}.cloud.goog"}
   APP_MANAGEMENT=${APP_MANAGEMENT:-false}
   ONPREM_FEDERATION=${ONPREM_FEDERATION:-true}
+  GKE_SECRET_MANAGER_PLUGIN=${GKE_SECRET_MANAGER_PLUGIN:-false}
 
   # lets-encrypt is used as the default certificate provider for backwards compatibility purposes
   CLOUD_ROBOTICS_CERTIFICATE_PROVIDER=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER:-lets-encrypt}
@@ -158,6 +159,7 @@ crc_version = "${CRC_VERSION}"
 certificate_provider = "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
 cluster_type = "${GKE_CLUSTER_TYPE}"
 onprem_federation = ${ONPREM_FEDERATION}
+secret_manager_plugin = ${GKE_SECRET_MANAGER_PLUGIN}
 EOF
 
 # Add certificate information if the configured provider requires it
