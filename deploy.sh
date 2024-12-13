@@ -431,7 +431,6 @@ function helm_region_shared {
     --set-string "oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
     --set-string "oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}"
     --set "use_tv_verbose=${CRC_USE_TV_VERBOSE}"
-    --set "secret_manager_plugin=${GKE_SECRET_MANAGER_PLUGIN}"
   )
 
   ${SYNK_COMMAND} --context "${CLUSTER_CONTEXT}" init
