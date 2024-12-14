@@ -26,7 +26,7 @@ data "google_iam_policy" "robot-service" {
     role = "roles/iam.serviceAccountTokenCreator"
 
     members = [
-      "serviceAccount:${google_service_account.token_vendor.email}",
+      google_service_account.token_vendor.member,
     ]
   }
 
@@ -34,11 +34,11 @@ data "google_iam_policy" "robot-service" {
     role = "roles/iam.serviceAccountUser"
 
     members = [
-      "serviceAccount:${google_service_account.token_vendor.email}",
+      google_service_account.token_vendor.member,
 
       # This seemingly nonsensical binding is necessary for the robot auth
       # path in the K8s relay, which has to work with GCP auth tokens.
-      "serviceAccount:${google_service_account.robot-service[0].email}",
+      google_service_account.robot-service[0].member,
     ]
   }
 
@@ -55,7 +55,7 @@ resource "google_service_account_iam_policy" "robot-service" {
 
 resource "google_project_iam_member" "robot-service-roles" {
   project = data.google_project.project.project_id
-  member  = "serviceAccount:${google_service_account.robot-service[0].email}"
+  member  = google_service_account.robot-service[0].member
   for_each = var.onprem_federation ? toset([
     "roles/cloudtrace.agent",        # Upload cloud traces
     "roles/container.clusterViewer", # Sync CRs from the GKE cluster.
@@ -92,7 +92,7 @@ resource "google_service_account_iam_member" "human-acl-shared-owner-account-use
 resource "google_project_iam_member" "human-acl-object-viewer" {
   project = data.google_project.project.project_id
   role    = "roles/storage.objectViewer"
-  member  = "serviceAccount:${google_service_account.human-acl.email}"
+  member  = google_service_account.human-acl.member
 }
 
 # Allow robot registration with the token vendor, which checks if the client's
@@ -101,7 +101,7 @@ resource "google_project_iam_member" "human-acl-object-viewer" {
 resource "google_service_account_iam_member" "human-acl-act-as-self" {
   service_account_id = google_service_account.human-acl.name
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${google_service_account.human-acl.email}"
+  member             = google_service_account.human-acl.member
 }
 
 # Grant permissions to generate tokens for registering new workcell clusters.

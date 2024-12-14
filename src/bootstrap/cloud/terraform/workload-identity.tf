@@ -59,7 +59,7 @@ resource "google_service_account_iam_policy" "cert_manager" {
 resource "google_project_iam_member" "cert_manager_dns_reader" {
   project = data.google_project.project.project_id
   role    = "roles/dns.reader"
-  member  = "serviceAccount:${google_service_account.cert_manager.email}"
+  member  = google_service_account.cert_manager.member
 }
 
 # cert-manager-google-cas-issuer
@@ -85,7 +85,7 @@ resource "google_privateca_ca_pool_iam_member" "ca-pool-workload-identity" {
 
   ca_pool = google_privateca_ca_pool.ca_pool[0].id
   role    = "roles/privateca.certificateManager"
-  member  = "serviceAccount:${google_service_account.google-cas-issuer[0].email}"
+  member  = google_service_account.google-cas-issuer[0].member
 }
 
 # Define IAM policy for the workload identity user.

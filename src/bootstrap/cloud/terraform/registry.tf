@@ -2,9 +2,9 @@
 
 locals {
   service_acounts = flatten([
-    "serviceAccount:${google_service_account.gke_node.email}",
-    "serviceAccount:${google_service_account.human-acl.email}",
-    var.onprem_federation ? ["serviceAccount:${google_service_account.robot-service[0].email}"] : [],
+    google_service_account.gke_node.member,
+    google_service_account.human-acl.member,
+    var.onprem_federation ? [google_service_account.robot-service[0].member] : [],
   ])
   private_repo_access = flatten([
     for sa in local.service_acounts : [
