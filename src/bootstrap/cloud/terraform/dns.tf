@@ -41,7 +41,7 @@ data "google_iam_policy" "external-dns" {
   binding {
     role = "roles/dns.admin"
     members = [
-      "serviceAccount:${google_service_account.cert_manager.email}"
+      google_service_account.cert_manager.member
     ]
   }
 }

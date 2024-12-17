@@ -145,7 +145,7 @@ resource "google_service_account" "gke_node" {
 
 resource "google_project_iam_member" "gke_node_roles" {
   project = data.google_project.project.project_id
-  member  = "serviceAccount:${google_service_account.gke_node.email}"
+  member  = google_service_account.gke_node.member
   for_each = toset([
     # GKE recommendations
     "roles/logging.logWriter",
