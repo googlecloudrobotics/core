@@ -13,7 +13,7 @@ spec:
         app: kubernetes-relay-server
     spec:
       containers:
-      - name: server
+      - name: kubernetes-relay-server
         image: {{ .Values.registry }}{{ .Values.images.http_relay_server }}
         args:
         - --port=8080

@@ -15,7 +15,7 @@ spec:
         app: prometheus-relay-server
     spec:
       containers:
-      - name: server
+      - name: prometheus-relay-server
         image: {{ .Values.registry }}{{ .Values.images.http_relay_server }}
         args:
         - --port=8080
