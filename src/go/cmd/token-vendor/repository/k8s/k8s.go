@@ -47,6 +47,8 @@ const (
 	pubKey = "pubKey" // Configmap key for the public key
 	// Configmap annotation specifies the service account to use (optional)
 	serviceAccountAnnotation = "cloudrobotics.com/gcp-service-account"
+	// Configmap annotation specifies the intermediate service account delegate to use (optional)
+	serviceAccountDelegateAnnotation = "cloudrobotics.com/gcp-service-account-delegate"
 )
 
 // ListAllDeviceIDs returns a slice of all device identifiers found in the namespace.
@@ -82,7 +84,8 @@ func (k *K8sRepository) LookupKey(ctx context.Context, deviceID string) (*reposi
 		return nil, fmt.Errorf("configmap %q/%q does not contain key %q", k.ns, deviceID, pubKey)
 	}
 	sa, _ := cm.ObjectMeta.Annotations[serviceAccountAnnotation]
-	return &repository.Key{key, sa}, nil
+	saDelegate, _ := cm.ObjectMeta.Annotations[serviceAccountDelegateAnnotation]
+	return &repository.Key{key, sa, saDelegate}, nil
 }
 
 // PublishKey sets or updates a public key for a given device identifier.

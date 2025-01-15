@@ -25,6 +25,10 @@ type TokenResponse struct {
 	TokenType   string `json:"token_type"`
 }
 
+const (
+	saPrefix = "projects/-/serviceAccounts/"
+)
+
 // NewGCPTokenSource creates a token source for GCP access tokens.
 //
 // `client` parameter is optional. If you supply your own client, you have to make
@@ -43,12 +47,20 @@ func NewGCPTokenSource(ctx context.Context, client *http.Client, scopes []string
 // Token returns an access token for the configured service account and scopes.
 //
 // API: https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/generateAccessToken
-func (g *GCPTokenSource) Token(ctx context.Context, saName string) (*TokenResponse, error) {
-	req := iam.GenerateAccessTokenRequest{Scope: g.scopes}
+func (g *GCPTokenSource) Token(ctx context.Context, saName, saDelegateName string) (*TokenResponse, error) {
 	if saName == "" {
 		return nil, fmt.Errorf("saName must not be empty")
 	}
-	resource := "projects/-/serviceAccounts/" + saName
+
+	var delegates []string
+	if saDelegateName != "" {
+		delegates = append(delegates, saPrefix+saDelegateName)
+	}
+	req := iam.GenerateAccessTokenRequest{
+		Scope:     g.scopes,
+		Delegates: delegates,
+	}
+	resource := saPrefix + saName
 	// We don't set a 'lifetime' on the request, so we get the default value (3600 sec = 1h).
 	// This needs to be in sync with the min(cookie-expire,cookie-refresh) duration
 	// configured on oauth2-proxy.

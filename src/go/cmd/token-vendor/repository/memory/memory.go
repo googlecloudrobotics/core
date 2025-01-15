@@ -44,5 +44,5 @@ func (m *MemoryRepository) LookupKey(ctx context.Context, deviceID string) (*rep
 	if !found {
 		return nil, nil
 	}
-	return &repository.Key{k, ""}, nil
+	return &repository.Key{k, "", ""}, nil
 }
