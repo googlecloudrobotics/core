@@ -25,6 +25,8 @@ type Key struct {
 	PublicKey string
 	// SAName is the optional GCP IAM service-account that has been associated.
 	SAName string
+	// SADelegateName is the optional GCP IAM service-account to act as an intermediate delegate
+	SADelegateName string
 }
 
 // PubKeyRepository defines the api for the pub key stores

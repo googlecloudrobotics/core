@@ -66,6 +66,7 @@ Configure optional properties of the on-prem robot registration.
   * device-id: unique device name (by default robot-<robot-id>)
 * Body: json {
   service-account: str, defaults to robot-service@<gcp-project>.iam.gserviceaccount.com"
+  service-account-delegate: str, optional intermediate delegate
 }
 * Response: only http status code
 
