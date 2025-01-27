@@ -139,7 +139,7 @@ func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokens
 	return cloudToken, nil
 }
 
-// acceptedAudience validates JWT audience as defined by Java-based token vendor
+// acceptedAudience validates JWT audience as defined by the token vendor
 //
 // `aud` is the value of the audience key from the JWT and `accAud` the configured
 // accepted audience of the token vendor.
