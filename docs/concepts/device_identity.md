@@ -17,7 +17,7 @@ The following components are part of the whole setup:
 
 The following chapters explain the flows in more detail. Further information
 about the Token Vendor can be found in its
-[docs](https://github.com/googlecloudrobotics/core/tree/master/src/java/com/cloudrobotics/tokenvendor/README.md)
+[docs](https://github.com/googlecloudrobotics/core/tree/master/src/go/cmd/token-vendor/README.md)
 
 ## Setup
 
