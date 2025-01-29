@@ -160,12 +160,14 @@ func (r *RobotAuth) getTokenEndpoint() string {
 // service account.
 func (r *RobotAuth) CreateRobotTokenSource(ctx context.Context) oauth2.TokenSource {
 	c := jwt.Config{
-		Email:      r.PublicKeyRegistryId, // Will be used as "issuer" of the outgoing JWT.
+		// Will be used as "issuer" of the outgoing JWT. Is not formatted as an email though
+		Email:      r.PublicKeyRegistryId,
 		Expires:    time.Minute * 30,
 		PrivateKey: r.PrivateKey,
-		Scopes:     []string{r.getTokenEndpoint()},
-		Subject:    r.RobotName,
-		TokenURL:   r.getTokenEndpoint(),
+		Scopes:     []string{},
+		// TODO: shouldn't this be the service-account name we want to get the token for?
+		Subject:  r.RobotName,
+		TokenURL: r.getTokenEndpoint(),
 	}
 	return c.TokenSource(ctx)
 }
