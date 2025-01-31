@@ -4,7 +4,7 @@ licenses(["notice"])
 
 # files downloaded by running:
 # helm repo add jetstack https://charts.jetstack.io --force-update
-# cert_manager_version="v1.15.3"
+# cert_manager_version="v1.16.3"
 # helm pull jetstack/cert-manager --version ${cert_manager_version} -d third_party/cert-manager/
 
 exports_files(
