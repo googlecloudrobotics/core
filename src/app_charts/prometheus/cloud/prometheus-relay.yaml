@@ -18,6 +18,7 @@ spec:
       - name: prometheus-relay-server
         image: {{ .Values.registry }}{{ .Values.images.http_relay_server }}
         args:
+        - --log_level=4 # WARN
         - --port=8080
         livenessProbe:
           httpGet:
