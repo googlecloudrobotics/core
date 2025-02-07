@@ -16,6 +16,7 @@ spec:
       - name: kubernetes-relay-server
         image: {{ .Values.registry }}{{ .Values.images.http_relay_server }}
         args:
+        - --log_level=4 # WARN
         - --port=8080
         env:
         # Enable tracebacks for debugging deadlocks or hanging requests.

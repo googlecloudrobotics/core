@@ -14,6 +14,7 @@ spec:
     spec:
       containers:
       - args:
+        - --log_level=4 # WARN
         - --backend_address=kube-prometheus.{{ .Release.Namespace }}.svc.cluster.local:9090
         - --backend_scheme=http
         - --relay_address={{ .Values.domain }}

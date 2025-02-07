@@ -16,6 +16,7 @@ spec:
       - name: kubernetes-relay-client
         image: {{ .Values.registry }}{{ .Values.images.http_relay_client }}
         args:
+        - --log_level=4 # WARN
         - --backend_address=$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT)
         - --backend_scheme=https
         - --authentication_token_file=/var/run/secrets/kubernetes.io/serviceaccount/token

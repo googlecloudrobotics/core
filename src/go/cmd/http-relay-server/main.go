@@ -94,11 +94,13 @@ var (
 		"Size of i/o buffer in bytes")
 	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "",
 		"If not empty, traces will be uploaded to this Google Cloud Project.")
+	logLevel = flag.Int("log_level", int(slog.LevelInfo),
+		"the log message level required to be logged")
 )
 
 func main() {
 	flag.Parse()
-	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
+	logHandler := ilog.NewLogHandler(slog.Level(*logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
 	if *stackdriverProjectID != "" {
