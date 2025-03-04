@@ -319,7 +319,7 @@ func (r *broker) ReapInactiveRequests(threshold time.Time) {
 	for id, pr := range r.resp {
 		if pr.lastActivity.Before(threshold) {
 			slog.Info("Timeout on inactive request", slog.String("ID", id))
-			// Closing `pr.markReap` tells `SendResponse` to stop waiting for the client.
+			// Closing `pr.markReap` tells `SendResponse` and `PutRequestStream` to stop.
 			close(pr.markReap)
 
 			pr.requestStreamMutex.Lock()
