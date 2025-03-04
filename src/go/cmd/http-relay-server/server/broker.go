@@ -78,6 +78,8 @@ type pendingResponse struct {
 	// This channel is used to communicate data between the backend and user-client for
 	// bidirectional streaming connections.
 	requestStream chan []byte
+	// This mutex should be locked when writing to `requestStream``
+	requestStreamMutex sync.Mutex
 
 	// This channel is used to communicate data between the backend and user-client.
 	// The user-client sends a hanging request to the relay-server which blocks until
@@ -235,8 +237,8 @@ func (r *broker) GetRequestStream(id string) ([]byte, bool) {
 func (r *broker) PutRequestStream(id string, data []byte) bool {
 	r.m.Lock()
 	pr := r.resp[id]
-	pr.sendMutex.Lock()
-	defer pr.sendMutex.Unlock()
+	pr.requestStreamMutex.Lock()
+	defer pr.requestStreamMutex.Unlock()
 	r.m.Unlock()
 
 	if pr == nil {
@@ -320,11 +322,14 @@ func (r *broker) ReapInactiveRequests(threshold time.Time) {
 			// Closing `pr.markReap` tells `SendResponse` to stop waiting for the client.
 			close(pr.markReap)
 
+			pr.requestStreamMutex.Lock()
+			close(pr.requestStream)
+			pr.requestStreamMutex.Unlock()
+
 			// If we block on this lock, it means `SendResponse` is writing to the channel, since we just closed
 			// `markReap`, it should release the lock soon and we can safely close the channel.
 			pr.sendMutex.Lock()
 			close(pr.responseStream)
-			close(pr.requestStream)
 			pr.sendMutex.Unlock()
 
 			// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop
