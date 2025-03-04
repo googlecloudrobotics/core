@@ -235,12 +235,21 @@ func (r *broker) GetRequestStream(id string) ([]byte, bool) {
 func (r *broker) PutRequestStream(id string, data []byte) bool {
 	r.m.Lock()
 	pr := r.resp[id]
+	pr.sendMutex.Lock()
+	defer pr.sendMutex.Unlock()
 	r.m.Unlock()
+
 	if pr == nil {
 		return false
 	}
 
-	pr.requestStream <- data
+	select {
+	case pr.requestStream <- data:
+		break
+	case <-pr.markReap:
+		slog.Error("Error sending user client request to backend (Closed due to inactivity)", slog.String("ID", id))
+		return true
+	}
 	return true
 }
 
@@ -308,7 +317,6 @@ func (r *broker) ReapInactiveRequests(threshold time.Time) {
 	for id, pr := range r.resp {
 		if pr.lastActivity.Before(threshold) {
 			slog.Info("Timeout on inactive request", slog.String("ID", id))
-			close(pr.requestStream)
 			// Closing `pr.markReap` tells `SendResponse` to stop waiting for the client.
 			close(pr.markReap)
 
@@ -316,6 +324,7 @@ func (r *broker) ReapInactiveRequests(threshold time.Time) {
 			// `markReap`, it should release the lock soon and we can safely close the channel.
 			pr.sendMutex.Lock()
 			close(pr.responseStream)
+			close(pr.requestStream)
 			pr.sendMutex.Unlock()
 
 			// Amazingly, this is safe in Go: https://stackoverflow.com/questions/23229975/is-it-safe-to-remove-selected-keys-from-map-within-a-range-loop
