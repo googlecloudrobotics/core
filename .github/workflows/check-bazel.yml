@@ -14,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # tag=v3.3.0
       - name: Auth
-        uses: google-github-actions/auth@5a50e581162a13f4baa8916d01180d2acbc04363 # tag=v2.1.0
+        uses: google-github-actions/auth@71f986410dfbc7added4569d411d040a91dc6935 # tag=v2.1.8
         with:
           create_credentials_file: true # also sets GOOGLE_APPLICATION_CREDENTIALS
           service_account: "github-automation-bot@gha-crc-dev.iam.gserviceaccount.com"
