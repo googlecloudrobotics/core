@@ -1,6 +1,6 @@
-load("//bazel:build_rules/helm_template.bzl", "helm_template")
-load("//bazel:app_chart.bzl", "app_chart")
 load("//bazel:app.bzl", "app")
+load("//bazel:app_chart.bzl", "app_chart")
+load("//bazel:build_rules/helm_template.bzl", "helm_template")
 
 helm_template(
     name = "akri-chart.robot",
