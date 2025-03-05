@@ -49,7 +49,7 @@ jobs:
           service_account: "github-automation-bot@gha-crc-prod.iam.gserviceaccount.com"
           workload_identity_provider: "projects/695270090783/locations/global/workloadIdentityPools/github-automation/providers/crc-prod"
       - name: "Set up gcloud"
-        uses: "google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200" # tag=v2.1.0
+        uses: "google-github-actions/setup-gcloud@77e7a554d41e2ee56fc945c52dfd3f33d12def9a" # tag=v2.1.4
         with:
           skip_install: true
 
