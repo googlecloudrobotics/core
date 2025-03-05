@@ -1,0 +1,66 @@
+{{ if .Values.onprem_federation }}
+# The cr-syncer-auth-webhook verifies that requests from the cr-syncer are
+# limited to the robot named in the credentials.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cr-syncer-auth-webhook
+spec:
+  selector:
+    matchLabels:
+      app: cr-syncer-auth-webhook
+  template:
+    metadata:
+      labels:
+        app: cr-syncer-auth-webhook
+    spec:
+      containers:
+      - name: cr-syncer-auth-webhook
+        image: {{ .Values.registry }}{{ .Values.images.cr_syncer_auth_webhook }}
+        args:
+        - --port=8080
+        - --accept-legacy-service-account-credentials
+        - --token-vendor=http://token-vendor.app-token-vendor.svc.cluster.local
+        ports:
+        - name: webhook
+          containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+      serviceAccountName: cr-syncer-auth-webhook
+---
+# The incoming request from the cr-syncer will be extended with a header to
+# impersonate this SA if it passes the webhook's policy checks.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cr-syncer-auth-webhook
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cr-syncer-auth-webhook
+  labels:
+    app: cr-syncer-auth-webhook
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: cr-syncer-auth-webhook
+  type: ClusterIP
+{{ end }}
