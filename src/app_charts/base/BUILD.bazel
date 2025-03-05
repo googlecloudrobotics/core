@@ -103,6 +103,7 @@ app_chart(
     images = {
         "app-rollout-controller": "//src/go/cmd/app-rollout-controller:app-rollout-controller-image",
         "chart-assignment-controller": "//src/go/cmd/chart-assignment-controller:chart-assignment-controller-image",
+        "cr-syncer-auth-webhook": "//src/go/cmd/cr-syncer-auth-webhook:cr-syncer-auth-webhook-image",
     },
     values = "values-cloud.yaml",
     visibility = ["//visibility:public"],
