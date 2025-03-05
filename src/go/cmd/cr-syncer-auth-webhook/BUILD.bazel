@@ -1,0 +1,34 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+
+package(default_visibility = ["//visibility:public"])
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "github.com/googlecloudrobotics/core/src/go/cmd/cr-syncer-auth-webhook",
+    visibility = ["//visibility:private"],
+    deps = [
+        "@com_github_googlecloudrobotics_ilog//:go_default_library",
+        "@com_github_pkg_errors//:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "cr-syncer-auth-webhook-app",
+    embed = [":go_default_library"],
+)
+
+pkg_tar(
+    name = "cr-syncer-auth-webhook-layer",
+    srcs = [":cr-syncer-auth-webhook-app"],
+    extension = "tar.gz",
+)
+
+oci_image(
+    name = "cr-syncer-auth-webhook-image",
+    base = "@distroless_base",
+    entrypoint = ["/cr-syncer-auth-webhook-app"],
+    tars = [":cr-syncer-auth-webhook-layer"],
+)
