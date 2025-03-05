@@ -237,13 +237,13 @@ func (r *broker) GetRequestStream(id string) ([]byte, bool) {
 func (r *broker) PutRequestStream(id string, data []byte) bool {
 	r.m.Lock()
 	pr := r.resp[id]
+	if pr == nil {
+		r.m.Unlock()
+		return false
+	}
 	pr.requestStreamMutex.Lock()
 	defer pr.requestStreamMutex.Unlock()
 	r.m.Unlock()
-
-	if pr == nil {
-		return false
-	}
 
 	select {
 	case pr.requestStream <- data:
