@@ -1,5 +1,5 @@
-load("//bazel:app_chart.bzl", "app_chart")
 load("//bazel:app.bzl", "app")
+load("//bazel:app_chart.bzl", "app_chart")
 
 app_chart(
     name = "token-vendor-cloud",
