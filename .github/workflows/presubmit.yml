@@ -41,7 +41,7 @@ jobs:
             --ignore-failed-read
           digest=$(cat /tmp/changed_files.txt /tmp/changed_files.tar | sha256sum | cut -d " " -f1)
           echo "digest=$digest" >> $GITHUB_OUTPUT
-      - uses: actions/cache/restore@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # tag=v3.2.5
+      - uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: ~/PRESUBMITS_SUCCEEDED
           key: PRESUBMITS_SUCCEEDED-${{ steps.pr-digest.outputs.digest }}
@@ -71,7 +71,7 @@ jobs:
         run: exit 1
       - name: Create presubmits succeeded marker
         run: touch ~/PRESUBMITS_SUCCEEDED
-      - uses: actions/cache/save@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # tag=v3.2.5
+      - uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: ~/PRESUBMITS_SUCCEEDED
           key: PRESUBMITS_SUCCEEDED-${{ needs.setup-presubmit.outputs.presubmit_digest }}
