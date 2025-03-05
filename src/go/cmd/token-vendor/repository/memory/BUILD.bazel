@@ -7,7 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/go/cmd/token-vendor/repository:go_default_library",
-    ]
+    ],
 )
 
 go_test(
