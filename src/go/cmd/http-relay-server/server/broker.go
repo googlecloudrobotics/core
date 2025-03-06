@@ -78,6 +78,8 @@ type pendingResponse struct {
 	// This channel is used to communicate data between the backend and user-client for
 	// bidirectional streaming connections.
 	requestStream chan []byte
+	// This mutex should be locked when writing to `requestStream``
+	requestStreamMutex sync.Mutex
 
 	// This channel is used to communicate data between the backend and user-client.
 	// The user-client sends a hanging request to the relay-server which blocks until
@@ -235,12 +237,21 @@ func (r *broker) GetRequestStream(id string) ([]byte, bool) {
 func (r *broker) PutRequestStream(id string, data []byte) bool {
 	r.m.Lock()
 	pr := r.resp[id]
-	r.m.Unlock()
 	if pr == nil {
+		r.m.Unlock()
 		return false
 	}
+	pr.requestStreamMutex.Lock()
+	defer pr.requestStreamMutex.Unlock()
+	r.m.Unlock()
 
-	pr.requestStream <- data
+	select {
+	case pr.requestStream <- data:
+		break
+	case <-pr.markReap:
+		slog.Error("Error sending user client request to backend (Closed due to inactivity)", slog.String("ID", id))
+		return true
+	}
 	return true
 }
 
@@ -308,9 +319,12 @@ func (r *broker) ReapInactiveRequests(threshold time.Time) {
 	for id, pr := range r.resp {
 		if pr.lastActivity.Before(threshold) {
 			slog.Info("Timeout on inactive request", slog.String("ID", id))
-			close(pr.requestStream)
-			// Closing `pr.markReap` tells `SendResponse` to stop waiting for the client.
+			// Closing `pr.markReap` tells `SendResponse` and `PutRequestStream` to stop.
 			close(pr.markReap)
+
+			pr.requestStreamMutex.Lock()
+			close(pr.requestStream)
+			pr.requestStreamMutex.Unlock()
 
 			// If we block on this lock, it means `SendResponse` is writing to the channel, since we just closed
 			// `markReap`, it should release the lock soon and we can safely close the channel.

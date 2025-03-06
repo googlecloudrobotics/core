@@ -8,11 +8,12 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: fluent-bit
+  namespace: default
   labels:
-    helm.sh/chart: fluent-bit-0.24.0
+    helm.sh/chart: fluent-bit-0.45.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "2.0.9"
+    app.kubernetes.io/version: "2.2.2"
     app.kubernetes.io/managed-by: Helm
 ---
 # Source: fluent-bit/templates/configmap.yaml
@@ -20,11 +21,12 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: fluent-bit
+  namespace: default
   labels:
-    helm.sh/chart: fluent-bit-0.24.0
+    helm.sh/chart: fluent-bit-0.45.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "2.0.9"
+    app.kubernetes.io/version: "2.2.2"
     app.kubernetes.io/managed-by: Helm
 data:
   custom_parsers.conf: |
@@ -48,7 +50,7 @@ data:
         # ------|---------------|---------------------------------------------------------------------------------------------
         Rule      "start_state"   "/^((W|I|E|F))([0-9]{4}) ([^ ]+)\s+([-0-9]+) (\S+:\d+)] (.*)$/"           "cont"
         Rule      "cont"          "/^(?!(((W|I|E|F))([0-9]{4}) ([^ ]+)\s+([-0-9]+) (\S+:\d+)]))(.*)$/"      "cont"
-
+    
     # A parser for Abseil log files: https://abseil.io/docs/cpp/guides/logging#prefix
     [PARSER]
         Name        absl_logs
@@ -58,7 +60,7 @@ data:
         Time_Format %H:%M:%S.%L
         Time_Keep   On
         Types       pid:integer
-
+    
   fluent-bit.conf: |
     [SERVICE]
         Daemon Off
@@ -69,7 +71,7 @@ data:
         HTTP_Listen 0.0.0.0
         HTTP_Port 2020
         Health_Check On
-
+    
     [INPUT]
         Name tail
         Path /var/log/containers/*.log
@@ -79,7 +81,7 @@ data:
         Tag {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Mem_Buf_Limit 5MB
         Skip_Long_Lines On
-
+    
     [INPUT]
         Name systemd
         Tag k8s_node.${MY_NODE_NAME}
@@ -91,18 +93,18 @@ data:
         Systemd_Filter  _SYSTEMD_UNIT=kubelet.service
         Systemd_Filter  _SYSTEMD_UNIT=sshd.service
         Read_From_Tail On
-
+    
     [INPUT]
         Name systemd
         Tag kernel.${MY_NODE_NAME}
         Systemd_Filter _TRANSPORT=kernel
         Read_From_Tail On
-
+    
     [INPUT]
         Name            node_exporter_metrics
         Tag             node_metrics
         Scrape_interval 10
-
+    
     [FILTER]
         Name kubernetes
         Match {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
@@ -110,103 +112,103 @@ data:
         Keep_Log Off
         K8S-Logging.Parser On
         K8S-Logging.Exclude On
-
+    
     # Joins multiple Abseil logs into a single line.
     [FILTER]
         Name                    multiline
         Match                   {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Multiline.Key_content   log
         Multiline.Parser        absl_logs_multiline
-
+    
     # Applies the absl_logs parser to the 'log' field.
     [FILTER]
         Name          parser
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Key_Name      log
         Parser        absl_logs
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals level info
         Add severity INFO
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals level warning
         Add severity WARNING
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals level warn
         Add severity WARNING
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals level error
         Add severity ERROR
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_matches log ^.*\[\sinfo\].*$
         Add severity INFO
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_matches log ^.*\[\swarn\].*$
         Add severity WARNING
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_matches log .*\[error\].*
         Add severity ERROR
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_matches log .*(type="Info"|level=info).*
         Add severity INFO
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_matches log .*(type="Warning"|level=warning).*
         Add severity WARNING
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_matches log .*(type="Error"|level=error).*
         Add severity ERROR
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals stream stderr
         Add severity ERROR
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals stream stdout
         Add severity INFO
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Remove _p
-
+    
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Rename log message
-
+    
     [OUTPUT]
         Name stackdriver
         Match {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
@@ -216,7 +218,7 @@ data:
         k8s_cluster_location europe-west1-c
         severity_key severity
         Workers 1
-
+    
     [OUTPUT]
         Name stackdriver
         Match k8s_node.*
@@ -225,7 +227,7 @@ data:
         k8s_cluster_name {{ .Values.robot.name }}
         k8s_cluster_location europe-west1-c
         Workers 1
-
+    
     [OUTPUT]
         Name stackdriver
         Match kernel.*
@@ -235,7 +237,7 @@ data:
         k8s_cluster_name {{ .Values.robot.name }}
         k8s_cluster_location europe-west1-c
         Workers 1
-
+    
     [OUTPUT]
         name            prometheus_exporter
         match           node_metrics
@@ -247,10 +249,10 @@ kind: ClusterRole
 metadata:
   name: fluent-bit
   labels:
-    helm.sh/chart: fluent-bit-0.24.0
+    helm.sh/chart: fluent-bit-0.45.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "2.0.9"
+    app.kubernetes.io/version: "2.2.2"
     app.kubernetes.io/managed-by: Helm
 rules:
   - apiGroups:
@@ -269,10 +271,10 @@ kind: ClusterRoleBinding
 metadata:
   name: fluent-bit
   labels:
-    helm.sh/chart: fluent-bit-0.24.0
+    helm.sh/chart: fluent-bit-0.45.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "2.0.9"
+    app.kubernetes.io/version: "2.2.2"
     app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -288,11 +290,12 @@ apiVersion: v1
 kind: Service
 metadata:
   name: fluent-bit
+  namespace: default
   labels:
-    helm.sh/chart: fluent-bit-0.24.0
+    helm.sh/chart: fluent-bit-0.45.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "2.0.9"
+    app.kubernetes.io/version: "2.2.2"
     app.kubernetes.io/managed-by: Helm
 spec:
   type: ClusterIP
@@ -310,11 +313,12 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: fluent-bit
+  namespace: default
   labels:
-    helm.sh/chart: fluent-bit-0.24.0
+    helm.sh/chart: fluent-bit-0.45.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "2.0.9"
+    app.kubernetes.io/version: "2.2.2"
     app.kubernetes.io/managed-by: Helm
 spec:
   selector:
@@ -323,25 +327,29 @@ spec:
       app.kubernetes.io/instance: fluent-bit
   template:
     metadata:
-      annotations:
-        checksum/config: 177912df2f38a287973a348d0e58b18a3752e5311996b630ab78fd2222d3cdaa
-        checksum/luascripts: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       labels:
         app.kubernetes.io/name: fluent-bit
         app.kubernetes.io/instance: fluent-bit
+      annotations:
+        checksum/config: 217ff2dbfac58068df3f529a0878f7599b7eb2f54ae95e0fdd8eb24a4f1e34ad
     spec:
       serviceAccountName: fluent-bit
       hostNetwork: false
       dnsPolicy: ClusterFirst
       containers:
         - name: fluent-bit
-          image: "cr.fluentbit.io/fluent/fluent-bit:2.0.9"
+          image: "cr.fluentbit.io/fluent/fluent-bit:2.2.2"
           imagePullPolicy: IfNotPresent
           env:
             - name: MY_NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+          command:
+            - /fluent-bit/bin/fluent-bit
+          args:
+            - --workdir=/fluent-bit/etc
+            - --config=/fluent-bit/etc/conf/fluent-bit.conf
           ports:
             - name: http
               containerPort: 2020
@@ -355,12 +363,8 @@ spec:
               path: /api/v1/health
               port: http
           volumeMounts:
-            - mountPath: /fluent-bit/etc/fluent-bit.conf
-              name: config
-              subPath: fluent-bit.conf
-            - mountPath: /fluent-bit/etc/custom_parsers.conf
-              name: config
-              subPath: custom_parsers.conf
+            - name: config
+              mountPath: /fluent-bit/etc/conf
             - mountPath: /var/log
               name: varlog
             - mountPath: /run/log
