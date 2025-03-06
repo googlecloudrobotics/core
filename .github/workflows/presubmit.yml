@@ -22,7 +22,7 @@ jobs:
       presubmit_digest: ${{ steps.pr-digest.outputs.digest }}
       presubmit_status: ${{ steps.status.outputs.status }}
     steps:
-      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # tag=v3.3.0
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # tag=v4.2.2
       - name: Get PR digest
         id: pr-digest
         env:
@@ -41,7 +41,7 @@ jobs:
             --ignore-failed-read
           digest=$(cat /tmp/changed_files.txt /tmp/changed_files.tar | sha256sum | cut -d " " -f1)
           echo "digest=$digest" >> $GITHUB_OUTPUT
-      - uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+      - uses: actions/cache/restore@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         with:
           path: ~/PRESUBMITS_SUCCEEDED
           key: PRESUBMITS_SUCCEEDED-${{ steps.pr-digest.outputs.digest }}
@@ -71,7 +71,7 @@ jobs:
         run: exit 1
       - name: Create presubmits succeeded marker
         run: touch ~/PRESUBMITS_SUCCEEDED
-      - uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+      - uses: actions/cache/save@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         with:
           path: ~/PRESUBMITS_SUCCEEDED
           key: PRESUBMITS_SUCCEEDED-${{ needs.setup-presubmit.outputs.presubmit_digest }}
