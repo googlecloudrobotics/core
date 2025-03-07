@@ -167,17 +167,21 @@ config:
         Condition Key_value_matches log .*(type="Error"|level=error).*
         Add severity ERROR
 
+    # We're setting the logName here and below to avoid a high cardinality field on stackdriver
+    # See https://github.com/fluent/fluent-bit/issues/9897
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals stream stderr
         Add severity ERROR
+        Set logging.googleapis.com/logName stderr
 
     [FILTER]
         Name          modify
         Match         kube.*
         Condition Key_value_equals stream stdout
         Add severity INFO
+        Set logging.googleapis.com/logName stdout
 
     [FILTER]
         Name          modify
