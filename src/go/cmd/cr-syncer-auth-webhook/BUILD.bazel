@@ -6,12 +6,16 @@ package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "go_default_library",
-    srcs = ["main.go"],
+    srcs = [
+        "main.go",
+        "request.go",
+    ],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/cr-syncer-auth-webhook",
     visibility = ["//visibility:private"],
     deps = [
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
+        "@org_golang_x_oauth2//jws:go_default_library",
     ],
 )
 
