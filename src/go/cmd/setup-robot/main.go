@@ -61,7 +61,7 @@ var (
 		"The range of Pod IP addresses in the cluster. This should match the CNI "+
 			"configuration (eg Cilium's clusterPoolIPv4PodCIDR). If this is incorrect, "+
 			"pods will get 403 Forbidden when trying to reach the metadata server.")
-	robotAuthentication = flag.Bool("robot-authentication", true, "Set up robot authentication.")
+	robotAuthentication = flag.Bool("robot-authentication", true, "Use robot authentication for pulling container images and the metadata-server.")
 
 	robotGVR = schema.GroupVersionResource{
 		Group:    "registry.cloudrobotics.com",
@@ -250,29 +250,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *robotAuthentication {
-		// Set up robot authentication.
-		auth := &robotauth.RobotAuth{
-			RobotName:           *robotName,
-			ProjectId:           *project,
-			Domain:              domain,
-			PublicKeyRegistryId: *registryID,
-		}
+	// Set up robot authentication. This is required by the cr-syncer.
+	auth := &robotauth.RobotAuth{
+		RobotName:           *robotName,
+		ProjectId:           *project,
+		Domain:              domain,
+		PublicKeyRegistryId: *registryID,
+	}
 
-		slog.Info("Creating new private key")
-		if err := auth.CreatePrivateKey(); err != nil {
-			slog.Error("Failed creating key", ilog.Err(err))
-			os.Exit(1)
-		}
-		httpClient := oauth2.NewClient(ctx, tokenSource)
-		if err := setup.PublishCredentialsToCloud(httpClient, auth, numServiceRetries); err != nil {
-			slog.Error("Failed to publish credentials.", ilog.Err(err))
-			os.Exit(1)
-		}
-		if err := auth.StoreInK8sSecret(ctx, k8sLocalClientSet, baseNamespace); err != nil {
-			slog.Error("Failed to write auth secret", ilog.Err(err))
-			os.Exit(1)
-		}
+	slog.Info("Creating new private key")
+	if err := auth.CreatePrivateKey(); err != nil {
+		slog.Error("Failed creating key", ilog.Err(err))
+		os.Exit(1)
+	}
+	httpClient := oauth2.NewClient(ctx, tokenSource)
+	if err := setup.PublishCredentialsToCloud(httpClient, auth, numServiceRetries); err != nil {
+		slog.Error("Failed to publish credentials.", ilog.Err(err))
+		os.Exit(1)
+	}
+	if err := auth.StoreInK8sSecret(ctx, k8sLocalClientSet, baseNamespace); err != nil {
+		slog.Error("Failed to write auth secret", ilog.Err(err))
+		os.Exit(1)
+	}
+
+	if *robotAuthentication {
+		// Use robot authentication to fetch container images.
 		if err := gcr.UpdateGcrCredentials(ctx, k8sLocalClientSet, auth); err != nil {
 			slog.Error("Failed to update credentials", ilog.Err(err))
 			os.Exit(1)
