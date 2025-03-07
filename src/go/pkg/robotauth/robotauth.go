@@ -26,6 +26,8 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -212,4 +214,59 @@ func (r *RobotAuth) CreateJWT(ctx context.Context, lifetime time.Duration) (stri
 	}
 
 	return ret, nil
+}
+
+// robotJWTSource gets robot JWTs from the metadata-server.
+type robotJWTSource struct {
+	client http.Client
+}
+
+// Token gets a robot JWT from the metadata-server or returns an error.
+// Token must be safe for concurrent use by multiple goroutines.
+// The returned Token must not be modified.
+func (ts *robotJWTSource) Token() (*oauth2.Token, error) {
+	req, err := http.NewRequest(http.MethodGet, "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/identity", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := ts.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Read body before checking status to ensure connection can be reused.
+	tokenBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+	tokenString := string(tokenBytes)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status code %d, body:\n%s", resp.StatusCode, tokenString)
+	}
+
+	// Decode token so we can set the expiry and the client knows when to
+	// refresh. No need to check the signature here (onprem) as it will be
+	// checked by the cloud backend.
+	claims, err := jws.Decode(tokenString)
+	if err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+	return &oauth2.Token{
+		TokenType:   "Bearer",
+		AccessToken: tokenString,
+		Expiry:      time.Unix(claims.Exp, 0),
+	}, nil
+}
+
+const (
+	// Minimum remaining lifetime of JWTs from CreateJWTSource().
+	jwtMinLifetime = time.Minute
+)
+
+// CreateJWTSource creates an OAuth2 token source for the JWTs signed by the
+// robot's private key.
+func CreateJWTSource() oauth2.TokenSource {
+	ts := &robotJWTSource{}
+	return oauth2.ReuseTokenSourceWithExpiry(nil, ts, jwtMinLifetime)
 }
