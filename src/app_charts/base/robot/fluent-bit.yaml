@@ -182,17 +182,21 @@ data:
         Condition Key_value_matches log .*(type="Error"|level=error).*
         Add severity ERROR
     
+    # We're setting the logName here and below to avoid a high cardinality field on stackdriver
+    # See https://github.com/fluent/fluent-bit/issues/9897
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals stream stderr
         Add severity ERROR
+        Set logging.googleapis.com/logName stderr
     
     [FILTER]
         Name          modify
         Match         {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
         Condition Key_value_equals stream stdout
         Add severity INFO
+        Set logging.googleapis.com/logName stdout
     
     [FILTER]
         Name          modify
@@ -321,7 +325,7 @@ spec:
         app.kubernetes.io/name: fluent-bit
         app.kubernetes.io/instance: fluent-bit
       annotations:
-        checksum/config: bf669081246c9e4ce0c612d6ec2cd3a69267a1f3e73c7936ab5d19d669bedc04
+        checksum/config: 62f3260bfeab5914c8b602bc04f3e1aa7bd3fe9691a18590d746d3ddc09fd432
     spec:
       serviceAccountName: fluent-bit
       hostNetwork: false
