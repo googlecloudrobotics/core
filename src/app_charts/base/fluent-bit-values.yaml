@@ -83,11 +83,6 @@ config:
         Systemd_Filter _TRANSPORT=kernel
         Read_From_Tail On
 
-    [INPUT]
-        Name            node_exporter_metrics
-        Tag             node_metrics
-        Scrape_interval 10
-
   ## https://docs.fluentbit.io/manual/pipeline/filters
   filters: |
     [FILTER]
@@ -224,11 +219,6 @@ config:
         k8s_cluster_name MY_ROBOT
         k8s_cluster_location MY_CLUSTER_LOCATION
         Workers 1
-
-    [OUTPUT]
-        name            prometheus_exporter
-        match           node_metrics
-        port            24231
 
 volumeMounts:
   - name: config

@@ -100,11 +100,6 @@ data:
         Systemd_Filter _TRANSPORT=kernel
         Read_From_Tail On
     
-    [INPUT]
-        Name            node_exporter_metrics
-        Tag             node_metrics
-        Scrape_interval 10
-    
     [FILTER]
         Name kubernetes
         Match {{ empty .Values.log_prefix_subdomain | ternary "" (print .Values.log_prefix_subdomain "." ) -}} kube.*
@@ -237,11 +232,6 @@ data:
         k8s_cluster_name {{ .Values.robot.name }}
         k8s_cluster_location europe-west1-c
         Workers 1
-    
-    [OUTPUT]
-        name            prometheus_exporter
-        match           node_metrics
-        port            24231
 ---
 # Source: fluent-bit/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -331,7 +321,7 @@ spec:
         app.kubernetes.io/name: fluent-bit
         app.kubernetes.io/instance: fluent-bit
       annotations:
-        checksum/config: 299ecb8dbcefbf30ff062e875a12471c98b76579383ea826b1e76a44daadc677
+        checksum/config: bf669081246c9e4ce0c612d6ec2cd3a69267a1f3e73c7936ab5d19d669bedc04
     spec:
       serviceAccountName: fluent-bit
       hostNetwork: false
