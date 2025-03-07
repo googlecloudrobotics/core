@@ -20,14 +20,18 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/oauth2/jws"
 
 	"github.com/googlecloudrobotics/ilog"
 )
@@ -44,6 +48,18 @@ var (
 
 	logLevel = flag.Int("log-level", int(slog.LevelInfo),
 		"the log message level required to be logged")
+
+	// Regex for RFC 1123 subdomain format
+	// https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
+	// https://github.com/kubernetes/kubernetes/blob/976a940f4a4e84fe814583848f97b9aafcdb083f/staging/src/k8s.io/apimachinery/pkg/util/validation/validation.go#L209
+	isValidRobotName = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`).MatchString
+)
+
+const (
+	verifyJWTEndpoint = "/apis/core.token-vendor/v1/jwt.verify"
+
+	// the prefix of the label selector query param used by the cr-syncer
+	robotNameSelectorPrefix = "cloudrobotics.com/robot-name="
 )
 
 type handlers struct {
@@ -60,15 +76,114 @@ func (h *handlers) health(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// verifyJWT delegates to the token-vendor to verify the signature of the JWT
+// matches the public key of the robot.
+func (h *handlers) verifyJWT(encodedJWT string) error {
+	req, err := http.NewRequest("GET", *tokenVendor+verifyJWTEndpoint, nil)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Add("Authorization", "Bearer "+encodedJWT)
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("do request: %w", err)
+	}
+	// Discard body so connection can be reused.
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+
+	if resp.StatusCode == http.StatusForbidden {
+		return fmt.Errorf("invalid JWT")
+	} else if resp.StatusCode != http.StatusOK {
+		slog.Warn("unexpected status code from /jwt.verify", slog.Int("Status", resp.StatusCode))
+		return fmt.Errorf("unexpected status code")
+	}
+	return nil
+}
+
+func (h *handlers) resourceIsFiltered(groupKind string) bool {
+	// TODO: limit to CRDs with filter-by-robot-name label in case someone adds
+	// new unfiltered resources in future.
+	return groupKind != "registry.cloudrobotics.com/robottypes"
+}
+
+// validateRequest checks that the request is expected for the cr-syncer and
+// only accesses allowed resources.
+func (h *handlers) validateRequest(r *http.Request, robotName string) error {
+	urlString := r.Header.Get("X-Original-Url")
+	incomingReq, err := parseURL(urlString)
+	if err != nil {
+		slog.Error("unexpected value of X-Original-Url", slog.String("URL", urlString), ilog.Err(err))
+		return err
+	}
+
+	if !h.resourceIsFiltered(incomingReq.GroupKind) {
+		// Unfiltered resources (eg robottypes) are always allowed.
+		//
+		// For additional defense-in-depth, we could check if the CRD has
+		// annotations for the cr-syncer. However, the RBAC policy in
+		// cr-syncer-policy.yaml already limits the client to syncable resources.
+		return nil
+	}
+
+	// TODO: check against label of upstream resource instead of assuming that
+	// robot xyz can access all syncable resources matching *xyz.
+	if incomingReq.RobotName != robotName && !strings.HasSuffix(incomingReq.ResourceName, robotName) {
+		slog.Error("robot impersonation rejected",
+			slog.String("SourceName", robotName),
+			slog.String("TargetName", incomingReq.RobotName+incomingReq.ResourceName),
+			slog.String("Kind", incomingReq.GroupKind),
+			slog.String("URL", urlString),
+		)
+		return errors.New("credentials rejected")
+	}
+	return nil
+}
+
+// auth is a webhook to inspect incoming requests from the cr-syncer, check if
+// they are allowed, and if so, provide an Authorization header so the K8s
+// apiserver will serve them. This lets nginx handle the request & response
+// bodies itself.
 func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
-	// TODO(rodrigoq): check for JWT and compare to request pattern
-	if *acceptLegacyCredentials {
-		// The request already has the necessary credentials, so preserve these.
-		w.Header().Add("Authorization", r.Header.Get("Authorization"))
-		w.WriteHeader(http.StatusOK)
+	// If the JWT is invalid/missing we'll do an unnecessary request but that's
+	// not the common code path.
+	encodedJWT := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if err := h.verifyJWT(encodedJWT); err != nil {
+		if *acceptLegacyCredentials {
+			// The request already has the necessary credentials, so preserve these.
+			w.Header().Add("Authorization", r.Header.Get("Authorization"))
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		http.Error(w, "No valid credentials provided", http.StatusUnauthorized)
 		return
 	}
-	http.Error(w, "No valid credentials provided", http.StatusUnauthorized)
+
+	// verifyJWT() has already checked the signature so we don't need to.
+	claims, err := jws.Decode(encodedJWT)
+	if err != nil {
+		slog.Error("Failed to parse JWT despite previous verification")
+		http.Error(w, "Credentials could not be parsed", http.StatusInternalServerError)
+		return
+	}
+	slog.Debug("JWT parsed", slog.String("ID", claims.Sub))
+
+	if err := h.validateRequest(r, claims.Sub); err != nil {
+		http.Error(w, "Request not allowed", http.StatusForbidden)
+		return
+	}
+
+	// Provide a k8s token to nginx so that GKE accepts the request. Policy for
+	// the cr-syncer-auth-webhook ServiceAccount is defined in
+	// cr-syncer-policy.yaml.
+	k8sToken, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	if err != nil {
+		slog.Error("failed to read /var/run/secrets/kubernetes.io/serviceaccount/token", ilog.Err(err))
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+	}
+	w.Header().Add("Authorization", "Bearer "+string(k8sToken))
+	w.WriteHeader(http.StatusOK)
 }
 
 func main() {
