@@ -51,6 +51,7 @@ import (
 	"time"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"github.com/googlecloudrobotics/ilog"
 	"github.com/motemen/go-loghttp"
 	"go.opencensus.io/plugin/ochttp"
@@ -59,7 +60,6 @@ import (
 	"go.opencensus.io/zpages"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	crdinformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
@@ -80,6 +80,7 @@ const (
 var (
 	remoteServer       = flag.String("remote-server", "", "Remote Kubernetes server")
 	robotName          = flag.String("robot-name", "", "Robot we are running on, can be used for selective syncing")
+	robotIdFile        = flag.String("robot-id-file", "/credentials/robot-id.json", "robot-id.json file")
 	verbose            = flag.Bool("verbose", false, "Enable verbose logging")
 	listenAddr         = flag.String("listen-address", ":80", "HTTP listen address")
 	conflictErrorLimit = flag.Int("conflict-error-limit", 5, "Number of consecutive conflict errors before informer is restarted")
@@ -158,7 +159,7 @@ func (r *ctxRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 
 // restConfigForRemote assembles the K8s REST config for the remote server.
 func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
-	tokenSource, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
+	robotAuth, err := robotauth.LoadFromFile(*robotIdFile)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +169,7 @@ func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
 	}
 	transport := func(base http.RoundTripper) (rt http.RoundTripper) {
 		rt = &oauth2.Transport{
-			Source: tokenSource,
+			Source: robotAuth.CreateJWTSource(),
 			Base:   base,
 		}
 		rt = &PrefixingRoundtripper{

@@ -19,6 +19,7 @@ spec:
         args:
         - --listen-address=:8080
         - --remote-server={{ .Values.domain }}
+        - --robot-id-file=/credentials/robot-id.json
         - --robot-name={{ .Values.robot.name }}
         - --verbose=false
         ports:
@@ -35,10 +36,20 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /credentials
+          name: robot-id
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
+      volumes:
+      - name: robot-id
+        secret:
+          secretName: robot-auth
+          items:
+          - key: json
+            path: robot-id.json
 ---
 apiVersion: v1
 kind: Service

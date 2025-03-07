@@ -14,6 +14,7 @@ go_library(
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/cr-syncer",
     visibility = ["//visibility:private"],
     deps = [
+        "//src/go/pkg/robotauth:go_default_library",
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
         "@com_github_motemen_go_loghttp//:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
@@ -39,7 +40,6 @@ go_library(
         "@io_opencensus_go_contrib_exporter_prometheus//:go_default_library",
         "@org_golang_x_net//context:go_default_library",
         "@org_golang_x_oauth2//:go_default_library",
-        "@org_golang_x_oauth2//google:go_default_library",
     ],
 )
 

@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -176,20 +177,26 @@ func (r *RobotAuth) CreateRobotTokenSource(ctx context.Context) oauth2.TokenSour
 // This does not grant Google Cloud access, but can be used for for explicit
 // authentication with the token vendor.
 func (r *RobotAuth) CreateJWT(ctx context.Context, lifetime time.Duration) (string, error) {
+	_, token, err := r.createJWTInternal(ctx, lifetime)
+	return token, err
+}
+
+// createJWTInternal also returns the ClaimSet to avoid needing to re-parse the JWT.
+func (r *RobotAuth) createJWTInternal(ctx context.Context, lifetime time.Duration) (*jws.ClaimSet, string, error) {
 	p, _ := pem.Decode(r.PrivateKey)
 	if p == nil {
-		return "", fmt.Errorf("decode private key")
+		return nil, "", fmt.Errorf("decode private key")
 	}
 	parsedKey, err := x509.ParsePKCS8PrivateKey(p.Bytes)
 	if err != nil {
 		parsedKey, err = x509.ParsePKCS1PrivateKey(p.Bytes)
 		if err != nil {
-			return "", fmt.Errorf("private key should be a PEM or plain PKCS1 or PKCS8; parse error: %v", err)
+			return nil, "", fmt.Errorf("private key should be a PEM or plain PKCS1 or PKCS8; parse error: %v", err)
 		}
 	}
 	parsed, ok := parsedKey.(*rsa.PrivateKey)
 	if !ok {
-		return "", fmt.Errorf("private key is invalid")
+		return nil, "", fmt.Errorf("private key is invalid")
 	}
 
 	// We re-use the token audience here.
@@ -208,8 +215,44 @@ func (r *RobotAuth) CreateJWT(ctx context.Context, lifetime time.Duration) (stri
 
 	ret, err := jws.Encode(&jws.Header{Algorithm: "RS256", Typ: "JWT"}, claimSet, parsed)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
-	return ret, nil
+	return claimSet, ret, nil
+}
+
+const (
+	jwtExpiry      = time.Minute * 30
+	jwtMinLifetime = time.Minute
+)
+
+// robotJWTSource gets robot JWTs from the metadata-server.
+type robotJWTSource struct {
+	*RobotAuth
+}
+
+// Token returns a token or an error.
+// Token must be safe for concurrent use by multiple goroutines.
+// The returned Token must not be modified.
+func (ts *robotJWTSource) Token() (*oauth2.Token, error) {
+	// The context appears to be ignored by CreateJWT.
+	claims, token, err := ts.createJWTInternal(context.TODO(), jwtExpiry)
+	if err != nil {
+		return nil, fmt.Errorf("create robot JWT: %w", err)
+	}
+
+	slog.Info("JWT generated", slog.String("ID", claims.Iss), slog.Int64("Exp", claims.Exp))
+
+	return &oauth2.Token{
+		TokenType:   "Bearer",
+		AccessToken: token,
+		Expiry:      time.Unix(claims.Exp, 0),
+	}, nil
+}
+
+// CreateJWTSource creates an OAuth2 token source for the JWTs signed by the
+// robot's private key.
+func (r *RobotAuth) CreateJWTSource() oauth2.TokenSource {
+	ts := &robotJWTSource{r}
+	return oauth2.ReuseTokenSourceWithExpiry(nil, ts, jwtMinLifetime)
 }
