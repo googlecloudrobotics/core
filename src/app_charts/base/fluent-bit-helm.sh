@@ -1,7 +1,7 @@
 #!/bin/bash
 # needs at least helm v3.5.0
 OUTPUT=./robot/fluent-bit.yaml
-TEMPLATE_VERSION=0.45.0
+TEMPLATE_VERSION=0.48.9
 helm repo add fluent https://fluent.github.io/helm-charts
 helm repo update fluent
 helm template fluent-bit fluent/fluent-bit --version ${TEMPLATE_VERSION} -f fluent-bit-values.yaml --skip-tests > ${OUTPUT}
