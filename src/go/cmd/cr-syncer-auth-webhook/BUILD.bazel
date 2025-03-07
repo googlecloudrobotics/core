@@ -10,6 +10,7 @@ go_library(
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/cr-syncer-auth-webhook",
     visibility = ["//visibility:private"],
     deps = [
+        "@com_github_form3tech_oss_jwt_go//:go_default_library",
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
     ],
