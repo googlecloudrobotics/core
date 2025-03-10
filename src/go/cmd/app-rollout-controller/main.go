@@ -47,7 +47,7 @@ var (
 	healthzPort = flag.Int("healthz-port", 8080, "Listening port of the /healthz probe")
 	webhookPort = flag.Int("webhook-port", 9876, "Listening port of the custom resource webhook")
 	certDir     = flag.String("cert-dir", "", "Directory for TLS certificates")
-	logLevel    = flag.Int("log_level", int(slog.LevelInfo), "the log message level required to be logged")
+	logLevel    = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
 )
 
 func main() {

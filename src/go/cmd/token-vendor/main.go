@@ -62,7 +62,7 @@ var keyStoreOpts = []string{string(Kubernetes), string(Memory)}
 
 var (
 	verbose  = flag.Bool("verbose", false, "DEPRECTAED: Use log_level")
-	logLevel = flag.Int("log_level", int(slog.LevelInfo), "the log message level required to be logged")
+	logLevel = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
 	// Backend options
 	keyStore = flag.String(
 		"key-store",
