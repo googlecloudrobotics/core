@@ -50,7 +50,7 @@ var (
 	certDir              = flag.String("cert-dir", "", "Directory for TLS certificates")
 	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "", "If not empty, traces will be uploaded to this Google Cloud Project. Not relevant for cloud cluster")
 	maxQPS               = flag.Int("apiserver-max-qps", 50, "Maximum number of calls to the API server per second.")
-	logLevel             = flag.Int("log_level", int(slog.LevelInfo), "the log message level required to be logged")
+	logLevel             = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
 )
 
 func main() {
