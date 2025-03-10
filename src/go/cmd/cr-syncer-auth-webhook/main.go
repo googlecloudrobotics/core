@@ -40,6 +40,9 @@ var (
 
 	tokenVendor = flag.String("token-vendor", "http://token-vendor.app-token-vendor.svc.cluster.local",
 		"Hostname of the token-vendor service")
+
+	logLevel = flag.Int("log-level", int(slog.LevelInfo),
+		"the log message level required to be logged")
 )
 
 type handlers struct {
@@ -69,7 +72,7 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
+	logHandler := ilog.NewLogHandler(slog.Level(*logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
 	server := &http.Server{
