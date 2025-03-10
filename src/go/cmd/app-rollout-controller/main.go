@@ -43,22 +43,16 @@ import (
 )
 
 var (
-	params = flag.String("params", "",
-		"Helm configuration parameters formatted as name=value,topname.subname=value")
-
-	healthzPort = flag.Int("healthz-port", 8080,
-		"Listening port of the /healthz probe")
-
-	webhookPort = flag.Int("webhook-port", 9876,
-		"Listening port of the custom resource webhook")
-
-	certDir = flag.String("cert-dir", "",
-		"Directory for TLS certificates")
+	params      = flag.String("params", "", "Helm configuration parameters formatted as name=value,topname.subname=value")
+	healthzPort = flag.Int("healthz-port", 8080, "Listening port of the /healthz probe")
+	webhookPort = flag.Int("webhook-port", 9876, "Listening port of the custom resource webhook")
+	certDir     = flag.String("cert-dir", "", "Directory for TLS certificates")
+	logLevel    = flag.Int("log_level", int(slog.LevelInfo), "the log message level required to be logged")
 )
 
 func main() {
 	flag.Parse()
-	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
+	logHandler := ilog.NewLogHandler(slog.Level(*logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
 	ctx := context.Background()
