@@ -49,6 +49,7 @@ var (
 	// https://cloud.google.com/compute/docs/access/create-enable-service-accounts-for-instances#applications
 	minTokenExpiry = flag.Int("min_token_expiry", 300, "Minimum time a token needs to be valid for in seconds")
 	logPeerDetails = flag.Bool("log_peer_details", false, "When enabled details about the peer that requests ADC are logged on the expense of some extra latency")
+	runningOnGKE   = flag.Bool("running_on_gke", false, "If running on GKE, skip setup steps that are unnecessary and will fail.")
 )
 
 func detectChangesToFile(filename string) <-chan struct{} {
@@ -194,10 +195,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := PatchCorefile(ctx, k8s); err != nil {
-		removeIPTablesRule()
-		slog.Error("PatchCorefile", slog.Any("Error", err))
-		os.Exit(1)
+	if !*runningOnGKE {
+		if err := PatchCorefile(ctx, k8s); err != nil {
+			removeIPTablesRule()
+			slog.Error("PatchCorefile", slog.Any("Error", err))
+			os.Exit(1)
+		}
 	}
 
 	go func() {
