@@ -50,6 +50,7 @@ var (
 	minTokenExpiry = flag.Int("min_token_expiry", 300, "Minimum time a token needs to be valid for in seconds")
 	logPeerDetails = flag.Bool("log_peer_details", false, "When enabled details about the peer that requests ADC are logged on the expense of some extra latency")
 	logLevel       = flag.Int("log_level", int(slog.LevelInfo), "the log message level required to be logged")
+	runningOnGKE   = flag.Bool("running_on_gke", false, "If running on GKE, skip setup steps that are unnecessary and will fail.")
 )
 
 func detectChangesToFile(filename string) <-chan struct{} {
@@ -195,15 +196,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := PatchCorefile(ctx, k8s); err != nil {
-		removeIPTablesRule()
-		slog.Error("PatchCorefile", slog.Any("Error", err))
-		os.Exit(1)
+	if !*runningOnGKE {
+		if err := PatchCorefile(ctx, k8s); err != nil {
+			removeIPTablesRule()
+			slog.Error("PatchCorefile", slog.Any("Error", err))
+			os.Exit(1)
+		}
 	}
 
 	go func() {
 		err = http.Serve(ln, nil)
-		RevertCorefile(ctx, k8s)
+		if !*runningOnGKE {
+			RevertCorefile(ctx, k8s)
+		}
 		removeIPTablesRule()
 		slog.Error("Serve", slog.Any("Error", err))
 		os.Exit(1)
@@ -211,7 +216,9 @@ func main() {
 
 	go func() {
 		<-detectChangesToFile(*robotIdFile)
-		RevertCorefile(ctx, k8s)
+		if !*runningOnGKE {
+			RevertCorefile(ctx, k8s)
+		}
 		removeIPTablesRule()
 		slog.Error("File changed but reloading is not implemented. Crashing...", slog.String("ID", *robotIdFile))
 		os.Exit(1)
@@ -221,6 +228,8 @@ func main() {
 	signal.Notify(stop, syscall.SIGTERM)
 
 	<-stop
-	RevertCorefile(ctx, k8s)
+	if !*runningOnGKE {
+		RevertCorefile(ctx, k8s)
+	}
 	removeIPTablesRule()
 }

@@ -65,6 +65,11 @@ function create {
 
   gke_get_credentials "${GCP_PROJECT_ID}" "${ROBOT_NAME}" "${GCP_REGION}" "${GCP_ZONE}"
 
+  POD_CIDR=$(gcloud container clusters describe "${ROBOT_NAME}" \
+    --project=${GCP_PROJECT_ID} \
+    --zone=${GCP_ZONE} \
+    | grep podIpv4CidrBlock | awk '{print $2;}')
+
   # shellcheck disable=2097 disable=2098
   KUBE_CONTEXT=${GKE_SIM_CONTEXT} \
   HOST_HOSTNAME="nic0.${ROBOT_NAME}${GCP_ZONE}.c.${GCP_PROJECT_ID}.internal.gcpnode.com" \
@@ -72,7 +77,11 @@ function create {
     $DIR/../src/bootstrap/robot/setup_robot.sh \
     ${ROBOT_NAME} \
     --project ${GCP_PROJECT_ID} \
-    --robot-type "${ROBOT_TYPE}" --robot-authentication=false \
+    --robot-type "${ROBOT_TYPE}" \
+    --fluentd=false \
+    --fluentbit=false \
+    --running-on-gke=true \
+    --pod-cidr "${POD_CIDR}" \
     --labels "${ROBOT_LABELS}"
 }
 
