@@ -27,8 +27,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/googlecloudrobotics/ilog"
 	"github.com/pkg/errors"
+
+	"github.com/googlecloudrobotics/ilog"
 )
 
 var (
