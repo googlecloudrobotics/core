@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The CR syncer syncs custom resources between a remote Kubernetes cluster
-// and the local Kubernetes cluster. The spec part is copied from upstream to
+// The CR syncer syncs custom resources between a remote Kubernetes cluster and
+// the local Kubernetes cluster. The spec part is copied from upstream to
 // downstream, and the status part is copied from downstream to upstream.
 //
 // The behaviour can be customized by annotations on the CRDs.
@@ -22,8 +22,8 @@
 //
 //	cr-syncer.cloudrobotics.com/filter-by-robot-name: <bool>
 //
-// If true, only sync CRs that have a label 'cloudrobotics.com/robot-name: <robot-name>'
-// that matches the robot-name arg given on the command line.
+// If true, only sync CRs that have a label 'cloudrobotics.com/robot-name:
+// <robot-name>' that matches the robot-name arg given on the command line.
 //
 // Annotation "status-subtree"
 //
@@ -36,9 +36,13 @@
 //
 //	cr-syncer.cloudrobotics.com/spec-source: <string>
 //
-// If set to "cloud", the source of truth for object existence and specs (upstream) is
-// the remote cluster and for status it's local (downstream). If set to "robot", the roles
-// are reversed. Otherwise, eg when using the empty string "", synchronization is disabled.
+// If set to "cloud", the source of truth for object existence and specs
+// (upstream) is the remote cluster and for status it's local (downstream).
+// If set to "", the CRD is ignored.
+//
+// NOTE: Previously, this could be set to "robot", but support was removed as it
+// was unused and the required auth setup is more complex, and would need
+// changes to cr-syncer-auth-webhook to validate CR creation as well.
 package main
 
 import (
@@ -309,7 +313,9 @@ func main() {
 			// instead.
 			s, err := newCRSyncer(ctx, *crd.CRD, local, remote, *robotName)
 			if err != nil {
-				slog.Info("skipping custom resource", slog.String("Resource", name), ilog.Err(err))
+				if err != errIgnoredCRD {
+					slog.Error("skipping custom resource", slog.String("Resource", name), ilog.Err(err))
+				}
 				continue
 			}
 			syncers[name] = s
