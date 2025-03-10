@@ -71,6 +71,10 @@ var (
 	)
 	tagEventSource = mustNewTagKey("event_source")
 	tagResource    = mustNewTagKey("resource")
+
+	// errIgnoredCRD indicates that the spec-source label is missing or empty
+	// and this CRD should be ignored.
+	errIgnoredCRD = errors.New("this CRD is not synced")
 )
 
 func init() {
@@ -204,14 +208,8 @@ func newCRSyncer(
 		done:       make(chan struct{}),
 	}
 	switch src := annotations[annotationSpecSource]; src {
-	case "robot":
-		s.clusterName = cloudClusterName
-		// Swap upstream and downstream if the robot is the spec source.
-		s.upstream, s.downstream = s.downstream, s.upstream
-		// Use DefaultControllerRateLimiter for queue with destination robot and ItemFastSlowRateLimiter for queue with destination cloud to improve resilience regarding network errors
-		// Upstream destination is robot cluster, downstream destination is cloud cluster
-		s.upstreamQueue = workqueue.NewNamedRateLimitingQueue(workqueue.NewItemFastSlowRateLimiter(time.Millisecond*500, time.Second*5, 5), "upstream")
-		s.downstreamQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "downstream")
+	case "":
+		return nil, errIgnoredCRD
 	case "cloud":
 		s.clusterName = fmt.Sprintf("robot-%s", robotName)
 		// Use DefaultControllerRateLimiter for queue with destination robot and ItemFastSlowRateLimiter for queue with destination cloud to improve resilience regarding network errors
