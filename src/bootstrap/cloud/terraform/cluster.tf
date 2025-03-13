@@ -46,7 +46,7 @@ resource "google_container_cluster" "cloud-robotics-ar" {
   for_each              = var.additional_regions
   project               = data.google_project.project.project_id
   name                  = format("%s-%s", each.key, "ar-cloud-robotics")
-  location              = each.value.zone
+  location              = var.cluster_type == "zonal" ? each.value.zone : each.value.region
   enable_shielded_nodes = true
   depends_on            = [google_project_service.project-services["container.googleapis.com"]]
 
@@ -112,7 +112,7 @@ resource "google_container_node_pool" "cloud_robotics_base_pool_ar" {
   for_each = var.additional_regions
   project  = data.google_project.project.project_id
   name     = format("%s-%s", "base-pool-ar", each.key)
-  location = each.value.zone
+  location = var.cluster_type == "zonal" ? each.value.zone : each.value.region
   cluster  = google_container_cluster.cloud-robotics-ar[each.key].name
 
   initial_node_count = 2
