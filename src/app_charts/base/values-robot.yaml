@@ -27,6 +27,9 @@ docker_data_root: "/var/lib/docker"
 # metadata-server or gcr-credential-refresher.
 robot_authentication: "true"
 
+# If running on GKE, skip setup steps that are unnecessary and will fail.
+running_on_gke: "false"
+
 robot:
   name: ""
 
