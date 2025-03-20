@@ -236,25 +236,25 @@ func (ts *robotJWTSource) Token() (*oauth2.Token, error) {
 	defer resp.Body.Close()
 
 	// Read body before checking status to ensure connection can be reused.
-	tokenBytes, err := io.ReadAll(resp.Body)
+	responseBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read response body: %w", err)
 	}
-	tokenString := string(tokenBytes)
+	responseString := string(responseBytes)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status code %d, body:\n%s", resp.StatusCode, tokenString)
+		return nil, fmt.Errorf("status code %d, body:\n%s", resp.StatusCode, responseString)
 	}
 
 	// Decode token so we can set the expiry and the client knows when to
 	// refresh. No need to check the signature here (onprem) as it will be
 	// checked by the cloud backend.
-	claims, err := jws.Decode(tokenString)
+	claims, err := jws.Decode(responseString)
 	if err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
 	return &oauth2.Token{
 		TokenType:   "Bearer",
-		AccessToken: tokenString,
+		AccessToken: responseString,
 		Expiry:      time.Unix(claims.Exp, 0),
 	}, nil
 }
