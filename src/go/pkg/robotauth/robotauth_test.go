@@ -5,6 +5,8 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
 	"testing/quick"
@@ -106,5 +108,51 @@ func TestCreateJWT(t *testing.T) {
 
 	if err := jws.Verify(jwtk, parsed); err != nil {
 		t.Errorf("Failed to validate created JWT: %v", err)
+	}
+}
+
+type mockRoundTripper struct {
+	response *http.Response
+}
+
+func (rt *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return rt.response, nil
+}
+
+func makeTokenResponse(token string) *http.Response {
+	recorder := httptest.NewRecorder()
+	recorder.Header().Add("Content-Type", "application/json")
+	recorder.WriteString(token)
+	return recorder.Result()
+}
+
+const (
+	// unsigned token with known fields, check/generate with https://jwt.io and
+	// a throwaway private key:
+	//   ssh-keygen -t rsa -b 4096 -m PEM -f jwtRS256.key
+	testToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJyb2JvdC1yb2JvdC1zaW0iLCJhdWQiOiJodHRwczovL3d3dy5lbmRwb2ludHMubXktdGVzdC1wcm9qZWN0LmNsb3VkLmdvb2cvYXBpcy9jb3JlLnRva2VuLXZlbmRvci92MS90b2tlbi5vYXV0aDIiLCJleHAiOjE3NDE2MTU3MjEsImlhdCI6MTc0MTYxNDgxMSwic3ViIjoicm9ib3Qtc2ltIiwicHJuIjoicm9ib3Qtc2ltIn0."
+
+	textTokenExpiryUnix = 1741615721
+)
+
+func TestCreateJWTSource(t *testing.T) {
+	mockRT := &mockRoundTripper{}
+	ts := &robotJWTSource{
+		client: http.Client{
+			Transport: mockRT,
+		},
+	}
+
+	mockRT.response = makeTokenResponse(testToken)
+	token, err := ts.Token()
+	if err != nil {
+		t.Fatalf("ts.Token() failed unexpectedly: %v", err)
+	}
+
+	if want := "Bearer"; token.TokenType != want {
+		t.Errorf("token.TokenType = %q, want %q", token.TokenType, want)
+	}
+	if want := time.Unix(textTokenExpiryUnix, 0); token.Expiry != want {
+		t.Errorf("token.Expiry = %v, want %v", token.Expiry, want)
 	}
 }

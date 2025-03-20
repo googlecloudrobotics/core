@@ -55,6 +55,7 @@ import (
 	"time"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"github.com/googlecloudrobotics/ilog"
 	"github.com/motemen/go-loghttp"
 	"go.opencensus.io/plugin/ochttp"
@@ -87,7 +88,8 @@ var (
 	listenAddr         = flag.String("listen-address", ":80", "HTTP listen address")
 	conflictErrorLimit = flag.Int("conflict-error-limit", 5, "Number of consecutive conflict errors before informer is restarted")
 	timeout            = flag.Int64("timeout", 300, "Timeout for CR watch calls in seconds")
-	verbose            = flag.Bool("verbose", false, "DEPRECTAED: Use log_level")
+	useRobotJWT        = flag.Bool("use-robot-jwt", false, "Use robot JWT for authn instead of GCP access token - requires recent CRC cloud deployment")
+	verbose            = flag.Bool("verbose", false, "DEPRECATED: Use log_level")
 	logLevel           = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
 
 	sizeDistribution    = view.Distribution(0, 1024, 2048, 4096, 16384, 65536, 262144, 1048576, 4194304, 33554432)
@@ -163,9 +165,15 @@ func (r *ctxRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 
 // restConfigForRemote assembles the K8s REST config for the remote server.
 func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
-	tokenSource, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
-	if err != nil {
-		return nil, err
+	var tokenSource oauth2.TokenSource
+	var err error
+	if *useRobotJWT {
+		tokenSource = robotauth.CreateJWTSource()
+	} else {
+		tokenSource, err = google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
+		if err != nil {
+			return nil, err
+		}
 	}
 	ctx, err = tag.New(ctx, tag.Insert(tagLocation, "remote"))
 	if err != nil {
