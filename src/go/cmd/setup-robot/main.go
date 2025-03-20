@@ -62,6 +62,7 @@ var (
 			"configuration (eg Cilium's clusterPoolIPv4PodCIDR). If this is incorrect, "+
 			"pods will get 403 Forbidden when trying to reach the metadata server.")
 	robotAuthentication = flag.Bool("robot-authentication", true, "Set up robot authentication.")
+	runningOnGKE        = flag.Bool("running-on-gke", false, "If running on GKE, skip setup steps that are unnecessary and will fail.")
 
 	robotGVR = schema.GroupVersionResource{
 		Group:    "registry.cloudrobotics.com",
@@ -352,6 +353,7 @@ func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, re
 		"docker_data_root":     *dockerDataRoot,
 		"pod_cidr":             *podCIDR,
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
+		"running_on_gke":       strconv.FormatBool(*runningOnGKE),
 		"robot.name":           *robotName,
 	})
 	slog.Info("Installing chart using Synk",
