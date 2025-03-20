@@ -61,7 +61,8 @@ const (
 var keyStoreOpts = []string{string(Kubernetes), string(Memory)}
 
 var (
-	verbose = flag.Bool("verbose", false, "Increase log level to DEBUG.")
+	verbose  = flag.Bool("verbose", false, "DEPRECTAED: Use log_level")
+	logLevel = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
 	// Backend options
 	keyStore = flag.String(
 		"key-store",
@@ -94,12 +95,14 @@ var (
 func main() {
 	flag.Var(&scopes, "scope", "GCP scopes included in the token given out to robots.")
 	flag.Parse()
-	level := slog.LevelInfo
+
+	ll := slog.Level(*logLevel)
 	if *verbose {
-		level = slog.LevelDebug
+		ll = slog.LevelDebug
 	}
-	logHandler := ilog.NewLogHandler(level, os.Stderr)
+	logHandler := ilog.NewLogHandler(ll, os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
+
 	// init components
 	ctx := context.Background()
 	var rep repository.PubKeyRepository

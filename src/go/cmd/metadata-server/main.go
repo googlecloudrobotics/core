@@ -49,6 +49,7 @@ var (
 	// https://cloud.google.com/compute/docs/access/create-enable-service-accounts-for-instances#applications
 	minTokenExpiry = flag.Int("min_token_expiry", 300, "Minimum time a token needs to be valid for in seconds")
 	logPeerDetails = flag.Bool("log_peer_details", false, "When enabled details about the peer that requests ADC are logged on the expense of some extra latency")
+	logLevel       = flag.Int("log_level", int(slog.LevelInfo), "the log message level required to be logged")
 )
 
 func detectChangesToFile(filename string) <-chan struct{} {
@@ -121,7 +122,7 @@ func runIPTablesCommand(args []string) error {
 func main() {
 	flag.Parse()
 
-	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
+	logHandler := ilog.NewLogHandler(slog.Level(*logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
 	if ip := net.ParseIP(*bindIP); ip == nil {

@@ -84,10 +84,11 @@ const (
 var (
 	remoteServer       = flag.String("remote-server", "", "Remote Kubernetes server")
 	robotName          = flag.String("robot-name", "", "Robot we are running on, can be used for selective syncing")
-	verbose            = flag.Bool("verbose", false, "Enable verbose logging")
 	listenAddr         = flag.String("listen-address", ":80", "HTTP listen address")
 	conflictErrorLimit = flag.Int("conflict-error-limit", 5, "Number of consecutive conflict errors before informer is restarted")
 	timeout            = flag.Int64("timeout", 300, "Timeout for CR watch calls in seconds")
+	verbose            = flag.Bool("verbose", false, "DEPRECTAED: Use log_level")
+	logLevel           = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
 
 	sizeDistribution    = view.Distribution(0, 1024, 2048, 4096, 16384, 65536, 262144, 1048576, 4194304, 33554432)
 	latencyDistribution = view.Distribution(0, 1, 2, 5, 10, 15, 25, 50, 100, 200, 400, 800, 1500, 3000, 6000)
@@ -231,7 +232,7 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	ll := slog.LevelInfo
+	ll := slog.Level(*logLevel)
 	if *verbose {
 		ll = slog.LevelDebug
 	}

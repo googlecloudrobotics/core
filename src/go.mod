@@ -1,6 +1,8 @@
 module github.com/googlecloudrobotics/core/src
 
-go 1.21
+go 1.23.0
+
+toolchain go1.23.7
 
 require (
 	cloud.google.com/go v0.110.10 // indirect
@@ -29,10 +31,10 @@ require (
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	go.opencensus.io v0.24.0
-	golang.org/x/crypto v0.21.0
-	golang.org/x/net v0.23.0
-	golang.org/x/sync v0.6.0
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/crypto v0.35.0
+	golang.org/x/net v0.36.0
+	golang.org/x/sync v0.11.0
+	golang.org/x/sys v0.30.0 // indirect
 	google.golang.org/api v0.149.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.33.0
@@ -126,8 +128,8 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
 	golang.org/x/exp v0.0.0-20231127185646-65229373498e // indirect
-	golang.org/x/term v0.18.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/term v0.29.0 // indirect
+	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
