@@ -14,6 +14,7 @@ go_library(
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/cr-syncer",
     visibility = ["//visibility:private"],
     deps = [
+        "//src/go/pkg/robotauth:go_default_library",
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
         "@com_github_motemen_go_loghttp//:go_default_library",
         "@com_github_pkg_errors//:go_default_library",

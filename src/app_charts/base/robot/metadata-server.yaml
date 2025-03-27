@@ -32,6 +32,7 @@ spec:
         - --port=8965
         - --robot_id_file=/credentials/robot-id.json
         - --source_cidr={{ .Values.pod_cidr }}
+        - --running_on_gke={{ .Values.running_on_gke }}
         securityContext:
           readOnlyRootFilesystem: true  
           capabilities:
