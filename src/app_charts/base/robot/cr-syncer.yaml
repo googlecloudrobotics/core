@@ -20,6 +20,7 @@ spec:
         - --listen-address=:8080
         - --remote-server={{ .Values.domain }}
         - --robot-name={{ .Values.robot.name }}
+        - --use-robot-jwt=true
         - --verbose=false
         ports:
         - name: http
