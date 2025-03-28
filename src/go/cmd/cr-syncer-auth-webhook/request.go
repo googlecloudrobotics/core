@@ -5,11 +5,20 @@ package main
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
 )
+
+// Regex for RFC 1123 subdomain format
+// https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
+// https://github.com/kubernetes/kubernetes/blob/976a940f4a4e84fe814583848f97b9aafcdb083f/staging/src/k8s.io/apimachinery/pkg/util/validation/validation.go#L209
+var isValidRobotName = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`).MatchString
+
+// the prefix of the label selector query param used by the cr-syncer
+const robotNameSelectorPrefix = "cloudrobotics.com/robot-name="
 
 // incomingRequest contains the authz-relevant properties of the resource
 type incomingRequest struct {

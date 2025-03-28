@@ -25,7 +25,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -48,19 +47,9 @@ var (
 
 	logLevel = flag.Int("log-level", int(slog.LevelInfo),
 		"the log message level required to be logged")
-
-	// Regex for RFC 1123 subdomain format
-	// https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
-	// https://github.com/kubernetes/kubernetes/blob/976a940f4a4e84fe814583848f97b9aafcdb083f/staging/src/k8s.io/apimachinery/pkg/util/validation/validation.go#L209
-	isValidRobotName = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`).MatchString
 )
 
-const (
-	verifyJWTEndpoint = "/apis/core.token-vendor/v1/jwt.verify"
-
-	// the prefix of the label selector query param used by the cr-syncer
-	robotNameSelectorPrefix = "cloudrobotics.com/robot-name="
-)
+const verifyJWTEndpoint = "/apis/core.token-vendor/v1/jwt.verify"
 
 type handlers struct {
 	client *http.Client
