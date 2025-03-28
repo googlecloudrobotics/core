@@ -49,7 +49,11 @@ var (
 		"the log message level required to be logged")
 )
 
-const verifyJWTEndpoint = "/apis/core.token-vendor/v1/jwt.verify"
+const (
+	verifyJWTEndpoint = "/apis/core.token-vendor/v1/jwt.verify"
+
+	legacyTokenPrefix = "ya29."
+)
 
 type handlers struct {
 	client *http.Client
@@ -68,6 +72,12 @@ func (h *handlers) health(w http.ResponseWriter, r *http.Request) {
 // verifyJWT delegates to the token-vendor to verify the signature of the JWT
 // matches the public key of the robot.
 func (h *handlers) verifyJWT(encodedJWT string) error {
+	if strings.HasPrefix(encodedJWT, legacyTokenPrefix) {
+		// We can avoid the unnecessary request when the client is using a GCP
+		// access token.
+		return fmt.Errorf("legacy token format")
+	}
+
 	req, err := http.NewRequest("GET", *tokenVendor+verifyJWTEndpoint, nil)
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
@@ -134,8 +144,6 @@ func (h *handlers) validateRequest(r *http.Request, robotName string) error {
 // apiserver will serve them. This lets nginx handle the request & response
 // bodies itself.
 func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
-	// If the JWT is invalid/missing we'll do an unnecessary request but that's
-	// not the common code path.
 	encodedJWT := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if err := h.verifyJWT(encodedJWT); err != nil {
 		if *acceptLegacyCredentials {
