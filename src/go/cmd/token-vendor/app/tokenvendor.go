@@ -78,9 +78,9 @@ var (
 	)
 )
 
-func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk string) (*tokensource.TokenResponse, error) {
+func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk, requestedSA string) (*tokensource.TokenResponse, error) {
 	ts := time.Now()
-	r, err := tv.getOAuth2Token(ctx, jwtk)
+	r, err := tv.getOAuth2Token(ctx, jwtk, requestedSA)
 	var state string
 	if err != nil {
 		state = "failed"
@@ -123,20 +123,35 @@ func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (string, *r
 	return deviceID, k, nil
 }
 
-func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokensource.TokenResponse, error) {
+func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk, requestedSA string) (*tokensource.TokenResponse, error) {
 	deviceID, k, err := tv.ValidateJWT(ctx, jwtk)
 	if err != nil {
 		return nil, err
 	}
-	if k.SAName == "" {
-		k.SAName = tv.defaultSAName
+	saName, err := serviceAccountName(tv.defaultSAName, k.SAName, requestedSA)
+	if err != nil {
+		return nil, err
 	}
-	cloudToken, err := tv.ts.Token(ctx, k.SAName, k.SADelegateName)
+	cloudToken, err := tv.ts.Token(ctx, saName, k.SADelegateName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to retrieve a cloud token for device %q", deviceID)
 	}
 	slog.Info("Handing out cloud token", slog.String("DeviceID", deviceID), slog.String("ServiceAccount", k.SAName))
 	return cloudToken, nil
+}
+
+func serviceAccountName(saDef, saCfg, saReq string) (string, error) {
+	if saReq == "" {
+		// nothing given, choose default
+		if saCfg != "" {
+			return saCfg, nil
+		}
+		return saDef, nil
+	}
+	if saReq == saDef || saReq == saCfg {
+		return saReq, nil
+	}
+	return "", fmt.Errorf("service account %q not allowed", saReq)
 }
 
 // acceptedAudience validates JWT audience as defined by the token vendor
