@@ -239,7 +239,9 @@ func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Reque
 			fmt.Sprintf(`expected "%s=<jwt>" in body, invalid token format: %v`, paramAssert, err))
 		return
 	}
-	token, err := h.tv.GetOAuth2Token(r.Context(), assertion)
+	const paramServiceAccount = "service-account"
+	serviceAccount := values.Get(paramServiceAccount)
+	token, err := h.tv.GetOAuth2Token(r.Context(), assertion, serviceAccount)
 	if err != nil {
 		api.ErrResponse(w, http.StatusForbidden, "unable to retrieve cloud access token with given JWT")
 		slog.Error("unable to retrieve cloud access token with given JWT", ilog.Err(err))
