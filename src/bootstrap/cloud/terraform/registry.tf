@@ -6,6 +6,7 @@ locals {
     google_service_account.human-acl.member,
     var.onprem_federation ? [google_service_account.robot-service[0].member] : [],
   ])
+  # TODO: use the regional repos depending on settings in the future
   private_repo_access = flatten([
     for sa in local.service_acounts : [
       for prj in var.private_image_repositories : {
@@ -14,6 +15,27 @@ locals {
       }
     ]
   ])
+  std_repositories = [
+    { repository = "asia.gcr.io", location="asia" },
+    { repository = "eu.gcr.io", location="europe" },
+    { repository = "gcr.io", location="us" },
+    { repository = "us.gcr.io", location="us" },
+  ]
+}
+
+# import existing repos, see: gcloud artifacts repositories list --project=<project-id>
+# Requires terraform >= 1.5, example:
+#import {
+#  id = "projects/$data.google_project.project.project_id/locations/us/repositories/gcr.io"
+#  to = google_artifact_registry_repository.gcrio_repositories[2]
+#}
+
+resource "google_artifact_registry_repository" "gcrio_repositories" {
+  project       = data.google_project.project.project_id
+  location      = local.std_repositories[count.index].location
+  repository_id = local.std_repositories[count.index].repository
+  format        = "docker"
+  count         = length(local.std_repositories)
 }
 
 resource "google_artifact_registry_repository_iam_member" "gcrio_gar_reader" {
