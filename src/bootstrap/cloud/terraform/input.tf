@@ -20,7 +20,7 @@ variable "region" {
 
 variable "additional_regions" {
   description = "Cloud regions to deploy additional relays to"
-  type        = map
+  type        = map(any)
   default     = {}
 }
 
@@ -39,7 +39,7 @@ variable "crc_version" {
 
 variable "private_image_repositories" {
   description = "Projects with private GCR image repositories where we need to add IAM access rules."
-  type        = list
+  type        = list(any)
   default     = []
 }
 

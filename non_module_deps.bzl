@@ -47,9 +47,9 @@ def _non_module_deps_impl(ctx):
     http_archive(
         name = "hashicorp_terraform",
         urls = [
-            "https://releases.hashicorp.com/terraform/0.13.7/terraform_0.13.7_linux_amd64.zip",
+            "https://releases.hashicorp.com/terraform/0.15.5/terraform_0.15.5_linux_amd64.zip",
         ],
-        sha256 = "4a52886e019b4fdad2439da5ff43388bbcc6cce9784fde32c53dcd0e28ca9957",
+        sha256 = "3b144499e08c245a8039027eb2b84c0495e119f57d79e8fb605864bb48897a7d",
         build_file = "//third_party:terraform.BUILD",
     )
     http_archive(

@@ -454,7 +454,7 @@ function helm_region_shared {
 
 function helm_main_region {
   local INGRESS_IP
-  INGRESS_IP=$(terraform_exec output ingress-ip)
+  INGRESS_IP=$(terraform_exec output ingress-ip | tr -d '"')
 
   helm_region_shared \
     "${CLOUD_ROBOTICS_CTX}" \
