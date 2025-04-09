@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: relay-dashboards-json
   labels:
-     grafana: "1"
+    grafana: "1"
 data:
   relay.json: |-
 {{ .Files.Get "files/relay-dashboard.json" | indent 4 }}

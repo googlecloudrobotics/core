@@ -13,7 +13,7 @@ metadata:
 spec:
   ca:
     secretName: cluster-authority
-{{ if eq .Values.certificate_provider "lets-encrypt" }}
+{{- if eq .Values.certificate_provider "lets-encrypt" }}
 ---
 # While an Issuer may satisfy our current needs within the default namespace,
 # anticipating future growth and potential deployments in additional namespaces,
@@ -30,10 +30,10 @@ spec:
       name: letsencrypt-prod
     # We can't use dns01 since we don't control the dns-zone that endpoints uses.
     solvers:
-    - http01:
-        ingress:
-          class: nginx
-{{ else if eq .Values.certificate_provider "google-cas" }}
+      - http01:
+          ingress:
+            class: nginx
+{{- else if eq .Values.certificate_provider "google-cas" }}
 ---
 # Issuer for Google's Certificate Authority service (CAS) using the google-cas-issuer project.
 # https://github.com/jetstack/google-cas-issuer
@@ -45,4 +45,4 @@ spec:
   project: {{ .Values.project }}
   location: {{ .Values.region }}
   caPoolId: "{{ .Values.project }}-ca-pool"
-{{ end }}
+{{- end }}

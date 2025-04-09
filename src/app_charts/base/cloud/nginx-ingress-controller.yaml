@@ -110,16 +110,16 @@ metadata:
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
-  loadBalancerIP: "{{ .Values.ingress_ip }}"
+  loadBalancerIP: {{ .Values.ingress_ip }}
   ports:
-  - port: 80
-    name: http
-    targetPort: 80
-    appProtocol: HTTP
-  - port: 443
-    name: https
-    targetPort: 443
-    appProtocol: HTTPS
+    - port: 80
+      name: http
+      targetPort: 80
+      appProtocol: HTTP
+    - port: 443
+      name: https
+      targetPort: 443
+      appProtocol: HTTPS
   selector:
     k8s-app: nginx-ingress-controller
 ---
@@ -188,7 +188,7 @@ kind: ConfigMap
 metadata:
   name: nginx-dashboards-json
   labels:
-     grafana: "1"
+    grafana: "1"
 data:
   nginx.json: |-
 {{ .Files.Get "files/nginx.json" | indent 4 }}

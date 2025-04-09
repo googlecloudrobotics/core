@@ -4,7 +4,7 @@ metadata:
   name: selfsigned-ca
 spec:
   isCA: true
-  duration: 8760h # 1year. This needs to be at least 3x 90days
+  duration: 8760h  # 1year. This needs to be at least 3x 90days
   commonName: {{ .Values.domain }}
   secretName: cluster-authority
   privateKey:
@@ -14,7 +14,7 @@ spec:
     name: selfsigned-issuer
     kind: ClusterIssuer
     group: cert-manager.io
-{{ if .Values.certificate_provider }}
+{{- if .Values.certificate_provider }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -25,14 +25,14 @@ spec:
   secretName: tls
   dnsNames:
     - {{ .Values.domain }}
-{{ if eq .Values.certificate_provider "lets-encrypt" }}
+{{- if eq .Values.certificate_provider "lets-encrypt" }}
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
-{{ else if eq .Values.certificate_provider "google-cas" }}
+{{- else if eq .Values.certificate_provider "google-cas" }}
   issuerRef:
     name: google-cas
     group: cas-issuer.jetstack.io
     kind: GoogleCASClusterIssuer
-{{ end }}
-{{ end }}
+{{- end }}
+{{- end }}
