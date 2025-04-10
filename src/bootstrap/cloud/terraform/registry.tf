@@ -45,6 +45,7 @@ resource "google_artifact_registry_repository_iam_member" "gcrio_gar_reader" {
   role       = "roles/artifactregistry.reader"
   count      = length(local.service_acounts)
   member     = local.service_acounts[count.index]
+  depends_on = [ google_artifact_registry_repository.gcrio_repositories ]
 }
 
 resource "google_artifact_registry_repository_iam_member" "private_gcrio_gar_reader" {
@@ -54,4 +55,5 @@ resource "google_artifact_registry_repository_iam_member" "private_gcrio_gar_rea
   count      = length(local.private_repo_access)
   project    = local.private_repo_access[count.index].prj
   member     = local.private_repo_access[count.index].sa
+  depends_on = [ google_artifact_registry_repository.gcrio_repositories ]
 }
