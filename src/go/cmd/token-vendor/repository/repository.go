@@ -17,6 +17,12 @@ package repository
 
 import (
 	"context"
+	"errors"
+)
+
+var (
+	// ErrNotFound indicates that the requested key is not known.
+	ErrNotFound = errors.New("key not found")
 )
 
 // Key holds data + metadata of a public key entry

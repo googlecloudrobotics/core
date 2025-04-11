@@ -16,9 +16,12 @@ package k8s
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository"
 )
 
 // Publish a key, retrieve it again and check listing of all keys.
@@ -77,10 +80,10 @@ func TestLookupDoesNotExist(t *testing.T) {
 		t.Fatal(err)
 	}
 	k, err := kcl.LookupKey(context.TODO(), "testdevice")
-	if err != nil {
-		t.Fatalf("LookupKey produced error %v, want nil", err)
+	if !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("LookupKey produced wrong error: got %v, want %v", err, repository.ErrNotFound)
 	}
 	if k != nil {
-		t.Fatalf("LookupKey(..) = %q, want empty string", k)
+		t.Fatalf("LookupKey(..) = %q, want nil", k)
 	}
 }

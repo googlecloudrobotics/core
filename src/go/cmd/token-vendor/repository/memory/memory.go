@@ -42,7 +42,7 @@ func (m *MemoryRepository) LookupKey(ctx context.Context, deviceID string) (*rep
 	// key not found does not need to be an error
 	k, found := m.keys[deviceID]
 	if !found {
-		return nil, nil
+		return nil, repository.ErrNotFound
 	}
 	return &repository.Key{k, "", ""}, nil
 }
