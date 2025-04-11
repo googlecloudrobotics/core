@@ -34,10 +34,10 @@ import (
 	"github.com/googlecloudrobotics/ilog"
 )
 
-// Re-list all ConfigMaps periodically in case we drop an event or otherwise
-// have inconsistent state in the cache. May be unnecessary but provide some
-// defence in depth.
-const resyncPeriod = 5 * time.Minute
+// Re-list all ConfigMaps periodically. If this causes problems, consider
+// setting to 0 instead to disable, but hopefully this provides provides
+// some defense against bugs without being too costly.
+const resyncPeriod = 1 * time.Hour
 
 // K8sRepository uses Kubernetes configmaps as public key backend for devices.
 type K8sRepository struct {
@@ -134,8 +134,12 @@ func (k *K8sRepository) PublishKey(ctx context.Context, deviceID, publicKey stri
 	if err != nil {
 		return errors.Wrapf(err, "failed to init device configmap %q/%q", k.ns, deviceID)
 	}
-	if _, err = k.kcl.CoreV1().ConfigMaps(k.ns).Create(ctx, cm, metav1.CreateOptions{}); err == nil { // no error
-		k.cmInformer.GetStore().Add(cm)
+	_, err = k.kcl.CoreV1().ConfigMaps(k.ns).Create(ctx, cm, metav1.CreateOptions{})
+	if err == nil { // no error
+		// Add to the informer store so that LookupKey can be used immediately.
+		if err := k.cmInformer.GetStore().Add(cm); err != nil {
+			slog.Warn("failed to add to informer store", slog.String("DeviceID", deviceID), ilog.Err(err))
+		}
 		return nil
 	}
 	if !kerrors.IsAlreadyExists(err) { // any error not AlreadyExist
@@ -144,7 +148,7 @@ func (k *K8sRepository) PublishKey(ctx context.Context, deviceID, publicKey stri
 	// AlreadyExist error, updating configmap.
 	// We do not want to override any other keys besides the public key here.
 	// createPubKeyDeviceConfig only creates a minimum configmap so updating is safe here.
-	if _, err = k.kcl.CoreV1().ConfigMaps(k.ns).Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
+	if _, err := k.kcl.CoreV1().ConfigMaps(k.ns).Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
 		return errors.Wrapf(err, "configmap %q/%q exists but failed to update it", k.ns, deviceID)
 	}
 	// Update the informer store so that LookupKey can be used immediately.
