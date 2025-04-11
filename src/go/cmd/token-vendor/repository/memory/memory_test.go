@@ -16,7 +16,10 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"testing"
+
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository"
 )
 
 // Test publish and lookup key
@@ -53,8 +56,8 @@ func TestMemoryNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 	k, err := m.LookupKey(context.TODO(), "a")
-	if err != nil {
-		t.Fatal(err)
+	if !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("LookupKey produced wrong error: got %v, want %v", err, repository.ErrNotFound)
 	}
 	if k != nil {
 		t.Fatalf("LookupKey: got %q, expected empty response", k)

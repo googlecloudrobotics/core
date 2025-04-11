@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -30,6 +31,7 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository"
 	"github.com/googlecloudrobotics/ilog"
 )
 
@@ -85,7 +87,11 @@ func (h *HandlerContext) publicKeyReadHandler(w http.ResponseWriter, r *http.Req
 	// retrieve public key from key repository
 	publicKey, err := h.tv.ReadPublicKey(r.Context(), deviceID)
 	if err != nil {
-		api.ErrResponse(w, http.StatusInternalServerError, "request to repository failed")
+		if errors.Is(err, repository.ErrNotFound) {
+			api.ErrResponse(w, http.StatusNotFound, "request to repository failed")
+		} else {
+			api.ErrResponse(w, http.StatusInternalServerError, "request to repository failed")
+		}
 		slog.Error("request to repository failed", ilog.Err(err))
 		return
 	}

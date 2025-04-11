@@ -80,7 +80,7 @@ func TestPublicKeyReadHandlerWithK8s(t *testing.T) {
 			[]*corev1.ConfigMap{},
 			"testdevice",
 			"",
-			http.StatusOK,
+			http.StatusNotFound,
 		},
 		// for malformed configmaps we expect an error
 		{
@@ -187,7 +187,7 @@ func mustFileToString(t *testing.T, name string) string {
 	fp := mustFileOpen(t, name)
 	bytes, err := io.ReadAll(fp)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	return string(bytes)
 }
@@ -265,18 +265,20 @@ func runPublicKeyPublishHandlerWithK8sCase(t *testing.T, test *publicKeyPublishH
 	q.Add("device-id", test.deviceID)
 	req.URL.RawQuery = q.Encode()
 	h.publicKeyReadHandler(rr, req)
-	if rr.Code != http.StatusOK {
-		t.Errorf("before update,publicKeyReadHandler(..): wrong status code, got %d, want %d",
-			rr.Code, http.StatusOK)
+	if rr.Code != http.StatusOK && rr.Code != http.StatusNotFound {
+		t.Errorf("before update,publicKeyReadHandler(..): wrong status code, got %d, want %d/%d",
+			rr.Code, http.StatusOK, http.StatusNotFound)
 	}
 	body, err := io.ReadAll(rr.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotKey := string(body)
-	if gotKey != test.wantKeyBefore {
-		t.Errorf("before update,publicKeyReadHandler(..): wrong key, got %v, want %v",
-			gotKey, test.wantKey)
+	if rr.Code == http.StatusOK {
+		gotKey := string(body)
+		if gotKey != test.wantKeyBefore {
+			t.Errorf("before update,publicKeyReadHandler(..): wrong key, got %v, want %v",
+				gotKey, test.wantKey)
+		}
 	}
 	// POST a new key
 	rr = httptest.NewRecorder()
@@ -304,7 +306,7 @@ func runPublicKeyPublishHandlerWithK8sCase(t *testing.T, test *publicKeyPublishH
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotKey = string(body)
+	gotKey := string(body)
 	if gotKey != test.wantKey {
 		t.Errorf("after update,publicKeyReadHandler(..): wrong key, got %v, want %v",
 			gotKey, test.wantKey)

@@ -20,6 +20,7 @@ import (
 	"log/slog"
 
 	"github.com/pkg/errors"
+
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,25 +67,23 @@ func (k *K8sRepository) ListAllDeviceIDs(ctx context.Context) ([]string, error) 
 
 // LookupKey returns the public key for a given device identifier.
 //
-// The public key is stored under a specific key in the configmap. If the configmap
-// does not exist, we return an empty string. For any other error or a malformed
-// configmap we return an error.
+// The public key is stored under a specific key in the configmap. Returns an
+// error if the configmap is not found or is not valid.
 func (k *K8sRepository) LookupKey(ctx context.Context, deviceID string) (*repository.Key, error) {
 	slog.Debug("looking up public key", slog.String("Namespace", k.ns), slog.String("ConfigMap", deviceID))
 	cm, err := k.kcl.CoreV1().ConfigMaps(k.ns).Get(ctx, deviceID, metav1.GetOptions{})
-	if kerrors.IsNotFound(err) {
-		slog.Debug("ConfigMap not found", slog.String("Namespace", k.ns), slog.String("ConfigMap", deviceID))
-		return nil, nil
-	}
 	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil, errors.Wrapf(repository.ErrNotFound, "failed to retrieve configmap %q/%q", k.ns, deviceID)
+		}
 		return nil, errors.Wrapf(err, "failed to retrieve configmap %q/%q", k.ns, deviceID)
 	}
 	key, found := cm.Data[pubKey]
 	if !found {
 		return nil, fmt.Errorf("configmap %q/%q does not contain key %q", k.ns, deviceID, pubKey)
 	}
-	sa, _ := cm.ObjectMeta.Annotations[serviceAccountAnnotation]
-	saDelegate, _ := cm.ObjectMeta.Annotations[serviceAccountDelegateAnnotation]
+	sa := cm.ObjectMeta.Annotations[serviceAccountAnnotation]
+	saDelegate := cm.ObjectMeta.Annotations[serviceAccountDelegateAnnotation]
 	return &repository.Key{key, sa, saDelegate}, nil
 }
 
