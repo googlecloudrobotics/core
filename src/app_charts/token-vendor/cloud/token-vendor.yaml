@@ -16,6 +16,7 @@ spec:
       - name: token-vendor
         image: {{ .Values.registry }}{{ .Values.images.token_vendor_go }}
         args:
+        - --log-level=4 # WARN
         - --project={{ .Values.project }}
         - --accepted_audience=https://{{ .Values.domain }}/apis/core.token-vendor/v1/token.oauth2
         - --service_account=robot-service
