@@ -70,9 +70,6 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"  # seconds
 spec:
   ingressClassName: nginx
-  tls:
-  - hosts:
-    - {{ .Values.domain }}
   rules:
   - host: {{ .Values.domain }}
     http:
@@ -91,9 +88,6 @@ metadata:
   name: oauth2-proxy-interactive
 spec:
   ingressClassName: nginx
-  tls:
-  - hosts:
-    - {{ .Values.domain }}
   rules:
   - host: {{ .Values.domain }}
     http:

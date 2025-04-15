@@ -13,9 +13,6 @@ metadata:
       error_page 403 = {{ tpl .Values.prom_ingress_error_page_403 . }};
 spec:
   ingressClassName: nginx
-  tls:
-  - hosts:
-    - {{ .Values.domain }}
   rules:
   - host: {{ .Values.domain }}
     http:
