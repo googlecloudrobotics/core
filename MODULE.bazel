@@ -4,7 +4,7 @@ bazel_dep(name = "platforms", version = "0.0.10")
 bazel_dep(name = "protobuf", version = "28.0-rc2", repo_name = "com_google_protobuf")
 bazel_dep(name = "rules_oci", version = "2.0.1")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
-bazel_dep(name = "rules_proto", version = "6.0.2")
+bazel_dep(name = "rules_shell", version = "0.4.0")
 # -- bazel_dep definitions -- #
 
 non_module_deps = use_extension("//:non_module_deps.bzl", "non_module_deps")
@@ -99,6 +99,7 @@ use_repo(
 #######
 
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+
 # gcloud container images describe gcr.io/distroless/base:latest --format='value(image_summary.digest)'
 oci.pull(
     name = "distroless_base",
@@ -106,6 +107,7 @@ oci.pull(
     image = "gcr.io/distroless/base",
     platforms = ["linux/amd64"],
 )
+
 # gcloud container images describe gcr.io/distroless/cc:latest --format='value(image_summary.digest)'
 oci.pull(
     name = "distroless_cc",

@@ -5,9 +5,9 @@ load("@io_bazel_rules_go//go:def.bzl", "go_test")
 go_test(
     name = "in_process_relay_test",
     size = "small",
+    srcs = ["in_process_relay_test.go"],
     # https://github.com/googlecloudrobotics/core/issues/507
     flaky = True,
-    srcs = ["in_process_relay_test.go"],
     deps = [
         "//src/go/cmd/http-relay-client/client:go_default_library",
         "//src/go/cmd/http-relay-server/server:go_default_library",
