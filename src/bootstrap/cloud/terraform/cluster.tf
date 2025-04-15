@@ -16,7 +16,6 @@ resource "google_container_cluster" "cloud-robotics" {
 
   # Make the cluster VPC-native (default for v1.21+)
   networking_mode = "VPC_NATIVE"
-  ip_allocation_policy {}
 
   # We can't create a cluster with no node pool defined, but we want to only use
   # separately managed node pools. So we create the smallest possible default
@@ -25,20 +24,30 @@ resource "google_container_cluster" "cloud-robotics" {
 
   initial_node_count = 1
 
+  gateway_api_config {
+    channel = "CHANNEL_STANDARD"
+  }
+  ip_allocation_policy {}
+  maintenance_policy {
+    recurring_window {
+      # Dates specifies first ocurance, times are in UTC
+      # Start late and end early to cover regions ahead/behind the sun
+      # Note: we mst not make this too small, otherwise GKE cannot schedule updates
+      start_time = "2025-04-05T05:00:00Z"
+      end_time   = "2025-04-06T19:00:00Z"
+      recurrence = "FREQ=WEEKLY;BYDAY=SA,SU"
+    }
+  }
+  secret_manager_config {
+    enabled = var.secret_manager_plugin
+  }
   timeouts {
     create = "1h"
     update = "1h"
     delete = "1h"
   }
-
-  gateway_api_config {
-    channel = "CHANNEL_STANDARD"
-  }
   workload_identity_config {
     workload_pool = "${data.google_project.project.project_id}.svc.id.goog"
-  }
-  secret_manager_config {
-    enabled = var.secret_manager_plugin
   }
 }
 
