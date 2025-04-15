@@ -12,9 +12,6 @@ metadata:
     nginx.ingress.kubernetes.io/client-body-buffer-size: "50m"
 spec:
   ingressClassName: nginx
-  tls:
-  - hosts:
-    - {{ .Values.domain }}
   rules:
   - host: {{ .Values.domain }}
     http:

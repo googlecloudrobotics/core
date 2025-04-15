@@ -6,9 +6,6 @@ metadata:
     nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
 spec:
   ingressClassName: nginx
-  tls:
-  - hosts:
-    - {{ .Values.domain }}
   rules:
   - host: {{ .Values.domain }}
     http:
@@ -29,9 +26,6 @@ metadata:
     nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=false"
 spec:
   ingressClassName: nginx
-  tls:
-  - hosts:
-    - {{ .Values.domain }}
   rules:
   - host: {{ .Values.domain }}
     http:
@@ -50,9 +44,6 @@ metadata:
   name: token-vendor
 spec:
   ingressClassName: nginx
-  tls:
-  - hosts:
-    - {{ .Values.domain }}
   rules:
   - host: {{ .Values.domain }}
     http:

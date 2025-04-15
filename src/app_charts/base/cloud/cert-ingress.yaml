@@ -1,0 +1,13 @@
+# Owns the 'tls' block to ensure a cert is generated and avoids repetition of 
+# the 'tls' block in other ingresses. Cert is associated via 'host' field.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: certificate-ingress
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - {{ .Values.domain }}
+  rules:
+  - {}
