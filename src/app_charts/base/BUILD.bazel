@@ -1,3 +1,4 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//bazel:app_chart.bzl", "app_chart")
 load("//bazel:build_rules/helm_template.bzl", "helm_template")
 
