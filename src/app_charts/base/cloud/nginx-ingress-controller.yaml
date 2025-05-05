@@ -3,6 +3,13 @@ kind: ConfigMap
 metadata:
   name: nginx-ingress-controller
 data:
+  # This is the same as the default but with the addition of $http_x_forwarded_for,
+  # which is useful when the GKE Global Application LB is also pointed at nginx.
+  # https://cloud.google.com/load-balancing/docs/https#x-forwarded-for_header
+  log-format-upstream: $remote_addr - $remote_user - $http_x_forwarded_for [$time_local]
+    "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $request_length
+    $request_time [$proxy_upstream_name] [$proxy_alternative_upstream_name] $upstream_addr
+    $upstream_response_length $upstream_response_time $upstream_status $req_id
   # The token-vendor checks the Original-URI header to accept tokens from query
   # parameters.
   proxy-add-original-uri-header: "true"
