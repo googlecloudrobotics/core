@@ -285,7 +285,7 @@ func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request
 
 	authHeader, ok := r.Header["Authorization"]
 	if !ok {
-		api.ErrResponse(w, http.StatusBadRequest,
+		api.ErrResponse(w, http.StatusUnauthorized,
 			"request did not provide Authorization header")
 		return
 	}
