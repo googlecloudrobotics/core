@@ -30,6 +30,13 @@ spec:
   - host: {{ .Values.domain }}
     http:
       paths:
+      - path: "/apis/core.token-vendor/v1/public-key.configure"
+        pathType: Prefix
+        backend:
+          service:
+            name: token-vendor
+            port:
+              name: token-vendor
       - path: "/apis/core.token-vendor/v1/public-key.publish"
         pathType: Prefix
         backend:

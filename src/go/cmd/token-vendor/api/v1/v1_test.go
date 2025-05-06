@@ -45,6 +45,96 @@ func NewTestHTTPClient(fn RoundTripFunc) *http.Client {
 	return &http.Client{Transport: fn}
 }
 
+type publicKeyConfigureHandlerK8sTest struct {
+	desc           string
+	configmaps     []*corev1.ConfigMap
+	method         string
+	deviceID       string
+	body           string
+	wantStatusCode int
+}
+
+func TestPublicKeyConfigureHandlerWithK8s(t *testing.T) {
+	var cases = []publicKeyConfigureHandlerK8sTest{
+		{
+			desc: "happy case",
+			configmaps: []*corev1.ConfigMap{
+				{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "ConfigMap",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testdevice",
+						Namespace: "default",
+					},
+					Data: map[string]string{"pubKey": "testkey"},
+				},
+			},
+			method:         http.MethodPost,
+			deviceID:       "testdevice",
+			body:           "{}",
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			desc:           "wrong method, bad request",
+			method:         http.MethodGet,
+			deviceID:       "testdevice",
+			wantStatusCode: http.StatusBadRequest,
+		},
+		{
+			desc:           "missing device-id, bad request",
+			method:         http.MethodPost,
+			body:           "{}",
+			wantStatusCode: http.StatusBadRequest,
+		},
+		{
+			desc:           "wrong device-id, not found",
+			method:         http.MethodPost,
+			deviceID:       "testdevice",
+			body:           "{}",
+			wantStatusCode: http.StatusNotFound,
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.desc, func(t *testing.T) {
+			runPublicKeyConfigureHandlerWithK8sCase(t, &test)
+		})
+	}
+}
+
+func runPublicKeyConfigureHandlerWithK8sCase(t *testing.T, test *publicKeyConfigureHandlerK8sTest) {
+	// Setup fake K8s environment
+	cs := fake.NewSimpleClientset()
+	if err := populateK8sEnv(cs, "default", test.configmaps); err != nil {
+		t.Fatal(err)
+	}
+	kcl, err := k8s.NewK8sRepository(context.TODO(), cs, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Setup app & API handler
+	tv, err := app.NewTokenVendor(context.TODO(), kcl, nil, nil, "aud", saName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := HandlerContext{tv: tv}
+	// Make API call
+	rr := httptest.NewRecorder()
+	req := mustNewRequest(t, test.method, "/anything", strings.NewReader(test.body))
+	q := req.URL.Query()
+	q.Add("device-id", test.deviceID)
+	req.URL.RawQuery = q.Encode()
+	h.publicKeyConfigureHandler(rr, req)
+	// check API response
+	if rr.Code != test.wantStatusCode {
+		t.Errorf("wrong status code, is %d, want %d", rr.Code, test.wantStatusCode)
+	}
+	if rr.Code != http.StatusOK {
+		return
+	}
+}
+
 type publicKeyReadHandlerK8sTest struct {
 	desc           string
 	configmaps     []*corev1.ConfigMap

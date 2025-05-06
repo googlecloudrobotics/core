@@ -35,6 +35,12 @@ type Key struct {
 	SADelegateName string
 }
 
+// KeyOptions contain optional settings for a key
+type KeyOptions struct {
+	ServiceAccount         string `json:"service-account"`
+	ServiceAccountDelegate string `json:"service-account-delegate"`
+}
+
 // PubKeyRepository defines the api for the pub key stores
 type PubKeyRepository interface {
 	// LookupKey retrieves the public key of a device from the repository.

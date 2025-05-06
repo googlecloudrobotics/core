@@ -56,9 +56,8 @@ refuse eg. robots to register other robots.
 
 ### /public-key.configure: Customize robot registration
 
-Status: Proposed
-
-Configure optional properties of the on-prem robot registration.
+Configure optional properties of the on-prem robot registration. This call needs
+to be authorized by an access token for a human administrator).
 
 * URL: /apis/core.token-vendor/v1/public-key.configure
 * Method: POST

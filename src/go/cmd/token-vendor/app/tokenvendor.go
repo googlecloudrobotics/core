@@ -61,6 +61,19 @@ func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (stri
 	return "", err
 }
 
+func (tv *TokenVendor) ConfigurePublicKey(ctx context.Context, deviceID string, opts repository.KeyOptions) error {
+	slog.Debug("Configuring public key", slog.String("DeviceID", deviceID))
+	// Extend repository with ConfigureKey method and use that instead
+	// return tv.repo.ConfigureKey(ctx, deviceID, opts)
+	key, err := tv.repo.LookupKey(ctx, deviceID)
+	if key != nil {
+		// TODO: update config from opts
+		slog.Info("Apply new opts:", "opts", opts)
+		return nil
+	}
+	return err
+}
+
 var (
 	tokensRequested = promauto.NewCounterVec(
 		prometheus.CounterOpts{
