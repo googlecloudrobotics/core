@@ -25,10 +25,14 @@ import (
 // Used only for integration tests.
 type MemoryRepository struct {
 	keys map[string]string
+	opts map[string]repository.KeyOptions
 }
 
 func NewMemoryRepository(ctx context.Context) (*MemoryRepository, error) {
-	return &MemoryRepository{keys: map[string]string{}}, nil
+	return &MemoryRepository{
+		keys: map[string]string{},
+		opts: map[string]repository.KeyOptions{},
+	}, nil
 }
 
 func (m *MemoryRepository) PublishKey(ctx context.Context, deviceID, publicKey string) error {
@@ -44,5 +48,14 @@ func (m *MemoryRepository) LookupKey(ctx context.Context, deviceID string) (*rep
 	if !found {
 		return nil, repository.ErrNotFound
 	}
-	return &repository.Key{k, "", ""}, nil
+	opts, found := m.opts[deviceID]
+	if !found {
+		opts = repository.KeyOptions{}
+	}
+	return &repository.Key{k, opts.ServiceAccount, opts.ServiceAccountDelegate}, nil
+}
+
+func (m *MemoryRepository) ConfigureKey(ctx context.Context, deviceID string, opts repository.KeyOptions) error {
+	m.opts[deviceID] = opts
+	return nil
 }

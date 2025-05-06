@@ -23,7 +23,7 @@ import (
 )
 
 // Test publish and lookup key
-func TestMemoryBackend(t *testing.T) {
+func TestMemoryPublishAndLookup(t *testing.T) {
 	m, err := NewMemoryRepository(context.TODO())
 	if err != nil {
 		t.Fatal(err)
@@ -61,5 +61,28 @@ func TestMemoryNotFound(t *testing.T) {
 	}
 	if k != nil {
 		t.Fatalf("LookupKey: got %q, expected empty response", k)
+	}
+}
+
+// Test publish and lookup key
+func TestMemoryConfigure(t *testing.T) {
+	ctx := context.Background()
+	m, err := NewMemoryRepository(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.PublishKey(ctx, "a", "akey"); err != nil {
+		t.Fatal(err)
+	}
+	opts := repository.KeyOptions{"svc@example.com", ""}
+	if err := m.ConfigureKey(ctx, "a", opts); err != nil {
+		t.Fatal(err)
+	}
+	k, err := m.LookupKey(ctx, "a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if k.SAName != "svc@example.com" {
+		t.Fatalf("LookupKey: got %q, expected %q", k.SAName, "svc@example.com")
 	}
 }
