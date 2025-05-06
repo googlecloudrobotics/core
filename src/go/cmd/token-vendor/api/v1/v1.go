@@ -66,8 +66,8 @@ func getQueryParam(u *url.URL, param string) (string, error) {
 // Method: GET
 // URL parameter: device-id, the string identifier of the device
 //
-// Response code: 200 (even if key not found)
-// Response body: A single public key or "" if no key was found.
+// Response code: 200 if key has been found
+// Response body: A single public key or "" on error.
 func (h *HandlerContext) publicKeyReadHandler(w http.ResponseWriter, r *http.Request) {
 	// validate request and parameters
 	if r.Method != http.MethodGet {
