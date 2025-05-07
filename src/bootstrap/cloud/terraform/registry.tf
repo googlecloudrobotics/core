@@ -42,7 +42,7 @@ resource "google_artifact_registry_repository" "gcrio_repositories" {
     action = "DELETE"
     condition {
       tag_state    = "UNTAGGED"
-      older_than   = "7d"
+      older_than   = "30d"
     }
   }
 
