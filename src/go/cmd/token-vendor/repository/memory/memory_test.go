@@ -23,25 +23,26 @@ import (
 )
 
 // Test publish and lookup key
-func TestMemoryPublishAndLookup(t *testing.T) {
-	m, err := NewMemoryRepository(context.TODO())
+func TestPublishAndLookup(t *testing.T) {
+	ctx := context.Background()
+	m, err := NewMemoryRepository(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := m.PublishKey(context.TODO(), "a", "akey"); err != nil {
+	if err := m.PublishKey(ctx, "a", "akey"); err != nil {
 		t.Fatal(err)
 	}
-	if err := m.PublishKey(context.TODO(), "b", "bkey"); err != nil {
+	if err := m.PublishKey(ctx, "b", "bkey"); err != nil {
 		t.Fatal(err)
 	}
-	k, err := m.LookupKey(context.TODO(), "a")
+	k, err := m.LookupKey(ctx, "a")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if k.PublicKey != "akey" {
 		t.Fatalf("Key for a: got %q, want %q", k, "akey")
 	}
-	k, err = m.LookupKey(context.TODO(), "b")
+	k, err = m.LookupKey(ctx, "b")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,12 +51,13 @@ func TestMemoryPublishAndLookup(t *testing.T) {
 	}
 }
 
-func TestMemoryNotFound(t *testing.T) {
-	m, err := NewMemoryRepository(context.TODO())
+func TestLookupNotFound(t *testing.T) {
+	ctx := context.Background()
+	m, err := NewMemoryRepository(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	k, err := m.LookupKey(context.TODO(), "a")
+	k, err := m.LookupKey(ctx, "a")
 	if !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("LookupKey produced wrong error: got %v, want %v", err, repository.ErrNotFound)
 	}
@@ -64,8 +66,7 @@ func TestMemoryNotFound(t *testing.T) {
 	}
 }
 
-// Test publish and lookup key
-func TestMemoryConfigure(t *testing.T) {
+func TestConfigure(t *testing.T) {
 	ctx := context.Background()
 	m, err := NewMemoryRepository(ctx)
 	if err != nil {

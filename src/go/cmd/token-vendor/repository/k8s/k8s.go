@@ -173,8 +173,8 @@ func (k *K8sRepository) ConfigureKey(ctx context.Context, deviceID string, opts 
 	if cm.ObjectMeta.Annotations == nil {
 		cm.ObjectMeta.Annotations = make(map[string]string)
 	}
-	cm.ObjectMeta.Annotations[serviceAccountAnnotation] = opts.ServiceAccount
-	cm.ObjectMeta.Annotations[serviceAccountDelegateAnnotation] = opts.ServiceAccountDelegate
+	mapSetOrDelete(cm.ObjectMeta.Annotations, serviceAccountAnnotation, opts.ServiceAccount)
+	mapSetOrDelete(cm.ObjectMeta.Annotations, serviceAccountDelegateAnnotation, opts.ServiceAccountDelegate)
 	if _, err := k.kcl.CoreV1().ConfigMaps(k.ns).Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
 		return errors.Wrapf(err, "failed to update configmap %q/%q", k.ns, deviceID)
 	}
@@ -204,4 +204,12 @@ func createPubKeyDeviceConfig(name, namespace, pk string) (*corev1.ConfigMap, er
 		},
 		Data: map[string]string{pubKey: pk},
 	}, nil
+}
+
+func mapSetOrDelete(m map[string]string, k, v string) {
+	if v != "" {
+		m[k] = v
+	} else {
+		delete(m, k)
+	}
 }

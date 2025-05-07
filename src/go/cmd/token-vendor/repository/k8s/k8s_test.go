@@ -114,3 +114,33 @@ func TestConfigure(t *testing.T) {
 		t.Fatalf("LookupKey: got %q, expected %q", k.SAName, "svc@example.com")
 	}
 }
+
+func TestReConfigure(t *testing.T) {
+	ctx := context.Background()
+	cs := fake.NewSimpleClientset()
+	kcl, err := NewK8sRepository(ctx, cs, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const id = "testdevice"
+	const key = "testkey"
+	if err = kcl.PublishKey(ctx, id, key); err != nil {
+		t.Fatal(err)
+	}
+	opts := repository.KeyOptions{"svc@example.com", ""}
+	if err := kcl.ConfigureKey(ctx, id, opts); err != nil {
+		t.Fatal(err)
+	}
+	// remove the config again
+	opts = repository.KeyOptions{"", ""}
+	if err := kcl.ConfigureKey(ctx, id, opts); err != nil {
+		t.Fatal(err)
+	}
+	k, err := kcl.LookupKey(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if k.SAName != "" {
+		t.Fatalf("LookupKey: got %q, expected %q", k.SAName, "svc@example.com")
+	}
+}
