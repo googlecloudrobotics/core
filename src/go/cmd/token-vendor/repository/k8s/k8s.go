@@ -159,16 +159,12 @@ func (k *K8sRepository) PublishKey(ctx context.Context, deviceID, publicKey stri
 }
 
 func (k *K8sRepository) ConfigureKey(ctx context.Context, deviceID string, opts repository.KeyOptions) error {
-	obj, exists, err := k.cmInformer.GetStore().GetByKey(k.ns + "/" + deviceID)
+	cm, err := k.kcl.CoreV1().ConfigMaps(k.ns).Get(ctx, deviceID, metav1.GetOptions{})
 	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return errors.Wrapf(repository.ErrNotFound, "failed to retrieve configmap %q/%q", k.ns, deviceID)
+		}
 		return errors.Wrapf(err, "failed to retrieve configmap %q/%q from cache", k.ns, deviceID)
-	}
-	if !exists {
-		return errors.Wrapf(repository.ErrNotFound, "failed to retrieve configmap %q/%q", k.ns, deviceID)
-	}
-	cm, ok := obj.(*corev1.ConfigMap)
-	if !ok {
-		return fmt.Errorf("unexpected object type: %T", obj)
 	}
 	if cm.ObjectMeta.Annotations == nil {
 		cm.ObjectMeta.Annotations = make(map[string]string)

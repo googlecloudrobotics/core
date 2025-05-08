@@ -173,6 +173,12 @@ Publish a key for the device `robot-dev-testuser`:
 curl -D - --max-time 3 --data-binary "@api/v1/testdata/rsa_cert.pem" -H "Authorization: Bearer $(gcloud auth print-access-token)" -H "Content-type: application/x-pem-file" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/public-key.publish?device-id=robot-dev-testuser
 ```
 
+Optionally set extra options for the device:
+
+```bash
+curl -D - --max-time 3 -d '{"service-account":"svc@${PROJECT}.iam.gserviceaccount.com"}' -H "Content-Type: application/json" -H "Authorization: Bearer $(gcloud auth print-access-token)" -H "Content-type: application/x-pem-file" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/public-key.configure?device-id=robot-dev-testuser
+```
+
 Read the key again:
 
 ```bash
