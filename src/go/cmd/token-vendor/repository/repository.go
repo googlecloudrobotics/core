@@ -35,6 +35,12 @@ type Key struct {
 	SADelegateName string
 }
 
+// KeyOptions contain optional settings for a key
+type KeyOptions struct {
+	ServiceAccount         string `json:"service-account"`
+	ServiceAccountDelegate string `json:"service-account-delegate"`
+}
+
 // PubKeyRepository defines the api for the pub key stores
 type PubKeyRepository interface {
 	// LookupKey retrieves the public key of a device from the repository.
@@ -42,4 +48,6 @@ type PubKeyRepository interface {
 	// that the device is blocked.
 	LookupKey(ctx context.Context, deviceID string) (*Key, error)
 	PublishKey(ctx context.Context, deviceID, publicKey string) error
+	// ConfigureKey applies the given opts to the key store.
+	ConfigureKey(ctx context.Context, deviceID string, opts KeyOptions) error
 }
