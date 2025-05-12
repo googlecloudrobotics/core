@@ -823,7 +823,7 @@ func Test_verifyJWTHandler(t *testing.T) {
 		},
 		{
 			name:         "no-auth-header",
-			expectedCode: http.StatusBadRequest,
+			expectedCode: http.StatusUnauthorized,
 		},
 		{
 			name:         "wrong-sig",
