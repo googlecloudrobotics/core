@@ -61,6 +61,55 @@ func getQueryParam(u *url.URL, param string) (string, error) {
 	return values[0], nil
 }
 
+// Handle requests to configure optional properties of the device registration.
+//
+// Method: POST
+// URL parameter: device-id, the string identifier of the device
+//
+//	Body: json {
+//	 service-account: str, defaults to robot-service@<gcp-project>.iam.gserviceaccount.com"
+//	 service-account-delegate: str, optional intermediate delegate
+//	}
+//
+// Response code: only http status code
+func (h *HandlerContext) publicKeyConfigureHandler(w http.ResponseWriter, r *http.Request) {
+	// validate request and parameters
+	if r.Method != http.MethodPost {
+		api.ErrResponse(w, http.StatusBadRequest,
+			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodPost))
+		return
+	}
+	deviceID, err := getQueryParam(r.URL, paramDeviceID)
+	if err != nil {
+		api.ErrResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !app.IsValidDeviceID(deviceID) {
+		api.ErrResponse(w, http.StatusBadRequest, "invalid device id")
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		api.ErrResponse(w, http.StatusInternalServerError, "failed to read request body")
+		return
+	}
+
+	var opts repository.KeyOptions
+	if err := json.Unmarshal([]byte(body), &opts); err != nil {
+		api.ErrResponse(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+
+	if err := h.tv.ConfigurePublicKey(r.Context(), deviceID, opts); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			api.ErrResponse(w, http.StatusNotFound, "request to repository failed")
+		} else {
+			api.ErrResponse(w, http.StatusInternalServerError, "request to repository failed")
+		}
+		slog.Error("request to repository failed", ilog.Err(err))
+	}
+}
+
 // Handle requests to read a device's public key by device identifier.
 //
 // Method: GET
@@ -438,6 +487,7 @@ func Register(tv *app.TokenVendor, prefix string) error {
 
 	h := NewHandlerContext(tv)
 
+	http.HandleFunc(path.Join(prefix, "public-key.configure"), h.publicKeyConfigureHandler)
 	http.HandleFunc(path.Join(prefix, "public-key.read"), h.publicKeyReadHandler)
 	http.HandleFunc(path.Join(prefix, "public-key.publish"), h.publicKeyPublishHandler)
 	http.HandleFunc(path.Join(prefix, "token.oauth2"), h.tokenOAuth2Handler)

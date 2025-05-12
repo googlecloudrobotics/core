@@ -35,6 +35,17 @@ resource "google_artifact_registry_repository" "gcrio_repositories" {
   location      = local.std_repositories[count.index].location
   repository_id = local.std_repositories[count.index].repository
   format        = "docker"
+
+  cleanup_policy_dry_run = false
+  cleanup_policies {
+    id     = "delete-untagged"
+    action = "DELETE"
+    condition {
+      tag_state    = "UNTAGGED"
+      older_than   = "30d"
+    }
+  }
+
   count         = length(local.std_repositories)
 }
 

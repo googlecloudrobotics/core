@@ -158,6 +158,29 @@ func (k *K8sRepository) PublishKey(ctx context.Context, deviceID, publicKey stri
 	return nil
 }
 
+func (k *K8sRepository) ConfigureKey(ctx context.Context, deviceID string, opts repository.KeyOptions) error {
+	cm, err := k.kcl.CoreV1().ConfigMaps(k.ns).Get(ctx, deviceID, metav1.GetOptions{})
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return errors.Wrapf(repository.ErrNotFound, "failed to retrieve configmap %q/%q", k.ns, deviceID)
+		}
+		return errors.Wrapf(err, "failed to retrieve configmap %q/%q from cache", k.ns, deviceID)
+	}
+	if cm.ObjectMeta.Annotations == nil {
+		cm.ObjectMeta.Annotations = make(map[string]string)
+	}
+	mapSetOrDelete(cm.ObjectMeta.Annotations, serviceAccountAnnotation, opts.ServiceAccount)
+	mapSetOrDelete(cm.ObjectMeta.Annotations, serviceAccountDelegateAnnotation, opts.ServiceAccountDelegate)
+	if _, err := k.kcl.CoreV1().ConfigMaps(k.ns).Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
+		return errors.Wrapf(err, "failed to update configmap %q/%q", k.ns, deviceID)
+	}
+	// Update the informer store so that LookupKey can be used immediately.
+	if err := k.cmInformer.GetStore().Update(cm); err != nil {
+		slog.Warn("failed to update informer store", slog.String("DeviceID", deviceID), ilog.Err(err))
+	}
+	return nil
+}
+
 // createPubKeyDeviceConfig creates a configmap with only the public key in it.
 //
 // This is used also during update of existing devices. Make sure no default values
@@ -177,4 +200,12 @@ func createPubKeyDeviceConfig(name, namespace, pk string) (*corev1.ConfigMap, er
 		},
 		Data: map[string]string{pubKey: pk},
 	}, nil
+}
+
+func mapSetOrDelete(m map[string]string, k, v string) {
+	if v != "" {
+		m[k] = v
+	} else {
+		delete(m, k)
+	}
 }

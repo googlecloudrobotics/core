@@ -18,10 +18,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/mail"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -29,7 +31,7 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth/jwt"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
-	"github.com/pkg/errors"
+	"github.com/googlecloudrobotics/ilog"
 )
 
 type TokenVendor struct {
@@ -59,6 +61,35 @@ func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (stri
 		return key.PublicKey, nil
 	}
 	return "", err
+}
+
+func (tv *TokenVendor) ConfigurePublicKey(ctx context.Context, deviceID string, opts repository.KeyOptions) error {
+	if err := validateKeyOptions(opts); err != nil {
+		slog.Error("Configuring public key", ilog.Err(err))
+		return err
+	}
+	slog.Debug("Configuring public key", slog.String("DeviceID", deviceID))
+	return tv.repo.ConfigureKey(ctx, deviceID, opts)
+}
+
+func validateKeyOptions(opts repository.KeyOptions) error {
+	// Sanity check for the config values
+	if opts.ServiceAccount != "" {
+		if err := validateEmail(opts.ServiceAccount); err != nil {
+			return fmt.Errorf("ServiceAccount field is not a valid email address: %v", err)
+		}
+	}
+	if opts.ServiceAccountDelegate != "" {
+		if err := validateEmail(opts.ServiceAccountDelegate); err != nil {
+			return fmt.Errorf("ServiceAccountDelegate field is not a valid email address: %v", err)
+		}
+	}
+	return nil
+}
+
+func validateEmail(e string) error {
+	_, err := mail.ParseAddress(e)
+	return err
 }
 
 var (

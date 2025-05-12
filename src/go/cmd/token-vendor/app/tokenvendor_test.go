@@ -1,6 +1,10 @@
 package app
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository"
+)
 
 type isValidDeviceIDTest struct {
 	deviceId string
@@ -118,6 +122,52 @@ func TestServiceAccountName(t *testing.T) {
 			} else if saName != test.wantSA {
 				t.Fatalf("serviceAccountName(%q, %q, %q): got err %v, want %v",
 					defaultSA, test.cfgSA, test.reqSA, err, test.wantError)
+			}
+		})
+	}
+}
+
+type keyOptionsTest struct {
+	desc      string
+	opts      repository.KeyOptions
+	wantError bool
+}
+
+func TestKeyOptions(t *testing.T) {
+	var cases = []keyOptionsTest{
+		{
+			desc: "empty opts are good",
+			opts: repository.KeyOptions{},
+		},
+		{
+			desc: "one good email, one empty",
+			opts: repository.KeyOptions{ServiceAccount: "svc@example.com"},
+		},
+		{
+			desc: "two good emails",
+			opts: repository.KeyOptions{ServiceAccount: "svc@example.com", ServiceAccountDelegate: "del@example.com"},
+		},
+		{
+			desc:      "bad email #1",
+			opts:      repository.KeyOptions{ServiceAccount: "svc"},
+			wantError: true,
+		},
+		{
+			desc:      "bad email #2",
+			opts:      repository.KeyOptions{ServiceAccount: "svc@"},
+			wantError: true,
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.desc, func(t *testing.T) {
+			err := validateKeyOptions(test.opts)
+			haveError := err != nil
+			if haveError != test.wantError {
+				if test.wantError {
+					t.Fatalf("validateKeyOptions returned %v, but wanted error", err)
+				} else {
+					t.Fatalf("validateKeyOptions returned %v, but wanted no error", err)
+				}
 			}
 		})
 	}
