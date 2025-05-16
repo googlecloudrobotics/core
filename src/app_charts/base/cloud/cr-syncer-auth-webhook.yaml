@@ -1,4 +1,4 @@
-{{ if .Values.onprem_federation }}
+{{ if eq .Values.onprem_federation "true" }}
 # The cr-syncer-auth-webhook verifies that requests from the cr-syncer are
 # limited to the robot named in the credentials.
 apiVersion: apps/v1
