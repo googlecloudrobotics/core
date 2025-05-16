@@ -1,3 +1,4 @@
+{{ if eq .Values.onprem_federation "true" }}
 # This policy lets the cr-syncer operate on the apps & registry CRDs.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -74,3 +75,4 @@ subjects:
 - namespace: {{ .Release.Namespace }}
   kind: ServiceAccount
   name: cr-syncer-auth-webhook
+{{ end }}

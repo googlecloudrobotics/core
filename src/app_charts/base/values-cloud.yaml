@@ -8,6 +8,8 @@ owner_email: "info@example.com"
 
 # Setting app_management to "false" will remove layer 2 (app-rollout/chart-assignment-controller, etc).
 app_management: "true"
+# Setting onprem_federation to "false" will remove cloud policy for the cr-syncer (part of layer 1).
+onprem_federation: "true"
 
 oauth2_proxy:
   cookie_secret: ""
