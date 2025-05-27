@@ -20,8 +20,10 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	crcfake "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/fake"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -59,6 +61,22 @@ func (d *fakeCachedDiscoveryClient) ServerGroupsAndResources() ([]*metav1.APIGro
 	}, nil
 }
 
+// Helpers to override time when testing.
+var (
+	fakeEndTime = metav1.Date(2025, 01, 01, 0, 0, 0, 0, time.UTC)
+)
+
+func fakeTime(t *testing.T, fakeTime metav1.Time) {
+	t.Helper()
+	oldFunc := metav1Now
+	t.Cleanup(func() {
+		metav1Now = oldFunc
+	})
+	metav1Now = func() metav1.Time {
+		return fakeTime
+	}
+}
+
 type fixture struct {
 	*testing.T
 	fake *k8stest.Fake
@@ -78,8 +96,9 @@ func (f *fixture) newSynk() *Synk {
 	scheme.AddToScheme(sc)
 	apps.AddToScheme(sc) // For tests with CRDs.
 	var (
-		client = dynamicfake.NewSimpleDynamicClient(sc, f.objects...)
-		s      = New(client, &fakeCachedDiscoveryClient{})
+		client   = dynamicfake.NewSimpleDynamicClient(sc, f.objects...)
+		rsClient = crcfake.NewSimpleClientset()
+		s        = New(client, rsClient, &fakeCachedDiscoveryClient{})
 	)
 	s.mapper = testrestmapper.TestOnlyStaticRESTMapper(sc)
 	s.resetMapper = func() {}
@@ -167,11 +186,11 @@ func TestSynk_initialize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.client.Resource(resourceSetGVR).Get(ctx, "test.v1", metav1.GetOptions{})
+	got, err := s.rsClient.AppsV1alpha1().ResourceSets().Get(ctx, "test.v1", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var want unstructured.Unstructured
+	var want apps.ResourceSet
 	unmarshalYAML(t, &want, `
 apiVersion: apps.cloudrobotics.com/v1alpha1
 kind: ResourceSet
@@ -200,13 +219,11 @@ status:
 	if want.GetName() != got.GetName() {
 		t.Errorf("expected name %q but got %q", want.GetName(), got.GetName())
 	}
-	wantPhase, _, _ := unstructured.NestedString(want.Object, "status", "phase")
-	gotPhase, _, _ := unstructured.NestedString(got.Object, "status", "phase")
-	if wantPhase != gotPhase {
-		t.Errorf("expected status phase %q but got %q", wantPhase, gotPhase)
+	if want.Status.Phase != got.Status.Phase {
+		t.Errorf("expected status phase %q but got %q", want.Status.Phase, got.Status.Phase)
 	}
-	if !reflect.DeepEqual(want.Object["spec"], got.Object["spec"]) {
-		t.Errorf("expected spec\n%v\nbut got\n%v", want.Object["spec"], got.Object["spec"])
+	if !reflect.DeepEqual(want.Spec, got.Spec) {
+		t.Errorf("expected spec\n%v\nbut got\n%v", want.Spec, got.Spec)
 	}
 }
 
@@ -240,15 +257,16 @@ func TestSynk_updateResourceSetStatus(t *testing.T) {
 			action:   apps.ResourceActionCreate,
 		},
 	}
+	fakeTime(t, fakeEndTime)
 	err := s.updateResourceSetStatus(ctx, rs, results)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.client.Resource(resourceSetGVR).Get(ctx, "set1", metav1.GetOptions{})
+	got, err := s.rsClient.AppsV1alpha1().ResourceSets().Get(ctx, "set1", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var want unstructured.Unstructured
+	var want apps.ResourceSet
 	unmarshalYAML(t, &want, `
 apiVersion: apps.cloudrobotics.com/v1alpha1
 kind: ResourceSet
@@ -283,15 +301,10 @@ status:
       name: deploy1
       action: Create
 `)
-	if v, _, _ := unstructured.NestedString(got.Object, "status", "finishedAt"); v == "" {
-		t.Errorf("finishedAt timestamp was not set")
-	}
-	// Remove unknown timestamps before running DeepEqual.
-	unstructured.RemoveNestedField(got.Object, "status", "startedAt")
-	unstructured.RemoveNestedField(got.Object, "status", "finishedAt")
+	want.Status.FinishedAt = fakeEndTime
 
-	if !reflect.DeepEqual(got.Object["status"], want.Object["status"]) {
-		t.Errorf("expected status:\n%q\nbut got:\n%q", want.Object["status"], got.Object["status"])
+	if !reflect.DeepEqual(got.Status, want.Status) {
+		t.Errorf("expected status:\n%q\nbut got:\n%q", want.Status, got.Status)
 	}
 }
 
@@ -502,11 +515,11 @@ func TestSynk_skipsTestResources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.client.Resource(resourceSetGVR).Get(ctx, "test.v1", metav1.GetOptions{})
+	got, err := s.rsClient.AppsV1alpha1().ResourceSets().Get(ctx, "test.v1", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var want unstructured.Unstructured
+	var want apps.ResourceSet
 	unmarshalYAML(t, &want, `
 apiVersion: apps.cloudrobotics.com/v1alpha1
 kind: ResourceSet
@@ -524,33 +537,41 @@ spec:
 status:
   phase: Pending
 `)
-	if !reflect.DeepEqual(want.Object["spec"], got.Object["spec"]) {
-		t.Errorf("expected spec\n%v\nbut got\n%v", want.Object["spec"], got.Object["spec"])
+	if !reflect.DeepEqual(want.Spec, got.Spec) {
+		t.Errorf("expected spec\n%v\nbut got\n%v", want.Spec, got.Spec)
 	}
 }
 
 func TestSynk_deleteResourceSets(t *testing.T) {
+	initialNames := []string{"test.v2", "bad_name", "other.v3", "test.v4", "test.v7", "test.v8"}
+	wantNames := []string{"bad_name", "other.v3", "test.v7", "test.v8"}
+	wantDeletions := []string{"test.v2", "test.v4"}
+
 	ctx := context.Background()
 	f := newFixture(t)
-	f.addObjects(
-		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "test.v2"),
-		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "bad_name"),
-		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "other.v3"),
-		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "test.v4"),
-		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "test.v7"),
-		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "test.v8"),
-	)
 	synk := f.newSynk()
+	rsClient := synk.rsClient.AppsV1alpha1().ResourceSets()
+
+	for _, name := range initialNames {
+		rsClient.Create(ctx, &apps.ResourceSet{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+		}, metav1.CreateOptions{})
+	}
 
 	err := synk.deleteResourceSets(ctx, "test", 7)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.expectActions(
-		k8stest.NewRootDeleteAction(resourceSetGVR, "test.v2"),
-		k8stest.NewRootDeleteAction(resourceSetGVR, "test.v4"),
-	)
-	f.verifyWriteActions()
+	for _, name := range wantNames {
+		if _, err := rsClient.Get(ctx, name, metav1.GetOptions{}); err != nil {
+			t.Errorf("unexpected error getting ResourceSet %q: err=%v; want nil error", err, err)
+		}
+	}
+	for _, name := range wantDeletions {
+		if _, err := rsClient.Get(ctx, name, metav1.GetOptions{}); !k8serrors.IsNotFound(err) {
+			t.Errorf("unexpected error getting ResourceSet %q: err=%v; want not found", name, err)
+		}
+	}
 }
 
 func TestSynk_populateNamespaces(t *testing.T) {
