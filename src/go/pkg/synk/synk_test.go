@@ -531,14 +531,19 @@ status:
 
 func TestSynk_deleteResourceSets(t *testing.T) {
 	ctx := context.Background()
+	nu := func(name, version string) *unstructured.Unstructured {
+		u := newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", name+"."+version)
+		u.SetLabels(map[string]string{"name": name})
+		return u
+	}
 	f := newFixture(t)
 	f.addObjects(
-		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "test.v2"),
-		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "bad_name"),
-		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "other.v3"),
-		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "test.v4"),
-		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "test.v7"),
-		newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", "test.v8"),
+		nu("test", "v2"),
+		nu("bad_name", ""),
+		nu("other", "v3"),
+		nu("test", "v4"),
+		nu("test", "v7"),
+		nu("test", "v8"),
 	)
 	synk := f.newSynk()
 

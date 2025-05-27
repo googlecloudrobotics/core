@@ -244,6 +244,14 @@ func (s *Synk) Apply(
 		return rs, err
 	}
 	results, applyErr := s.applyAll(ctx, rs, opts, resources...)
+	defer func() {
+		// We always want to clean up old failed ResourceSets. There is no reason
+		// to keep multiple failed ones around. But a failure in the cleanup is not
+		// critical. So we only log it.
+		if err := s.deleteFailedResourceSets(ctx, opts.name, opts.version); err != nil {
+			slog.Warn("Failed to remove failed ResourceSets", slog.Any("Name", opts.name))
+		}
+	}()
 
 	if err := s.updateResourceSetStatus(ctx, rs, results); err != nil {
 		return rs, err
@@ -969,11 +977,48 @@ func (s *Synk) updateResourceSetStatus(ctx context.Context, rs *apps.ResourceSet
 	return convert(res, rs)
 }
 
-// deleteResourceSets deletes all ResourceSets of the given name that have a lower version.
+// deleteFailedResourceSets deletes all failed ResourceSets of the given name
+// that have a lower version.
+func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, version int32) error {
+	c := s.client.Resource(resourceSetGVR)
+
+	list, err := c.List(ctx, metav1.ListOptions{
+		LabelSelector: "name=" + name,
+	})
+	if err != nil {
+		return errors.Wrap(err, "list existing resources")
+	}
+	for _, r := range list.Items {
+		phase, found, err := unstructured.NestedString(r.Object, "status", "phase")
+		if err != nil {
+			return errors.Wrapf(err, "failed to get status.phase from ResourceSet %q", r.GetName())
+		}
+		if !found || phase != "Failed" {
+			continue
+		}
+		n, v, ok := decodeResourceSetName(r.GetName())
+		if !ok || n != name || v >= version {
+			continue
+		}
+		// TODO: should we possibly opt for foreground deletion here so
+		// we only return after all dependents have been deleted as well?
+		// kubectl doesn't allow to opt into foreground deletion in general but
+		// here it would likely bring us closer to the apply --prune semantics.
+		if err := c.Delete(ctx, r.GetName(), metav1.DeleteOptions{}); err != nil {
+			return errors.Wrapf(err, "delete ResourceSet %q", r.GetName())
+		}
+	}
+	return nil
+}
+
+// deleteResourceSets deletes all ResourceSets of the given name that have a
+// lower version.
 func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int32) error {
 	c := s.client.Resource(resourceSetGVR)
 
-	list, err := c.List(ctx, metav1.ListOptions{})
+	list, err := c.List(ctx, metav1.ListOptions{
+		LabelSelector: "name=" + name,
+	})
 	if err != nil {
 		return errors.Wrap(err, "list existing resources")
 	}
