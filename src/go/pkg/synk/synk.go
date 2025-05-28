@@ -249,7 +249,7 @@ func (s *Synk) Apply(
 		// to keep multiple failed ones around. But a failure in the cleanup is not
 		// critical. So we only log it.
 		if err := s.deleteFailedResourceSets(ctx, opts.name, opts.version); err != nil {
-			slog.Warn("Failed to remove failed ResourceSets", slog.Any("Name", opts.name))
+			slog.Warn("Failed to remove failed ResourceSets", slog.Any("Name", opts.name), slog.Any("Error", err))
 		}
 	}()
 
