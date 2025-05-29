@@ -126,7 +126,7 @@ type fakeRobotAuth struct {
 	name string
 }
 
-func (a *fakeRobotAuth) CreateRobotTokenSource(context.Context) oauth2.TokenSource {
+func (a *fakeRobotAuth) CreateRobotTokenSource(context.Context, ...string) oauth2.TokenSource {
 	return a.ts
 }
 
