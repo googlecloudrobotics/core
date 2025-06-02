@@ -30,7 +30,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
@@ -172,7 +171,8 @@ func (r *RobotAuth) CreateRobotTokenSource(ctx context.Context, gcpSaChain ...st
 	}
 	if len(gcpSaChain) > 0 {
 		// TokenVendor expects single service-account email.
-		c.Subject = strings.Join(gcpSaChain, ",")
+		// todo: consider allowing token-vendor to accept SA chain.
+		c.Subject = gcpSaChain[0]
 	}
 	return c.TokenSource(ctx)
 }
