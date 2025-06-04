@@ -167,19 +167,19 @@ func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (*DeviceAut
 }
 
 func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokensource.TokenResponse, error) {
-	subject, err := tv.ValidateJWT(ctx, jwtk)
+	authInfo, err := tv.ValidateJWT(ctx, jwtk)
 	if err != nil {
 		return nil, err
 	}
-	saName, err := serviceAccountName(tv.defaultSAName, subject.Key.SAName, subject.ServiceAcc)
+	saName, err := serviceAccountName(tv.defaultSAName, authInfo.Key.SAName, authInfo.ServiceAcc)
 	if err != nil {
 		return nil, err
 	}
-	cloudToken, err := tv.ts.Token(ctx, saName, subject.Key.SADelegateName)
+	cloudToken, err := tv.ts.Token(ctx, saName, authInfo.Key.SADelegateName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to retrieve a cloud token for device %q", subject.DeviceID)
+		return nil, errors.Wrapf(err, "failed to retrieve a cloud token for device %q", authInfo.DeviceID)
 	}
-	slog.Info("Handing out cloud token", slog.String("DeviceID", subject.DeviceID), slog.String("ServiceAccount", subject.Key.SAName))
+	slog.Info("Handing out cloud token", slog.String("DeviceID", authInfo.DeviceID), slog.String("ServiceAccount", authInfo.Key.SAName))
 	return cloudToken, nil
 }
 
