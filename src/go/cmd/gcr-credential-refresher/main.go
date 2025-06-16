@@ -17,7 +17,9 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
@@ -28,6 +30,7 @@ import (
 
 var (
 	robotIdFile = flag.String("robot_id_file", "", "robot-id.json file")
+	robotSAName = flag.String("sa_name", "robot-service", "Robot default service account name, default: robot-service")
 )
 
 const updateInterval = 10 * time.Minute
@@ -47,9 +50,18 @@ func updateCredentials(ctx context.Context) error {
 	if err != nil {
 		log.Fatalf("failed to read robot id file %s: %v", *robotIdFile, err)
 	}
+
+	effectiveSA := *robotSAName
+	if effectiveSA == "" {
+		effectiveSA = "robot-service"
+	}
+	if !strings.Contains(effectiveSA, "@") {
+		effectiveSA = fmt.Sprintf("%s@%s.iam.gserviceaccount.com", effectiveSA, robotAuth.ProjectId)
+	}
+
 	// Perform a token exchange with the TokenVendor in the cloud cluster and update the
 	// credentials used to pull images from GCR.
-	return gcr.UpdateGcrCredentials(ctx, localClient, robotAuth)
+	return gcr.UpdateGcrCredentials(ctx, localClient, robotAuth, effectiveSA)
 }
 
 // Updates the token used to pull images from GCR in the surrounding cluster. The update runs

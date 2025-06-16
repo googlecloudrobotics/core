@@ -178,6 +178,7 @@ type TokenHandler struct {
 	Clock          func() time.Time
 	robotAuth      auth
 	k8s            *kubernetes.Clientset
+	saName         string
 }
 
 type auth interface {
@@ -204,7 +205,7 @@ type TokenResponse struct {
 	TokenType    string `json:"token_type"`
 }
 
-func NewTokenHandler(ctx context.Context, k8s *kubernetes.Clientset) (*TokenHandler, error) {
+func NewTokenHandler(ctx context.Context, k8s *kubernetes.Clientset, saName string) (*TokenHandler, error) {
 	_, allowedSources, err := net.ParseCIDR(*sourceCidr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid source CIDR %s: %w", *sourceCidr, err)
@@ -214,6 +215,7 @@ func NewTokenHandler(ctx context.Context, k8s *kubernetes.Clientset) (*TokenHand
 		AllowedSources: allowedSources,
 		Clock:          time.Now,
 		k8s:            k8s,
+		saName:         saName,
 	}
 	if err := t.updateRobotAuth(); err != nil {
 		return nil, err
@@ -232,7 +234,14 @@ func (th *TokenHandler) updateRobotAuth() error {
 }
 
 func (th *TokenHandler) updateRobotTokenSource(ctx context.Context) {
-	th.TokenSource = newRateLimitTokenSource(th.robotAuth.CreateRobotTokenSource(ctx))
+	effectiveSA := th.saName
+	if effectiveSA == "" {
+		effectiveSA = "robot-service"
+	}
+	if !strings.Contains(effectiveSA, "@") {
+		effectiveSA = fmt.Sprintf("%s@%s.iam.gserviceaccount.com", effectiveSA, th.robotAuth.projectID())
+	}
+	th.TokenSource = newRateLimitTokenSource(th.robotAuth.CreateRobotTokenSource(ctx, effectiveSA))
 }
 
 func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler {
