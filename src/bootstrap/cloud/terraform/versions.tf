@@ -4,5 +4,5 @@ terraform {
       source = "hashicorp/google"
     }
   }
-  required_version = ">= 0.15"
+  required_version = ">= 1.11.4"
 }
