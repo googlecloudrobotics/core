@@ -88,8 +88,8 @@ func patchServiceAccount(ctx context.Context, k8s *kubernetes.Clientset, name st
 
 // UpdateGcrCredentials authenticates to the cloud cluster using the auth config given and updates
 // the credentials used to pull images from GCR.
-func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *robotauth.RobotAuth, gcpSaChain ...string) error {
-	tokenSource := auth.CreateRobotTokenSource(ctx, gcpSaChain...)
+func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *robotauth.RobotAuth) error {
+	tokenSource := auth.CreateRobotTokenSource(ctx)
 	token, err := tokenSource.Token()
 	if err != nil {
 		return fmt.Errorf("failed to get token: %v", err)

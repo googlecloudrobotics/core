@@ -13,7 +13,6 @@ type payload struct {
 	Aud    string
 	Iss    string
 	Exp    int64
-	Sub    string
 	Scopes string
 	Claims string
 }
