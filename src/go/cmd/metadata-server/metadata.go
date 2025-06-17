@@ -181,7 +181,7 @@ type TokenHandler struct {
 }
 
 type auth interface {
-	CreateRobotTokenSource(context.Context, ...string) oauth2.TokenSource
+	CreateRobotTokenSource(context.Context) oauth2.TokenSource
 	projectID() string
 	robotName() string
 }

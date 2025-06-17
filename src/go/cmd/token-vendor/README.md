@@ -86,11 +86,13 @@ Robots sign JWTs with their local private keys. These get verified against the
 public keys from the keystore. If the key is present and enabled, the token
 vendor will hand out an OAuth access token for requested service account.
 The service account must be either the default one (robot-service@) or the
-account configured during registration (see /public-key.configure). To specify
-custom service account use Subject claim.
+account configured during registration (see /public-key.configure).
 
 * URL: /apis/core.token-vendor/v1/token.oauth2
 * Method: POST
+* URL Params:
+  * service-account: for which service account to return the access token,
+    (robot-service@<gcp-project>.iam.gserviceaccount.com" by default)
 * Body: JWT query (TokenSource)
 * Response: application/json
 

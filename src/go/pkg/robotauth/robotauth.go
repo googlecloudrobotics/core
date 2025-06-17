@@ -158,27 +158,24 @@ func (r *RobotAuth) getTokenEndpoint() string {
 }
 
 // CreateRobotTokenSource creates an OAuth2 token source for the token vendor.
-// This token source returns Google Cloud access token minted for either
-// the robot-service@ service account or impersonated via provided gcpSaChain.
-func (r *RobotAuth) CreateRobotTokenSource(ctx context.Context, gcpSaChain ...string) oauth2.TokenSource {
+// This token source returns Google Cloud access token minted for the robot-service@
+// service account.
+func (r *RobotAuth) CreateRobotTokenSource(ctx context.Context) oauth2.TokenSource {
 	c := jwt.Config{
 		// Will be used as "issuer" of the outgoing JWT. Is not formatted as an email though
 		Email:      r.PublicKeyRegistryId,
 		Expires:    time.Minute * 30,
 		PrivateKey: r.PrivateKey,
 		Scopes:     []string{},
-		TokenURL:   r.getTokenEndpoint(),
-	}
-	if len(gcpSaChain) > 0 {
-		// TokenVendor expects single service-account email.
-		// todo: consider allowing token-vendor to accept SA chain.
-		c.Subject = gcpSaChain[0]
+		// TODO: shouldn't this be the service-account name we want to get the token for?
+		Subject:  r.RobotName,
+		TokenURL: r.getTokenEndpoint(),
 	}
 	return c.TokenSource(ctx)
 }
 
 // CreateJWT allows to create a JWT for authentication against the token vendor.
-// This does not grant Google Cloud access, but can be used for explicit
+// This does not grant Google Cloud access, but can be used for for explicit
 // authentication with the token vendor.
 func (r *RobotAuth) CreateJWT(ctx context.Context, lifetime time.Duration) (string, error) {
 	p, _ := pem.Decode(r.PrivateKey)
