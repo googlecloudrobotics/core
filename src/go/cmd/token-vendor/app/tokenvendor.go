@@ -50,12 +50,12 @@ func NewTokenVendor(ctx context.Context, repo repository.PubKeyRepository, v *oa
 }
 
 func (tv *TokenVendor) PublishPublicKey(ctx context.Context, deviceID, publicKey string) error {
-	slog.Info("Publishing public key", slog.String("DeviceID", deviceID))
+	slog.Info("Publishing public Key", slog.String("DeviceID", deviceID))
 	return tv.repo.PublishKey(ctx, deviceID, publicKey)
 }
 
 func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (string, error) {
-	slog.Debug("Returning public key", slog.String("DeviceID", deviceID))
+	slog.Debug("Returning public Key", slog.String("DeviceID", deviceID))
 	key, err := tv.repo.LookupKey(ctx, deviceID)
 	if key != nil {
 		return key.PublicKey, nil
@@ -65,10 +65,10 @@ func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (stri
 
 func (tv *TokenVendor) ConfigurePublicKey(ctx context.Context, deviceID string, opts repository.KeyOptions) error {
 	if err := validateKeyOptions(opts); err != nil {
-		slog.Error("Configuring public key", ilog.Err(err))
+		slog.Error("Configuring public Key", ilog.Err(err))
 		return err
 	}
-	slog.Debug("Configuring public key", slog.String("DeviceID", deviceID))
+	slog.Debug("Configuring public Key", slog.String("DeviceID", deviceID))
 	return tv.repo.ConfigureKey(ctx, deviceID, opts)
 }
 
@@ -109,9 +109,9 @@ var (
 	)
 )
 
-func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk, requestedSA string) (*tokensource.TokenResponse, error) {
+func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk string) (*tokensource.TokenResponse, error) {
 	ts := time.Now()
-	r, err := tv.getOAuth2Token(ctx, jwtk, requestedSA)
+	r, err := tv.getOAuth2Token(ctx, jwtk)
 	var state string
 	if err != nil {
 		state = "failed"
@@ -123,51 +123,63 @@ func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk, requestedSA str
 	return r, err
 }
 
-func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (string, *repository.Key, error) {
+// DeviceAuth contains authorization information for device with DeviceID.
+// Information is extracted from request's OAuth2 JWT Payload
+type DeviceAuth struct {
+	DeviceID   string
+	Key        *repository.Key
+	ServiceAcc string
+}
+
+func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (*DeviceAuth, error) {
 	p, err := jwt.PayloadUnsafe(jwtk)
 	if err != nil {
-		return "", nil, errors.Wrap(err, "failed to extract JWT payload")
+		return nil, errors.Wrap(err, "failed to extract JWT payload")
 	}
 	exp := time.Unix(p.Exp, 0)
 	if exp.Before(time.Now()) {
-		return "", nil, fmt.Errorf("JWT has expired %v, %v ago (iss: %q)",
+		return nil, fmt.Errorf("JWT has expired %v, %v ago (iss: %q)",
 			exp, time.Since(exp), p.Iss)
 	}
 	if err := acceptedAudience(p.Aud, tv.accAud); err != nil {
-		return "", nil, errors.Wrapf(err, "validation of JWT audience failed (iss: %q)", p.Iss)
+		return nil, errors.Wrapf(err, "validation of JWT audience failed (iss: %q)", p.Iss)
 	}
 	if !IsValidDeviceID(p.Iss) {
-		return "", nil, fmt.Errorf("missing or invalid device identifier (`iss`: %q)", p.Iss)
+		return nil, fmt.Errorf("missing or invalid device identifier (`iss`: %q)", p.Iss)
 	}
 	deviceID := p.Iss
 	k, err := tv.repo.LookupKey(ctx, deviceID)
 	if err != nil {
-		return "", nil, errors.Wrapf(err, "failed to retrieve public key for device %q", deviceID)
+		return nil, errors.Wrapf(err, "failed to retrieve public Key for device %q", deviceID)
 	}
 	if k.PublicKey == "" {
-		return "", nil, errors.Errorf("no public key found for device %q", deviceID)
+		return nil, errors.Errorf("no public Key found for device %q", deviceID)
 	}
 	err = jwt.VerifySignature(jwtk, k.PublicKey)
 	if err != nil {
-		return "", nil, errors.Wrapf(err, "failed to verify signature for device %q", deviceID)
+		return nil, errors.Wrapf(err, "failed to verify signature for device %q", deviceID)
 	}
-	return deviceID, k, nil
+	return &DeviceAuth{
+		DeviceID:   deviceID,
+		Key:        k,
+		ServiceAcc: p.Sub,
+	}, nil
 }
 
-func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk, requestedSA string) (*tokensource.TokenResponse, error) {
-	deviceID, k, err := tv.ValidateJWT(ctx, jwtk)
+func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokensource.TokenResponse, error) {
+	authInfo, err := tv.ValidateJWT(ctx, jwtk)
 	if err != nil {
 		return nil, err
 	}
-	saName, err := serviceAccountName(tv.defaultSAName, k.SAName, requestedSA)
+	saName, err := serviceAccountName(tv.defaultSAName, authInfo.Key.SAName, authInfo.ServiceAcc)
 	if err != nil {
 		return nil, err
 	}
-	cloudToken, err := tv.ts.Token(ctx, saName, k.SADelegateName)
+	cloudToken, err := tv.ts.Token(ctx, saName, authInfo.Key.SADelegateName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to retrieve a cloud token for device %q", deviceID)
+		return nil, errors.Wrapf(err, "failed to retrieve a cloud token for device %q", authInfo.DeviceID)
 	}
-	slog.Info("Handing out cloud token", slog.String("DeviceID", deviceID), slog.String("ServiceAccount", k.SAName))
+	slog.Info("Handing out cloud token", slog.String("DeviceID", authInfo.DeviceID), slog.String("ServiceAccount", authInfo.Key.SAName))
 	return cloudToken, nil
 }
 
@@ -187,7 +199,7 @@ func serviceAccountName(saDef, saCfg, saReq string) (string, error) {
 
 // acceptedAudience validates JWT audience as defined by the token vendor
 //
-// `aud` is the value of the audience key from the JWT and `accAud` the configured
+// `aud` is the value of the audience Key from the JWT and `accAud` the configured
 // accepted audience of the token vendor.
 func acceptedAudience(aud, accAud string) error {
 	qualified := accAud + "?token_type=access_token"

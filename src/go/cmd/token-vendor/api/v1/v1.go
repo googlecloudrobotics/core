@@ -294,9 +294,7 @@ func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Reque
 			fmt.Sprintf(`expected "%s=<jwt>" in body, invalid token format: %v`, paramAssert, err))
 		return
 	}
-	const paramServiceAccount = "service-account"
-	serviceAccount := values.Get(paramServiceAccount)
-	token, err := h.tv.GetOAuth2Token(r.Context(), assertion, serviceAccount)
+	token, err := h.tv.GetOAuth2Token(r.Context(), assertion)
 	if err != nil {
 		api.ErrResponse(w, http.StatusForbidden, "unable to retrieve cloud access token with given JWT")
 		slog.Error("unable to retrieve cloud access token with given JWT", ilog.Err(err))
@@ -350,7 +348,7 @@ func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request
 	// Authorization: ...
 	jwtString := strings.TrimPrefix(authHeader[0], "Bearer ")
 
-	if _, _, err := h.tv.ValidateJWT(r.Context(), jwtString); err != nil {
+	if _, err := h.tv.ValidateJWT(r.Context(), jwtString); err != nil {
 		slog.WarnContext(r.Context(), "JWT failed validation", ilog.Err(err))
 		api.ErrResponse(w, http.StatusForbidden, "JWT not valid")
 		return
