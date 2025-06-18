@@ -131,6 +131,9 @@ type DeviceAuth struct {
 	ServiceAcc string
 }
 
+// used for testing
+var jwtVerifySignature = jwt.VerifySignature
+
 func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (*DeviceAuth, error) {
 	p, err := jwt.PayloadUnsafe(jwtk)
 	if err != nil {
@@ -155,14 +158,22 @@ func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (*DeviceAut
 	if k.PublicKey == "" {
 		return nil, errors.Errorf("no public Key found for device %q", deviceID)
 	}
-	err = jwt.VerifySignature(jwtk, k.PublicKey)
+	err = jwtVerifySignature(jwtk, k.PublicKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify signature for device %q", deviceID)
 	}
+
+	effectiveSub := p.Sub
+	if validateEmail(p.Sub) != nil || !strings.HasSuffix(p.Sub, ".iam.gserviceaccount.com") {
+		// To support legacy systems we are going to ignore subjects,
+		// which cannot represent service accounts.
+		effectiveSub = ""
+	}
+
 	return &DeviceAuth{
 		DeviceID:   deviceID,
 		Key:        k,
-		ServiceAcc: p.Sub,
+		ServiceAcc: effectiveSub,
 	}, nil
 }
 
