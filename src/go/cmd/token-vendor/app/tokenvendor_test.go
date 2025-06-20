@@ -255,7 +255,7 @@ func TestTokenVendor_ValidateJWT(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:   "jwt-subject-not-gc-SA",
+			name:   "jwt-subject-not-gcp-SA",
 			fields: defaultFields,
 			args: args{
 				jwtk: createFakeJWTWithSubject(t, deviceId, "robot-rock@iam.gserviceaccount.com"),
