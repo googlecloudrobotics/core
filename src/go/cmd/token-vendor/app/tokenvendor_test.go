@@ -1,9 +1,19 @@
 package app
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"reflect"
 	"testing"
+	"time"
 
+	"github.com/form3tech-oss/jwt-go"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/memory"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
 )
 
 type isValidDeviceIDTest struct {
@@ -69,7 +79,7 @@ type serviceAccountNameTest struct {
 }
 
 func TestServiceAccountName(t *testing.T) {
-	defaultSA := "robot-servcie@foo.iam.gserviceaccount.com"
+	defaultSA := "robot-service@foo.iam.gserviceaccount.com"
 	configuredSA := "custom@bar.iam.gserviceaccount.com"
 	customSA := "unknowns@baz.iam.gserviceaccount.com"
 	var cases = []serviceAccountNameTest{
@@ -171,4 +181,172 @@ func TestKeyOptions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTokenVendor_ValidateJWT(t *testing.T) {
+	type fields struct {
+		repo          repository.PubKeyRepository
+		v             *oauth.TokenVerifier
+		ts            *tokensource.GCPTokenSource
+		accAud        string
+		defaultSAName string
+	}
+
+	const deviceId = "test-device-id"
+	devicePubKey := &repository.Key{
+		PublicKey: "test-device-public-key",
+	}
+
+	defaultFields := fields{
+		repo:          getInMemoryRepo(deviceId, devicePubKey.PublicKey),
+		v:             nil,
+		ts:            nil,
+		accAud:        "",
+		defaultSAName: "robot-service@testing.iam.gserviceaccount.com",
+	}
+
+	type args struct {
+		jwtk string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *DeviceAuth
+		wantErr bool
+	}{
+		{
+			name:   "sa-success",
+			fields: defaultFields,
+			args: args{
+				jwtk: createFakeJWTWithSubject(t, deviceId, createSAFromName("robot-service")),
+			},
+			want: &DeviceAuth{
+				DeviceID:   deviceId,
+				Key:        devicePubKey,
+				ServiceAcc: createSAFromName("robot-service"),
+			},
+			wantErr: false,
+		},
+		{
+			name:   "jwt-subject-empty",
+			fields: defaultFields,
+			args: args{
+				jwtk: createFakeJWTWithSubject(t, deviceId, ""),
+			},
+			want: &DeviceAuth{
+				DeviceID:   deviceId,
+				Key:        devicePubKey,
+				ServiceAcc: "",
+			},
+			wantErr: false,
+		},
+		{
+			name:   "jwt-subject-not-an-SA",
+			fields: defaultFields,
+			args: args{
+				jwtk: createFakeJWTWithSubject(t, deviceId, "robot-rock"),
+			},
+			want: &DeviceAuth{
+				DeviceID:   deviceId,
+				Key:        devicePubKey,
+				ServiceAcc: "",
+			},
+			wantErr: false,
+		},
+		{
+			name:   "jwt-subject-not-gcp-SA",
+			fields: defaultFields,
+			args: args{
+				jwtk: createFakeJWTWithSubject(t, deviceId, "robot-rock@iam.gserviceaccount.com"),
+			},
+			want: &DeviceAuth{
+				DeviceID:   deviceId,
+				Key:        devicePubKey,
+				ServiceAcc: "",
+			},
+			wantErr: false,
+		},
+		{
+			name:   "jwt-subject-shall-not-pass",
+			fields: defaultFields,
+			args: args{
+				jwtk: createFakeJWTWithSubject(t, deviceId, "robot-rock@.iam.gserviceaccount.com"),
+			},
+			want: &DeviceAuth{
+				DeviceID:   deviceId,
+				Key:        devicePubKey,
+				ServiceAcc: "",
+			},
+			wantErr: false,
+		},
+		{
+			name:   "jwt-subject-not-really-SA",
+			fields: defaultFields,
+			args: args{
+				jwtk: createFakeJWTWithSubject(t, deviceId, "arn:aws:iam::123456789012:role/my-role"),
+			},
+			want: &DeviceAuth{
+				DeviceID:   deviceId,
+				Key:        devicePubKey,
+				ServiceAcc: "",
+			},
+			wantErr: false,
+		},
+	}
+	jwtVerifySignature = func(jwtk string, pubKey string) error {
+		// Tests do not validate signature
+		return nil
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tv := &TokenVendor{
+				repo:          tt.fields.repo,
+				v:             tt.fields.v,
+				ts:            tt.fields.ts,
+				accAud:        tt.fields.accAud,
+				defaultSAName: tt.fields.defaultSAName,
+			}
+			got, err := tv.ValidateJWT(context.Background(), tt.args.jwtk)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateJWT() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ValidateJWT() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func getInMemoryRepo(deviceId, key string) repository.PubKeyRepository {
+	ctx := context.Background()
+	repo, _ := memory.NewMemoryRepository(ctx)
+	_ = repo.PublishKey(ctx, deviceId, key)
+	return repo
+}
+
+func createFakeJWTWithSubject(t *testing.T, deviceId, subject string) string {
+	jwtWithSubject := jwt.StandardClaims{
+		Audience:  nil,
+		ExpiresAt: time.Now().Add(10 * time.Second).Unix(),
+		Id:        t.Name(),
+		IssuedAt:  0,
+		Issuer:    deviceId,
+		NotBefore: 0,
+		Subject:   subject,
+	}
+
+	buffer := new(bytes.Buffer)
+	if err := json.NewEncoder(buffer).Encode(&jwtWithSubject); err != nil {
+		t.Errorf("failed to serialize jwt: %v", err)
+	}
+
+	return jwt.EncodeSegment([]byte(`{"typ": "JWT"}`)) +
+		"." + jwt.EncodeSegment(buffer.Bytes()) +
+		"." + jwt.EncodeSegment([]byte("no-signature-present"))
+}
+
+func createSAFromName(name string) string {
+	return fmt.Sprintf("%s@%s.iam.gserviceaccount.com", name, "test-project")
 }
