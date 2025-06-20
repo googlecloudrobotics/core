@@ -25,11 +25,14 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/mail"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
@@ -217,6 +220,29 @@ func (r *RobotAuth) CreateJWT(ctx context.Context, lifetime time.Duration) (stri
 	}
 
 	return ret, nil
+}
+
+// ServiceAccountEmail takes name of service account and returns its
+// email form for given RobotAuth.
+//
+// Note: method will also accept SA in email form and return it AS-IS if it
+// resembles GCP service account. This allows caller to use this method
+// transparently for a situation where SA from different project than
+// RobotAuth#ProjectId is needed for robot. This should be very rare.
+func (r *RobotAuth) ServiceAccountEmail(saName string) (string, error) {
+	if saName == "" {
+		return "", errors.New("empty name")
+	}
+
+	if _, err := mail.ParseAddress(saName); err != nil {
+		return fmt.Sprintf("%s@%s.iam.gserviceaccount.com", saName, r.ProjectId), nil
+	}
+
+	if !strings.HasSuffix(saName, ".iam.gserviceaccount.com") {
+		return "", fmt.Errorf("unexpected service account email value, %s", saName)
+	}
+
+	return saName, nil
 }
 
 // robotJWTSource gets robot JWTs from the metadata-server.

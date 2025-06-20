@@ -33,8 +33,9 @@ spec:
         - --robot_id_file=/credentials/robot-id.json
         - --source_cidr={{ .Values.pod_cidr }}
         - --running_on_gke={{ .Values.running_on_gke }}
+        - --sa_name={{ .Values.robot.defaultSAName }}
         securityContext:
-          readOnlyRootFilesystem: true  
+          readOnlyRootFilesystem: true
           capabilities:
             drop:
               - all

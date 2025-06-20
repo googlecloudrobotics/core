@@ -32,6 +32,8 @@ running_on_gke: "false"
 
 robot:
   name: ""
+  # Name of the default GCP Service Account used by robot when connecting to cloud.
+  defaultSAName: "robot-service"
 
 webhook:
   enabled: "true"
