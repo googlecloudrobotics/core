@@ -17,9 +17,7 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
@@ -51,12 +49,9 @@ func updateCredentials(ctx context.Context) error {
 		log.Fatalf("failed to read robot id file %s: %v", *robotIdFile, err)
 	}
 
-	effectiveSA := *robotSAName
-	if effectiveSA == "" {
-		effectiveSA = "robot-service"
-	}
-	if !strings.Contains(effectiveSA, "@") {
-		effectiveSA = fmt.Sprintf("%s@%s.iam.gserviceaccount.com", effectiveSA, robotAuth.ProjectId)
+	effectiveSA, err := robotAuth.ServiceAccountEmail(*robotSAName)
+	if err != nil {
+		log.Fatalf("failed to construct service account from '%s': %v", *robotSAName, err)
 	}
 
 	// Perform a token exchange with the TokenVendor in the cloud cluster and update the
