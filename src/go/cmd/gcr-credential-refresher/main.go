@@ -28,7 +28,7 @@ import (
 
 var (
 	robotIdFile = flag.String("robot_id_file", "", "robot-id.json file")
-	robotSAName = flag.String("sa_name", "robot-service", "Robot default service account name, default: robot-service")
+	robotSAName = flag.String("service_account", "robot-service", "Robot default service account name, default: robot-service")
 )
 
 const updateInterval = 10 * time.Minute

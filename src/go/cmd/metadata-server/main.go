@@ -51,7 +51,7 @@ var (
 	logPeerDetails = flag.Bool("log_peer_details", false, "When enabled details about the peer that requests ADC are logged on the expense of some extra latency")
 	logLevel       = flag.Int("log_level", int(slog.LevelInfo), "the log message level required to be logged")
 	runningOnGKE   = flag.Bool("running_on_gke", false, "If running on GKE, skip setup steps that are unnecessary and will fail.")
-	robotSAName    = flag.String("sa_name", "robot-service", "Robot default service account name, default: robot-service")
+	robotSAName    = flag.String("service_account", "robot-service", "Robot default service account name, default: robot-service")
 )
 
 func detectChangesToFile(filename string) <-chan struct{} {
