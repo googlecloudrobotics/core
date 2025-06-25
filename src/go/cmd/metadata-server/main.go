@@ -16,7 +16,7 @@
 // cloud project.
 //
 // This metadata server replicates a subset of the GKE metadata server
-// functionality to provide applcation default creadentials for local services.
+// functionality to provide application default credentials for local services.
 package main
 
 import (
@@ -51,6 +51,7 @@ var (
 	logPeerDetails = flag.Bool("log_peer_details", false, "When enabled details about the peer that requests ADC are logged on the expense of some extra latency")
 	logLevel       = flag.Int("log_level", int(slog.LevelInfo), "the log message level required to be logged")
 	runningOnGKE   = flag.Bool("running_on_gke", false, "If running on GKE, skip setup steps that are unnecessary and will fail.")
+	robotSAName    = flag.String("service_account", "robot-service", "Robot default service account name, default: robot-service")
 )
 
 func detectChangesToFile(filename string) <-chan struct{} {
@@ -144,7 +145,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	tokenHandler, err := NewTokenHandler(ctx, k8s)
+	tokenHandler, err := NewTokenHandler(ctx, k8s, *robotSAName)
 	if err != nil {
 		slog.Error("NewTokenHandler", slog.Any("Error", err))
 		os.Exit(1)

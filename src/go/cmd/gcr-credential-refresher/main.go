@@ -28,6 +28,7 @@ import (
 
 var (
 	robotIdFile = flag.String("robot_id_file", "", "robot-id.json file")
+	robotSAName = flag.String("service_account", "robot-service", "Robot default service account name, default: robot-service")
 )
 
 const updateInterval = 10 * time.Minute
@@ -47,9 +48,15 @@ func updateCredentials(ctx context.Context) error {
 	if err != nil {
 		log.Fatalf("failed to read robot id file %s: %v", *robotIdFile, err)
 	}
+
+	effectiveSA, err := robotAuth.ServiceAccountEmail(*robotSAName)
+	if err != nil {
+		log.Fatalf("failed to construct service account from '%s': %v", *robotSAName, err)
+	}
+
 	// Perform a token exchange with the TokenVendor in the cloud cluster and update the
 	// credentials used to pull images from GCR.
-	return gcr.UpdateGcrCredentials(ctx, localClient, robotAuth)
+	return gcr.UpdateGcrCredentials(ctx, localClient, robotAuth, effectiveSA)
 }
 
 // Updates the token used to pull images from GCR in the surrounding cluster. The update runs
