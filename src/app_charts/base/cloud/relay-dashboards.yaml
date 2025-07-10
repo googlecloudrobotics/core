@@ -5,5 +5,5 @@ metadata:
   labels:
     grafana: "1"
 data:
-  relay.json: |-
+  relay-dashboard.json: |-
 {{ .Files.Get "files/relay-dashboard.json" | indent 4 }}

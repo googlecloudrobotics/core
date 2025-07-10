@@ -418,7 +418,9 @@
   ],
   "refresh": "",
   "schemaVersion": 39,
-  "tags": [],
+  "tags": [
+    "cloud-robotics"
+  ],
   "templating": {
     "list": []
   },
