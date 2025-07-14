@@ -183,12 +183,25 @@ prometheus-node-exporter:
     # This collector produces log-spam on newer kernels
     # https://github.com/prometheus/node_exporter/issues/1892
     - --no-collector.rapl
+    # Since we have hardware network IRQs, this generates 7 zero-value metrics for each CPU core.
+    - --no-collector.softnet
     # This is disabled by default, since it might leak memory
     # (https://github.com/prometheus/node_exporter/blob/master/CHANGELOG.md#0160-rc1--2018-04-04)
     - --collector.wifi
+    # Export CPU model (one metric per core)
+    - --collector.cpu.info
+    # Export current network devices (bs address, driver name and firmware version, one metric per physical device)
+    - --collector.ethtool
+    - --collector.ethtool.metrics-include=^node_ethtool_info$
+    - --collector.ethtool.device-exclude=^(bond|cilium|ip6tnl0|lo|lxc|tunl)
     # Ignore more fuse filesystems
     # https://github.com/prometheus/node_exporter/blob/master/collector/filesystem_linux.go#L33
     - --collector.filesystem.ignored-fs-types=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|fuse\.\w*|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$
+    # Ignore filesystems with UIDs in the mount points (high cardinality)
+    - --collector.filesystem.mount-points-exclude=^(/run/containerd/|/var/lib/kubelet)
+    # Ignore virtual network devices
+    - --collector.netdev.device-exclude=^(bond|cilium|ip6tnl0|lo|lxc|tunl)
+    - --collector.netclass.ignored-devices=^(bond|cilium|ip6tnl0|lo|lxc|tunl)
 
 grafana:
   enabled: false
