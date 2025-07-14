@@ -10,6 +10,9 @@ spec:
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: instance
+    {{- if .Values.prometheus.serviceMonitor.metricRelabelings }}
+    metricRelabelings: {{- tpl (toYaml .Values.prometheus.serviceMonitor.metricRelabelings | nindent 6) . }}
+    {{- end }}
   selector:
     matchLabels:
       app: kubernetes-relay-server
