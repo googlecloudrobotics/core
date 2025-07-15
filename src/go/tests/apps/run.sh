@@ -36,7 +36,7 @@ bazel build //src/go/tests/apps:go_default_test
 
 # Run the artifact directly so the kind clusters can be easily accessed for
 # debugging.
-cd ${DIR}/../../../../bazel-bin/src/go/tests/apps/go_default_test_/go_default_test.runfiles/cloud_robotics
+cd ${DIR}/../../../../bazel-bin/src/go/tests/apps/go_default_test_/go_default_test.runfiles/_main
 
 ACCESS_TOKEN="$(gcloud auth application-default print-access-token)" \
   REGISTRY="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}" \
