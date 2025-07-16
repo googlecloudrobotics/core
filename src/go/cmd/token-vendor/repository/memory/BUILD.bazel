@@ -14,4 +14,5 @@ go_test(
     name = "go_default_test",
     srcs = ["memory_test.go"],
     embed = [":go_default_library"],
+    deps = ["//src/go/cmd/token-vendor/repository:go_default_library"],
 )
