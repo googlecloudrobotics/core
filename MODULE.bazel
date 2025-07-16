@@ -64,6 +64,7 @@ use_repo(
     "com_github_google_go_cmp",
     "com_github_googlecloudrobotics_ilog",
     "com_github_jaypipes_ghw",
+    "com_github_jaypipes_pcidb",
     "com_github_motemen_go_loghttp",
     "com_github_onsi_gomega",
     "com_github_pkg_errors",
