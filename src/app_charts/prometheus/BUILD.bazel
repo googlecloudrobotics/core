@@ -46,7 +46,10 @@ app_chart(
     files = [
         ":prometheus-operator-chart.robot",
     ],
-    images = {"http-relay-client": "//src/go/cmd/http-relay-client:http-relay-client-image"},
+    images = {
+        "http-relay-client": "//src/go/cmd/http-relay-client:http-relay-client-image",
+        "hw-exporter": "//src/go/cmd/hw-exporter:hw-exporter-image",
+    },
 )
 
 app(
