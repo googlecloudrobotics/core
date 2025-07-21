@@ -77,10 +77,6 @@ func (c *pciCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-func runMetricsServer(ctx context.Context) {
-
-}
-
 func main() {
 	flag.Parse()
 	logHandler := ilog.NewLogHandler(slog.Level(*logLevel), os.Stderr)
@@ -93,18 +89,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Handle SIGTERM for graceful shutdown.
-	ctx, cancel := context.WithCancel(context.Background())
+	// Construct and run the metrics server until stopped by k8s (or Ctrl+C).
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()
-	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGTERM)
-		<-sigChan
-		slog.Info("Received SIGTERM, shutting down...")
-		cancel()
-	}()
 
-	// Construct and run the metrics server.
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(newPciCollector())
 
@@ -124,6 +112,9 @@ func main() {
 		}
 	}()
 
+	// Call Shutdown() in the main goroutine because ListenAndServe() returns
+	// immediately but if the main goroutine ends then, the process will stop
+	// before finishing any ongoing requests.
 	<-ctx.Done()
 	slog.Info("Shutting down metrics server...")
 	server.Shutdown(context.Background())
