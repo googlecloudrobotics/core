@@ -55,7 +55,8 @@ func getNameOrID(name, id string) string {
 	return name
 }
 
-// Collect implements the prometheus.Collector interface.
+// Collect implements the prometheus.Collector interface, counting the number of
+// devices by vendor/product/class/driver.
 func (c *pciCollector) Collect(ch chan<- prometheus.Metric) {
 	pciInfo, err := ghw.PCI(&option.Option{Chroot: chroot})
 	if err != nil {
@@ -63,7 +64,7 @@ func (c *pciCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	deviceCounts := make(map[[4]string]float64)
+	deviceCounts := make(map[[4]string]int)
 	for _, device := range pciInfo.Devices {
 		vendor := getNameOrID(device.Vendor.Name, device.Vendor.ID)
 		product := getNameOrID(device.Product.Name, device.Product.ID)
@@ -73,7 +74,7 @@ func (c *pciCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	for labels, count := range deviceCounts {
-		ch <- prometheus.MustNewConstMetric(c.pciDeviceCount, prometheus.GaugeValue, count, labels[0], labels[1], labels[2], labels[3])
+		ch <- prometheus.MustNewConstMetric(c.pciDeviceCount, prometheus.GaugeValue, float64(count), labels[0], labels[1], labels[2], labels[3])
 	}
 }
 
