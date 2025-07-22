@@ -4,6 +4,7 @@ load("//bazel:app_chart.bzl", "app_chart")
 app_chart(
     name = "k8s-relay-cloud",
     images = {"http-relay-server": "//src/go/cmd/http-relay-server:http-relay-server-image"},
+    values = "values-cloud.yaml",
 )
 
 app_chart(
