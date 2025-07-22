@@ -56,7 +56,7 @@ require (
 	github.com/aws/aws-sdk-go v1.45.25 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/prometheus/statsd_exporter v0.22.8 // indirect
-	golang.org/x/oauth2 v0.15.0
+	golang.org/x/oauth2 v0.27.0
 	google.golang.org/genproto v0.0.0-20231127180814-3a041ad873d4 // indirect
 )
 
@@ -70,8 +70,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute v1.23.3 // indirect
-	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.5 // indirect
 	cloud.google.com/go/monitoring v1.16.3 // indirect
 	cloud.google.com/go/trace v1.10.4 // indirect
@@ -138,7 +137,6 @@ require (
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231127180814-3a041ad873d4 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231127180814-3a041ad873d4 // indirect
 	gopkg.in/evanphx/json-patch.v5 v5.6.0 // indirect
