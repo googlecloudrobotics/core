@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: hw-exporter
+spec:
+  selector:
+    matchLabels:
+      app: hw-exporter
+  template:
+    metadata:
+      labels:
+        app: hw-exporter
+    spec:
+      containers:
+        - name: hw-exporter
+          image: {{ .Values.registry }}{{ .Values.images.hw_exporter }}
+          args:
+            - --metrics-port=9100
+            - --chroot=/host
+          volumeMounts:
+          - mountPath: /host/proc
+            name: proc
+            readOnly: true
+          - mountPath: /host/sys
+            name: sys
+            readOnly: true
+          - mountPath: /host/usr/share
+            name: usr-share
+            readOnly: true
+      securityContext:
+        fsGroup: 65534
+        runAsGroup: 65534
+        runAsNonRoot: true
+        runAsUser: 65534
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+      volumes:
+      - hostPath:
+          path: /proc
+          type: ""
+        name: proc
+      - hostPath:
+          path: /sys
+          type: ""
+        name: sys
+      # Mount pcidb from host, which could be in /usr/share/misc or /usr/share/hwdata.
+      - hostPath:
+          path: /usr/share
+          type: ""
+        name: usr-share
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hw-exporter
+  labels:
+    app: hw-exporter
+spec:
+  clusterIP: None
+  ports:
+    - port: 9100
+      name: http-metrics
+  selector:
+    app: hw-exporter
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hw-exporter
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 60s
+  selector:
+    matchLabels:
+      app: hw-exporter
