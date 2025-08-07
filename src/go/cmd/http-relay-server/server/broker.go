@@ -173,7 +173,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	case <-time.After(10 * time.Second):
 		// This branch is triggered if the channel is not ready to consume the request
 		// since it is still busy with handling a different request.
-		return nil, fmt.Errorf("Cannot reach the client %q. Check that it's turned on, set up, and connected to the internet. (timeout waiting for relay client to accept request)", server)
+		return nil, fmt.Errorf("Cannot reach the client %q. Check that it's turned on, set up, and connected to the internet. If the network config recently changed, try again in 1-2 minutes. (timeout waiting for relay client to accept request)", server)
 	}
 }
 
