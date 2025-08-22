@@ -38,6 +38,9 @@ resource "google_container_cluster" "cloud-robotics" {
       recurrence = "FREQ=WEEKLY;BYDAY=SA,SU"
     }
   }
+  release_channel {
+    channel = "STABLE"
+  }
   secret_manager_config {
     enabled = var.secret_manager_plugin
   }
