@@ -27,7 +27,7 @@ import (
 
 var metadataRule = []byte("metadata-nat")
 
-func addNATRule() error {
+func addNATRule(listenIP string, listenPort int) error {
 	con, err := nftables.New()
 	if err != nil {
 		return fmt.Errorf("nftables new: %v", err)
@@ -46,10 +46,10 @@ func addNATRule() error {
 		Policy:   &accept,
 	})
 	destinationPort := make([]byte, 2)
-	binary.BigEndian.PutUint16(destinationPort, uint16(*port))
+	binary.BigEndian.PutUint16(destinationPort, uint16(listenPort))
 	destinationIP := net.ParseIP(*bindIP)
 	if destinationIP == nil {
-		return fmt.Errorf("%s is not a valid IPv4 address", *bindIP)
+		return fmt.Errorf("%s is not a valid IPv4 address", listenIP)
 	}
 	e := []expr.Any{
 		// Load network IP into register 1
