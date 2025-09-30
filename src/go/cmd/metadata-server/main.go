@@ -192,14 +192,14 @@ func main() {
 	}
 	slog.Info("Listening", slog.String("Address", bindAddress))
 
-	if err := addIPTablesRule(); err != nil {
+	if err := addNATRule(); err != nil {
 		slog.Error("failed to add iptables rule", slog.Any("Error", err))
 		os.Exit(1)
 	}
 
 	if !*runningOnGKE {
 		if err := PatchCorefile(ctx, k8s); err != nil {
-			removeIPTablesRule()
+			removeNATRule()
 			slog.Error("PatchCorefile", slog.Any("Error", err))
 			os.Exit(1)
 		}
@@ -210,7 +210,7 @@ func main() {
 		if !*runningOnGKE {
 			RevertCorefile(ctx, k8s)
 		}
-		removeIPTablesRule()
+		removeNATRule()
 		slog.Error("Serve", slog.Any("Error", err))
 		os.Exit(1)
 	}()
@@ -220,7 +220,7 @@ func main() {
 		if !*runningOnGKE {
 			RevertCorefile(ctx, k8s)
 		}
-		removeIPTablesRule()
+		removeNATRule()
 		slog.Error("File changed but reloading is not implemented. Crashing...", slog.String("ID", *robotIdFile))
 		os.Exit(1)
 	}()
@@ -232,5 +232,5 @@ func main() {
 	if !*runningOnGKE {
 		RevertCorefile(ctx, k8s)
 	}
-	removeIPTablesRule()
+	removeNATRule()
 }
