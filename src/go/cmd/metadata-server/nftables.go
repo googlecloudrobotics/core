@@ -47,7 +47,7 @@ func addNATRule(listenIP string, listenPort int) error {
 	})
 	destinationPort := make([]byte, 2)
 	binary.BigEndian.PutUint16(destinationPort, uint16(listenPort))
-	destinationIP := net.ParseIP(*bindIP)
+	destinationIP := net.ParseIP(listenIP)
 	if destinationIP == nil {
 		return fmt.Errorf("%s is not a valid IPv4 address", listenIP)
 	}
