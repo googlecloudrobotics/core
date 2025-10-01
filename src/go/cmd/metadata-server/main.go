@@ -27,10 +27,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
-	"strconv"
-	"strings"
 	"syscall"
 
 	"k8s.io/client-go/kubernetes"
@@ -86,39 +83,6 @@ func detectChangesToFile(filename string) <-chan struct{} {
 		}
 	}()
 	return changes
-}
-
-func addIPTablesRule() error {
-	args := append([]string{"-t", "nat", "-A", "PREROUTING"}, getIPTablesRuleSpec(*port)...)
-	if err := runIPTablesCommand(args); err != nil {
-		return fmt.Errorf("iptables invocation failed: %v", err)
-	}
-	return nil
-}
-
-func removeIPTablesRule() {
-	args := append([]string{"-t", "nat", "-D", "PREROUTING"}, getIPTablesRuleSpec(*port)...)
-	if err := runIPTablesCommand(args); err != nil {
-		slog.Warn("iptables invocation failed", slog.Any("Error", err))
-	}
-}
-
-func getIPTablesRuleSpec(port int) []string {
-	return []string{
-		"-p", "tcp",
-		"-d", "169.254.169.254",
-		"--dport", "80",
-		"-j", "DNAT",
-		"--to-destination", *bindIP + ":" + strconv.Itoa(port),
-	}
-}
-
-func runIPTablesCommand(args []string) error {
-	slog.Debug("Debug: Running iptables command", slog.String("Args", strings.Join(args, ", ")))
-	cmd := exec.Command("iptables", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
 }
 
 func main() {
@@ -192,14 +156,14 @@ func main() {
 	}
 	slog.Info("Listening", slog.String("Address", bindAddress))
 
-	if err := addIPTablesRule(); err != nil {
+	if err := addNATRule(*bindIP, *port); err != nil {
 		slog.Error("failed to add iptables rule", slog.Any("Error", err))
 		os.Exit(1)
 	}
 
 	if !*runningOnGKE {
 		if err := PatchCorefile(ctx, k8s); err != nil {
-			removeIPTablesRule()
+			removeNATRule()
 			slog.Error("PatchCorefile", slog.Any("Error", err))
 			os.Exit(1)
 		}
@@ -210,7 +174,7 @@ func main() {
 		if !*runningOnGKE {
 			RevertCorefile(ctx, k8s)
 		}
-		removeIPTablesRule()
+		removeNATRule()
 		slog.Error("Serve", slog.Any("Error", err))
 		os.Exit(1)
 	}()
@@ -220,7 +184,7 @@ func main() {
 		if !*runningOnGKE {
 			RevertCorefile(ctx, k8s)
 		}
-		removeIPTablesRule()
+		removeNATRule()
 		slog.Error("File changed but reloading is not implemented. Crashing...", slog.String("ID", *robotIdFile))
 		os.Exit(1)
 	}()
@@ -232,5 +196,5 @@ func main() {
 	if !*runningOnGKE {
 		RevertCorefile(ctx, k8s)
 	}
-	removeIPTablesRule()
+	removeNATRule()
 }
