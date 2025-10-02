@@ -13,6 +13,11 @@ data:
   # The token-vendor checks the Original-URI header to accept tokens from query
   # parameters.
   proxy-add-original-uri-header: "true"
+  # NGINX uses a single connection pool for all kind of connection, including grpc,
+  # which leads to sporadic errors:
+  #   "no connection data found for keepalive http2 connection while sending request to upstream,"
+  # https://github.com/kubernetes/ingress-nginx/issues/4836
+  upstream-keepalive-requests: "1"
 ---
 apiVersion: apps/v1
 kind: Deployment
