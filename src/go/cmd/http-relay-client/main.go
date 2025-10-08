@@ -22,7 +22,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log/slog"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 
 	"contrib.go.opencensus.io/exporter/stackdriver"
@@ -36,6 +39,7 @@ var (
 
 	stackdriverProjectID string
 	logLevel             int
+	pprofPort            int
 )
 
 func init() {
@@ -87,10 +91,18 @@ func init() {
 		"If not empty, traces will be uploaded to this Google Cloud Project.")
 	flag.IntVar(&logLevel, "log_level", int(slog.LevelInfo),
 		"the log message level required to be logged")
+	flag.IntVar(&pprofPort, "pprof_port", 0, "If non-zero, serves pprof endpoints on this port.")
 }
 
 func main() {
 	flag.Parse()
+	if pprofPort != 0 {
+		go func() {
+			slog.Info("Starting pprof server", slog.Int("port", pprofPort))
+			err := http.ListenAndServe(fmt.Sprintf(":%d", pprofPort), nil)
+			slog.Error("pprof server failed", ilog.Err(err))
+		}()
+	}
 	logHandler := ilog.NewLogHandler(slog.Level(logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
