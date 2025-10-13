@@ -1,0 +1,23 @@
+{{ $endpointsURL := print "www.endpoints." .Values.project ".cloud.goog" }}
+{{ if ne $endpointsURL .Values.domain }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: domain-redirect
+  annotations:
+    nginx.ingress.kubernetes.io/permanent-redirect: http://{{ .Values.domain }}
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: "www.endpoints.{{ .Values.project }}.cloud.goog"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            # This isn't used, but needs to be specified.
+            name: dummy
+            port:
+              number: 80
+{{ end }}
