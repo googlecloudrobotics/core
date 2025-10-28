@@ -229,19 +229,6 @@ function terraform_apply {
 
   terraform_init
 
-  # We've stopped managing Google Cloud projects in Terraform, make sure they
-  # aren't deleted.
-  terraform_exec state rm google_project.project 2>/dev/null || true
-  # We did not always create the bucket here, but sometimes elsewhere. Import it
-  # to consitently manage it from here now.
-  terraform_exec import google_storage_bucket.config_store "${GCP_PROJECT_ID}-cloud-robotics-config" 2>/dev/null || true
-  # GAR is not automatically creating default repositories. Hence import the
-  # ones from existing projects, so that we can manage them via terraform.
-  terraform_exec import 'google_artifact_registry_repository.gcrio_repositories[0]' "projects/${GCP_PROJECT_ID}/locations/asia/repositories/asia.gcr.io" 2>/dev/null || true
-  terraform_exec import 'google_artifact_registry_repository.gcrio_repositories[1]' "projects/${GCP_PROJECT_ID}/locations/europe/repositories/eu.gcr.io" 2>/dev/null || true
-  terraform_exec import 'google_artifact_registry_repository.gcrio_repositories[2]' "projects/${GCP_PROJECT_ID}/locations/us/repositories/gcr.io" 2>/dev/null || true
-  terraform_exec import 'google_artifact_registry_repository.gcrio_repositories[3]' "projects/${GCP_PROJECT_ID}/locations/us/repositories/us.gcr.io" 2>/dev/null || true
-
   terraform_exec apply ${TERRAFORM_APPLY_FLAGS} \
     || die "terraform apply failed"
   terraform_post

@@ -1,3 +1,12 @@
+# We've stopped managing Google Cloud projects in this Terraform, make sure they
+# aren't deleted. 
+removed {
+  from = google_project.project
+  lifecycle {
+    destroy = false
+  }
+}
+
 data "google_project" "project" {
   project_id = var.id
 }

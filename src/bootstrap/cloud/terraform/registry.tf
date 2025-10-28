@@ -24,11 +24,22 @@ locals {
 }
 
 # import existing repos, see: gcloud artifacts repositories list --project=<project-id>
-# Requires terraform >= 1.5, example:
-#import {
-#  id = "projects/$data.google_project.project.project_id/locations/us/repositories/gcr.io"
-#  to = google_artifact_registry_repository.gcrio_repositories[2]
-#}
+import {
+  id = "projects/$data.google_project.project.project_id/locations/asia/repositories/asia.gcr.io"
+  to = google_artifact_registry_repository.gcrio_repositories[0]
+}
+import {
+  id = "projects/$data.google_project.project.project_id/locations/europe/repositories/eu.gcr.io"
+  to = google_artifact_registry_repository.gcrio_repositories[1]
+}
+import {
+  id = "projects/$data.google_project.project.project_id/locations/us/repositories/gcr.io"
+  to = google_artifact_registry_repository.gcrio_repositories[2]
+}
+import {
+  id = "projects/$data.google_project.project.project_id/locations/us/repositories/us.gcr.io"
+  to = google_artifact_registry_repository.gcrio_repositories[3]
+}
 
 resource "google_artifact_registry_repository" "gcrio_repositories" {
   project       = data.google_project.project.project_id
