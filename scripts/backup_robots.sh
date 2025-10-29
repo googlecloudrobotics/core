@@ -35,7 +35,5 @@ function kc {
 kc get robots -o yaml | \
   yq 2>/dev/null -ry '.items[] | del(.metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"],.metadata.creationTimestamp,.metadata.generation,.metadata.managedFields,.metadata.resourceVersion,.metadata.selfLink,.metadata.uid,.status)' -
 echo "---"
-# the underlying parser yq is using is inserting blank lines into the scalar blocks
 kc get cm -n app-token-vendor -o yaml -l app.kubernetes.io/managed-by=token-vendor | \
-  yq 2>/dev/null -ry '.items[] | del(.metadata.creationTimestamp,.metadata.resourceVersion,.metadata.selfLink,.metadata.uid)' - | \
-  grep "\S"
+  yq 2>/dev/null -ry '.items[] | del(.metadata.creationTimestamp,.metadata.resourceVersion,.metadata.selfLink,.metadata.uid)' -
