@@ -32,11 +32,12 @@ resource "google_storage_bucket_object" "setup_robot" {
   count         = var.onprem_federation ? 1 : 0
 }
 
-# We need terraform 1.5.4 for this
-# import {
-#   to = google_storage_bucket.config_store
-#   id = "${var.id}-cloud-robotics-config"
-# }
+# We did not always create the bucket here, but sometimes elsewhere. Import it
+# to consitently manage it from here now. 
+import {
+   to = google_storage_bucket.config_store
+   id = "${var.id}-cloud-robotics-config"
+}
 
 resource "google_storage_bucket" "config_store" {
   name                        = "${var.id}-cloud-robotics-config"

@@ -75,6 +75,16 @@ variable "cluster_type" {
   }
 }
 
+variable "datapath_provider" {
+  description = "Whether to use Dataplane v1 or v2 (DATAPATH_PROVIDER_UNSPECIFIED or ADVANCED_DATAPATH)."
+  type        = string
+  default     = "DATAPATH_PROVIDER_UNSPECIFIED"
+  validation {
+    condition = contains(["DATAPATH_PROVIDER_UNSPECIFIED", "ADVANCED_DATAPATH"], var.datapath_provider)
+    error_message = "Must be either \"DATAPATH_PROVIDER_UNSPECIFIED\" or \"ADVANCED_DATAPATH\"."
+  }
+}
+
 variable "onprem_federation" {
   description = "Enable google cloud robotics layer 1"
   type        = bool
