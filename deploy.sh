@@ -30,11 +30,7 @@ if is_source_install; then
   # Not using bazel run to not clobber the bazel-bin dir
   TERRAFORM="${DIR}/bazel-out/../../../external/+non_module_deps+hashicorp_terraform/terraform"
   HELM_COMMAND="${DIR}/bazel-out/../../../external/+non_module_deps+kubernetes_helm/helm"
-  # To avoid a dependency on the host's glibc, we build synk with pure="on".
-  # Because this is a non-default build configuration, it results in a separate
-  # subdirectory of bazel-out/, which is not as easy to hardcode as
-  # bazel-bin/... Instead, we use `bazel run` to locate and execute the binary.
-  SYNK_COMMAND="bazel ${BAZEL_FLAGS} run //src/go/cmd/synk --"
+  SYNK_COMMAND="${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk"
 else
   TERRAFORM="${DIR}/bin/terraform"
   HELM_COMMAND="${DIR}/bin/helm"
@@ -112,7 +108,6 @@ function prepare_source_install {
   # Running :push outside the build system shaves ~3 seconds off an incremental build.
   cd ${DIR}/bazel-bin/src/app_charts/push.runfiles/${RUNFILES_ROOT}
   TAG="latest" ${DIR}/bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
-
   cd ${oldPwd}
 }
 

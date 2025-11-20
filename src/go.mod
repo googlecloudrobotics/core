@@ -1,8 +1,8 @@
 module github.com/googlecloudrobotics/core/src
 
-go 1.23.0
+go 1.25.0
 
-toolchain go1.23.7
+toolchain go1.25.4
 
 require (
 	cloud.google.com/go v0.110.10 // indirect
@@ -36,8 +36,8 @@ require (
 	golang.org/x/sync v0.11.0
 	golang.org/x/sys v0.30.0 // indirect
 	google.golang.org/api v0.149.0
-	google.golang.org/grpc v1.59.0
-	google.golang.org/protobuf v1.33.0
+	google.golang.org/grpc v1.67.3
+	google.golang.org/protobuf v1.36.3
 	gopkg.in/h2non/gock.v1 v1.1.2
 	k8s.io/api v0.28.4
 	k8s.io/apiextensions-apiserver v0.28.4
@@ -54,7 +54,7 @@ require (
 require (
 	cloud.google.com/go/storage v1.30.1
 	github.com/aws/aws-sdk-go v1.45.25 // indirect
-	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/prometheus/statsd_exporter v0.22.8 // indirect
 	golang.org/x/oauth2 v0.27.0
 	google.golang.org/genproto v0.0.0-20231127180814-3a041ad873d4 // indirect
@@ -76,7 +76,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute/metadata v0.3.0 // indirect
+	cloud.google.com/go/compute/metadata v0.5.2 // indirect
 	cloud.google.com/go/iam v1.1.5 // indirect
 	cloud.google.com/go/monitoring v1.16.3 // indirect
 	cloud.google.com/go/trace v1.10.4 // indirect
@@ -93,7 +93,7 @@ require (
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
-	github.com/go-logr/logr v1.3.0 // indirect
+	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/zapr v1.2.4 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-openapi/jsonpointer v0.20.0 // indirect
@@ -107,7 +107,7 @@ require (
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/safetext v0.0.0-20221026122733-23539d61753f // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/google/uuid v1.4.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
@@ -143,8 +143,8 @@ require (
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20231127180814-3a041ad873d4 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20231127180814-3a041ad873d4 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240814211410-ddb44dafa142 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142 // indirect
 	gopkg.in/evanphx/json-patch.v5 v5.6.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
