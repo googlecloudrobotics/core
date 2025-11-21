@@ -88,6 +88,10 @@ function prepare_source_install {
       //src/go/cmd/setup-robot:setup-robot.push \
       //src/go/cmd/synk
 
+  # Temporary check for location of the built synk binary:
+  echo "Testing synk binary location"
+  find -L ${DIR}/bazel-bin/src/go/cmd/synk -name "synk" -type f
+
   # TODO(rodrigoq): the artifactregistry API would be enabled by Terraform, but
   # that doesn't run until later, as it needs the digest of the setup-robot
   # image. Consider splitting prepare_source_install into source_install_build
