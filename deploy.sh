@@ -78,6 +78,12 @@ function kc {
 }
 
 function prepare_source_install {
+  bazel ${BAZEL_FLAGS} build //src/go/cmd/synk
+  # Temporary check for location of the built synk binary:
+  echo "# 1: Finding synk binary location"
+  bazel info || /bin/true
+  find -L ${DIR}/bazel-bin/ -name "synk" -exec ls -al {} \; || /bin/true
+
   bazel ${BAZEL_FLAGS} build \
       "@hashicorp_terraform//:terraform" \
       "@kubernetes_helm//:helm" \
@@ -89,11 +95,12 @@ function prepare_source_install {
       //src/go/cmd/synk
 
   # Temporary check for location of the built synk binary:
-  echo "Finding synk binary location"
-  bazel info | grep ${DIR} || /bin/true
+  echo "# 2: Finding synk binary location"
+  bazel info || /bin/true
   # Haha: '/workspace/bazel-bin/src/go/cmd/synk': No such file or directory
   # find -L ${DIR}/bazel-bin/src/go/cmd/synk -name "synk" -type f
-  find -L ${DIR}/bazel-bin/ -name "synk" || /bin/true
+  # only /workspace/bazel-bin/src/go/pkg/synk
+  find -L ${DIR}/bazel-bin/ -name "synk" -exec ls -al {} \; || /bin/true
 
   # TODO(rodrigoq): the artifactregistry API would be enabled by Terraform, but
   # that doesn't run until later, as it needs the digest of the setup-robot
