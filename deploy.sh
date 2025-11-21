@@ -78,11 +78,12 @@ function kc {
 }
 
 function prepare_source_install {
+  # For whatever reasons different combinations of bazel environemnt seem to
+  # work differently wrt bazel-bin. This hack ensure that both synk and the
+  # files that synk will install are in bazel-bin
+  tmpdir="$(mktemp -d)"
   bazel ${BAZEL_FLAGS} build //src/go/cmd/synk
-  # Temporary check for location of the built synk binary:
-  echo "# 1: Finding synk binary location"
-  bazel info || /bin/true
-  find -L ${DIR}/bazel-bin/ -name "synk" -exec ls -al {} \; || /bin/true
+  cp -a ${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk ${tmpdir}/synk
 
   bazel ${BAZEL_FLAGS} build \
       "@hashicorp_terraform//:terraform" \
@@ -91,16 +92,12 @@ function prepare_source_install {
       //src/app_charts/platform-apps:platform-apps-cloud \
       //src/app_charts:push \
       //src/bootstrap/cloud:setup-robot.digest \
-      //src/go/cmd/setup-robot:setup-robot.push \
-      //src/go/cmd/synk
+      //src/go/cmd/setup-robot:setup-robot.push
 
-  # Temporary check for location of the built synk binary:
-  echo "# 2: Finding synk binary location"
-  bazel info || /bin/true
-  # Haha: '/workspace/bazel-bin/src/go/cmd/synk': No such file or directory
-  # find -L ${DIR}/bazel-bin/src/go/cmd/synk -name "synk" -type f
-  # only /workspace/bazel-bin/src/go/pkg/synk
-  find -L ${DIR}/bazel-bin/ -name "synk" -exec ls -al {} \; || /bin/true
+  mkdir -p ${DIR}/bazel-bin/src/go/cmd/synk/synk_/
+  mv -n ${tmpdir}/synk ${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk
+  rm -f ${tmpdir}/synk
+  rmdir ${tmpdir} || /bin/true
 
   # TODO(rodrigoq): the artifactregistry API would be enabled by Terraform, but
   # that doesn't run until later, as it needs the digest of the setup-robot
