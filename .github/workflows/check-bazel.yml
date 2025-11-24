@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # tag=v4.2.2
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # tag=v6.0.0
       - name: Auth
         uses: google-github-actions/auth@71f986410dfbc7added4569d411d040a91dc6935 # tag=v2.1.8
         with:
