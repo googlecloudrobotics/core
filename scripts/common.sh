@@ -94,3 +94,7 @@ function gke_context_name {
     echo "gke_${project}_${location}_${name}"
   fi
 }
+
+function kc {
+  kubectl --context="${CLOUD_ROBOTICS_CTX}" "$@"
+}
