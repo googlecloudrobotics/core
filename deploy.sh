@@ -73,10 +73,6 @@ function update_config_var {
   gsutil mv "${config_file}" "${cloud_bucket}/config.sh"
 }
 
-function kc {
-  kubectl --context="${CLOUD_ROBOTICS_CTX}" "$@"
-}
-
 function prepare_source_install {
   # For whatever reasons different combinations of bazel environemnt seem to
   # work differently wrt bazel-bin. This hack ensure that both synk and the
