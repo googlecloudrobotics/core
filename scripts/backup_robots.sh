@@ -17,25 +17,22 @@
 # see https://github.com/kubernetes/kubernetes/issues/90066#issuecomment-780236185 for hiding managed-fields
 # another tool: https://github.com/itaysk/kubectl-neat
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "${DIR}/common.sh"
+
 if ! hash jq 2>/dev/null; then
-  echo >&2 "This script needs jq (apt install jq)."
-  exit 1
+  die "This script needs jq (apt install jq)."
 fi
 if ! hash yq 2>/dev/null; then
-  echo >&2 "This script needs yq (pip3 install yq)."
-  exit 1
+  die "This script needs yq (pip3 install yq)."
 fi
 
-KUBE_CONTEXT=${KUBE_CONTEXT:-minikube}
-
-function kc {
-  kubectl --context="${KUBE_CONTEXT}" "$@"
-}
+if [[ -z "${CLOUD_ROBOTICS_CTX}" ]]; then
+  die "CLOUD_ROBOTICS_CTX needs specify the cluster context that shoudl be backed up".
+fi
 
 kc get robots -o yaml | \
   yq 2>/dev/null -ry '.items[] | del(.metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"],.metadata.creationTimestamp,.metadata.generation,.metadata.managedFields,.metadata.resourceVersion,.metadata.selfLink,.metadata.uid,.status)' -
 echo "---"
-# the underlying parser yq is using is inserting blank lines into the scalar blocks
 kc get cm -n app-token-vendor -o yaml -l app.kubernetes.io/managed-by=token-vendor | \
-  yq 2>/dev/null -ry '.items[] | del(.metadata.creationTimestamp,.metadata.resourceVersion,.metadata.selfLink,.metadata.uid)' - | \
-  grep "\S"
+  yq 2>/dev/null -ry '.items[] | del(.metadata.creationTimestamp,.metadata.resourceVersion,.metadata.selfLink,.metadata.uid)' -

@@ -30,11 +30,7 @@ if is_source_install; then
   # Not using bazel run to not clobber the bazel-bin dir
   TERRAFORM="${DIR}/bazel-out/../../../external/+non_module_deps+hashicorp_terraform/terraform"
   HELM_COMMAND="${DIR}/bazel-out/../../../external/+non_module_deps+kubernetes_helm/helm"
-  # To avoid a dependency on the host's glibc, we build synk with pure="on".
-  # Because this is a non-default build configuration, it results in a separate
-  # subdirectory of bazel-out/, which is not as easy to hardcode as
-  # bazel-bin/... Instead, we use `bazel run` to locate and execute the binary.
-  SYNK_COMMAND="bazel ${BAZEL_FLAGS} run //src/go/cmd/synk --"
+  SYNK_COMMAND="${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk"
 else
   TERRAFORM="${DIR}/bin/terraform"
   HELM_COMMAND="${DIR}/bin/helm"
@@ -60,8 +56,6 @@ function include_config_and_defaults {
 
   CLOUD_ROBOTICS_OWNER_EMAIL=${CLOUD_ROBOTICS_OWNER_EMAIL:-$(gcloud config get-value account)}
   CLOUD_ROBOTICS_CTX=${CLOUD_ROBOTICS_CTX:-"gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"}
-
-  SYNK="${SYNK_COMMAND} --context ${CLOUD_ROBOTICS_CTX}"
 }
 
 function update_config_var {
@@ -77,11 +71,14 @@ function update_config_var {
   gsutil mv "${config_file}" "${cloud_bucket}/config.sh"
 }
 
-function kc {
-  kubectl --context="${CLOUD_ROBOTICS_CTX}" "$@"
-}
-
 function prepare_source_install {
+  # For whatever reasons different combinations of bazel environemnt seem to
+  # work differently wrt bazel-bin. This hack ensure that both synk and the
+  # files that synk will install are in bazel-bin
+  tmpdir="$(mktemp -d)"
+  bazel ${BAZEL_FLAGS} build //src/go/cmd/synk
+  cp -a ${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk ${tmpdir}/synk
+
   bazel ${BAZEL_FLAGS} build \
       "@hashicorp_terraform//:terraform" \
       "@kubernetes_helm//:helm" \
@@ -89,8 +86,12 @@ function prepare_source_install {
       //src/app_charts/platform-apps:platform-apps-cloud \
       //src/app_charts:push \
       //src/bootstrap/cloud:setup-robot.digest \
-      //src/go/cmd/setup-robot:setup-robot.push \
-      //src/go/cmd/synk
+      //src/go/cmd/setup-robot:setup-robot.push
+
+  mkdir -p ${DIR}/bazel-bin/src/go/cmd/synk/synk_/
+  mv -n ${tmpdir}/synk ${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk
+  rm -f ${tmpdir}/synk
+  rmdir ${tmpdir} || /bin/true
 
   # TODO(rodrigoq): the artifactregistry API would be enabled by Terraform, but
   # that doesn't run until later, as it needs the digest of the setup-robot
@@ -112,7 +113,6 @@ function prepare_source_install {
   # Running :push outside the build system shaves ~3 seconds off an incremental build.
   cd ${DIR}/bazel-bin/src/app_charts/push.runfiles/${RUNFILES_ROOT}
   TAG="latest" ${DIR}/bazel-bin/src/app_charts/push "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
-
   cd ${oldPwd}
 }
 
@@ -158,6 +158,7 @@ robot_image_reference = "${SOURCE_CONTAINER_REGISTRY}/setup-robot@${ROBOT_IMAGE_
 crc_version = "${CRC_VERSION}"
 certificate_provider = "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
 cluster_type = "${GKE_CLUSTER_TYPE}"
+datapath_provider = "${GKE_DATAPATH_PROVIDER}"
 onprem_federation = ${ONPREM_FEDERATION}
 secret_manager_plugin = ${GKE_SECRET_MANAGER_PLUGIN}
 EOF
@@ -222,24 +223,7 @@ EOF
 }
 
 function terraform_apply {
-
-  # Required or terraform will fail deleting the IoT registry
-  cleanup_iot_devices || true
-
   terraform_init
-
-  # We've stopped managing Google Cloud projects in Terraform, make sure they
-  # aren't deleted.
-  terraform_exec state rm google_project.project 2>/dev/null || true
-  # We did not always create the bucket here, but sometimes elsewhere. Import it
-  # to consitently manage it from here now.
-  terraform_exec import google_storage_bucket.config_store "${GCP_PROJECT_ID}-cloud-robotics-config" 2>/dev/null || true
-  # GAR is not automatically creating default repositories. Hence import the
-  # ones from existing projects, so that we can manage them via terraform.
-  terraform_exec import 'google_artifact_registry_repository.gcrio_repositories[0]' "projects/${GCP_PROJECT_ID}/locations/asia/repositories/asia.gcr.io" 2>/dev/null || true
-  terraform_exec import 'google_artifact_registry_repository.gcrio_repositories[1]' "projects/${GCP_PROJECT_ID}/locations/europe/repositories/eu.gcr.io" 2>/dev/null || true
-  terraform_exec import 'google_artifact_registry_repository.gcrio_repositories[2]' "projects/${GCP_PROJECT_ID}/locations/us/repositories/gcr.io" 2>/dev/null || true
-  terraform_exec import 'google_artifact_registry_repository.gcrio_repositories[3]' "projects/${GCP_PROJECT_ID}/locations/us/repositories/us.gcr.io" 2>/dev/null || true
 
   terraform_exec apply ${TERRAFORM_APPLY_FLAGS} \
     || die "terraform apply failed"
@@ -262,119 +246,6 @@ function terraform_post {
 function terraform_delete {
   terraform_init
   terraform_exec destroy -auto-approve || die "terraform destroy failed"
-}
-
-function cleanup_helm_data {
-  # Delete all legacy HELM resources. Do not delete the Helm charts directly, as
-  # we just want to keep the resources and have synk "adopt" them.
-  kc delete cm ready-for-synk 2> /dev/null || true
-  kc delete cm synk-enabled 2> /dev/null || true
-  kc -n kube-system delete deploy tiller-deploy 2> /dev/null || true
-  kc -n kube-system delete service tiller-deploy 2> /dev/null || true
-  kc -n kube-system delete cm -l OWNER=TILLER 2> /dev/null || true
-}
-
-function cleanup_iot_devices {
-  gcloud services list --project="${GCP_PROJECT_ID}" | grep -q cloudiot.googleapis.com || return
-  local iot_registry_name="cloud-robotics"
-  gcloud beta iot registries list --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" | grep -q "${iot_registry_name}" || return
-  local devices
-  devices=$(gcloud beta iot devices list \
-    --project "${GCP_PROJECT_ID}" \
-    --region "${GCP_REGION}" \
-    --registry "${iot_registry_name}" \
-    --format='value(id)')
-  if [[ -n "${devices}" ]] ; then
-    echo "Clearing IoT devices from ${iot_registry_name}" 1>&2
-    for dev in ${devices}; do
-      gcloud beta iot devices delete \
-        --quiet \
-        --project "${GCP_PROJECT_ID}" \
-        --region "${GCP_REGION}" \
-        --registry "${iot_registry_name}" \
-        ${dev}
-    done
-  fi
-}
-
-function cleanup_old_cert_manager {
-  # Uninstall and cleanup older versions of cert-manager if needed
-
-  echo "checking for old cert manager .."
-  kc &>/dev/null get deployments cert-manager || return 0
-  installed_ver=$(kc get deployments cert-manager -o=go-template --template='{{index .metadata.labels "helm.sh/chart"}}' | rev | cut -d'-' -f1 | rev | tr -d "vV")
-  echo "have cert manager $installed_ver"
-
-  if [[ "$installed_ver" == 0.5.* ]]; then
-    echo "need to cleanup old version"
-
-    # see https://docs.cert-manager.io/en/latest/tasks/upgrading/upgrading-0.5-0.6.html#upgrading-from-older-versions-using-helm
-    # and https://docs.cert-manager.io/en/latest/tasks/backup-restore-crds.html
-
-    # cleanup
-    synk_version=$(kc get resourcesets.apps.cloudrobotics.com --output=name | grep cert-manager | cut -d'/' -f2)
-    echo "deleting resourceset ${synk_version}"
-    ${SYNK} delete ${synk_version} -n default
-    kc delete crd \
-      certificates.certmanager.k8s.io \
-      issuers.certmanager.k8s.io \
-      clusterissuers.certmanager.k8s.io
-  fi
-
-  if [[ "$installed_ver" == 0.8.* ]]; then
-    echo "need to cleanup old version"
-    # see https://cert-manager.io/docs/installation/upgrading/upgrading-0.8-0.9/
-    # and https://cert-manager.io/docs/installation/upgrading/upgrading-0.9-0.10/
-
-    # cleanup
-    kc delete deployments --namespace default \
-      cert-manager \
-      cert-manager-cainjector \
-      cert-manager-webhook
-
-    kc delete -n default issuer cert-manager-webhook-ca cert-manager-webhook-selfsign
-    kc delete -n default certificate cert-manager-webhook-ca cert-manager-webhook-webhook-tls
-    kc delete apiservice v1beta1.admission.certmanager.k8s.io
-  fi
-
-  if [[ "$installed_ver" == 0.10.* ]]; then
-    echo "need to cleanup old version"
-
-    # cleanup deployments
-    kc delete deployments --namespace default \
-      cert-manager \
-      cert-manager-cainjector \
-      cert-manager-webhook
-
-    echo "Wait until cert-manager pods are deleted"
-    kc wait pods -l app.kubernetes.io/instance=cert-manager -n default --for=delete --timeout=35s
-
-    # delete existing cert-manager resources
-    kc delete Issuers,ClusterIssuers,Certificates,CertificateRequests,Orders,Challenges --all-namespaces --all
-
-    # Delete old webhook ca and tls secrets
-    kc delete secrets --namespace default cert-manager-webhook-ca cert-manager-webhook-tls
-
-    # cleanup crds
-    kc delete crd \
-      certificaterequests.certmanager.k8s.io \
-      certificates.certmanager.k8s.io \
-      challenges.certmanager.k8s.io \
-      clusterissuers.certmanager.k8s.io \
-      issuers.certmanager.k8s.io \
-      orders.certmanager.k8s.io
-
-    # cleanup apiservices
-    kc delete apiservices v1beta1.webhook.certmanager.k8s.io
-  fi
-
-  # This is now installed as part of base-cloud
-  kc delete resourcesets.apps.cloudrobotics.com -l name=cert-manager 2>/dev/null || true
-}
-
-function helm_cleanup {
-  cleanup_helm_data
-  cleanup_old_cert_manager
 }
 
 function helm_region_shared {
@@ -520,7 +391,6 @@ function create {
     prepare_source_install
   fi
   terraform_apply
-  helm_cleanup
   helm_charts
 }
 

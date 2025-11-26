@@ -4,7 +4,7 @@ load("//bazel:build_rules/helm_template.bzl", "helm_template")
 
 helm_template(
     name = "prometheus-operator-chart.cloud",
-    chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-56.6.2.tgz",
+    chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-72.9.1.tgz",
     helm_version = 3,
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
@@ -15,7 +15,7 @@ helm_template(
 
 helm_template(
     name = "prometheus-operator-chart.robot",
-    chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-56.6.2.tgz",
+    chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-72.9.1.tgz",
     helm_version = 3,
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
