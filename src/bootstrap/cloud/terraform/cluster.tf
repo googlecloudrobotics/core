@@ -36,7 +36,7 @@ resource "google_container_cluster" "cloud-robotics" {
       # Note: we mst not make this too small, otherwise GKE cannot schedule updates
       start_time = "2025-04-05T05:00:00Z"
       end_time   = "2025-04-06T19:00:00Z"
-      recurrence = "FREQ=WEEKLY;BYDAY=SA,SU"
+      recurrence = "FREQ=WEEKLY;BYDAY=SA"
     }
   }
   release_channel {
