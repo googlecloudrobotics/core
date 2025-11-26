@@ -56,8 +56,6 @@ function include_config_and_defaults {
 
   CLOUD_ROBOTICS_OWNER_EMAIL=${CLOUD_ROBOTICS_OWNER_EMAIL:-$(gcloud config get-value account)}
   CLOUD_ROBOTICS_CTX=${CLOUD_ROBOTICS_CTX:-"gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"}
-
-  SYNK="${SYNK_COMMAND} --context ${CLOUD_ROBOTICS_CTX}"
 }
 
 function update_config_var {
