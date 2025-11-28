@@ -53,19 +53,35 @@ const (
 	cleanShutdownTimeout = 20 * time.Second
 	// Print more detailed logs when enabled.
 	debugLogs = false
+
+	// DefaultPort is the default port number to listen on.
+	DefaultPort = 80
+	// DefaultBlockSize is the default size of i/o buffer in bytes.
+	DefaultBlockSize = 10 * 1024
 )
 
-type Server struct {
-	port      int // Port number to listen on
-	blockSize int // Size of i/o buffer in bytes
-	b         *broker
+type Config struct {
+	// Port number to listen on.
+	Port int
+	// BlockSize is the size of i/o buffer in bytes.
+	BlockSize int
 }
 
-func NewServer() *Server {
+type Server struct {
+	conf Config
+	b    *broker
+}
+
+func NewServer(conf Config) *Server {
+	if conf.Port == 0 {
+		conf.Port = DefaultPort
+	}
+	if conf.BlockSize == 0 {
+		conf.BlockSize = DefaultBlockSize
+	}
 	s := &Server{
-		port:      80,
-		blockSize: 10 * 1024,
-		b:         newBroker(),
+		conf: conf,
+		b:    newBroker(),
 	}
 	go func() {
 		for t := range time.Tick(10 * time.Second) {
@@ -238,7 +254,7 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 		slog.Info("Trying to read from bidi-stream", slog.String("ID", backendCtx.Id))
 		for {
 			// This must be a new buffer each time, as the channel is not making a copy
-			bytes := make([]byte, s.blockSize)
+			bytes := make([]byte, s.conf.BlockSize)
 			// Here we get the client stream (e.g. kubectl or k9s)
 			n, err := bufrw.Read(bytes)
 			if err != nil {
@@ -517,10 +533,7 @@ func (s *Server) serverResponse(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Relay client sent response", slog.String("ID", *br.Id))
 }
 
-func (s *Server) Start(port int, blockSize int) {
-	s.port = port
-	s.blockSize = blockSize
-
+func (s *Server) Start() {
 	h := http.NewServeMux()
 	h.HandleFunc("/healthz", s.health)
 	h.HandleFunc("/", s.userClientRequest)
@@ -542,7 +555,7 @@ func (s *Server) Start(port int, blockSize int) {
 		Handler: h2h,
 	}
 	h1s := &http.Server{
-		Addr:    fmt.Sprintf(":%d", s.port),
+		Addr:    fmt.Sprintf(":%d", s.conf.Port),
 		Handler: och,
 		BaseContext: func(l net.Listener) context.Context {
 			slog.Info("Relay server listening", slog.Int("Port", l.Addr().(*net.TCPAddr).Port))
