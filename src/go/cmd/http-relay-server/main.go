@@ -96,6 +96,8 @@ var (
 		"If not empty, traces will be uploaded to this Google Cloud Project.")
 	logLevel = flag.Int("log_level", int(slog.LevelInfo),
 		"the log message level required to be logged")
+	inactiveRequestTimeout = flag.Duration("inactive_request_timeout", server.DefaultInactiveRequestTimeout,
+		"Timeout for inactive requests. In particular, this sets a limit on how long the backend can wait before writing headers and the response status.")
 )
 
 func main() {
@@ -117,8 +119,9 @@ func main() {
 	}
 
 	server := server.NewServer(server.Config{
-		Port:      *port,
-		BlockSize: *blockSize,
+		Port:                   *port,
+		BlockSize:              *blockSize,
+		InactiveRequestTimeout: *inactiveRequestTimeout,
 	})
 	server.Start()
 }
