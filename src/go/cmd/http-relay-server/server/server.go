@@ -45,31 +45,53 @@ import (
 )
 
 const (
-	clientPrefix           = "/client/"
-	inactiveRequestTimeout = 60 * time.Second
+	clientPrefix = "/client/"
 	// Time to wait for requests to complete before calling panic(). This should
 	// be less that the kubelet's timeout (30s by default) so that we can print
 	// a stack trace and debug what is still running.
 	cleanShutdownTimeout = 20 * time.Second
 	// Print more detailed logs when enabled.
 	debugLogs = false
+
+	// DefaultPort is the default port number to listen on.
+	DefaultPort = 80
+	// DefaultBlockSize is the default size of i/o buffer in bytes.
+	DefaultBlockSize = 10 * 1024
+	// DefaultInactiveRequestTimeout is the default timeout for inactive requests. In particular, this sets a limit on how long the backend can wait before writing headers and the response status.
+	DefaultInactiveRequestTimeout = 60 * time.Second
 )
 
-type Server struct {
-	port      int // Port number to listen on
-	blockSize int // Size of i/o buffer in bytes
-	b         *broker
+type Config struct {
+	// Port number to listen on.
+	Port int
+	// BlockSize is the size of i/o buffer in bytes.
+	BlockSize int
+	// InactiveRequestTimeout is the timeout for inactive requests.
+	InactiveRequestTimeout time.Duration
 }
 
-func NewServer() *Server {
+type Server struct {
+	conf Config
+	b    *broker
+}
+
+func NewServer(conf Config) *Server {
+	if conf.Port == 0 {
+		conf.Port = DefaultPort
+	}
+	if conf.BlockSize == 0 {
+		conf.BlockSize = DefaultBlockSize
+	}
+	if conf.InactiveRequestTimeout == 0 {
+		conf.InactiveRequestTimeout = DefaultInactiveRequestTimeout
+	}
 	s := &Server{
-		port:      80,
-		blockSize: 10 * 1024,
-		b:         newBroker(),
+		conf: conf,
+		b:    newBroker(),
 	}
 	go func() {
 		for t := range time.Tick(10 * time.Second) {
-			s.b.ReapInactiveRequests(t.Add(-1 * inactiveRequestTimeout))
+			s.b.ReapInactiveRequests(t.Add(-1 * conf.InactiveRequestTimeout))
 		}
 	}()
 	return s
@@ -139,13 +161,13 @@ type responseChunk struct {
 // channel and that the first response has a status code. It collects the
 // responses and then returns headers and status-code. Additionally, it
 // returns body and trailers asynchronously via the returned channel.
-func responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*pb.HttpHeader, int, <-chan *responseChunk) {
+func (s *Server) responseFilter(backendCtx backendContext, in <-chan *pb.HttpResponse) ([]*pb.HttpHeader, int, <-chan *responseChunk) {
 	responseChunks := make(chan *responseChunk, 1)
 	firstMessage, more := <-in
 	if !more {
 		brokerResponses.WithLabelValues("client", "missing_message", backendCtx.ServerName).Inc()
 		responseChunks <- &responseChunk{
-			Body: []byte(fmt.Sprintf("Timeout after %v, indicating that the backend request took too long", inactiveRequestTimeout)),
+			Body: []byte(fmt.Sprintf("Timeout after %v, indicating that the backend request took too long", s.conf.InactiveRequestTimeout)),
 		}
 		close(responseChunks)
 		return nil, http.StatusGatewayTimeout, responseChunks
@@ -238,7 +260,7 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 		slog.Info("Trying to read from bidi-stream", slog.String("ID", backendCtx.Id))
 		for {
 			// This must be a new buffer each time, as the channel is not making a copy
-			bytes := make([]byte, s.blockSize)
+			bytes := make([]byte, s.conf.BlockSize)
 			// Here we get the client stream (e.g. kubectl or k9s)
 			n, err := bufrw.Read(bytes)
 			if err != nil {
@@ -319,7 +341,7 @@ func (s *Server) waitForFirstResponseAndHandleSwitching(ctx context.Context, bac
 	addServiceName(span)
 	defer span.End()
 
-	header, status, responseChunksChan := responseFilter(backendCtx, backendRespChan)
+	header, status, responseChunksChan := s.responseFilter(backendCtx, backendRespChan)
 	if header != nil {
 		unmarshalHeader(w, header)
 	}
@@ -517,10 +539,7 @@ func (s *Server) serverResponse(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Relay client sent response", slog.String("ID", *br.Id))
 }
 
-func (s *Server) Start(port int, blockSize int) {
-	s.port = port
-	s.blockSize = blockSize
-
+func (s *Server) Start() {
 	h := http.NewServeMux()
 	h.HandleFunc("/healthz", s.health)
 	h.HandleFunc("/", s.userClientRequest)
@@ -542,7 +561,7 @@ func (s *Server) Start(port int, blockSize int) {
 		Handler: h2h,
 	}
 	h1s := &http.Server{
-		Addr:    fmt.Sprintf(":%d", s.port),
+		Addr:    fmt.Sprintf(":%d", s.conf.Port),
 		Handler: och,
 		BaseContext: func(l net.Listener) context.Context {
 			slog.Info("Relay server listening", slog.Int("Port", l.Addr().(*net.TCPAddr).Port))
