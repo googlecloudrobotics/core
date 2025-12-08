@@ -51,4 +51,5 @@ spec:
       tolerations:
       - operator: "Exists"
         effect: "NoSchedule"
+      priorityClassName: system-cluster-critical
 {{ end }}
