@@ -25,6 +25,11 @@ resource "google_container_cluster" "cloud-robotics" {
 
   initial_node_count = 1
 
+  addons_config {
+    gke_backup_agent_config {
+      enabled = true
+    }
+  }
   gateway_api_config {
     channel = "CHANNEL_STANDARD"
   }
