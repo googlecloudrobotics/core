@@ -28,7 +28,8 @@ requests:
 retention:
   time: "90d"
   # Keep in sync with the disksize above and keep some headroom to avoid alerts.
-  size: "180GB"
+  # Retention size should be at most 80-85% of total storage to account for  WAL, chunks, and filesystem overhead.
+  size: "160GB"
 
 # MetricRelabelConfigs to apply to samples after scraping, but before ingestion.
 prometheus:
