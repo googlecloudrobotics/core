@@ -18,6 +18,10 @@ resource "google_container_cluster" "cloud-robotics" {
   networking_mode = "VPC_NATIVE"
 
   datapath_provider = var.datapath_provider
+  # This enables setting network policies using fully qualified domain names.
+  # See https://cloud.google.com/kubernetes-engine/docs/how-to/fqdn-network-policies#create-fqdn-network-policy
+  enable_fqdn_network_policy = var.datapath_provider == "ADVANCED_DATAPATH" ? true : false
+
   # We can't create a cluster with no node pool defined, but we want to only use
   # separately managed node pools. So we create the smallest possible default
   # node pool and immediately delete it.
