@@ -14,7 +14,7 @@ data "google_project" "project" {
 resource "google_project_iam_member" "owner_group" {
   count   = var.shared_owner_group == "" ? 0 : 1
   project = data.google_project.project.project_id
-  role    = "roles/owner"
+  role    = "roles/editor"
   member  = "group:${var.shared_owner_group}"
 }
 
