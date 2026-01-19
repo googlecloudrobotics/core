@@ -25,19 +25,19 @@ locals {
 
 # import existing repos, see: gcloud artifacts repositories list --project=<project-id>
 import {
-  id = "projects/$data.google_project.project.project_id/locations/asia/repositories/asia.gcr.io"
+  id = "projects/${data.google_project.project.project_id}/locations/asia/repositories/asia.gcr.io"
   to = google_artifact_registry_repository.gcrio_repositories[0]
 }
 import {
-  id = "projects/$data.google_project.project.project_id/locations/europe/repositories/eu.gcr.io"
+  id = "projects/${data.google_project.project.project_id}/locations/europe/repositories/eu.gcr.io"
   to = google_artifact_registry_repository.gcrio_repositories[1]
 }
 import {
-  id = "projects/$data.google_project.project.project_id/locations/us/repositories/gcr.io"
+  id = "projects/${data.google_project.project.project_id}/locations/us/repositories/gcr.io"
   to = google_artifact_registry_repository.gcrio_repositories[2]
 }
 import {
-  id = "projects/$data.google_project.project.project_id/locations/us/repositories/us.gcr.io"
+  id = "projects/${data.google_project.project.project_id}/locations/us/repositories/us.gcr.io"
   to = google_artifact_registry_repository.gcrio_repositories[3]
 }
 
