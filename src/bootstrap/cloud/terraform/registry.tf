@@ -15,36 +15,30 @@ locals {
       }
     ]
   ])
-  std_repositories = [
-    { repository = "asia.gcr.io", location="asia" },
-    { repository = "eu.gcr.io", location="europe" },
-    { repository = "gcr.io", location="us" },
-    { repository = "us.gcr.io", location="us" },
-  ]
+  std_repositories = {
+    "asia.gcr.io" = { location = "asia" }
+    "eu.gcr.io"   = { location = "europe" }
+    "gcr.io"      = { location = "us" }
+    "us.gcr.io"   = { location = "us" }
+  }
 }
 
 # import existing repos, see: gcloud artifacts repositories list --project=<project-id>
+# sadly the import statement needs to be commented out when creating a new project:
+# https://github.com/hashicorp/terraform/issues/33633
 import {
-  id = "projects/${data.google_project.project.project_id}/locations/asia/repositories/asia.gcr.io"
-  to = google_artifact_registry_repository.gcrio_repositories[0]
-}
-import {
-  id = "projects/${data.google_project.project.project_id}/locations/europe/repositories/eu.gcr.io"
-  to = google_artifact_registry_repository.gcrio_repositories[1]
-}
-import {
-  id = "projects/${data.google_project.project.project_id}/locations/us/repositories/gcr.io"
-  to = google_artifact_registry_repository.gcrio_repositories[2]
-}
-import {
-  id = "projects/${data.google_project.project.project_id}/locations/us/repositories/us.gcr.io"
-  to = google_artifact_registry_repository.gcrio_repositories[3]
+  for_each = local.std_repositories
+
+  id = "projects/${data.google_project.project.project_id}/locations/${each.value.location}/repositories/${each.key}"
+  to = google_artifact_registry_repository.gcrio_repositories[each.key]
 }
 
 resource "google_artifact_registry_repository" "gcrio_repositories" {
+  for_each = local.std_repositories
+
   project       = data.google_project.project.project_id
-  location      = local.std_repositories[count.index].location
-  repository_id = local.std_repositories[count.index].repository
+  location      = each.value.location
+  repository_id = each.key
   format        = "docker"
 
   cleanup_policy_dry_run = false
@@ -52,12 +46,10 @@ resource "google_artifact_registry_repository" "gcrio_repositories" {
     id     = "delete-untagged"
     action = "DELETE"
     condition {
-      tag_state    = "UNTAGGED"
-      older_than   = "30d"
+      tag_state  = "UNTAGGED"
+      older_than = "30d"
     }
   }
-
-  count         = length(local.std_repositories)
 }
 
 resource "google_artifact_registry_repository_iam_member" "gcrio_gar_reader" {
