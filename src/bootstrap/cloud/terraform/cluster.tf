@@ -30,6 +30,9 @@ resource "google_container_cluster" "cloud-robotics" {
   initial_node_count = 1
 
   addons_config {
+    gcs_fuse_csi_driver_config {
+      enabled = true
+    }
     gke_backup_agent_config {
       enabled = true
     }
