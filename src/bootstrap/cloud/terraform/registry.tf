@@ -24,6 +24,8 @@ locals {
 }
 
 # import existing repos, see: gcloud artifacts repositories list --project=<project-id>
+# sadly the import statement needs to be commented out when creating a new project:
+# https://github.com/hashicorp/terraform/issues/33633
 import {
   id = "projects/${data.google_project.project.project_id}/locations/asia/repositories/asia.gcr.io"
   to = google_artifact_registry_repository.gcrio_repositories[0]
