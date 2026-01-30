@@ -63,6 +63,13 @@ prometheus:
     retention: "${RETENTION_TIME}"
     retentionSize: "${RETENTION_SIZE}"
     walCompression: true
+    nodeSelector:
+      cloud.google.com/compute-class: prometheus-highmem-class
+    tolerations:
+    - key: "${TOLERATIONS_KEY}"
+      operator: "${TOLERATIONS_OPERATOR}"
+      value: "${TOLERATIONS_VALUE}"
+      effect: "${TOLERATIONS_EFFECT}"
     resources:
       requests:
         cpu: "${LIMITS_CPU}"

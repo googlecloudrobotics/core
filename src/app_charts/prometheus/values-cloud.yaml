@@ -33,6 +33,14 @@ retention:
 
 # MetricRelabelConfigs to apply to samples after scraping, but before ingestion.
 prometheus:
+  prometheusSpec:
+    tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "prometheus"
+      effect: "NoSchedule"
+    nodeSelector:
+      cloud.google.com/compute-class: prometheus-highmem-class
   serviceMonitor:
     metricRelabelings: []
 
