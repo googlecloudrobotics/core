@@ -13,7 +13,7 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
-	github.com/fsnotify/fsnotify v1.7.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590
 	github.com/getlantern/mockconn v0.0.0-20190403061815-a8ffa60494a6 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
