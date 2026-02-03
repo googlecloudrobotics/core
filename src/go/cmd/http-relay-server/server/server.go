@@ -76,7 +76,7 @@ type Server struct {
 }
 
 func NewServer(conf Config) *Server {
-	if conf.Port == 0 {
+	if conf.Port == -1 { // let tests pass a value of 0 to let the os pick a port
 		conf.Port = DefaultPort
 	}
 	if conf.BlockSize == 0 {
