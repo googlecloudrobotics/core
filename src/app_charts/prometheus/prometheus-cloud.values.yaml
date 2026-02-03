@@ -63,13 +63,8 @@ prometheus:
     retention: "${RETENTION_TIME}"
     retentionSize: "${RETENTION_SIZE}"
     walCompression: true
-    nodeSelector:
-      "${NODE_SELECTOR_KEY}": "${NODE_SELECTOR_VALUE}"
-    tolerations:
-    - key: "${TOLERATIONS_KEY}"
-      operator: "${TOLERATIONS_OPERATOR}"
-      value: "${TOLERATIONS_VALUE}"
-      effect: "${TOLERATIONS_EFFECT}"
+    nodeSelector: "${CR_PROMETHEUS_NODE_SELECTOR_OBJECT}"
+    tolerations: "${CR_PROMETHEUS_TOLERATIONS_OBJECT}"
     resources:
       requests:
         cpu: "${LIMITS_CPU}"
