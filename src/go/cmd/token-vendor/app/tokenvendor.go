@@ -126,8 +126,12 @@ func (tv *TokenVendor) GetOAuth2Token(ctx context.Context, jwtk string) (*tokens
 // DeviceAuth contains authorization information for device with DeviceID.
 // Information is extracted from request's OAuth2 JWT Payload
 type DeviceAuth struct {
-	DeviceID   string
-	Key        *repository.Key
+	DeviceID string
+	Key      *repository.Key
+
+	// ServiceAcc represents IAM service account (subject) this device auth
+	// is requesting to impersonate. Empty value indicates request was made
+	// to base SA associated with this device and no impersonation is requested.
 	ServiceAcc string
 }
 
@@ -182,30 +186,35 @@ func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokens
 	if err != nil {
 		return nil, err
 	}
-	saName, err := serviceAccountName(tv.defaultSAName, authInfo.Key.SAName, authInfo.ServiceAcc)
-	if err != nil {
-		return nil, err
+	saName := authInfo.Key.SAName
+	delegate := ""
+	if saName == "" {
+		saName = tv.defaultSAName
 	}
-	cloudToken, err := tv.ts.Token(ctx, saName, authInfo.Key.SADelegateName)
+	if authInfo.ServiceAcc != "" && saName != authInfo.ServiceAcc {
+		// Device requested to impersonate a service account for this
+		// key. We are going to check if we recognize this service account.
+		// If no, we reject the request. If yes, we will request a token
+		// impersonating given account.
+		// There are two lines of defense here:
+		// 1. Device cannot request random SA, only one which TV is aware of.
+		// 2. GCP IAM must have given impersonation chain set, in order to return valid token.
+		slog.Info("Device requested to impersonate other service account", slog.String("ActAs", authInfo.ServiceAcc))
+		if authInfo.ServiceAcc != authInfo.Key.SADelegateName {
+			slog.Warn("Device requested to impersonate unknown service account", slog.String("ActAs", authInfo.ServiceAcc),
+				slog.String("Allowed", authInfo.Key.SADelegateName))
+			return nil, fmt.Errorf("device %q requested to impersonate unknown delegate %q", authInfo.DeviceID, authInfo.ServiceAcc)
+		}
+		delegate = saName
+		saName = authInfo.ServiceAcc
+	}
+	cloudToken, err := tv.ts.Token(ctx, saName, delegate)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to retrieve a cloud token for device %q", authInfo.DeviceID)
 	}
-	slog.Info("Handing out cloud token", slog.String("DeviceID", authInfo.DeviceID), slog.String("ServiceAccount", authInfo.Key.SAName))
+	slog.Info("Handing out cloud token", slog.String("DeviceID", authInfo.DeviceID), slog.String("ServiceAccount", saName),
+		slog.String("ActAs", authInfo.ServiceAcc))
 	return cloudToken, nil
-}
-
-func serviceAccountName(saDef, saCfg, saReq string) (string, error) {
-	if saReq == "" {
-		// nothing given, choose default
-		if saCfg != "" {
-			return saCfg, nil
-		}
-		return saDef, nil
-	}
-	if saReq == saDef || saReq == saCfg {
-		return saReq, nil
-	}
-	return "", fmt.Errorf("service account %q not allowed", saReq)
 }
 
 // acceptedAudience validates JWT audience as defined by the token vendor

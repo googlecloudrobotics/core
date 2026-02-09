@@ -78,65 +78,6 @@ type serviceAccountNameTest struct {
 	wantError bool
 }
 
-func TestServiceAccountName(t *testing.T) {
-	defaultSA := "robot-service@foo.iam.gserviceaccount.com"
-	configuredSA := "custom@bar.iam.gserviceaccount.com"
-	customSA := "unknowns@baz.iam.gserviceaccount.com"
-	var cases = []serviceAccountNameTest{
-		// happy cases
-		{
-			desc:   "nothing requested, nothign configured, gives default",
-			wantSA: defaultSA,
-		},
-		{
-			desc:   "nothing requested, sa configured, gives configured",
-			cfgSA:  configuredSA,
-			wantSA: configuredSA,
-		},
-		{
-			desc:   "def requested, nothing configured, gives def",
-			reqSA:  defaultSA,
-			wantSA: defaultSA,
-		},
-		{
-			desc:   "def requested, sa configured, gives def",
-			cfgSA:  configuredSA,
-			reqSA:  defaultSA,
-			wantSA: defaultSA,
-		},
-		{
-			desc:   "requested as configured, gives configured",
-			cfgSA:  configuredSA,
-			reqSA:  configuredSA,
-			wantSA: configuredSA,
-		},
-		// error cases
-		{
-			desc:      "unknown requested, nothign configured, gives error",
-			reqSA:     customSA,
-			wantError: true,
-		},
-		{
-			desc:      "unknown requested, sa configured, gives error",
-			cfgSA:     configuredSA,
-			reqSA:     customSA,
-			wantError: true,
-		},
-	}
-	for _, test := range cases {
-		t.Run(test.desc, func(t *testing.T) {
-			saName, err := serviceAccountName(defaultSA, test.cfgSA, test.reqSA)
-			if (err == nil && test.wantError) || (err != nil && !test.wantError) {
-				t.Fatalf("serviceAccountName(%q, %q, %q): got err %v, want %v",
-					defaultSA, test.cfgSA, test.reqSA, err, test.wantError)
-			} else if saName != test.wantSA {
-				t.Fatalf("serviceAccountName(%q, %q, %q): got err %v, want %v",
-					defaultSA, test.cfgSA, test.reqSA, err, test.wantError)
-			}
-		})
-	}
-}
-
 type keyOptionsTest struct {
 	desc      string
 	opts      repository.KeyOptions
