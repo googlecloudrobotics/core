@@ -8,7 +8,6 @@ bazel_dep(name = "rules_shell", version = "0.4.1")
 # -- bazel_dep definitions -- #
 
 non_module_deps = use_extension("//:non_module_deps.bzl", "non_module_deps")
-
 use_repo(non_module_deps, "kubernetes_helm")
 use_repo(non_module_deps, "kubernetes_helm3")
 use_repo(non_module_deps, "hashicorp_terraform")
@@ -72,6 +71,7 @@ use_repo(
     "com_github_prometheus_client_golang",
     "com_github_spf13_cobra",
     "com_github_spf13_pflag",
+    "com_google_cloud_go_compute_metadata",
     "com_google_cloud_go_storage",
     "in_gopkg_h2non_gock_v1",
     "io_k8s_api",
