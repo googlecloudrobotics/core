@@ -29,7 +29,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.9
+	github.com/spf13/pflag v1.0.10
 	go.opencensus.io v0.24.0
 	golang.org/x/crypto v0.45.0
 	golang.org/x/net v0.47.0
