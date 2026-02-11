@@ -66,7 +66,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/nftables v0.3.0
 	github.com/googlecloudrobotics/ilog v0.0.0-20240112131211-2efd642f756e
-	github.com/jaypipes/ghw v0.17.0
+	github.com/jaypipes/ghw v0.23.0
 	k8s.io/klog/v2 v2.110.1
 )
 
@@ -87,6 +87,7 @@ require (
 	github.com/mdlayher/socket v0.5.0 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
+	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zeebo/errs v1.4.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.36.0 // indirect
@@ -106,7 +107,6 @@ require (
 	cloud.google.com/go/monitoring v1.24.2 // indirect
 	cloud.google.com/go/trace v1.11.6 // indirect
 	github.com/BurntSushi/toml v1.2.1 // indirect
-	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
@@ -139,7 +139,7 @@ require (
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jaypipes/pcidb v1.0.1
+	github.com/jaypipes/pcidb v1.1.1
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -147,7 +147,6 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
@@ -172,7 +171,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	howett.net/plist v1.0.0 // indirect
+	howett.net/plist v1.0.2-0.20250314012144-ee69052608d9 // indirect
 	k8s.io/component-base v0.28.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20231129212854-f0671cc7e66a // indirect
 	k8s.io/utils v0.0.0-20231127182322-b307cd553661 // indirect
