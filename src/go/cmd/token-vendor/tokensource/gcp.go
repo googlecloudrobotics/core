@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/googlecloudrobotics/ilog"
 	"github.com/pkg/errors"
 	iam "google.golang.org/api/iamcredentials/v1"
 	"google.golang.org/api/option"
@@ -59,17 +58,9 @@ func (g *GCPTokenSource) Token(ctx context.Context, saName, saDelegateName strin
 	var delegates []string
 	if saDelegateName != "" {
 		// Impersonation was requested; constructing impersonation chain
-		// [Pod's WI, saDelegateName]. For details on impersonation requirements
+		// [saDelegateName]. For details on impersonation requirements
 		// see: https://docs.cloud.google.com/iam/docs/service-account-impersonation
-		if myself, err := getWorkloadServiceAccount(ctx); err == nil {
-			delegates = append(delegates, saPrefix+myself)
-		} else {
-			// In general, impersonation without Pod's WI may not succeed, but we are going to proceed anyway, just in case.
-			// That should also help with debugging of these issues as messages from IAM are fairly descriptive and allow
-			// for better auditing then errors which we can produce here.
-			slog.Warn("Token for delegate was requested but metadata server not available, ignoring and trying anyway", ilog.Err(err))
-		}
-		delegates = append(delegates, saPrefix+saDelegateName)
+		delegates = []string{saPrefix + saDelegateName}
 	}
 	req := iam.GenerateAccessTokenRequest{
 		Scope:     g.scopes,
