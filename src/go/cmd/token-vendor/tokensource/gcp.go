@@ -3,11 +3,14 @@ package tokensource
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	"github.com/pkg/errors"
 	iam "google.golang.org/api/iamcredentials/v1"
 	"google.golang.org/api/option"
@@ -54,13 +57,17 @@ func (g *GCPTokenSource) Token(ctx context.Context, saName, saDelegateName strin
 
 	var delegates []string
 	if saDelegateName != "" {
-		delegates = append(delegates, saPrefix+saDelegateName)
+		// Impersonation was requested; constructing impersonation chain
+		// [saDelegateName]. For details on impersonation requirements
+		// see: https://docs.cloud.google.com/iam/docs/service-account-impersonation
+		delegates = []string{saPrefix + saDelegateName}
 	}
 	req := iam.GenerateAccessTokenRequest{
 		Scope:     g.scopes,
 		Delegates: delegates,
 	}
 	resource := saPrefix + saName
+	slog.DebugContext(ctx, "Requesting token", slog.String("principal", resource), slog.Any("delegates", delegates))
 	// We don't set a 'lifetime' on the request, so we get the default value (3600 sec = 1h).
 	// This needs to be in sync with the min(cookie-expire,cookie-refresh) duration
 	// configured on oauth2-proxy.
@@ -90,4 +97,30 @@ func tokenResponse(r *iam.GenerateAccessTokenResponse, scopes []string, now time
 	diff := now.Sub(exp)
 	tr.ExpiresIn = int64(math.Abs(diff.Seconds()))
 	return &tr, nil
+}
+
+var workloadServiceAccount = new(atomic.Pointer[string])
+
+// getWorkloadServiceAccount returns a service account email for the pod running
+// token vendor if available. Value is cached, so subsequent calls save time
+// on contacting metadata server.
+func getWorkloadServiceAccount(ctx context.Context) (string, error) {
+	if val := workloadServiceAccount.Load(); val != nil {
+		return *val, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	// Fetch the email for the 'default' service account.
+	// In Workload Identity, 'default' is the IAM SA mapped to the pod.
+	email, err := metadata.EmailWithContext(ctx, "default")
+	if err != nil {
+		return "", fmt.Errorf("cannot obtain service account from metadata: %w", err)
+	}
+	// we are going to perform write ONLY if old value is nil, otherwise
+	// we have the same value stored there anyway due to how metadata
+	// server works for pods on GKE.
+	workloadServiceAccount.CompareAndSwap(nil, &email)
+	return email, nil
 }
