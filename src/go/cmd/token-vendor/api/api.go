@@ -50,8 +50,7 @@ func SetupAndServe(addr string) error {
 		Addr:         addr,
 		ReadTimeout:  httpTimeoutRead,
 		WriteTimeout: httpTimeoutWrite,
-		Handler: http.TimeoutHandler(LoggingMiddleware(http.DefaultServeMux),
-			httpTimeoutHandler, "handler timeout"),
+		Handler:      LoggingMiddleware(http.DefaultServeMux),
 	}
 	slog.Info("API listening", slog.String("Address", addr))
 	return srv.ListenAndServe()
