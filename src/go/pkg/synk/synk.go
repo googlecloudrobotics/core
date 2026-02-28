@@ -30,6 +30,7 @@ import (
 
 	"github.com/cenkalti/backoff"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	crcapi "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
 	"github.com/googlecloudrobotics/ilog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -56,19 +57,24 @@ import (
 // src/k8s.io/apimachinery/pkg/api/validation/objectmeta.go
 const totalAnnotationSizeLimitB int = 256 * (1 << 10) // 256 kB
 
+// Can be overridden for testing.
+var metav1Now = metav1.Now
+
 // Synk allows to synchronize sets of resources with a fixed cluster.
 type Synk struct {
 	discovery   discovery.CachedDiscoveryInterface
 	client      dynamic.Interface
+	rsClient    crcapi.Interface
 	mapper      meta.RESTMapper
 	resetMapper func()
 }
 
 // New returns a new Synk object that acts against the cluster for the given configuration.
-func New(client dynamic.Interface, discovery discovery.CachedDiscoveryInterface) *Synk {
+func New(client dynamic.Interface, rsClient crcapi.Interface, discovery discovery.CachedDiscoveryInterface) *Synk {
 	s := &Synk{
 		discovery: discovery,
 		client:    client,
+		rsClient:  rsClient,
 	}
 	// Store reset function seperately to allow reasonable tests.
 	m := restmapper.NewDeferredDiscoveryRESTMapper(discovery)
@@ -83,6 +89,10 @@ func NewForConfig(cfg *rest.Config) (*Synk, error) {
 	if err != nil {
 		return nil, err
 	}
+	rsClient, err := crcapi.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	discovery, err := discovery.NewDiscoveryClientForConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -91,7 +101,7 @@ func NewForConfig(cfg *rest.Config) (*Synk, error) {
 	// Without initial invalidation all calls will fail.
 	cachedDiscovery.Invalidate()
 
-	return New(client, cachedDiscovery), nil
+	return New(client, rsClient, cachedDiscovery), nil
 }
 
 // TODO: determine options that allow us to be semantically compatible with
@@ -215,7 +225,7 @@ func (s *Synk) Init() error {
 func (s *Synk) Delete(ctx context.Context, name string) error {
 	policy := metav1.DeletePropagationForeground
 	deleteOpts := metav1.DeleteOptions{PropagationPolicy: &policy}
-	return s.client.Resource(resourceSetGVR).DeleteCollection(ctx, deleteOpts, metav1.ListOptions{
+	return s.rsClient.AppsV1alpha1().ResourceSets().DeleteCollection(ctx, deleteOpts, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("name=%s", name),
 	})
 }
@@ -471,7 +481,7 @@ func (s *Synk) initialize(
 
 	rs.Status = apps.ResourceSetStatus{
 		Phase:     apps.ResourceSetPhasePending,
-		StartedAt: metav1.Now(),
+		StartedAt: metav1Now(),
 	}
 	if err := s.createResourceSet(ctx, &rs); err != nil {
 		return nil, nil, errors.Wrapf(err, "create resources object %q", rs.Name)
@@ -862,25 +872,9 @@ func (s *Synk) crdAvailable(ucrd *unstructured.Unstructured) (bool, error) {
 	return true, nil
 }
 
-var resourceSetGVR = schema.GroupVersionResource{
-	Group:    "apps.cloudrobotics.com",
-	Version:  "v1alpha1",
-	Resource: "resourcesets",
-}
-
 func (s *Synk) createResourceSet(ctx context.Context, rs *apps.ResourceSet) error {
-	rs.Kind = "ResourceSet"
-	rs.APIVersion = "apps.cloudrobotics.com/v1alpha1"
-
-	var u unstructured.Unstructured
-	if err := convert(rs, &u); err != nil {
-		return err
-	}
-	res, err := s.client.Resource(resourceSetGVR).Create(ctx, &u, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
-	return convert(res, rs)
+	_, err := s.rsClient.AppsV1alpha1().ResourceSets().Create(ctx, rs, metav1.CreateOptions{})
+	return err
 }
 
 type applyResult struct {
@@ -959,29 +953,21 @@ func (s *Synk) updateResourceSetStatus(ctx context.Context, rs *apps.ResourceSet
 	build(applied, &rs.Status.Applied)
 	build(failed, &rs.Status.Failed)
 
-	rs.Status.FinishedAt = metav1.Now()
+	rs.Status.FinishedAt = metav1Now()
 	if len(rs.Status.Failed) > 0 {
 		rs.Status.Phase = apps.ResourceSetPhaseFailed
 	} else {
 		rs.Status.Phase = apps.ResourceSetPhaseSettled
 	}
 
-	var u unstructured.Unstructured
-	if err := convert(rs, &u); err != nil {
-		return err
-	}
-	res, err := s.client.Resource(resourceSetGVR).Update(ctx, &u, metav1.UpdateOptions{})
-	if err != nil {
-		return errors.Wrap(err, "update ResourceSet status")
-	}
-	return convert(res, rs)
+	_, err := s.rsClient.AppsV1alpha1().ResourceSets().Update(ctx, rs, metav1.UpdateOptions{})
+	return err
 }
 
 // deleteFailedResourceSets deletes all failed ResourceSets of the given name
 // that have a lower version.
 func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, version int32) error {
-	c := s.client.Resource(resourceSetGVR)
-
+	c := s.rsClient.AppsV1alpha1().ResourceSets()
 	list, err := c.List(ctx, metav1.ListOptions{
 		LabelSelector: "name=" + name,
 	})
@@ -989,11 +975,7 @@ func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, versio
 		return errors.Wrap(err, "list existing resources")
 	}
 	for _, r := range list.Items {
-		phase, found, err := unstructured.NestedString(r.Object, "status", "phase")
-		if err != nil {
-			return errors.Wrapf(err, "failed to get status.phase from ResourceSet %q", r.GetName())
-		}
-		if !found || phase != "Failed" {
+		if r.Status.Phase != apps.ResourceSetPhaseFailed {
 			continue
 		}
 		n, v, ok := decodeResourceSetName(r.GetName())
@@ -1014,7 +996,7 @@ func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, versio
 // deleteResourceSets deletes all ResourceSets of the given name that have a
 // lower version.
 func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int32) error {
-	c := s.client.Resource(resourceSetGVR)
+	c := s.rsClient.AppsV1alpha1().ResourceSets()
 
 	list, err := c.List(ctx, metav1.ListOptions{
 		LabelSelector: "name=" + name,
@@ -1040,7 +1022,7 @@ func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int3
 
 // next returns the next version for the resources name.
 func (s *Synk) next(ctx context.Context, name string) (version int32, err error) {
-	list, err := s.client.Resource(resourceSetGVR).List(ctx, metav1.ListOptions{})
+	list, err := s.rsClient.AppsV1alpha1().ResourceSets().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return 0, errors.Wrap(err, "list existing ResourceSets")
 	}
