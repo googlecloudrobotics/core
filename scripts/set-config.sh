@@ -201,6 +201,14 @@ function set_default_vars {
     PRIVATE_DOCKER_PROJECTS=
   fi
 
+  # Vertical Pod Autoscaling
+  ENABLE_VERTICAL_POD_AUTOSCALING=${ENABLE_VERTICAL_POD_AUTOSCALING:-false}
+  if ask_yn "Should Vertical Pod Autoscaling be enabled for the GKE cluster?" "${ENABLE_VERTICAL_POD_AUTOSCALING:0:1}"; then
+    ENABLE_VERTICAL_POD_AUTOSCALING=true
+  else
+    ENABLE_VERTICAL_POD_AUTOSCALING=false
+  fi
+
   # Certificate provider
   set_certificate_provider_vars
 }
@@ -271,6 +279,7 @@ print_variable "Terraform state bucket" "${TERRAFORM_GCS_BUCKET}"
 print_variable "Terraform state directory" "${TERRAFORM_GCS_PREFIX}"
 print_variable "Docker container registry" "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
 print_variable "Projects for private Docker images" "${PRIVATE_DOCKER_PROJECTS}"
+print_variable "Vertical Pod Autoscaling" "${ENABLE_VERTICAL_POD_AUTOSCALING}"
 print_variable "OAuth client id" "${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
 print_variable "OAuth client secret" "${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
 print_variable "OAuth cookie secret" "${CLOUD_ROBOTICS_COOKIE_SECRET}"
@@ -309,6 +318,7 @@ save_variable "${CONFIG_FILE}" TERRAFORM_GCS_BUCKET "${TERRAFORM_GCS_BUCKET}"
 save_variable "${CONFIG_FILE}" TERRAFORM_GCS_PREFIX "${TERRAFORM_GCS_PREFIX}"
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CONTAINER_REGISTRY "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}"
 save_variable "${CONFIG_FILE}" PRIVATE_DOCKER_PROJECTS "${PRIVATE_DOCKER_PROJECTS}"
+save_variable "${CONFIG_FILE}" ENABLE_VERTICAL_POD_AUTOSCALING "${ENABLE_VERTICAL_POD_AUTOSCALING}"
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_OAUTH2_CLIENT_ID "${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET "${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_COOKIE_SECRET "${CLOUD_ROBOTICS_COOKIE_SECRET}"

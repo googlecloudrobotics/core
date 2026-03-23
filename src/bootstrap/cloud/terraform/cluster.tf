@@ -62,6 +62,10 @@ resource "google_container_cluster" "cloud-robotics" {
     update = "1h"
     delete = "1h"
   }
+  vertical_pod_autoscaling {
+    enabled = var.enable_vertical_pod_autoscaling
+  }
+
   workload_identity_config {
     workload_pool = "${data.google_project.project.project_id}.svc.id.goog"
   }
@@ -96,7 +100,7 @@ resource "google_container_cluster" "cloud-robotics-ar" {
   }
 
   vertical_pod_autoscaling {
-    enabled = true
+    enabled = var.enable_vertical_pod_autoscaling
   }
 
   workload_identity_config {

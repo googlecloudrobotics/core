@@ -96,3 +96,9 @@ variable "secret_manager_plugin" {
   type        = bool
   default     = false
 }
+
+variable "enable_vertical_pod_autoscaling" {
+  description = "Whether to enable Vertical Pod Autoscaling for the GKE cluster."
+  type        = bool
+  default     = false
+}

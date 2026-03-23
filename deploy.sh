@@ -48,6 +48,7 @@ function include_config_and_defaults {
   APP_MANAGEMENT=${APP_MANAGEMENT:-false}
   ONPREM_FEDERATION=${ONPREM_FEDERATION:-true}
   GKE_SECRET_MANAGER_PLUGIN=${GKE_SECRET_MANAGER_PLUGIN:-false}
+  ENABLE_VERTICAL_POD_AUTOSCALING=${ENABLE_VERTICAL_POD_AUTOSCALING:-false}
 
   # lets-encrypt is used as the default certificate provider for backwards compatibility purposes
   CLOUD_ROBOTICS_CERTIFICATE_PROVIDER=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER:-lets-encrypt}
@@ -161,6 +162,7 @@ cluster_type = "${GKE_CLUSTER_TYPE}"
 datapath_provider = "${GKE_DATAPATH_PROVIDER}"
 onprem_federation = ${ONPREM_FEDERATION}
 secret_manager_plugin = ${GKE_SECRET_MANAGER_PLUGIN}
+enable_vertical_pod_autoscaling = ${ENABLE_VERTICAL_POD_AUTOSCALING}
 EOF
 
 # Add certificate information if the configured provider requires it
