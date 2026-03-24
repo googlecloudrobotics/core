@@ -7,3 +7,7 @@ output "ingress-ip-ar" {
     for address in google_compute_address.cloud_robotics_ar : address.name => address.address
   }
 }
+
+output "cluster-location" {
+  value = google_container_cluster.cloud-robotics.location
+}
