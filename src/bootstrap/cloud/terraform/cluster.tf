@@ -37,10 +37,13 @@ resource "google_container_cluster" "cloud-robotics" {
       enabled = true
     }
   }
+
   gateway_api_config {
     channel = "CHANNEL_STANDARD"
   }
+
   ip_allocation_policy {}
+
   maintenance_policy {
     recurring_window {
       # Dates specifies first ocurance, times are in UTC
@@ -51,17 +54,25 @@ resource "google_container_cluster" "cloud-robotics" {
       recurrence = "FREQ=WEEKLY;BYDAY=SA"
     }
   }
+
   release_channel {
     channel = "STABLE"
   }
+
   secret_manager_config {
     enabled = var.secret_manager_plugin
   }
+
   timeouts {
     create = "1h"
     update = "1h"
     delete = "1h"
   }
+
+  vertical_pod_autoscaling {
+    enabled = true
+  }
+
   workload_identity_config {
     workload_pool = "${data.google_project.project.project_id}.svc.id.goog"
   }
