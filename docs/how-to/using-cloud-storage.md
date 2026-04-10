@@ -25,11 +25,11 @@ Normally, to access a private Cloud Storage bucket from a robot, you'd need to m
     On your workstation, run:
 
     ```shell
-    gsutil mb gs://[BUCKET_NAME]
+    gcloud storage buckets create gs://[BUCKET_NAME]
     ```
 
     Replace `[BUCKET_NAME]` with the name of the bucket you created, e.g., `robot-hello-world-dc1bb474`.
-    `gsutil` is the command line tool for accessing Cloud Storage, it is part of the `gcloud-sdk` package; `mb` stands for "make bucket".
+    `gcloud storage` contains the sub-commands for accessing Cloud Storage, it is part of the `gcloud-sdk` package.
 
     Note that the bucket is not publicly writable, as can be verified in the [Cloud Storage browser](https://console.cloud.google.com/storage/browser).
 
@@ -56,7 +56,7 @@ Normally, to access a private Cloud Storage bucket from a robot, you'd need to m
     On your workstation, run:
 
     ```shell
-    gsutil cat gs://[BUCKET_NAME]/hello_world.txt
+    gcloud storage cat gs://[BUCKET_NAME]/hello_world.txt
     ```
 
     This should result in the output `Hello, I am a robot!`.

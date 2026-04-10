@@ -5,7 +5,7 @@ stored with the project in GCS. One can look at the options with the following
 command:
 
 ```shell
-gsutil cat gs://${PROJECT_ID}-cloud-robotics-config/config.sh
+gcloud storage cat gs://${PROJECT_ID}-cloud-robotics-config/config.sh
 ```
 
 The settings contained in the config file are used by terraform to setup the

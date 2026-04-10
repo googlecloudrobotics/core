@@ -64,11 +64,11 @@ function update_config_var {
   value="${3}"
 
   config_file="$(mktemp)"
-  gsutil cp "${cloud_bucket}/config.sh" "${config_file}" 2>/dev/null || return
+  gcloud storage cp "${cloud_bucket}/config.sh" "${config_file}" 2>/dev/null || return
 
   save_variable "${config_file}" "${name}" "${value}"
 
-  gsutil mv "${config_file}" "${cloud_bucket}/config.sh"
+  gcloud storage mv "${config_file}" "${cloud_bucket}/config.sh"
 }
 
 function prepare_source_install {
