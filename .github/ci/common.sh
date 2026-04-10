@@ -62,7 +62,7 @@ function release_binary {
   # right away.
   gcloud storage cp \
       --predefined-acl=publicRead \
-      --header="Cache-Control:private, max-age=0, no-transform" \
+      --cache-control="private, max-age=0, no-transform" \
       src/bootstrap/cloud/run-install.sh \
       "gs://${bucket}/"
 
@@ -76,7 +76,7 @@ function release_binary {
   for label; do
     gcloud storage cp \
         --predefined-acl=publicRead \
-        --header="Cache-Control:private, max-age=0, no-transform" \
+        --cache-control="private, max-age=0, no-transform" \
         ${vfile} "gs://${bucket}/${label}"
   done
 }
