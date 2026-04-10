@@ -66,7 +66,7 @@ and 18.04) Linux.
     You can verify the settings using:
 
     ```shell
-    gsutil cat gs://[PROJECT_ID]-cloud-robotics-config/config.sh
+    gcloud storage cat gs://[PROJECT_ID]-cloud-robotics-config/config.sh
     ```
 
 

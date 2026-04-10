@@ -41,7 +41,7 @@ function check_var_is_one_of {
 function include_config {
   local project="$1"
 
-  source <(gsutil cat "gs://${project}-cloud-robotics-config/config.sh")
+  source <(gcloud storage cat "gs://${project}-cloud-robotics-config/config.sh")
 
   # Check that config defines the following set of configuration variables
   check_vars_not_empty GCP_PROJECT_ID GCP_REGION GCP_ZONE

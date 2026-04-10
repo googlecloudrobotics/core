@@ -117,7 +117,7 @@ CLOUD_BUCKET="gs://${GCP_PROJECT_ID}-cloud-robotics-config"
 CONFIG_FILE="$(mktemp)"
 trap '{ rm -f ${CONFIG_FILE}; }' EXIT
 
-if gsutil cp "${CLOUD_BUCKET}/config.sh" "${CONFIG_FILE}" 2>/dev/null; then
+if gcloud storage cp "${CLOUD_BUCKET}/config.sh" "${CONFIG_FILE}" 2>/dev/null; then
   if [[ -n "${FLAG_ENSURE_CONFIG}" ]]; then
     echo "Found Cloud Robotics config."
     exit 0
@@ -288,7 +288,7 @@ if [[ -n "${OLD_TERRAFORM_GCS_BUCKET}" &&\
         ! "${OLD_TERRAFORM_GCS_PREFIX}" = "${TERRAFORM_GCS_PREFIX}") ]]; then
   # Copy Terraform state to new location.
   echo "Copying Terraform state..."
-  gsutil cp "gs://${OLD_TERRAFORM_GCS_BUCKET}/${OLD_TERRAFORM_GCS_PREFIX}/*.tfstate" \
+  gcloud storage cp "gs://${OLD_TERRAFORM_GCS_BUCKET}/${OLD_TERRAFORM_GCS_PREFIX}/*.tfstate" \
     "gs://${TERRAFORM_GCS_BUCKET}/${TERRAFORM_GCS_PREFIX}/"
 fi
 
@@ -318,7 +318,7 @@ save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME "$
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}"
 
 # Upload config to the cloud.
-if ! gsutil ls -p ${GCP_PROJECT_ID} | grep "^${CLOUD_BUCKET}/$" >/dev/null; then
-  gsutil mb -p ${GCP_PROJECT_ID} ${CLOUD_BUCKET}
+if ! gcloud -q storage buckets describe --project ${GCP_PROJECT_ID} "${CLOUD_BUCKET}" >/dev/null 2>&1; then
+  gcloud storage buckets create --project ${GCP_PROJECT_ID} ${CLOUD_BUCKET}
 fi
-gsutil mv "${CONFIG_FILE}" "${CLOUD_BUCKET}/config.sh"
+gcloud storage mv "${CONFIG_FILE}" "${CLOUD_BUCKET}/config.sh"

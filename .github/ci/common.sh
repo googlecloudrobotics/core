@@ -53,18 +53,20 @@ function release_binary {
   done
   cd ${oldPwd}
 
-  gsutil cp -a public-read \
+  gcloud storage cp \
+      --predefined-acl=publicRead \
       bazel-bin/src/bootstrap/cloud/crc-binary.tar.gz \
       "gs://${bucket}/${name}.tar.gz"
 
   # Overwrite cache control as we want changes to run-install.sh and version files to be visible
   # right away.
-  gsutil -h "Cache-Control:private, max-age=0, no-transform" \
-      cp -a public-read \
+  gcloud storage cp \
+      --predefined-acl=publicRead \
+      --header="Cache-Control:private, max-age=0, no-transform" \
       src/bootstrap/cloud/run-install.sh \
       "gs://${bucket}/"
 
-  # The remaining arguments are version labels. gsutil does not support symlinks, so we use version
+  # The remaining arguments are version labels. GCS does not support symlinks, so we use version
   # files instead.
   local vfile
   vfile=$(mktemp)
@@ -72,8 +74,9 @@ function release_binary {
   shift 2
   # Loop over remianing args in $* and creat alias files.
   for label; do
-    gsutil -h "Cache-Control:private, max-age=0, no-transform" \
-        cp -a public-read \
+    gcloud storage cp \
+        --predefined-acl=publicRead \
+        --header="Cache-Control:private, max-age=0, no-transform" \
         ${vfile} "gs://${bucket}/${label}"
   done
 }
