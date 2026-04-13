@@ -156,13 +156,9 @@ func (in *RobotStatusRobot) DeepCopyInto(out *RobotStatusRobot) {
 	*out = *in
 	if in.Info != nil {
 		in, out := &in.Info, &out.Info
-		*out = make(map[string]interface{}, len(*in))
+		*out = make(map[string]string, len(*in))
 		for key, val := range *in {
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				(*out)[key] = val.DeepCopyany()
-			}
+			(*out)[key] = val
 		}
 	}
 	in.UpdateTime.DeepCopyInto(&out.UpdateTime)

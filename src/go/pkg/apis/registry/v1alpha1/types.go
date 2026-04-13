@@ -53,7 +53,7 @@ type RobotStatusCloud struct {
 }
 
 type RobotStatusRobot struct {
-	Info map[string]any `json:"info",omitempty`
+	Info map[string]string `json:"info",omitempty`
 
 	UpdateTime                 metav1.Time `json:"updateTime,omitempty"`
 	State                      RobotState  `json:"state,omitempty"`
