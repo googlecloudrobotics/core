@@ -39,7 +39,6 @@ go install k8s.io/code-generator/cmd/{applyconfiguration-gen,defaulter-gen,clien
 export PATH="$PATH:$GOPATH/bin"
 mkdir -p ${SHADOW_REPO}
 
-rm -rf "${DIR}/pkg/client"
 rm -rf "${SHADOW_REPO}/pkg/apis"
 rm -rf "${SHADOW_REPO}/pkg/client"
 cp -r ${DIR}/* ${SHADOW_REPO}
@@ -49,8 +48,8 @@ function finalize {
   cp -rT ${SHADOW_REPO}/pkg/apis ${DIR}/pkg/apis
   cd ${CURRENT_DIR}
 
-  # Re-generate BUILD files for generated packages.
-  ${DIR}/../gomod.sh
+  echo "You may need to rerun Gazelle to generate BUILD files if you've added new packages."
+  echo "If you've deleted APIs you may need to delete the generated files."
 }
 
 trap finalize EXIT
