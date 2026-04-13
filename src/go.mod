@@ -67,7 +67,7 @@ require (
 	github.com/google/nftables v0.3.0
 	github.com/googlecloudrobotics/ilog v0.0.0-20240112131211-2efd642f756e
 	github.com/jaypipes/ghw v0.17.0
-	k8s.io/klog/v2 v2.110.1
+	k8s.io/klog/v2 v2.140.0
 )
 
 require (
