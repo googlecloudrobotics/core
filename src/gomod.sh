@@ -24,7 +24,6 @@ export GO111MODULE=on
 
 cd ${DIR}
 go mod tidy -compat=1.17
-bazel run //:gazelle -- update-repos -from_file=${DIR}/go.mod -to_macro=third_party/go_repositories.bzl%go_repositories -prune
 bazel run //:gazelle
 
 echo "updates done"
