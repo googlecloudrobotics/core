@@ -75,7 +75,8 @@ spec:
                   properties:
                     info:
                       type: object
-                      x-kubernetes-preserve-unknown-fields: true
+                      additionalProperties:
+                        type: string
                     updateTime:
                       type: string
                     state:
