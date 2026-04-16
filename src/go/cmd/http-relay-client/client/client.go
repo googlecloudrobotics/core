@@ -412,7 +412,6 @@ func (c *Client) postResponse(remote *http.Client, br *pb.HttpResponse) error {
 	}
 
 	resp, err := remote.Post(responseUrl.String(), "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse", bytes.NewReader(body))
-
 	if err != nil {
 		return fmt.Errorf("couldn't post response to relay server: %v", err)
 	}
@@ -576,7 +575,6 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 					slog.String("ID", id),
 					slog.String("Status", http.StatusText(resp.StatusCode)),
 					slog.String("Message", string(msg)))
-
 			}
 			return
 		}
@@ -708,6 +706,11 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		if err != nil {
 			slog.Error("Closing backend connection",
 				slog.String("ID", *resp.Id), ilog.Err(err))
+			// This is also closed in streamToBackend. In most cases this is safe but it depends on the transport.
+			hresp.Body.Close()
+			// Drain the response channel to avoid blocking buildResponses.
+			for range responseChannel {
+			}
 			break
 		}
 	}
@@ -747,7 +750,6 @@ func (c *Client) localProxy(remote, local *http.Client) error {
 			return
 		}
 	})
-
 	if err != nil {
 		return err
 	}
