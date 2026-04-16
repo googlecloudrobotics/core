@@ -706,7 +706,8 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		if err != nil {
 			slog.Error("Closing backend connection",
 				slog.String("ID", *resp.Id), ilog.Err(err))
-			// This is also closed in streamToBackend. In most cases this is safe but it depends on the transport.
+			// This is also closed in streamToBackend.
+			// Closing here too to ensure the disconnect propagates faster.
 			hresp.Body.Close()
 			// Drain the response channel to avoid blocking buildResponses.
 			for range responseChannel {
