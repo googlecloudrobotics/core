@@ -1,7 +1,92 @@
 # HTTP Relay Server
 
-The http-relay-server multiplexes HTTP requests between user-clients and backends (robots) via a relay-client.
-This allows multiple backends to be accessible through a single relay server instance, and supports multiple concurrent user-clients.
+The http-relay-server multiplexes HTTP requests between user-clients and backends (robots) via a relay-client. It exists to make HTTP endpoints on robots accessible without requiring a public endpoint on the robot itself.
+
+## How it works
+
+It binds to a public endpoint accessible by both user-client and backend, and works together with a relay-client that's colocated with the backend. This allows multiple backends to be accessible through a single relay-server instance, and supports multiple concurrent user-clients.
+
+```mermaid
+flowchart LR
+    subgraph "LAN (User)"
+        user-client
+    end
+
+    subgraph Internet
+        relay-server
+    end
+
+    subgraph "LAN (Robot)"
+        relay-client
+        backend
+    end
+
+    user-client -->|HTTP Request| relay-server
+    %% Workaround https://github.com/mermaid-js/mermaid/issues/3208
+    relay-server ~~~ relay-client -->|Poll | relay-server
+    relay-client ~~~ relay-server
+    relay-client -->|Forward Request| backend
+```
+
+The relay-server is multiplexing: It allows multiple relay-clients to
+connect under unique names, each handling requests for a subpath of `/client`.
+Alternatively (e.g. for gRPC connections) the backend can be selected by
+omitting the client prefix and passing an `X-Server-Name` header.
+
+### Sequence of operations
+
+1. User-client makes request on `/client/$foo/$request`.
+2. Relay-server assigns an ID and stores request (with path `$request`) in
+   memory. It keeps the user-client's request pending.
+3. Relay-client requests `/server/request?server=$foo`
+4. Relay-server responds with stored request (or timeout if no request comes
+   in within the next 30 sec).
+5. Relay-client makes the stored request to backend.
+6. Backend replies.
+7. Relay-client posts backend's reply to `/server/response`.
+8. Relay-server responds to client's request with backend's reply.
+
+For some requests (e.g. `kubectl exec`), the backend responds with
+`101 Switching Protocols`, resulting in the following operations:
+
+1. Relay-server responds to client's request with backend's 101 reply.
+2. User-client sends bytes from stdin to the relay-server.
+3. Relay-client requests `/server/requeststream?id=$id`.
+4. Relay-server responds with stdin bytes from client.
+5. Relay-client sends stdin bytes to backend.
+6. Backend sends stdout bytes to relay-client.
+7. Relay-client posts stdout bytes to `/server/response`.
+8. Relay-server sends stdout bytes to the client.
+
+This simplified graphic shows the back-and-forth for an `exec` request:
+
+```mermaid
+sequenceDiagram
+    participant user-client as user-client<br/>(kubectl exec)
+    participant relay-server
+    participant relay-client
+    participant backend as backend<br/>(k8s apiserver)
+
+    user-client->>relay-server: POST /exec
+    relay-client->>relay-server: GET /request
+    relay-server-->>relay-client: exec
+    relay-client->>backend: POST /exec
+    activate backend
+    backend-->>relay-client: 101 Switching Protocols
+    relay-client->>relay-server: POST /response (101)
+    relay-server-->>user-client: 101 Switching Protocols
+    
+    user-client->>relay-server: stdin
+    relay-client->>relay-server: POST /requeststream?id=$id
+    relay-server-->>relay-client: stdin
+    relay-client->>backend: stdin
+    backend-->>relay-client: stdout
+    deactivate backend
+    relay-client->>relay-server: POST /response (stdout)
+    relay-server-->>user-client: stdout
+```
+
+The relay-client side implementation is in `../http-relay-client`.
 
 ## Tested capabilities
 
