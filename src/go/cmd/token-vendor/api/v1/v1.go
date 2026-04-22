@@ -75,38 +75,37 @@ func getQueryParam(u *url.URL, param string) (string, error) {
 func (h *HandlerContext) publicKeyConfigureHandler(w http.ResponseWriter, r *http.Request) {
 	// validate request and parameters
 	if r.Method != http.MethodPost {
-		api.ErrResponse(w, http.StatusBadRequest,
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest,
 			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodPost))
 		return
 	}
 	deviceID, err := getQueryParam(r.URL, paramDeviceID)
 	if err != nil {
-		api.ErrResponse(w, http.StatusBadRequest, err.Error())
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if !app.IsValidDeviceID(deviceID) {
-		api.ErrResponse(w, http.StatusBadRequest, "invalid device id")
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid device id")
 		return
 	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		api.ErrResponse(w, http.StatusInternalServerError, "failed to read request body")
+		api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "failed to read request body", ilog.Err(err))
 		return
 	}
 
 	var opts repository.KeyOptions
 	if err := json.Unmarshal([]byte(body), &opts); err != nil {
-		api.ErrResponse(w, http.StatusBadRequest, "invalid body")
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid body", ilog.Err(err))
 		return
 	}
 
 	if err := h.tv.ConfigurePublicKey(r.Context(), deviceID, opts); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			api.ErrResponse(w, http.StatusNotFound, "request to repository failed")
+			api.ErrResponse(r.Context(), w, http.StatusNotFound, "request to repository failed", ilog.Err(err))
 		} else {
-			api.ErrResponse(w, http.StatusInternalServerError, "request to repository failed")
+			api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "request to repository failed", ilog.Err(err))
 		}
-		slog.Error("request to repository failed", ilog.Err(err))
 	}
 }
 
@@ -120,28 +119,27 @@ func (h *HandlerContext) publicKeyConfigureHandler(w http.ResponseWriter, r *htt
 func (h *HandlerContext) publicKeyReadHandler(w http.ResponseWriter, r *http.Request) {
 	// validate request and parameters
 	if r.Method != http.MethodGet {
-		api.ErrResponse(w, http.StatusBadRequest,
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest,
 			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
 		return
 	}
 	deviceID, err := getQueryParam(r.URL, paramDeviceID)
 	if err != nil {
-		api.ErrResponse(w, http.StatusBadRequest, err.Error())
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if !app.IsValidDeviceID(deviceID) {
-		api.ErrResponse(w, http.StatusBadRequest, "invalid device id")
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid device id")
 		return
 	}
 	// retrieve public key from key repository
 	publicKey, err := h.tv.ReadPublicKey(r.Context(), deviceID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			api.ErrResponse(w, http.StatusNotFound, "request to repository failed")
+			api.ErrResponse(r.Context(), w, http.StatusNotFound, "request to repository failed", ilog.Err(err))
 		} else {
-			api.ErrResponse(w, http.StatusInternalServerError, "request to repository failed")
+			api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "request to repository failed", ilog.Err(err))
 		}
-		slog.Error("request to repository failed", ilog.Err(err))
 		return
 	}
 	// for missing public keys (publicKey == "") we return 200 with
@@ -159,34 +157,33 @@ func (h *HandlerContext) publicKeyReadHandler(w http.ResponseWriter, r *http.Req
 func (h *HandlerContext) publicKeyPublishHandler(w http.ResponseWriter, r *http.Request) {
 	// validate request and parameters
 	if r.Method != http.MethodPost {
-		api.ErrResponse(w, http.StatusBadRequest,
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest,
 			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodPost))
 		return
 	}
 	deviceID, err := getQueryParam(r.URL, paramDeviceID)
 	if err != nil {
-		api.ErrResponse(w, http.StatusBadRequest, err.Error())
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if !app.IsValidDeviceID(deviceID) {
-		api.ErrResponse(w, http.StatusBadRequest, "invalid device id")
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid device id")
 		return
 	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		api.ErrResponse(w, http.StatusInternalServerError, "failed to read request body")
+		api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "failed to read request body", ilog.Err(err))
 		return
 	}
 	_, err = isValidPublicKey(body)
 	if err != nil {
-		api.ErrResponse(w, http.StatusBadRequest, fmt.Sprintf("public key format error %v", err))
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "public key format error", ilog.Err(err))
 		return
 	}
 	// publish the key
 	err = h.tv.PublishPublicKey(r.Context(), deviceID, string(body))
 	if err != nil {
-		api.ErrResponse(w, http.StatusInternalServerError, "publish key failed")
-		slog.Error("publish key failed", ilog.Err(err))
+		api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "publish key failed", ilog.Err(err))
 		return
 	}
 }
@@ -264,46 +261,43 @@ func isValidPublicKey(pk []byte) (bool, error) {
 // “`
 func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		api.ErrResponse(w, http.StatusBadRequest,
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest,
 			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodPost))
 		return
 	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		api.ErrResponse(w, http.StatusInternalServerError, "error reading request body")
-		slog.Error("error reading request body", ilog.Err(err))
+		api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "error reading request body", ilog.Err(err))
 		return
 	}
 	values, err := url.ParseQuery(string(body))
 	if err != nil {
-		api.ErrResponse(w, http.StatusBadRequest, err.Error())
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, err.Error())
 		return
 	}
 	const paramGrant = "grant_type"
 	const jwtGrant = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 	grant := values.Get(paramGrant)
 	if grant != jwtGrant {
-		api.ErrResponse(w, http.StatusBadRequest,
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest,
 			fmt.Sprintf(`expected "%s=%s" in body`, paramGrant, jwtGrant))
 		return
 	}
 	const paramAssert = "assertion"
 	assertion := values.Get(paramAssert)
 	if _, err := isValidJWT(assertion); err != nil {
-		api.ErrResponse(w, http.StatusBadRequest,
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest,
 			fmt.Sprintf(`expected "%s=<jwt>" in body, invalid token format: %v`, paramAssert, err))
 		return
 	}
 	token, err := h.tv.GetOAuth2Token(r.Context(), assertion)
 	if err != nil {
-		api.ErrResponse(w, http.StatusForbidden, "unable to retrieve cloud access token with given JWT")
-		slog.Error("unable to retrieve cloud access token with given JWT", ilog.Err(err))
+		api.ErrResponse(r.Context(), w, http.StatusForbidden, "unable to retrieve cloud access token with given JWT", ilog.Err(err))
 		return
 	}
 	tokenBytes, err := json.Marshal(token)
 	if err != nil {
-		api.ErrResponse(w, http.StatusInternalServerError, "failed to marshal upstream response")
-		slog.Error("failed to marshal upstream response", ilog.Err(err))
+		api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "failed to marshal upstream response", ilog.Err(err))
 		return
 	}
 	w.Header().Add(contentType, "application/json")
@@ -325,20 +319,20 @@ func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Reque
 // Response: only http status code
 func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		api.ErrResponse(w, http.StatusMethodNotAllowed,
+		api.ErrResponse(r.Context(), w, http.StatusMethodNotAllowed,
 			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
 		return
 	}
 
 	authHeader, ok := r.Header["Authorization"]
 	if !ok {
-		api.ErrResponse(w, http.StatusUnauthorized,
+		api.ErrResponse(r.Context(), w, http.StatusUnauthorized,
 			"request did not provide Authorization header")
 		return
 	}
 
 	if len(authHeader) != 1 {
-		api.ErrResponse(w, http.StatusBadRequest,
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest,
 			fmt.Sprintf("%q auth headers provided. Only 1 allowed", len(authHeader)))
 		return
 	}
@@ -349,8 +343,7 @@ func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request
 	jwtString := strings.TrimPrefix(authHeader[0], "Bearer ")
 
 	if _, err := h.tv.ValidateJWT(r.Context(), jwtString); err != nil {
-		slog.WarnContext(r.Context(), "JWT failed validation", ilog.Err(err))
-		api.ErrResponse(w, http.StatusForbidden, "JWT not valid")
+		api.ErrResponse(r.Context(), w, http.StatusForbidden, "JWT not valid", ilog.Err(err))
 		return
 	}
 }
@@ -370,20 +363,19 @@ func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request
 // See function `tokenFromRequest` for details on how to supply the token.
 func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		api.ErrResponse(w, http.StatusBadRequest,
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest,
 			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
 		return
 	}
 	robots := testForRobotACL(r.URL)
 	token, err := tokenFromRequest(r.URL, &r.Header)
 	if err != nil {
-		api.ErrResponse(w, http.StatusBadRequest, err.Error())
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, err.Error())
 		return
 	}
 	err = h.tv.VerifyToken(r.Context(), oauth.Token(token), robots)
 	if err != nil {
-		api.ErrResponse(w, http.StatusForbidden, "unable to verify token")
-		slog.Error("unable to verify token", ilog.Err(err))
+		api.ErrResponse(r.Context(), w, http.StatusForbidden, "unable to verify token", ilog.Err(err))
 		return
 	}
 	w.Write([]byte("OK"))
