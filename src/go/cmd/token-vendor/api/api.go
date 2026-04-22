@@ -15,6 +15,7 @@
 package api
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
@@ -69,8 +70,14 @@ func LoggingMiddleware(handler http.Handler) http.Handler {
 	})
 }
 
-func ErrResponse(w http.ResponseWriter, statusCode int, message string) {
-	slog.Warn("Error response", slog.Int("Code", statusCode), slog.String("Message", message))
+// ErrResponse reports the statusCode and message as a http response and also
+// logs it together with the given details.
+func ErrResponse(ctx context.Context, w http.ResponseWriter, statusCode int, message string, details ...slog.Attr) {
+	finalAttrs := append([]slog.Attr{slog.Group("error",
+		slog.Int("code", statusCode),
+		slog.String("message", message),
+	)}, details...)
+	slog.LogAttrs(ctx, slog.LevelWarn, "Error response", finalAttrs...)
 	w.WriteHeader(statusCode)
 	w.Write([]byte(message))
 }
