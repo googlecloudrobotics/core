@@ -7,3 +7,9 @@ robots: []
 prometheus:
   serviceMonitor:
     metricRelabelings:  []
+
+kubernetes_relay_server:
+  resources:
+    requests:
+      memory: "16Mi"
+      cpu: "100m"

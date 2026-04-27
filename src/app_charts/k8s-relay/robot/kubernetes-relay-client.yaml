@@ -26,9 +26,7 @@ spec:
         - --server_name={{ .Values.robot.name }}
         - --disable_http2
         resources:
-          requests:
-            memory: "10Mi"
-            cpu: "50m"
+{{- toYaml .Values.kubernetes_relay_client.resources | nindent 10 }}
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
