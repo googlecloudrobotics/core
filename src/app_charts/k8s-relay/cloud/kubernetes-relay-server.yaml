@@ -32,9 +32,7 @@ spec:
         - name: http
           containerPort: 8080
         resources:
-          requests:
-            memory: "16Mi"
-            cpu: "100m"
+{{- toYaml .Values.kubernetes_relay_server.resources | nindent 10 }}
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true

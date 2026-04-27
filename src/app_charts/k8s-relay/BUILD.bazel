@@ -10,6 +10,7 @@ app_chart(
 app_chart(
     name = "k8s-relay-robot",
     images = {"http-relay-client": "//src/go/cmd/http-relay-client:http-relay-client-image"},
+    values = "values-robot.yaml"
 )
 
 app(

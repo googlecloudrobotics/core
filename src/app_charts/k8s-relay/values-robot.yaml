@@ -1,0 +1,5 @@
+kubernetes_relay_client:
+  resources:
+    requests:
+      memory: "10Mi"
+      cpu: "50m"
