@@ -85,26 +85,26 @@ func (h *HandlerContext) publicKeyConfigureHandler(w http.ResponseWriter, r *htt
 		return
 	}
 	if !app.IsValidDeviceID(deviceID) {
-		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid device id")
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid device id", slog.String("DeviceID", deviceID))
 		return
 	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "failed to read request body", ilog.Err(err))
+		api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "failed to read request body", ilog.Err(err), slog.String("DeviceID", deviceID))
 		return
 	}
 
 	var opts repository.KeyOptions
 	if err := json.Unmarshal([]byte(body), &opts); err != nil {
-		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid body", ilog.Err(err))
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid body", ilog.Err(err), slog.String("DeviceID", deviceID))
 		return
 	}
 
 	if err := h.tv.ConfigurePublicKey(r.Context(), deviceID, opts); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			api.ErrResponse(r.Context(), w, http.StatusNotFound, "request to repository failed", ilog.Err(err))
+			api.ErrResponse(r.Context(), w, http.StatusNotFound, "request to repository failed", ilog.Err(err), slog.String("DeviceID", deviceID))
 		} else {
-			api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "request to repository failed", ilog.Err(err))
+			api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "request to repository failed", ilog.Err(err), slog.String("DeviceID", deviceID))
 		}
 	}
 }
@@ -129,16 +129,16 @@ func (h *HandlerContext) publicKeyReadHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if !app.IsValidDeviceID(deviceID) {
-		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid device id")
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid device id", slog.String("DeviceID", deviceID))
 		return
 	}
 	// retrieve public key from key repository
 	publicKey, err := h.tv.ReadPublicKey(r.Context(), deviceID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			api.ErrResponse(r.Context(), w, http.StatusNotFound, "request to repository failed", ilog.Err(err))
+			api.ErrResponse(r.Context(), w, http.StatusNotFound, "request to repository failed", ilog.Err(err), slog.String("DeviceID", deviceID))
 		} else {
-			api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "request to repository failed", ilog.Err(err))
+			api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "request to repository failed", ilog.Err(err), slog.String("DeviceID", deviceID))
 		}
 		return
 	}
@@ -167,23 +167,23 @@ func (h *HandlerContext) publicKeyPublishHandler(w http.ResponseWriter, r *http.
 		return
 	}
 	if !app.IsValidDeviceID(deviceID) {
-		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid device id")
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid device id", slog.String("DeviceID", deviceID))
 		return
 	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "failed to read request body", ilog.Err(err))
+		api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "failed to read request body", ilog.Err(err), slog.String("DeviceID", deviceID))
 		return
 	}
 	_, err = isValidPublicKey(body)
 	if err != nil {
-		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "public key format error", ilog.Err(err))
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "public key format error", ilog.Err(err), slog.String("DeviceID", deviceID))
 		return
 	}
 	// publish the key
 	err = h.tv.PublishPublicKey(r.Context(), deviceID, string(body))
 	if err != nil {
-		api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "publish key failed", ilog.Err(err))
+		api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "publish key failed", ilog.Err(err), slog.String("DeviceID", deviceID))
 		return
 	}
 }
