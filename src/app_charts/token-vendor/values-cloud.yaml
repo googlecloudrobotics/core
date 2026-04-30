@@ -1,5 +1,5 @@
 token_vendor:
   resources:
     requests:
-      memory: "16Mi"
+      memory: "50Mi"
       cpu: "100m"
