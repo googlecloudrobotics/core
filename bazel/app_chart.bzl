@@ -91,7 +91,7 @@ _app_chart_backend = rule(
             allow_empty = True,
             allow_files = True,
             default = [],
-            doc = "Extra values files to append to values.yaml. "
+            doc = "Extra values files to append to values.yaml. " +
               "Use this if you only want to add additional values without changing the defaults.",
         ),
         "templates": attr.label_list(
