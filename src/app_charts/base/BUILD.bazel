@@ -64,7 +64,7 @@ app_chart(
         "metadata-server": "//src/go/cmd/metadata-server:metadata-server-image",
         "chart-assignment-controller": "//src/go/cmd/chart-assignment-controller:chart-assignment-controller-image",
     },
-    values = "values-robot.yaml",
+    extra_values = ["values-robot.yaml"],
     visibility = ["//visibility:public"],
 )
 
