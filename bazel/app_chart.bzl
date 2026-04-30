@@ -85,7 +85,7 @@ _app_chart_backend = rule(
         ),
         "values": attr.label(
             allow_single_file = True,
-            doc = "The values.yaml file.",
+            doc = "Override the default values.yaml file.",
         ),
         "extra_values": attr.label_list(
             allow_empty = True,
@@ -143,7 +143,7 @@ def app_chart(
     Args:
       name: string. Must be in the format {app}-{chart}, where chart is
         robot, cloud, or cloud-per-robot.
-      values: file. The values.yaml file.
+      values: file. Override the default values.yaml file.
       extra_values: list of files. Extra values files to append to values.yaml.
       extra_templates: list of files. Extra files for the chart's templates/ directory.
       files: list of files. Extra non-template files for the chart's files/ directory.
