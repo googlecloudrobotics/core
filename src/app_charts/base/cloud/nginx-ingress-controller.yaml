@@ -1,3 +1,4 @@
+{{- if eq .Values.use_istio "false" }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -196,4 +197,4 @@ data:
 {{ .Files.Get "files/nginx.json" | indent 4 }}
   request-handling-performance.json: |-
 {{ .Files.Get "files/request-handling-performance.json" | indent 4 }}
-
+{{- end }}
