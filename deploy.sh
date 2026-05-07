@@ -48,6 +48,7 @@ function include_config_and_defaults {
   APP_MANAGEMENT=${APP_MANAGEMENT:-false}
   ONPREM_FEDERATION=${ONPREM_FEDERATION:-true}
   GKE_SECRET_MANAGER_PLUGIN=${GKE_SECRET_MANAGER_PLUGIN:-false}
+  USE_ISTIO=${USE_ISTIO:-false}
 
   # lets-encrypt is used as the default certificate provider for backwards compatibility purposes
   CLOUD_ROBOTICS_CERTIFICATE_PROVIDER=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER:-lets-encrypt}
@@ -307,6 +308,7 @@ function helm_region_shared {
     --set-string "oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
     --set-string "oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
     --set-string "oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}"
+    --set-string "use_istio=${USE_ISTIO}"
     --set "use_tv_verbose=${CRC_USE_TV_VERBOSE}"
   )
 
