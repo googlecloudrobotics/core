@@ -94,12 +94,15 @@ app_chart(
     extra_templates = [
         "@com_github_kubernetes_sigs_application//:app_crd",
         "//third_party/kube-prometheus-stack:01-crds.yaml",
+        "//third_party/istio:istio-generated.yaml",
     ],
     files = [
         "relay-dashboard.json",
         ":cert-manager-chart.cloud",
         ":cert-manager-google-cas-issuer-chart.cloud",
         "@ingress-nginx//:ingress-nginx-dashboards",
+        "//third_party/istio:istio-config.yaml",
+        "//third_party/istio:istio-values.json",
     ],
     images = {
         "app-rollout-controller": "//src/go/cmd/app-rollout-controller:app-rollout-controller-image",

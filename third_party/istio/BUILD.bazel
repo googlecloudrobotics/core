@@ -1,0 +1,12 @@
+# https://github.com/istio/istio/blob/master/LICENSE
+# Apache license
+licenses(["notice"])
+
+exports_files(
+    [
+        "istio-generated.yaml",
+        "istio-config.yaml",
+        "istio-values.json",
+    ],
+    visibility = ["//visibility:public"]
+)
