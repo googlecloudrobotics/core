@@ -1,0 +1,72 @@
+# TODO: need auth
+# "http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: public-key-access
+spec:
+  hostnames:
+  - {{ .Values.domain }}
+  parentRefs:
+  - name: crc-gateway
+    namespace: default
+    sectionName: https
+  rules:
+  - backendRefs:
+    - name: token-vendor
+      port: 80
+    matches:
+    - path:
+        type: RegularExpression
+        value: (?i)/apis/core.token-vendor/v1/public-key.read.*
+---
+# TODO: need auth
+# nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=false"
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: public-key-manager
+spec:
+  hostnames:
+  - {{ .Values.domain }}
+  parentRefs:
+  - name: crc-gateway
+    namespace: default
+    sectionName: https
+  rules:
+  - backendRefs:
+    - name: token-vendor
+      port: 80
+    matches:
+    - path:
+        type: RegularExpression
+        value: (?i)/apis/core.token-vendor/v1/public-key.configure.*
+    - path:
+        type: RegularExpression
+        value: (?i)/apis/core.token-vendor/v1/public-key.publish.*
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: token-vendor
+spec:
+  hostnames:
+  - {{ .Values.domain }}
+  parentRefs:
+  - name: crc-gateway
+    namespace: default
+    sectionName: https
+  rules:
+  - backendRefs:
+    - name: token-vendor
+      port: 80
+    matches:
+    - path:
+        type: RegularExpression
+        value: (?i)/apis/core.token-vendor/v1/token.verify.*
+    - path:
+        type: RegularExpression
+        value: (?i)/apis/core.token-vendor/v1/jwt.verify.*
+    - path:
+        type: RegularExpression
+        value: (?i)/apis/core.token-vendor/v1/token.oauth2.*

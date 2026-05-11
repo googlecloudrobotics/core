@@ -3,16 +3,25 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: crc-gateway
+  annotations:
+    # Use standard K8s annotations for cloud-specific LB settings
+    networking.istio.io/service-type: LoadBalancer 
+    networking.istio.io/service-externalTrafficPolicy: Local
 spec:
-  gatewayClassName: istio
+  gatewayClassName: istio # Provisions Istio-managed LB infrastructure
+  addresses:
+  - value: {{ .Values.ingress_ip }}
+    type: IPAddress
   listeners:
   - name: http
+    hostname: {{ .Values.domain }}
     protocol: HTTP
     port: 80
     allowedRoutes:
       namespaces:
         from: All
   - name: https
+    hostname: {{ .Values.domain }}
     protocol: HTTPS
     port: 443
     tls:
