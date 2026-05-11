@@ -421,3 +421,9 @@ func TestRequestToUnknownBackendResponse503(t *testing.T) {
 		t.Error("Missing X-CLOUDROBOTICS-HTTP-RELAY header")
 	}
 }
+
+func BenchmarkCreateId(b *testing.B) {
+	for b.Loop() {
+		createId()
+	}
+}
