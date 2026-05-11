@@ -16,11 +16,11 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"log/slog"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -99,7 +99,7 @@ func NewServer(conf Config) *Server {
 
 func createId() string {
 	u := make([]byte, 16)
-	// err is documented as always nil
+	// No error handling as it never returns an error, cf. https://pkg.go.dev/crypto/rand#Read
 	rand.Read(u)
 	return hex.EncodeToString(u)
 }
