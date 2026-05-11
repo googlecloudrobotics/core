@@ -34,6 +34,8 @@ spec:
         - --key-store=KUBERNETES
         - --namespace=app-token-vendor
 {{- end }}
+        resources:
+{{- toYaml .Values.token_vendor.resources | nindent 10 }}
         ports:
         - name: token-vendor
           containerPort: 9090
