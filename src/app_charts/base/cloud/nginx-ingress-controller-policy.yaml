@@ -1,3 +1,4 @@
+{{- if eq .Values.use_istio "false" }}
 # Source: ingress-nginx/templates/controller-serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -207,3 +208,4 @@ subjects:
   - kind: ServiceAccount
     name: ingress-nginx
     namespace: {{ .Release.Namespace }}
+{{- end }}
