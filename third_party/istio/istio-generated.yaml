@@ -18752,7 +18752,7 @@ webhooks:
 ---
 apiVersion: v1
 data:
-  mesh: "accessLogFile: \"\"\naccessLogFormat: |\n  {\"authority\": \"%REQ(:AUTHORITY)%\"\
+  mesh: "accessLogFile: /dev/stdout\naccessLogFormat: |\n  {\"authority\": \"%REQ(:AUTHORITY)%\"\
     , \"start_time\": \"%START_TIME%\", \"bytes_received\": \"%BYTES_RECEIVED%\",\
     \ \"bytes_sent\": \"%BYTES_SENT%\", \"downstream_local_address\": \"%DOWNSTREAM_LOCAL_ADDRESS%\"\
     , \"downstream_remote_address\": \"%DOWNSTREAM_REMOTE_ADDRESS%\", \"duration\"\
@@ -18769,7 +18769,12 @@ data:
     %REQ(x-icon-instance-name)%\", \"x_resource_instance_name\": \"%REQ(x-resource-instance-name)%\"\
     }\ndefaultConfig:\n  discoveryAddress: istiod.default.svc:15012\n  proxyMetadata:\
     \ {}\ndefaultProviders:\n  metrics:\n  - prometheus\nenablePrometheusMerge: true\n\
-    rootNamespace: default\ntrustDomain: cluster.local"
+    extensionProviders:\n- envoyExtAuthzHttp:\n    headersToUpstreamOnAllow:\n   \
+    \ - authorization\n    includeRequestHeadersInCheck:\n    - authorization\n  \
+    \  - x-forwarded-access-token\n    - x-auth-url\n    pathPrefix: /apis/core.token-vendor/v1/token.verify?robots=true;origin=\n\
+    \    port: \"80\"\n    service: token-vendor.app-token-vendor.svc.cluster.local\n\
+    \    withRequestBody:\n      maxRequestBytes: 0\n      packAsBytes: false\n  name:\
+    \ token-vendor-robot-and-human-auth\nrootNamespace: default\ntrustDomain: cluster.local"
   meshNetworks: 'networks: {}'
 kind: ConfigMap
 metadata:
@@ -18818,9 +18823,10 @@ data:
     : {\n      \"enabled\": false\n    }\n  },\n  \"configMap\": true,\n  \"cpu\"\
     : {\n    \"targetAverageUtilization\": 80\n  },\n  \"defaultRevision\": \"\",\n\
     \  \"deploymentAnnotations\": {},\n  \"deploymentLabels\": {},\n  \"enabled\"\
-    : true,\n  \"env\": {},\n  \"envVarFrom\": [],\n  \"experimental\": {\n    \"\
-    stableValidationPolicy\": false\n  },\n  \"extraContainerArgs\": [],\n  \"gatewayClasses\"\
-    : {},\n  \"gateways\": {\n    \"istio-egressgateway\": {},\n    \"istio-ingressgateway\"\
+    : true,\n  \"env\": {\n    \"PILOT_ENABLE_MULTIPLE_CUSTOM_AUTHZ_PROVIDERS\": \"\
+    true\"\n  },\n  \"envVarFrom\": [],\n  \"experimental\": {\n    \"stableValidationPolicy\"\
+    : false\n  },\n  \"extraContainerArgs\": [],\n  \"gatewayClasses\": {},\n  \"\
+    gateways\": {\n    \"istio-egressgateway\": {},\n    \"istio-ingressgateway\"\
     : {},\n    \"seccompProfile\": {},\n    \"securityContext\": {}\n  },\n  \"global\"\
     : {\n    \"caAddress\": \"\",\n    \"caName\": \"\",\n    \"certSigners\": [],\n\
     \    \"configCluster\": false,\n    \"configValidation\": true,\n    \"defaultPodDisruptionBudget\"\
@@ -18862,9 +18868,9 @@ data:
     : {\n    \"enabled\": false,\n    \"enabledLocalInjectorIstiod\": false,\n   \
     \ \"injectionCABundle\": \"\",\n    \"injectionPath\": \"/inject\",\n    \"injectionURL\"\
     : \"\"\n  },\n  \"jwksResolverExtraRootCA\": \"\",\n  \"keepaliveMaxServerConnectionAge\"\
-    : \"30m\",\n  \"memory\": {},\n  \"meshConfig\": {\n    \"accessLogFile\": \"\"\
-    ,\n    \"accessLogFormat\": \"{\\\"authority\\\": \\\"%REQ(:AUTHORITY)%\\\", \\\
-    \"start_time\\\": \\\"%START_TIME%\\\", \\\"bytes_received\\\": \\\"%BYTES_RECEIVED%\\\
+    : \"30m\",\n  \"memory\": {},\n  \"meshConfig\": {\n    \"accessLogFile\": \"\
+    /dev/stdout\",\n    \"accessLogFormat\": \"{\\\"authority\\\": \\\"%REQ(:AUTHORITY)%\\\
+    \", \\\"start_time\\\": \\\"%START_TIME%\\\", \\\"bytes_received\\\": \\\"%BYTES_RECEIVED%\\\
     \", \\\"bytes_sent\\\": \\\"%BYTES_SENT%\\\", \\\"downstream_local_address\\\"\
     : \\\"%DOWNSTREAM_LOCAL_ADDRESS%\\\", \\\"downstream_remote_address\\\": \\\"\
     %DOWNSTREAM_REMOTE_ADDRESS%\\\", \\\"duration\\\": \\\"%DURATION%\\\", \\\"istio_policy_status\\\
@@ -18881,14 +18887,23 @@ data:
     \", \\\"x_forwarded_for\\\": \\\"%REQ(X-FORWARDED-FOR)%\\\", \\\"x_icon_instance_name\\\
     \": \\\"%REQ(x-icon-instance-name)%\\\", \\\"x_resource_instance_name\\\": \\\"\
     %REQ(x-resource-instance-name)%\\\"}\\n\",\n    \"defaultConfig\": {\n      \"\
-    proxyMetadata\": {}\n    },\n    \"enablePrometheusMerge\": true\n  },\n  \"nodeSelector\"\
+    proxyMetadata\": {}\n    },\n    \"enablePrometheusMerge\": true,\n    \"extensionProviders\"\
+    : [\n      {\n        \"envoyExtAuthzHttp\": {\n          \"headersToUpstreamOnAllow\"\
+    : [\n            \"authorization\"\n          ],\n          \"includeRequestHeadersInCheck\"\
+    : [\n            \"authorization\",\n            \"x-forwarded-access-token\"\
+    ,\n            \"x-auth-url\"\n          ],\n          \"pathPrefix\": \"/apis/core.token-vendor/v1/token.verify?robots=true;origin=\"\
+    ,\n          \"port\": \"80\",\n          \"service\": \"token-vendor.app-token-vendor.svc.cluster.local\"\
+    ,\n          \"withRequestBody\": {\n            \"maxRequestBytes\": 0,\n   \
+    \         \"packAsBytes\": false\n          }\n        },\n        \"name\": \"\
+    token-vendor-robot-and-human-auth\"\n      }\n    ]\n  },\n  \"nodeSelector\"\
     : {},\n  \"ownerName\": \"\",\n  \"pdb\": {\n    \"minAvailable\": 1,\n    \"\
     unhealthyPodEvictionPolicy\": \"\"\n  },\n  \"pilot\": {\n    \"cni\": {\n   \
-    \   \"enabled\": false\n    },\n    \"enabled\": true\n  },\n  \"podAnnotations\"\
-    : {},\n  \"podLabels\": {},\n  \"replicaCount\": 1,\n  \"resourceQuotas\": {\n\
-    \    \"enabled\": true\n  },\n  \"resources\": {\n    \"requests\": {\n      \"\
-    cpu\": \"500m\",\n      \"memory\": \"2048Mi\"\n    }\n  },\n  \"revision\": \"\
-    \",\n  \"revisionTags\": [],\n  \"rollingMaxSurge\": \"100%\",\n  \"rollingMaxUnavailable\"\
+    \   \"enabled\": false\n    },\n    \"enabled\": true,\n    \"env\": {\n     \
+    \ \"PILOT_ENABLE_MULTIPLE_CUSTOM_AUTHZ_PROVIDERS\": \"true\"\n    }\n  },\n  \"\
+    podAnnotations\": {},\n  \"podLabels\": {},\n  \"replicaCount\": 1,\n  \"resourceQuotas\"\
+    : {\n    \"enabled\": true\n  },\n  \"resources\": {\n    \"requests\": {\n  \
+    \    \"cpu\": \"500m\",\n      \"memory\": \"2048Mi\"\n    }\n  },\n  \"revision\"\
+    : \"\",\n  \"revisionTags\": [],\n  \"rollingMaxSurge\": \"100%\",\n  \"rollingMaxUnavailable\"\
     : \"25%\",\n  \"seccompProfile\": {},\n  \"serviceAccountAnnotations\": {},\n\
     \  \"serviceAnnotations\": {},\n  \"sidecarInjectorWebhook\": {\n    \"alwaysInjectSelector\"\
     : [],\n    \"defaultTemplates\": [],\n    \"enableNamespacesByDefault\": false,\n\
@@ -18909,12 +18924,12 @@ data:
     : {\n    \"configValidation\": true,\n    \"hub\": \"docker.io/istio\",\n    \"\
     istioNamespace\": \"default\",\n    \"logging\": {\n      \"level\": \"all:warn\"\
     \n    },\n    \"platform\": \"gke\",\n    \"tag\": \"1.29.2\"\n  },\n  \"meshConfig\"\
-    : {\n    \"accessLogFile\": \"\",\n    \"accessLogFormat\": \"{\\\"authority\\\
-    \": \\\"%REQ(:AUTHORITY)%\\\", \\\"start_time\\\": \\\"%START_TIME%\\\", \\\"\
-    bytes_received\\\": \\\"%BYTES_RECEIVED%\\\", \\\"bytes_sent\\\": \\\"%BYTES_SENT%\\\
-    \", \\\"downstream_local_address\\\": \\\"%DOWNSTREAM_LOCAL_ADDRESS%\\\", \\\"\
-    downstream_remote_address\\\": \\\"%DOWNSTREAM_REMOTE_ADDRESS%\\\", \\\"duration\\\
-    \": \\\"%DURATION%\\\", \\\"istio_policy_status\\\": \\\"%DYNAMIC_METADATA(istio.mixer:status)%\\\
+    : {\n    \"accessLogFile\": \"/dev/stdout\",\n    \"accessLogFormat\": \"{\\\"\
+    authority\\\": \\\"%REQ(:AUTHORITY)%\\\", \\\"start_time\\\": \\\"%START_TIME%\\\
+    \", \\\"bytes_received\\\": \\\"%BYTES_RECEIVED%\\\", \\\"bytes_sent\\\": \\\"\
+    %BYTES_SENT%\\\", \\\"downstream_local_address\\\": \\\"%DOWNSTREAM_LOCAL_ADDRESS%\\\
+    \", \\\"downstream_remote_address\\\": \\\"%DOWNSTREAM_REMOTE_ADDRESS%\\\", \\\
+    \"duration\\\": \\\"%DURATION%\\\", \\\"istio_policy_status\\\": \\\"%DYNAMIC_METADATA(istio.mixer:status)%\\\
     \", \\\"method\\\": \\\"%REQ(:METHOD)%\\\", \\\"path\\\": \\\"%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%\\\
     \", \\\"protocol\\\": \\\"%PROTOCOL%\\\", \\\"request_id\\\": \\\"%REQ(X-REQUEST-ID)%\\\
     \", \\\"requested_server_name\\\": \\\"%REQUESTED_SERVER_NAME%\\\", \\\"response_code\\\
@@ -18928,9 +18943,18 @@ data:
     \"%REQ(X-FORWARDED-FOR)%\\\", \\\"x_icon_instance_name\\\": \\\"%REQ(x-icon-instance-name)%\\\
     \", \\\"x_resource_instance_name\\\": \\\"%REQ(x-resource-instance-name)%\\\"\
     }\\n\",\n    \"defaultConfig\": {\n      \"proxyMetadata\": {}\n    },\n    \"\
-    enablePrometheusMerge\": true\n  },\n  \"pilot\": {\n    \"cni\": {\n      \"\
-    enabled\": false\n    },\n    \"enabled\": true\n  },\n  \"ztunnel\": {\n    \"\
-    resourceName\": \"ztunnel\"\n  }\n}"
+    enablePrometheusMerge\": true,\n    \"extensionProviders\": [\n      {\n     \
+    \   \"envoyExtAuthzHttp\": {\n          \"headersToUpstreamOnAllow\": [\n    \
+    \        \"authorization\"\n          ],\n          \"includeRequestHeadersInCheck\"\
+    : [\n            \"authorization\",\n            \"x-forwarded-access-token\"\
+    ,\n            \"x-auth-url\"\n          ],\n          \"pathPrefix\": \"/apis/core.token-vendor/v1/token.verify?robots=true;origin=\"\
+    ,\n          \"port\": \"80\",\n          \"service\": \"token-vendor.app-token-vendor.svc.cluster.local\"\
+    ,\n          \"withRequestBody\": {\n            \"maxRequestBytes\": 0,\n   \
+    \         \"packAsBytes\": false\n          }\n        },\n        \"name\": \"\
+    token-vendor-robot-and-human-auth\"\n      }\n    ]\n  },\n  \"pilot\": {\n  \
+    \  \"cni\": {\n      \"enabled\": false\n    },\n    \"enabled\": true,\n    \"\
+    env\": {\n      \"PILOT_ENABLE_MULTIPLE_CUSTOM_AUTHZ_PROVIDERS\": \"true\"\n \
+    \   }\n  },\n  \"ztunnel\": {\n    \"resourceName\": \"ztunnel\"\n  }\n}"
 kind: ConfigMap
 metadata:
   annotations:
@@ -19189,6 +19213,8 @@ spec:
               value: /var/run/secrets/remote/config
             - name: CA_TRUSTED_NODE_ACCOUNTS
               value: default/ztunnel
+            - name: PILOT_ENABLE_MULTIPLE_CUSTOM_AUTHZ_PROVIDERS
+              value: 'true'
             - name: PILOT_TRACE_SAMPLING
               value: '1'
             - name: PILOT_ENABLE_ANALYSIS

@@ -3,6 +3,8 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: crc-gateway
+  labels:
+    gateway.networking.k8s.io/gateway-name: crc-gateway
   annotations:
     # Use standard K8s annotations for cloud-specific LB settings
     networking.istio.io/service-type: LoadBalancer 
@@ -47,4 +49,34 @@ spec:
       requestRedirect:
         scheme: https
         statusCode: 301
+# ---
+# apiVersion: networking.istio.io/v1
+# kind: ServiceEntry
+# metadata:
+#   name: token-vendor-robot-and-human-auth
+# spec:
+#   hosts:
+#   - "token-vendor-robot-and-human-auth.local" # The service name to be used in the extension provider in the mesh config.
+#   endpoints:
+#   - address: "127.0.0.1"
+#   ports:
+#   - name: http
+#     number: 80 # The port number to be used in the extension provider in the mesh config.
+#     protocol: HTTP
+#   resolution: STATIC
+# ---
+# apiVersion: networking.istio.io/v1
+# kind: ServiceEntry
+# metadata:
+#   name: token-vendor-human-only-auth
+# spec:
+#   hosts:
+#   - "token-vendor-human-only-auth.local" # The service name to be used in the extension provider in the mesh config.
+#   endpoints:
+#   - address: "127.0.0.1"
+#   ports:
+#   - name: http
+#     number: 80 # The port number to be used in the extension provider in the mesh config.
+#     protocol: HTTP
+#   resolution: STATIC
 {{- end}}

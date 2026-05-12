@@ -122,7 +122,9 @@
         "enabled": false
       }
     },
-    "env": {}
+    "env": {
+      "PILOT_ENABLE_MULTIPLE_CUSTOM_AUTHZ_PROVIDERS": "true"
+    }
   },
   "revision": "",
   "sidecarInjectorWebhook": {

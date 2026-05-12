@@ -1,0 +1,43 @@
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: tokenvendor-public-key-access-auth
+  namespace: default  # the policy can only target gateways in the same namespace
+spec:
+  # Single baseline policy.
+  # Finding: PILOT_ENABLE_MULTIPLE_CUSTOM_AUTHZ_PROVIDERS did not resolve 
+  # the '1 provider per workload' error in this environment when using multiple CUSTOM actions.
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: crc-gateway
+  action: CUSTOM
+  provider:
+    # Must match name in meshConfig.extensionProviders exactly.
+    name: "token-vendor-robot-and-human-auth"
+  rules:
+  - to:
+    - operation:
+        paths:
+        - "/apis/core.token-vendor/v1/public-key.read"
+        - "/apis/core.token-vendor/v1/public-key.read*"
+# ---
+# apiVersion: security.istio.io/v1
+# kind: AuthorizationPolicy
+# metadata:
+#   name: tokenvendor-public-key-manager-auth
+#   namespace: default  # the policy can only target gateways in the same namespace
+# spec:
+#   selector:
+#     matchLabels:
+#       gateway.networking.k8s.io/gateway-name: crc-gateway
+#   action: CUSTOM
+#   provider:
+#     name: "token-vendor-human-auth"
+#   rules:
+#   - to:
+#     - operation:
+#         paths:
+#         - "/apis/core.token-vendor/v1/public-key.configure"
+#         - "/apis/core.token-vendor/v1/public-key.configure*"
+#         - "/apis/core.token-vendor/v1/public-key.publish"
+#         - "/apis/core.token-vendor/v1/public-key.publish*"

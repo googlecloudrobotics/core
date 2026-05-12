@@ -362,6 +362,13 @@ func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request
 // Headers (optional): X_FORWARDED_ACCESS_TOKEN or AUTHORIZATION
 // See function `tokenFromRequest` for details on how to supply the token.
 func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
+	// for testing: dump request infor to see what we get as an auth plugin
+	slog.Warn("v1/token.verify",
+		slog.String("RemoteAddr", r.RemoteAddr),
+		slog.String("Method", r.Method),
+		slog.String("URL", r.URL.String()),
+		slog.String("Headers", fmt.Sprintf("%v", r.Header)))
+
 	if r.Method != http.MethodGet {
 		api.ErrResponse(r.Context(), w, http.StatusBadRequest,
 			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
