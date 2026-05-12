@@ -1,0 +1,34 @@
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: public-key-access-auth
+spec:
+  selector:
+    matchLabels:
+      app: token-vendor
+  action: CUSTOM
+  provider:
+    name: "token-vendor-robot-and-human-auth" # Must match the name in MeshConfig
+  rules: 
+  - to:
+    - operation:
+        paths:
+        - "/apis/core.token-vendor/v1/public-key.read*"
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: public-key-manager-auth
+spec:
+  selector:
+    matchLabels:
+      app: token-vendor
+  action: CUSTOM
+  provider:
+    name: "token-vendor-human-only-auth" # Must match the name in MeshConfig
+  rules:
+  - to:
+    - operation:
+        paths:
+        - "/apis/core.token-vendor/v1/public-key.configure*"
+        - "/apis/core.token-vendor/v1/public-key.publish*"

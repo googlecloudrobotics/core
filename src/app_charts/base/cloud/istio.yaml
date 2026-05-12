@@ -47,4 +47,85 @@ spec:
       requestRedirect:
         scheme: https
         statusCode: 301
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: dynamic-auth-filter
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: crc-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+            subFilter:
+              name: "envoy.filters.http.router"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.lua
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+          inline_code: |
+            -- FINDINGS SUMMARY for PR #677:
+            -- 1. HTTPRoute 'RequestHeaderModifier' (x-auth-url) is applied by the 'router' filter.
+            -- 2. Downstream HTTP_FILTERs (like this one) run BEFORE the router.
+            -- 3. To see the 'x-auth-url', the filter MUST access Route Metadata, not request headers.
+            -- 4. upstream_http_filters (applyTo: CLUSTER) is the cleaner Envoy-native fix, 
+            --    but was not successfully matched in this environment's EnvoyFilter version.
+            
+            function envoy_on_request(request_handle)
+              request_handle:logWarn("[LUA AUTH] Filter invoked. Checking headers...")
+              
+              local auth_url = request_handle:headers():get("x-auth-url")
+              
+              if auth_url then
+                request_handle:logWarn("[LUA AUTH] Found x-auth-url header: " .. auth_url)
+                
+                local auth_host, auth_path
+                local scheme_end = auth_url:find("://")
+                if scheme_end then
+                  local remainder = auth_url:sub(scheme_end + 3)
+                  local first_slash = remainder:find("/")
+                  if first_slash then
+                    auth_host = remainder:sub(1, first_slash - 1)
+                    auth_path = remainder:sub(first_slash)
+                  else
+                    auth_host = remainder
+                    auth_path = "/"
+                  end
+                else
+                   request_handle:logWarn("[LUA AUTH] Can't parse x-auth-url header, missing schema?: " .. auth_url)
+                end
+
+                if auth_host then
+                  request_handle:logWarn("[LUA AUTH] Authenticating via: " .. auth_host .. " and " .. auth_path)
+                  local response = request_handle:httpCall(
+                    "outbound|80||" .. auth_host,
+                    {
+                      [":method"] = "GET",
+                      [":path"] = auth_path,
+                      [":authority"] = auth_host,
+                      ["authorization"] = request_handle:headers():get("authorization")
+                    },
+                    "",
+                    5000 -- 5s Timeout
+                  )
+                  
+                  local status = response[":status"]
+                  request_handle:logWarn("[LUA AUTH] auth-url status: " .. status)
+                  if status ~= "200" then
+                    request_handle:respond({[":status"] = status}, "Unauthorized via EnvoyFilter")
+                  end
+                end
+              else
+                request_handle:logWarn("[LUA AUTH] Skipping: No x-auth-url header found on this request.")
+              end
+            end
 {{- end}}
