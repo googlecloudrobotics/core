@@ -1,3 +1,11 @@
+domain: "example.com"
+project: "my-gcp-project"
+deploy_environment: "GCP"
+registry: "gcr.io/my-gcp-project"
+
+robot:
+  name: ""
+
 kubernetes_relay_client:
   resources:
     requests:
