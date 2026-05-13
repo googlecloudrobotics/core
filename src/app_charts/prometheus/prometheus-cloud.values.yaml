@@ -169,6 +169,8 @@ nodeExporter:
       targetLabel: instance
 
 grafana:
+  testFramework:
+    enabled: false
   env:
     GF_SERVER_DOMAIN: "${CR_GF_SERVER_DOMAIN}"
     GF_SERVER_ROOT_URL: "${CR_GF_SERVER_ROOT_URL}"
