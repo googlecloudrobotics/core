@@ -13,6 +13,7 @@ def helm_chart(ctx, name, chart, files, templates, values, version, helm, out):
     """
 
     cmd = """
+      set -e
       mkdir {name} {name}/templates
       cp {chart} {name}/Chart.yaml
       cp {values} {name}/values.yaml
