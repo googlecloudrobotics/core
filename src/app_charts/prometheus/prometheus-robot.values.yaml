@@ -200,4 +200,6 @@ prometheus-node-exporter:
     - --collector.netclass.ignored-devices=^(bond|cilium|ip6tnl0|lo|lxc|tunl)
 
 grafana:
+  testFramework:
+    enabled: false
   enabled: false
