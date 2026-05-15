@@ -17,8 +17,8 @@ spec:
       port: 80
     matches:
     - path:
-        type: RegularExpression
-        value: (?i)/apis/core.token-vendor/v1/public-key.read.*
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/public-key.read
 ---
 # TODO: need auth
 # nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=false"
@@ -39,11 +39,11 @@ spec:
       port: 80
     matches:
     - path:
-        type: RegularExpression
-        value: (?i)/apis/core.token-vendor/v1/public-key.configure.*
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/public-key.configure
     - path:
-        type: RegularExpression
-        value: (?i)/apis/core.token-vendor/v1/public-key.publish.*
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/public-key.publish
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -62,11 +62,11 @@ spec:
       port: 80
     matches:
     - path:
-        type: RegularExpression
-        value: (?i)/apis/core.token-vendor/v1/token.verify.*
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/token.verify
     - path:
-        type: RegularExpression
-        value: (?i)/apis/core.token-vendor/v1/jwt.verify.*
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/jwt.verify
     - path:
-        type: RegularExpression
-        value: (?i)/apis/core.token-vendor/v1/token.oauth2.*
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/token.oauth2
