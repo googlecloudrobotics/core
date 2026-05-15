@@ -31,8 +31,16 @@ spec:
     # We can't use dns01 since we don't control the dns-zone that endpoints uses.
     solvers:
       - http01:
+{{- if eq .Values.use_istio "true" }}
+          gatewayHTTPRoute:
+            parentRefs:
+              - name: crc-gateway
+                namespace: default
+                kind: Gateway
+{{- else }}
           ingress:
             class: nginx
+{{- end }}
 {{- else if eq .Values.certificate_provider "google-cas" }}
 ---
 # Issuer for Google's Certificate Authority service (CAS) using the google-cas-issuer project.
