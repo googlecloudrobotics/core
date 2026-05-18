@@ -1,6 +1,20 @@
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 load("@io_bazel_rules_go//go:def.bzl", "go_test")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 
 # gazelle:go_test file
+
+proto_library(
+    name = "grpc_test_proto",
+    srcs = ["grpc_test.proto"],
+)
+
+go_proto_library(
+    name = "grpc_test_proto_go",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "github.com/googlecloudrobotics/core/src/go/tests/relay",
+    proto = ":grpc_test_proto",
+)
 
 go_test(
     name = "in_process_relay_test",
@@ -14,6 +28,20 @@ go_test(
         "@com_github_golang_glog//:go_default_library",
     ],
 )
+
+go_test(
+    name = "grpc_test",
+    size = "small",
+    srcs = ["grpc_test.go"],
+    deps = [
+        ":grpc_test_proto_go",
+        "//src/go/cmd/http-relay-client/client:go_default_library",
+        "//src/go/cmd/http-relay-server/server:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//metadata:go_default_library",
+    ],
+)
+
 
 go_test(
     name = "nok8s_relay_test",
