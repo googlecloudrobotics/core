@@ -29,7 +29,7 @@ Once you've done this, you can:
 > gcloud iam service-accounts add-iam-policy-binding "${SA}" \
 >   --role=roles/iam.serviceAccountTokenCreator \
 >   --project="${PROJECT_ID}" --member="user:${YOUR_EMAIL_ADDRESS:?}"
-> gcloud auth print-access-token --impersonate-service-account="${SA}"
+> gcloud auth application-default print-access-token --impersonate-service-account="${SA}"
 > ```
 >
 > If you see `ERROR: Failed to impersonate ...`, wait a few minutes for the IAM

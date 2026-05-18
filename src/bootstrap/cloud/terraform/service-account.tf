@@ -106,7 +106,7 @@ resource "google_service_account_iam_member" "human-acl-act-as-self" {
 
 # Grant permissions to generate tokens for registering new workcell clusters.
 # This lets users run:
-#   gcloud auth print-access-token \
+#   gcloud auth application-default print-access-token \
 #     --impersonate-service-account=human-acl@${PROJECT_ID}.iam.gserviceaccount.com
 # so they can register new workcell clusters without passing their own tokens
 # (which aren't limited to a single GCP project) into the cluster.
