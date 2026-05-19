@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package googlecloudrobotics.http_relay.tests.relay;
+
+option go_package = "github.com/googlecloudrobotics/core/src/go/tests/relay;relay";
+
+message StringMessage {
+  string value = 1;
+}
+
+service TestService {
+  rpc Unary(StringMessage) returns (StringMessage);
+  rpc ServerStream(StringMessage) returns (stream StringMessage);
+  rpc ClientStream(stream StringMessage) returns (StringMessage);
+  rpc BiDiStream(stream StringMessage) returns (stream StringMessage);
+}

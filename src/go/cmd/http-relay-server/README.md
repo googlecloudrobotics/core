@@ -97,11 +97,8 @@ It has been tested with the following traffic:
 - HTTP 1.1 & 2 from web browsers (including bidirectional streaming with websockets)
 - HTTP 1.1 from kubectl, including streaming response bodies for `kubectl logs`
 - SPDY from kubectl (via HTTP 101 Switching Protocols) for `kubectl exec`
-- unidirectional gRPC (HTTP2 cleartext and HTTP trailers)
-
-The following is known not to work:
-
-- streaming gRPC fails with `rpc error: code = Internal desc = stream terminated by RST_STREAM with error code: PROTOCOL_ERROR`, root cause unknown
+- Unidirectional gRPC (HTTP2 cleartext and HTTP trailers)
+- Streaming gRPC (server, client, and bi-directional)
 
 The following has not been tested:
 
