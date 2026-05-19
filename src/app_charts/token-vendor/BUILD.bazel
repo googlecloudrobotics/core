@@ -9,7 +9,7 @@ app_chart(
     images = {
         "token-vendor-go": "//src/go/cmd/token-vendor:token-vendor-image",
     },
-    values = "values-cloud.yaml",
+    extra_values = ["values-cloud.yaml"],
 )
 
 app(
