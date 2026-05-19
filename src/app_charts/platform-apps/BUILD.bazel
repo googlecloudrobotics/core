@@ -5,6 +5,5 @@ app_chart(
     extra_templates = [
         "//src/app_charts:app_resources",
     ],
-    values = "values.yaml",
     visibility = ["//visibility:public"],
 )

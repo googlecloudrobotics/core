@@ -1,12 +1,3 @@
-domain: "example.com"
-project: "my-gcp-project"
-deploy_environment: "GCP"
-registry: "gcr.io/my-gcp-project"
-robots: []
-region: example-gcp-region
-# Token Vendor feature flags
-use_tv_k8s_verbose: false
-
 token_vendor:
   resources:
     requests:
