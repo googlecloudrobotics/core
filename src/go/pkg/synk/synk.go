@@ -23,6 +23,7 @@ import (
 	"log/slog"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -410,6 +411,15 @@ func (s *Synk) applyAll(
 	return results, err
 }
 
+func validateNamespace(r *unstructured.Unstructured, optsNs string) error {
+	ns := r.GetNamespace()
+	allowed := []string{"", "kube-system", optsNs}
+	if slices.Contains(allowed, ns) {
+		return nil
+	}
+	return errors.Errorf("invalid namespace %q on %q, expected one of %v", ns, resourceKey(r), allowed)
+}
+
 // initialize a new ResourceSet version for the given name and prepare resources
 // for it.
 func (s *Synk) initialize(
@@ -432,8 +442,8 @@ func (s *Synk) initialize(
 	// so we can give validation errors in batch in the ResourceSet status.
 	if opts.EnforceNamespace {
 		for _, r := range regulars {
-			if ns := r.GetNamespace(); ns != "" && ns != opts.Namespace && ns != "kube-system" {
-				return nil, nil, errors.Errorf("invalid namespace %q on %q, expected %q or \"kube-system\"", ns, resourceKey(r), opts.Namespace)
+			if err := validateNamespace(r, opts.Namespace); err != nil {
+				return nil, nil, err
 			}
 		}
 	}
