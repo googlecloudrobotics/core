@@ -70,3 +70,62 @@ spec:
     - path:
         type: PathPrefix
         value: /apis/core.token-vendor/v1/token.oauth2
+---
+# NOTE: ReferenceGrant not needed if we deploy this HTTPRoutes
+# in the same namespace as the token-vendor service (backendRef)
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: public-key-access-auth
+spec:
+  hostnames:
+  - {{ .Values.domain }}
+  parentRefs:
+  - name: crc-auth-gateway
+    namespace: default
+    sectionName: http
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/public-key.read
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /apis/core.token-vendor/v1/token.verify?robots=true
+    backendRefs:
+    - name: token-vendor
+      namespace: app-token-vendor
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: public-key-manager
+spec:
+  hostnames:
+  - {{ .Values.domain }}
+  parentRefs:
+  - name: crc-auth-gateway
+    namespace: default
+    sectionName: http
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/public-key.configure
+    - path:
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/public-key.publish
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /apis/core.token-vendor/v1/token.verify?robots=false
+    backendRefs:
+    - name: token-vendor
+      namespace: app-token-vendor
+      port: 80

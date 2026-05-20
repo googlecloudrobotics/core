@@ -47,4 +47,36 @@ spec:
       requestRedirect:
         scheme: https
         statusCode: 301
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: 
+  name: crc-auth-gateway
+  annotations:
+    networking.istio.io/service-type: ClusterIP # only require internal cluster ip
+spec: 
+  gatewayClassName: istio # Provisions Istio-managed LB 
+  listeners:
+    - name: http
+      hostname: {{ .Values.domain }}
+      protocol: HTTP
+      port: 8080
+      allowedRoutes: 
+        namespaces:
+          from: All
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: crc-gateway-auth
+spec:
+  targetRefs: # assoc this global auth policy on external crc-gateway
+  - kind: Gateway
+    group: gateway.networking.k8s.io
+    name: crc-gateway
+  action: CUSTOM
+  provider:
+    name: "crc-auth-gateway" # Must match name in meshConfig.extensionProviders exactly.
+  rules: # all paths are impacted
+  - {}
 {{- end}}
