@@ -5,7 +5,7 @@ metadata:
   name: crc-gateway
   annotations:
     # Use standard K8s annotations for cloud-specific LB settings
-    networking.istio.io/service-type: LoadBalancer 
+    networking.istio.io/service-type: LoadBalancer
     networking.istio.io/service-externalTrafficPolicy: Local
 spec:
   gatewayClassName: istio # Provisions Istio-managed LB infrastructure
@@ -50,18 +50,18 @@ spec:
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
-metadata: 
+metadata:
   name: crc-auth-gateway
   annotations:
     networking.istio.io/service-type: ClusterIP # only require internal cluster ip
-spec: 
-  gatewayClassName: istio # Provisions Istio-managed LB 
+spec:
+  gatewayClassName: istio # Provisions Istio-managed LB
   listeners:
     - name: http
       hostname: {{ .Values.domain }}
       protocol: HTTP
       port: 8080
-      allowedRoutes: 
+      allowedRoutes:
         namespaces:
           from: All
 ---
@@ -77,6 +77,73 @@ spec:
   action: CUSTOM
   provider:
     name: "crc-auth-gateway" # Must match name in meshConfig.extensionProviders exactly.
-  rules: # all paths are impacted
+  rules:
+  # targeting all paths.
+  # it is also possible to specify the relevant paths here, so that not all requests will be daisy-chained
   - {}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: crc-auth-catchall
+spec:
+  parentRefs:
+  - name: crc-auth-gateway
+    namespace: default
+    sectionName: http
+  hostnames:
+  - {{ .Values.domain }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: explicit-allow-svc
+      namespace: default
+      port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: explicit-allow-svc
+  labels:
+    app: explicit-allow-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: explicit-allow-svc
+  template:
+    metadata:
+      labels:
+        app: explicit-allow-svc
+    spec:
+      containers:
+      - name: nginx
+        image: nginxinc/nginx-unprivileged:alpine
+        ports:
+        - containerPort: 8080
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo 'server {
+              listen 8080;
+              location / {
+                  add_header Content-Type text/plain;
+                  return 200 "OK\n";
+              }
+          }' > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: explicit-allow-svc
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: explicit-allow-svc
 {{- end}}
