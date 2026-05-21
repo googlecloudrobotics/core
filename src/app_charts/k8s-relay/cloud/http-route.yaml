@@ -1,0 +1,81 @@
+{{- range list "" "-auth" }}
+{{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: kubernetes-relay-client{{ . }}
+spec:
+  hostnames:
+  - {{ $.Values.domain }}
+  parentRefs:
+  - name: crc{{ . }}-gateway
+    namespace: default
+    sectionName: {{ $sectionName }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /apis/core.kubernetes-relay/client
+{{- if eq . "-auth" }}
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /apis/core.token-vendor/v1/token.verify
+    backendRefs:
+    - name: token-vendor
+      namespace: app-token-vendor
+      port: 80
+{{- else }}
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /client
+    backendRefs:
+    - name: kubernetes-relay-server
+      port: 80
+{{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: kubernetes-relay-server{{ . }}
+spec:
+  hostnames:
+  - {{ $.Values.domain }}
+  parentRefs:
+  - name: crc{{ . }}-gateway
+    namespace: default
+    sectionName: {{ $sectionName }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /apis/core.kubernetes-relay/server
+{{- if eq . "-auth" }}
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /apis/core.token-vendor/v1/token.verify?robots=true
+    backendRefs:
+    - name: token-vendor
+      namespace: app-token-vendor
+      port: 80
+{{- else }}
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /server
+    backendRefs:
+    - name: kubernetes-relay-server
+      port: 80
+{{- end }}
+---
+{{- end }}

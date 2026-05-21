@@ -20,4 +20,23 @@ spec:
             name: dummy
             port:
               number: 80
-{{ end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: domain-redirect
+spec:
+  hostnames:
+  - "www.endpoints.{{ .Values.project }}.cloud.goog"
+  parentRefs:
+  - name: crc-gateway
+    namespace: default
+    sectionName: https
+  rules:
+  - filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: https
+        hostname: {{ .Values.domain }}
+        statusCode: 301
+{{- end }}
