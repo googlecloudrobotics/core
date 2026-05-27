@@ -190,3 +190,34 @@ resource "google_project_iam_member" "gke_node_roles" {
   ])
   role = each.key
 }
+
+# Download the official standard grpcroutes.yaml directly from Kubernetes Gateway API repository
+data "http" "grpcroutes_crd" {
+  url = "https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml"
+}
+
+locals {
+  # Decode multi-document YAML file
+  raw_manifests = provider::kubernetes::manifest_decode_multi(data.http.grpcroutes_crd.response_body)
+
+  # Filter out 'status' field since it is forbidden in kubernetes_manifest input configuration
+  clean_manifests = [
+    for manifest in local.raw_manifests : {
+      for key, value in manifest : key => value if key != "status"
+    }
+  ]
+}
+
+# Deploy the GRPCRoute CRD natively
+resource "kubernetes_manifest" "grpcroutes_crd" {
+  # Ensure CRD is only applied after GKE nodes and base pool are fully provisioned
+  depends_on = [google_container_node_pool.cloud_robotics_base_pool]
+
+  for_each = {
+    for manifest in local.clean_manifests : 
+    "${manifest.kind}--${manifest.metadata.name}" => manifest
+  }
+  
+  manifest = each.value
+}
+
