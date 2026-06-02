@@ -99,25 +99,25 @@ spec:
         type: PathPrefix
         value: /
     backendRefs:
-    - name: explicit-allow-svc
+    - name: crc-auth-gateway-catchall-svc
       namespace: default
       port: 8080
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: explicit-allow-svc
+  name: crc-auth-gateway-catchall-svc
   labels:
-    app: explicit-allow-svc
+    app: crc-auth-gateway-catchall-svc
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: explicit-allow-svc
+      app: crc-auth-gateway-catchall-svc
   template:
     metadata:
       labels:
-        app: explicit-allow-svc
+        app: crc-auth-gateway-catchall-svc
     spec:
       containers:
       - name: nginx
@@ -131,19 +131,19 @@ spec:
               listen 8080;
               location / {
                   add_header Content-Type text/plain;
-                  return 200 "OK\n";
+                  return 403 "Forbidden\n";
               }
           }' > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: explicit-allow-svc
+  name: crc-auth-gateway-catchall-svc
 spec:
   ports:
   - name: http
     port: 8080
     targetPort: 8080
   selector:
-    app: explicit-allow-svc
+    app: crc-auth-gateway-catchall-svc
 {{- end}}
