@@ -131,7 +131,7 @@ spec:
               listen 8080;
               location / {
                   add_header Content-Type text/plain;
-                  return 403 "Forbidden\n";
+                  return 404 "Not Found\n";
               }
           }' > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'
 ---
