@@ -37,17 +37,10 @@ func TestEchoHandler(t *testing.T) {
 		},
 		{
 			desc:       "Internal Server Error on nested path",
-			path:       "/foo/bar",
+			path:       "/foo/bar?key=value",
 			httpStatus: http.StatusInternalServerError,
 			wantStatus: http.StatusInternalServerError,
 			wantBody:   "Internal Server Error",
-		},
-		{
-			desc:       "Teapot status on query parameter path",
-			path:       "/teapot?brew=true",
-			httpStatus: http.StatusTeapot,
-			wantStatus: http.StatusTeapot,
-			wantBody:   "I'm a teapot",
 		},
 		{
 			desc:       "OK status on deep path",
@@ -69,17 +62,17 @@ func TestEchoHandler(t *testing.T) {
 
 			resp := w.Result()
 			if resp.StatusCode != tc.wantStatus {
-				t.Errorf("echoHandler returned status code %d, want %d", resp.StatusCode, tc.wantStatus)
+				t.Errorf("got %d, want %d", resp.StatusCode, tc.wantStatus)
 			}
 
 			contentType := resp.Header.Get("Content-Type")
 			if contentType != "text/plain" {
-				t.Errorf("echoHandler returned Content-Type %q, want %q", contentType, "text/plain")
+				t.Errorf("got %q, want %q", contentType, "text/plain")
 			}
 
 			body := w.Body.String()
 			if body != tc.wantBody {
-				t.Errorf("echoHandler returned body %q, want %q", body, tc.wantBody)
+				t.Errorf("got %q, want %q", body, tc.wantBody)
 			}
 		})
 	}
