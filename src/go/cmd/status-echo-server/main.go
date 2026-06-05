@@ -29,6 +29,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/googlecloudrobotics/ilog"
 )
@@ -53,12 +54,22 @@ func main() {
 	logHandler := ilog.NewLogHandler(slog.Level(*logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
-	http.HandleFunc("/", echoHandler)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", echoHandler)
 
 	addr := fmt.Sprintf(":%d", *port)
-	slog.Info("Status echo server running", slog.String("address", addr))
 
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      mux, 
+		ReadTimeout:  1 * time.Second,  
+		WriteTimeout: 2 * time.Second,
+		IdleTimeout:  10 * time.Second,
+	}
+	
+	slog.Info("Status echo server running", slog.String("address", addr))
+	if err := srv.ListenAndServe(); err != nil {
 		slog.Error("Server failed to start", slog.Any("error", err))
 		os.Exit(1)
 	}
