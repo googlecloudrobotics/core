@@ -15,7 +15,7 @@ resource "google_dns_record_set" "www-entry" {
 
   ttl = 300
 
-  rrdatas      = [google_compute_address.cloud_robotics.address]
+  rrdatas      = [var.use_alb ? google_compute_global_address.alb[0].address : google_compute_address.cloud_robotics.address]
   managed_zone = google_dns_managed_zone.external-dns[0].name
   project      = google_dns_managed_zone.external-dns[0].project
 }

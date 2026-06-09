@@ -162,6 +162,7 @@ cluster_type = "${GKE_CLUSTER_TYPE}"
 datapath_provider = "${GKE_DATAPATH_PROVIDER}"
 onprem_federation = ${ONPREM_FEDERATION}
 secret_manager_plugin = ${GKE_SECRET_MANAGER_PLUGIN}
+use_alb = ${USE_ALB:-false}
 EOF
 
 # Add certificate information if the configured provider requires it
@@ -309,6 +310,7 @@ function helm_region_shared {
     --set-string "oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
     --set-string "oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}"
     --set-string "use_istio=${USE_ISTIO}"
+    --set-string "use_alb=${USE_ALB:-false}"
     --set "use_tv_verbose=${CRC_USE_TV_VERBOSE}"
   )
 

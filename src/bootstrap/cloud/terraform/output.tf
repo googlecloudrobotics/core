@@ -1,5 +1,9 @@
 output "ingress-ip" {
-  value = google_compute_address.cloud_robotics.address
+  value = var.use_alb ? google_compute_global_address.alb[0].address : google_compute_address.cloud_robotics.address
+}
+
+output "alb-ip" {
+  value = var.use_alb ? google_compute_global_address.alb[0].address : null
 }
 
 output "ingress-ip-ar" {

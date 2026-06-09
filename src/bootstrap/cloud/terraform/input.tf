@@ -96,3 +96,9 @@ variable "secret_manager_plugin" {
   type        = bool
   default     = false
 }
+
+variable "use_alb" {
+  description = "Toggle DNS/Endpoints to point to ALB (Global IP) instead of NLB (Regional IP)"
+  type        = bool
+  default     = false
+}
