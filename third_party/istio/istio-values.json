@@ -94,7 +94,7 @@
     "sts": {
       "servicePort": 0
     },
-    "tag": "1.29.2",
+    "tag": "1.29.4",
     "variant": "",
     "waypoint": {
       "affinity": {},

@@ -1,8 +1,7 @@
 #!/bin/bash
 
-VERSION=1.29.2
+VERSION=1.29.4
 GATEWAY_API_VERSION=1.1.0
-
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 tmpdir="$(mktemp -d)"
