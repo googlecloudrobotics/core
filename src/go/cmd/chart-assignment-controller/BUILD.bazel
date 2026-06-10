@@ -1,5 +1,5 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 package(default_visibility = ["//visibility:public"])
@@ -71,4 +71,16 @@ oci_image(
     base = ":helm-image",
     entrypoint = ["/chart-assignment-controller-app"],
     tars = [":chart-assignment-controller-layer"],
+)
+
+oci_load(
+    name = "chart-assignment-controller-tarball",
+    image = ":chart-assignment-controller-image",
+    repo_tags = ["chart-assignment-controller:latest"],
+)
+
+filegroup(
+    name = "chart-assignment-controller-tarball.tar",
+    srcs = [":chart-assignment-controller-tarball"],
+    output_group = "tarball",
 )
