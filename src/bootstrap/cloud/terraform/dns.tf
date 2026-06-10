@@ -15,7 +15,7 @@ resource "google_dns_record_set" "www-entry" {
 
   ttl = 300
 
-  rrdatas      = [google_compute_address.cloud_robotics.address]
+  rrdatas      = [var.custom_ingress_ip != "" ? var.custom_ingress_ip : google_compute_address.cloud_robotics.address]
   managed_zone = google_dns_managed_zone.external-dns[0].name
   project      = google_dns_managed_zone.external-dns[0].project
 }

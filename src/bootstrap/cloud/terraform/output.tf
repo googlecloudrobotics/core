@@ -1,5 +1,5 @@
 output "ingress-ip" {
-  value = google_compute_address.cloud_robotics.address
+  value = var.custom_ingress_ip != "" ? var.custom_ingress_ip : google_compute_address.cloud_robotics.address
 }
 
 output "ingress-ip-ar" {

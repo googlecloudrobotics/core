@@ -7,7 +7,7 @@ resource "google_endpoints_service" "www_service" {
     "www.yaml",
     {
       GCP_PROJECT_ID = var.id
-      INGRESS_IP     = google_compute_address.cloud_robotics.address
+      INGRESS_IP     = var.custom_ingress_ip != "" ? var.custom_ingress_ip : google_compute_address.cloud_robotics.address
     }
   )
 }

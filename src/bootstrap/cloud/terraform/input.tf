@@ -96,3 +96,9 @@ variable "secret_manager_plugin" {
   type        = bool
   default     = false
 }
+
+variable "custom_ingress_ip" {
+  description = "Optional custom IP for the DNS record (e.g. if using a patched L7 ALB)"
+  type        = string
+  default     = ""
+}
