@@ -10,7 +10,6 @@ go_library(
     deps = [
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
         "@com_github_jaypipes_ghw//:go_default_library",
-        "@com_github_jaypipes_ghw//pkg/option:go_default_library",
         "@com_github_jaypipes_ghw//pkg/util:go_default_library",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
@@ -43,7 +42,6 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "@com_github_jaypipes_ghw//:go_default_library",
-        "@com_github_jaypipes_ghw//pkg/option:go_default_library",
         "@com_github_jaypipes_ghw//pkg/pci:go_default_library",
         "@com_github_jaypipes_ghw//pkg/util:go_default_library",
         "@com_github_jaypipes_pcidb//:go_default_library",

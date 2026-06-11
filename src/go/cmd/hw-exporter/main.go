@@ -15,11 +15,13 @@ import (
 
 	"github.com/googlecloudrobotics/ilog"
 	"github.com/jaypipes/ghw"
-	"github.com/jaypipes/ghw/pkg/option"
 	"github.com/jaypipes/ghw/pkg/util"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+// Can be overridden for testing.
+var ghwPCI = ghw.PCI
 
 var (
 	metricsPort = flag.Int("metrics-port", 9999, "Port to expose Prometheus metrics on.")
@@ -58,7 +60,7 @@ func getNameOrID(name, id string) string {
 // Collect implements the prometheus.Collector interface, counting the number of
 // devices by vendor/product/class/driver.
 func (c *pciCollector) Collect(ch chan<- prometheus.Metric) {
-	pciInfo, err := ghw.PCI(&option.Option{Chroot: chroot})
+	pciInfo, err := ghwPCI(ghw.WithChroot(*chroot))
 	if err != nil {
 		slog.Error("Failed to get PCI info", ilog.Err(err))
 		return
@@ -84,7 +86,7 @@ func main() {
 	slog.SetDefault(slog.New(logHandler))
 
 	// Run once on startup to test container setup, this is useful during development.
-	_, err := ghw.PCI(&option.Option{Chroot: chroot})
+	_, err := ghwPCI(ghw.WithChroot(*chroot))
 	if err != nil {
 		slog.Error("Failed to get PCI info", ilog.Err(err))
 		os.Exit(1)
