@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jaypipes/ghw"
-	"github.com/jaypipes/ghw/pkg/option"
 	"github.com/jaypipes/ghw/pkg/pci"
 	"github.com/jaypipes/ghw/pkg/util"
 	"github.com/jaypipes/pcidb"
@@ -40,9 +38,9 @@ var (
 )
 
 func TestPciCollector_Collect(t *testing.T) {
-	oldPCI := ghw.PCI
+	oldPCI := ghwPCI
 	t.Cleanup(func() {
-		ghw.PCI = oldPCI
+		ghwPCI = oldPCI
 	})
 
 	tests := []struct {
@@ -91,7 +89,7 @@ func TestPciCollector_Collect(t *testing.T) {
 	collector := newPciCollector()
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
-			ghw.PCI = func(opts ...*option.Option) (*pci.Info, error) {
+			ghwPCI = func(opts ...any) (*pci.Info, error) {
 				return &pci.Info{Devices: tc.devices}, nil
 			}
 			if err := testutil.CollectAndCompare(collector, strings.NewReader(tc.want), "pci_device_count"); err != nil {
