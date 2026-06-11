@@ -120,20 +120,34 @@ spec:
         app: crc-auth-gateway-catchall-svc
     spec:
       containers:
-      - name: nginx
-        image: nginxinc/nginx-unprivileged:1.31.1-alpine
+      - name: catchall
+        image: {{ .Values.registry }}{{ .Values.images.status_echo_server }}
         ports:
-        - containerPort: 8080
-        command: ["/bin/sh", "-c"]
+        - name: http
+          containerPort: 8080
+          protocol: TCP
         args:
-        - |
-          echo 'server {
-              listen 8080;
-              location / {
-                  add_header Content-Type text/plain;
-                  return 404 "Not Found\n";
-              }
-          }' > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'
+        - --port=8080
+        - --http_status=404
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          privileged: false
+          capabilities:
+              drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
 ---
 apiVersion: v1
 kind: Service
