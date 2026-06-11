@@ -50,6 +50,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+type workQueue = workqueue.TypedRateLimitingInterface[reconcile.Request]
+
 const (
 	fieldIndexOwners  = "metadata.ownerReferences.uid"
 	fieldIndexAppName = "spec.appName"
@@ -80,8 +82,7 @@ func Add(ctx context.Context, mgr manager.Manager, baseValues chartutil.Values) 
 	}
 
 	err = c.Watch(
-		source.Kind(mgr.GetCache(), &apps.AppRollout{}),
-		&handler.EnqueueRequestForObject{},
+		source.Kind(mgr.GetCache(), kclient.Object(&apps.AppRollout{}), &handler.EnqueueRequestForObject{}),
 	)
 	if err != nil {
 		return errors.Wrap(err, "watch AppRollouts")
@@ -89,19 +90,19 @@ func Add(ctx context.Context, mgr manager.Manager, baseValues chartutil.Values) 
 	// We don't trigger on ChartAssignment creations since it was either ourselves
 	// or a CA we don't care about anyway.
 	err = c.Watch(
-		source.Kind(mgr.GetCache(), &apps.ChartAssignment{}),
-		// We manually enqueue for the owner reference since handler.EnqueueRequestForOwner
-		// does not work.
-		// TODO: There is an associated bug in the controller-runtime but upgrading to include
-		// https://github.com/kubernetes-sigs/controller-runtime/pull/274 did not resolve the issue.
-		&handler.Funcs{
-			DeleteFunc: func(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				r.enqueueForOwner(evt.Object, q)
-			},
-			UpdateFunc: func(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
-				r.enqueueForOwner(evt.ObjectNew, q)
-			},
-		},
+		source.Kind(mgr.GetCache(), kclient.Object(&apps.ChartAssignment{}),
+			// We manually enqueue for the owner reference since handler.EnqueueRequestForOwner
+			// does not work.
+			// TODO: There is an associated bug in the controller-runtime but upgrading to include
+			// https://github.com/kubernetes-sigs/controller-runtime/pull/274 did not resolve the issue.
+			&handler.Funcs{
+				DeleteFunc: func(ctx context.Context, evt event.DeleteEvent, q workQueue) {
+					r.enqueueForOwner(evt.Object, q)
+				},
+				UpdateFunc: func(ctx context.Context, evt event.UpdateEvent, q workQueue) {
+					r.enqueueForOwner(evt.ObjectNew, q)
+				},
+			}),
 	)
 	if err != nil {
 		return errors.Wrap(err, "watch ChartAssignments")
@@ -109,52 +110,52 @@ func Add(ctx context.Context, mgr manager.Manager, baseValues chartutil.Values) 
 	// Determining which rollouts are affected by a robot change is tedious.
 	// We just enqueue all AppRollouts again.
 	err = c.Watch(
-		source.Kind(mgr.GetCache(), &registry.Robot{}),
-		// We log robot events for now while b/125308238 persists.
-		// To mitigate the effects we defer enqueueing in the delete handler
-		// so the robot ideally reappeared before we reconcile.
-		&handler.Funcs{
-			CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
-				slog.Info("AppRollout controller received create event", slog.String("Robot", e.Object.GetName()))
-				r.enqueueAll(ctx, q)
-			},
-			UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-				// Robots don't have the status subresource enabled. Filter updates that didn't
-				// change robot name or labels.
-				change := !reflect.DeepEqual(e.ObjectOld.GetLabels(), e.ObjectNew.GetLabels())
-				change = change || e.ObjectOld.GetName() != e.ObjectNew.GetName()
-				if change {
-					slog.Info("AppRollout controller received update event", slog.String("Robot", e.ObjectNew.GetName()))
+		source.Kind(mgr.GetCache(), kclient.Object(&registry.Robot{}),
+			// We log robot events for now while b/125308238 persists.
+			// To mitigate the effects we defer enqueueing in the delete handler
+			// so the robot ideally reappeared before we reconcile.
+			&handler.Funcs{
+				CreateFunc: func(ctx context.Context, e event.CreateEvent, q workQueue) {
+					slog.Info("AppRollout controller received create event", slog.String("Robot", e.Object.GetName()))
 					r.enqueueAll(ctx, q)
-				}
-			},
-			DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				slog.Info("AppRollout controller received delete event", slog.String("Robot", e.Object.GetName()))
-				time.AfterFunc(3*time.Second, func() {
-					r.enqueueAll(ctx, q)
-				})
-			},
-		},
+				},
+				UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workQueue) {
+					// Robots don't have the status subresource enabled. Filter updates that didn't
+					// change robot name or labels.
+					change := !reflect.DeepEqual(e.ObjectOld.GetLabels(), e.ObjectNew.GetLabels())
+					change = change || e.ObjectOld.GetName() != e.ObjectNew.GetName()
+					if change {
+						slog.Info("AppRollout controller received update event", slog.String("Robot", e.ObjectNew.GetName()))
+						r.enqueueAll(ctx, q)
+					}
+				},
+				DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workQueue) {
+					slog.Info("AppRollout controller received delete event", slog.String("Robot", e.Object.GetName()))
+					time.AfterFunc(3*time.Second, func() {
+						r.enqueueAll(ctx, q)
+					})
+				},
+			}),
 	)
 	if err != nil {
 		return errors.Wrap(err, "watch Robots")
 	}
 	err = c.Watch(
-		source.Kind(mgr.GetCache(), &apps.App{}),
-		&handler.Funcs{
-			CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
-				slog.Info("AppRollout controller received create event", slog.String("App", e.Object.GetName()))
-				r.enqueueForApp(ctx, e.Object, q)
-			},
-			UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-				slog.Info("AppRollout controller received update event", slog.String("App", e.ObjectNew.GetName()))
-				r.enqueueForApp(ctx, e.ObjectNew, q)
-			},
-			DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				slog.Info("AppRollout controller received delete event", slog.String("App", e.Object.GetName()))
-				r.enqueueForApp(ctx, e.Object, q)
-			},
-		},
+		source.Kind(mgr.GetCache(), kclient.Object(&apps.App{}),
+			&handler.Funcs{
+				CreateFunc: func(ctx context.Context, e event.CreateEvent, q workQueue) {
+					slog.Info("AppRollout controller received create event", slog.String("App", e.Object.GetName()))
+					r.enqueueForApp(ctx, e.Object, q)
+				},
+				UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workQueue) {
+					slog.Info("AppRollout controller received update event", slog.String("App", e.ObjectNew.GetName()))
+					r.enqueueForApp(ctx, e.ObjectNew, q)
+				},
+				DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workQueue) {
+					slog.Info("AppRollout controller received delete event", slog.String("App", e.Object.GetName()))
+					r.enqueueForApp(ctx, e.Object, q)
+				},
+			}),
 	)
 	if err != nil {
 		return errors.Wrap(err, "watch Apps")
@@ -163,7 +164,7 @@ func Add(ctx context.Context, mgr manager.Manager, baseValues chartutil.Values) 
 }
 
 // enqueueForApp enqueues all AppRollouts for the given app.
-func (r *Reconciler) enqueueForApp(ctx context.Context, m metav1.Object, q workqueue.RateLimitingInterface) {
+func (r *Reconciler) enqueueForApp(ctx context.Context, m metav1.Object, q workQueue) {
 	var rollouts apps.AppRolloutList
 	err := r.kube.List(ctx, &rollouts, kclient.MatchingFields(map[string]string{fieldIndexAppName: m.GetName()}))
 	if err != nil {
@@ -179,7 +180,7 @@ func (r *Reconciler) enqueueForApp(ctx context.Context, m metav1.Object, q workq
 
 // enqueueForOwner enqueues AppRollouts that are listed in the owner references
 // of the given resource metadata.
-func (r *Reconciler) enqueueForOwner(m metav1.Object, q workqueue.RateLimitingInterface) {
+func (r *Reconciler) enqueueForOwner(m metav1.Object, q workQueue) {
 	for _, or := range m.GetOwnerReferences() {
 		if or.APIVersion == "apps.cloudrobotics.com/v1alpha1" && or.Kind == "AppRollout" {
 			q.Add(reconcile.Request{
@@ -190,7 +191,7 @@ func (r *Reconciler) enqueueForOwner(m metav1.Object, q workqueue.RateLimitingIn
 }
 
 // enqueueAll enqueues all AppRollouts.
-func (r *Reconciler) enqueueAll(ctx context.Context, q workqueue.RateLimitingInterface) {
+func (r *Reconciler) enqueueAll(ctx context.Context, q workQueue) {
 	var rollouts apps.AppRolloutList
 	err := r.kube.List(ctx, &rollouts)
 	if err != nil {

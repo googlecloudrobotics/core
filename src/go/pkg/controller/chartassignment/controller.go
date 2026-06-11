@@ -39,6 +39,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+type workQueue = workqueue.TypedRateLimitingInterface[reconcile.Request]
+
 const (
 	// Allow the Service Account Controller some time to create the default
 	// SA in a new namespace.
@@ -77,25 +79,24 @@ func Add(ctx context.Context, mgr manager.Manager, cloud bool) error {
 		return errors.Wrap(err, "add field indexer")
 	}
 	err = c.Watch(
-		source.Kind(mgr.GetCache(), &apps.ChartAssignment{}),
-		&handler.EnqueueRequestForObject{},
+		source.Kind(mgr.GetCache(), kclient.Object(&apps.ChartAssignment{}), &handler.EnqueueRequestForObject{}),
 	)
 	if err != nil {
 		return err
 	}
 	err = c.Watch(
-		source.Kind(mgr.GetCache(), &core.Pod{}),
-		&handler.Funcs{
-			CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
-				r.enqueueForPod(ctx, e.Object, q)
-			},
-			UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-				r.enqueueForPod(ctx, e.ObjectNew, q)
-			},
-			DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				r.enqueueForPod(ctx, e.Object, q)
-			},
-		},
+		source.Kind(mgr.GetCache(), kclient.Object(&core.Pod{}),
+			&handler.Funcs{
+				CreateFunc: func(ctx context.Context, e event.CreateEvent, q workQueue) {
+					r.enqueueForPod(ctx, e.Object, q)
+				},
+				UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workQueue) {
+					r.enqueueForPod(ctx, e.ObjectNew, q)
+				},
+				DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workQueue) {
+					r.enqueueForPod(ctx, e.Object, q)
+				},
+			}),
 	)
 	if err != nil {
 		return errors.Wrap(err, "watch Apps")
@@ -103,7 +104,7 @@ func Add(ctx context.Context, mgr manager.Manager, cloud bool) error {
 	return nil
 }
 
-func (r *Reconciler) enqueueForPod(ctx context.Context, m meta.Object, q workqueue.RateLimitingInterface) {
+func (r *Reconciler) enqueueForPod(ctx context.Context, m meta.Object, q workQueue) {
 	var cas apps.ChartAssignmentList
 	err := r.kube.List(ctx, &cas, kclient.MatchingFields(map[string]string{fieldIndexNamespace: m.GetNamespace()}))
 	if err != nil {
