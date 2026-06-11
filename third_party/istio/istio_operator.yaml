@@ -35,6 +35,7 @@ spec:
           port: "8080"
           includeRequestHeadersInCheck: 
           - "authorization"
+          - "cookie"
           - "x-forwarded-access-token"
           - "x-auth-url"
           headersToUpstreamOnAllow: 
