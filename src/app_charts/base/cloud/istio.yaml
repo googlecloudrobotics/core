@@ -123,7 +123,9 @@ spec:
       - name: catchall
         image: {{ .Values.registry }}{{ .Values.images.status_echo_server }}
         ports:
-        - containerPort: 8080
+        - name: http
+          containerPort: 8080
+          protocol: TCP
         args:
         - --port=8080
         - --http_status=404
@@ -133,6 +135,19 @@ spec:
         livenessProbe:
           tcpSocket:
             port: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          privileged: false
+          capabilities:
+              drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
 ---
 apiVersion: v1
 kind: Service
