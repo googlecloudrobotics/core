@@ -47,7 +47,7 @@ func parseURL(urlString string) (*incomingRequest, error) {
 	//                             parts[0] parts[1] parts[2]   parts[3]   parts[4] parts[5]
 	parts := strings.Split(strings.TrimPrefix(url.Path, "/apis/core.kubernetes/apis/"), "/")
 	if len(parts) < 3 || len(parts) > 7 {
-		return nil, fmt.Errorf("unexpected URL path %q (split into %d parts)", url.Path, len(parts))
+		return nil, fmt.Errorf("unexpected URL path %q (split into %d path segments, expeced betwen 3 and 7)", url.Path, len(parts))
 	}
 	if parts[2] != "namespaces" {
 		// Add in "/namespaces/default" so remaining code can use fixed indices.
