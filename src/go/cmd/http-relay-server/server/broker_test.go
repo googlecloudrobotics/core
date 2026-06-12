@@ -17,6 +17,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"sync"
 	"testing"
@@ -291,8 +292,8 @@ func TestReapWhileSendingResponse(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		reqErr = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(false)})
-		if reqErr == nil || reqErr.Error() != "closed due to inactivity" {
-			t.Errorf("Wrong SendResponse error or no error:", reqErr)
+		if !errors.Is(reqErr, ErrClosedInactivity) {
+			t.Errorf("Wrong SendResponse error: %v; want %v", reqErr, ErrClosedInactivity)
 		}
 		wg.Done()
 	}()

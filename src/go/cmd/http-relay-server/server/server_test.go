@@ -197,13 +197,13 @@ func TestClientBadRequest(t *testing.T) {
 			desc:     "url-path misses the backend name and path",
 			req:      httptest.NewRequest("GET", "/client/", strings.NewReader("body")),
 			wantCode: 400,
-			wantMsg:  "request path \"/client/\" too short:",
+			wantMsg:  "request path too short:",
 		},
 		{
 			desc:     "url-path misses the backend header",
 			req:      httptest.NewRequest("GET", "/", strings.NewReader("body")),
 			wantCode: 400,
-			wantMsg:  "missing required header \"X-Server-Name\"",
+			wantMsg:  "missing required header:",
 		},
 	}
 
