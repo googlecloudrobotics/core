@@ -189,7 +189,7 @@ func (s *Synk) Init() error {
 				return err
 			}
 			if !ok {
-				return errors.New("crd not available")
+				return errors.Errorf("CRD %q is not available", u.GetName())
 			}
 			return nil
 		},
@@ -682,7 +682,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 	// TODO: This may be valid if generateName is set instead. In this case we
 	// want to create the resource in any case.
 	if resource.GetName() == "" {
-		return apps.ResourceActionNone, errors.New("missing resource name")
+		return apps.ResourceActionNone, errors.Errorf("missing resource name for %s", resource.GroupVersionKind().String())
 	}
 	ctx, span := trace.StartSpan(ctx, "Apply "+resource.GetName())
 	defer span.End()

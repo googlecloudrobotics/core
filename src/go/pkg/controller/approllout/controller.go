@@ -812,7 +812,7 @@ func (v *appRolloutValidator) Handle(_ context.Context, req admission.Request) a
 
 func appRolloutValidate(cur *apps.AppRollout) error {
 	if cur.Spec.AppName == "" {
-		return errors.New("app name missing")
+		return errors.Errorf("spec.appName is missing for AppRollout %q", cur.Name)
 	}
 	errs := validation.NameIsDNSSubdomain(cur.Spec.AppName, false)
 	if len(errs) > 0 {

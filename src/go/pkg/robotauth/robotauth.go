@@ -25,7 +25,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -89,7 +88,7 @@ func LoadFromK8sSecret(ctx context.Context, clientset kubernetes.Interface, name
 	}
 	encoded, ok := s.Data["json"]
 	if !ok {
-		return nil, fmt.Errorf("could not find json key in secret's data")
+		return nil, fmt.Errorf("could not find 'json' key in secret %s/%s data", namespace, "robot-auth")
 	}
 	var ret RobotAuth
 	if err := json.NewDecoder(bytes.NewReader(encoded)).Decode(&ret); err != nil {
@@ -186,7 +185,7 @@ func (r *RobotAuth) CreateRobotTokenSource(ctx context.Context, gcpSaChain ...st
 func (r *RobotAuth) CreateJWT(ctx context.Context, lifetime time.Duration) (string, error) {
 	p, _ := pem.Decode(r.PrivateKey)
 	if p == nil {
-		return "", fmt.Errorf("decode private key")
+		return "", fmt.Errorf("failed to decode private key for robot %q", r.RobotName)
 	}
 	parsedKey, err := x509.ParsePKCS8PrivateKey(p.Bytes)
 	if err != nil {
@@ -197,7 +196,7 @@ func (r *RobotAuth) CreateJWT(ctx context.Context, lifetime time.Duration) (stri
 	}
 	parsed, ok := parsedKey.(*rsa.PrivateKey)
 	if !ok {
-		return "", fmt.Errorf("private key is invalid")
+		return "", fmt.Errorf("private key for robot %q is invalid", r.RobotName)
 	}
 
 	// We re-use the token audience here.
@@ -231,7 +230,7 @@ func (r *RobotAuth) CreateJWT(ctx context.Context, lifetime time.Duration) (stri
 // RobotAuth#ProjectId is needed for robot. This should be very rare.
 func (r *RobotAuth) ServiceAccountEmail(saName string) (string, error) {
 	if saName == "" {
-		return "", errors.New("empty name")
+		return "", fmt.Errorf("empty service account name for robot %q", r.RobotName)
 	}
 
 	if _, err := mail.ParseAddress(saName); err != nil {
@@ -239,7 +238,7 @@ func (r *RobotAuth) ServiceAccountEmail(saName string) (string, error) {
 	}
 
 	if !strings.HasSuffix(saName, ".iam.gserviceaccount.com") {
-		return "", fmt.Errorf("unexpected service account email value, %s", saName)
+		return "", fmt.Errorf("unexpected service account email value %q for robot %q", saName, r.RobotName)
 	}
 
 	return saName, nil
