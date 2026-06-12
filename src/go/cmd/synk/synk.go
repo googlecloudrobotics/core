@@ -26,7 +26,6 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	"github.com/googlecloudrobotics/ilog"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -90,17 +89,17 @@ func main() {
 func newSynk() (*synk.Synk, error) {
 	restcfg, err := restOpts.ToRESTConfig()
 	if err != nil {
-		return nil, errors.Wrap(err, "get config")
+		return nil, fmt.Errorf("get config: %w", err)
 	}
 	restcfg.QPS = float32(maxQPS)
 	restcfg.Burst = maxQPS * 2
 	discovery, err := restOpts.ToDiscoveryClient()
 	if err != nil {
-		return nil, errors.Wrap(err, "get discovery client")
+		return nil, fmt.Errorf("get discovery client: %w", err)
 	}
 	client, err := dynamic.NewForConfig(restcfg)
 	if err != nil {
-		return nil, errors.Wrap(err, "create dynamic client")
+		return nil, fmt.Errorf("create dynamic client: %w", err)
 	}
 	s := synk.New(client, discovery)
 
@@ -169,11 +168,11 @@ func apply(name string) error {
 		Do()
 
 	if result.Err() != nil {
-		return errors.Wrap(result.Err(), "get files")
+		return fmt.Errorf("get files: %w", result.Err())
 	}
 	infos, err := result.Infos()
 	if err != nil {
-		return errors.Wrap(err, "get file information")
+		return fmt.Errorf("get file information: %w", err)
 	}
 	var resources []*unstructured.Unstructured
 	for _, i := range infos {
@@ -202,7 +201,7 @@ func apply(name string) error {
 		},
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(retryBackoff), retries),
 	); err != nil {
-		return errors.Wrap(err, "apply files")
+		return fmt.Errorf("apply files: %w", err)
 	}
 	return nil
 }

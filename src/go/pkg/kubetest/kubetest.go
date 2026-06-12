@@ -22,6 +22,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -37,7 +38,6 @@ import (
 	"github.com/cenkalti/backoff"
 	crcapps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -123,7 +123,7 @@ func New(t *testing.T, cfg Config) *Environment {
 						os.Remove(cluster.kubeConfigPath)
 					}
 				}
-				return errors.Wrapf(err, "Create cluster %q", cfg.Name)
+				return fmt.Errorf("Create cluster %q: %w", cfg.Name, err)
 			}
 			slog.Info("Created cluster", slog.String("Name", cfg.Name))
 			return nil
@@ -356,11 +356,11 @@ func setupCluster(synkPath string, cluster *cluster) error {
 	// Create kubeconfig file for use by synk or the dev.
 	kubeConfig, err := os.CreateTemp("", "kubeconfig-")
 	if err != nil {
-		return errors.Wrap(err, "create temp kubeconfig")
+		return fmt.Errorf("create temp kubeconfig: %w", err)
 	}
 	cluster.kubeConfigPath = kubeConfig.Name()
 	if err := kubeConfig.Close(); err != nil {
-		return errors.Wrap(err, "close temp kubeconfig")
+		return fmt.Errorf("close temp kubeconfig: %w", err)
 	}
 
 	if err := cluster.kind.Create(
@@ -368,19 +368,19 @@ func setupCluster(synkPath string, cluster *cluster) error {
 		kindcluster.CreateWithV1Alpha4Config(kindcfg),
 		kindcluster.CreateWithKubeconfigPath(cluster.kubeConfigPath),
 	); err != nil {
-		return errors.Wrapf(err, "create cluster %q", cluster.genName)
+		return fmt.Errorf("create cluster %q: %w", cluster.genName, err)
 	}
 	kubecfgRaw, err := os.ReadFile(cluster.kubeConfigPath)
 	if err != nil {
-		return errors.Wrap(err, "read kube config")
+		return fmt.Errorf("read kube config: %w", err)
 	}
 	kubecfg, err := clientcmd.NewClientConfigFromBytes(kubecfgRaw)
 	if err != nil {
-		return errors.Wrap(err, "decode kube config")
+		return fmt.Errorf("decode kube config: %w", err)
 	}
 	cluster.restCfg, err = kubecfg.ClientConfig()
 	if err != nil {
-		return errors.Wrap(err, "get rest config")
+		return fmt.Errorf("get rest config: %w", err)
 	}
 	fmt.Printf("To use the cluster, run KUBECONFIG=%s kubectl cluster-info", cluster.kubeConfigPath)
 
@@ -389,7 +389,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 
 	c, err := client.New(cluster.restCfg, client.Options{})
 	if err != nil {
-		return errors.Wrap(err, "create client")
+		return fmt.Errorf("create client: %w", err)
 	}
 	if err := c.Create(ctx, &rbac.ClusterRoleBinding{
 		ObjectMeta: meta.ObjectMeta{
@@ -406,7 +406,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 			Name:     "system:serviceaccounts",
 		}},
 	}); err != nil {
-		return errors.Wrap(err, "create permissive role binding")
+		return fmt.Errorf("create permissive role binding: %w", err)
 	}
 
 	// Setup service account and create image pull secrets.
@@ -426,7 +426,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 			},
 		}
 		if err := c.Create(ctx, secret); err != nil {
-			return errors.Wrap(err, "create pull secret")
+			return fmt.Errorf("create pull secret: %w", err)
 		}
 		if err := backoff.Retry(
 			func() error {
@@ -435,7 +435,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 				if k8serrors.IsNotFound(err) {
 					return errors.New("not found")
 				} else if err != nil {
-					return backoff.Permanent(errors.Wrap(err, "get service account"))
+					return backoff.Permanent(fmt.Errorf("get service account: %w", err))
 				}
 				sa.ImagePullSecrets = append(sa.ImagePullSecrets, core.LocalObjectReference{
 					Name: gcr.SecretName,
@@ -443,13 +443,13 @@ func setupCluster(synkPath string, cluster *cluster) error {
 				if err = c.Update(ctx, &sa); k8serrors.IsConflict(err) {
 					return fmt.Errorf("conflict updating service account %s/%s", sa.Namespace, sa.Name)
 				} else if err != nil {
-					return backoff.Permanent(errors.Wrap(err, "update service account"))
+					return backoff.Permanent(fmt.Errorf("update service account: %w", err))
 				}
 				return nil
 			},
 			backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 60),
 		); err != nil {
-			return errors.Wrap(err, "inject pull secret")
+			return fmt.Errorf("inject pull secret: %w", err)
 		}
 	}
 
@@ -470,7 +470,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 		},
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 240),
 	); err != nil {
-		return errors.Wrap(err, "wait for node taints to be removed")
+		return fmt.Errorf("wait for node taints to be removed: %w", err)
 	}
 	cmd := exec.Command(
 		synkPath,
@@ -478,7 +478,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 		"--kubeconfig", cluster.kubeConfigPath,
 	)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return errors.Errorf("install Helm: %v; output:\n%s\n", err, output)
+		return fmt.Errorf("install Helm: %v; output:\n%s\n", err, output)
 	}
 	return nil
 }
@@ -488,7 +488,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 func DeploymentReady(ctx context.Context, c client.Client, namespace, name string) error {
 	var d apps.Deployment
 	if err := c.Get(ctx, client.ObjectKey{namespace, name}, &d); err != nil {
-		return backoff.Permanent(errors.Wrapf(err, "get deployment %s/%s", namespace, name))
+		return backoff.Permanent(fmt.Errorf("get deployment %s/%s: %w", namespace, name, err))
 	}
 	if d.Spec.Replicas == nil {
 		if d.Status.ReadyReplicas <= 0 {
@@ -521,3 +521,4 @@ func (f *Fixture) ChartAssignmentHasStatus(ca *crcapps.ChartAssignment, expected
 		return nil
 	}
 }
+

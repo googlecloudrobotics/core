@@ -29,13 +29,13 @@ app_chart(
     extra_templates = [
         "//third_party/kube-prometheus-stack:00-crds.yaml",
     ],
+    extra_values = ["values-cloud.yaml"],
     files = [
         ":prometheus-operator-chart.cloud",
     ],
     images = {
         "http-relay-server": "//src/go/cmd/http-relay-server:http-relay-server-image",
     },
-    extra_values = ["values-cloud.yaml"],
 )
 
 app_chart(

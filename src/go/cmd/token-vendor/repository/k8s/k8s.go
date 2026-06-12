@@ -20,8 +20,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/pkg/errors"
-
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,10 +103,10 @@ func (k *K8sRepository) LookupKey(ctx context.Context, deviceID string) (*reposi
 	slog.Debug("looking up public key", slog.String("Namespace", k.ns), slog.String("ConfigMap", deviceID))
 	obj, exists, err := k.cmInformer.GetStore().GetByKey(k.ns + "/" + deviceID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to retrieve configmap %q/%q from cache", k.ns, deviceID)
+		return nil, fmt.Errorf("failed to retrieve configmap %q/%q from cache: %w", k.ns, deviceID, err)
 	}
 	if !exists {
-		return nil, errors.Wrapf(repository.ErrNotFound, "failed to retrieve configmap %q/%q", k.ns, deviceID)
+		return nil, fmt.Errorf("failed to retrieve configmap %q/%q: %w", k.ns, deviceID, repository.ErrNotFound)
 	}
 	cm, ok := obj.(*corev1.ConfigMap)
 	if !ok {
@@ -132,7 +130,7 @@ func (k *K8sRepository) PublishKey(ctx context.Context, deviceID, publicKey stri
 	slog.Debug("publishing key", slog.String("DeviceID", deviceID))
 	cm, err := createPubKeyDeviceConfig(deviceID, k.ns, publicKey)
 	if err != nil {
-		return errors.Wrapf(err, "failed to init device configmap %q/%q", k.ns, deviceID)
+		return fmt.Errorf("failed to init device configmap %q/%q: %w", k.ns, deviceID, err)
 	}
 	_, err = k.kcl.CoreV1().ConfigMaps(k.ns).Create(ctx, cm, metav1.CreateOptions{})
 	if err == nil { // no error
@@ -143,13 +141,13 @@ func (k *K8sRepository) PublishKey(ctx context.Context, deviceID, publicKey stri
 		return nil
 	}
 	if !kerrors.IsAlreadyExists(err) { // any error not AlreadyExist
-		return errors.Wrapf(err, "failed to create device configmap %q/%q", k.ns, deviceID)
+		return fmt.Errorf("failed to create device configmap %q/%q: %w", k.ns, deviceID, err)
 	}
 	// AlreadyExist error, updating configmap.
 	// We do not want to override any other keys besides the public key here.
 	// createPubKeyDeviceConfig only creates a minimum configmap so updating is safe here.
 	if _, err := k.kcl.CoreV1().ConfigMaps(k.ns).Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
-		return errors.Wrapf(err, "configmap %q/%q exists but failed to update it", k.ns, deviceID)
+		return fmt.Errorf("configmap %q/%q exists but failed to update it: %w", k.ns, deviceID, err)
 	}
 	// Update the informer store so that LookupKey can be used immediately.
 	if err := k.cmInformer.GetStore().Update(cm); err != nil {
@@ -162,9 +160,9 @@ func (k *K8sRepository) ConfigureKey(ctx context.Context, deviceID string, opts 
 	cm, err := k.kcl.CoreV1().ConfigMaps(k.ns).Get(ctx, deviceID, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return errors.Wrapf(repository.ErrNotFound, "failed to retrieve configmap %q/%q", k.ns, deviceID)
+			return fmt.Errorf("failed to retrieve configmap %q/%q: %w", k.ns, deviceID, repository.ErrNotFound)
 		}
-		return errors.Wrapf(err, "failed to retrieve configmap %q/%q from cache", k.ns, deviceID)
+		return fmt.Errorf("failed to retrieve configmap %q/%q from cache: %w", k.ns, deviceID, err)
 	}
 	if cm.ObjectMeta.Annotations == nil {
 		cm.ObjectMeta.Annotations = make(map[string]string)
@@ -172,7 +170,7 @@ func (k *K8sRepository) ConfigureKey(ctx context.Context, deviceID string, opts 
 	mapSetOrDelete(cm.ObjectMeta.Annotations, serviceAccountAnnotation, opts.ServiceAccount)
 	mapSetOrDelete(cm.ObjectMeta.Annotations, serviceAccountDelegateAnnotation, opts.ServiceAccountDelegate)
 	if _, err := k.kcl.CoreV1().ConfigMaps(k.ns).Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
-		return errors.Wrapf(err, "failed to update configmap %q/%q", k.ns, deviceID)
+		return fmt.Errorf("failed to update configmap %q/%q: %w", k.ns, deviceID, err)
 	}
 	// Update the informer store so that LookupKey can be used immediately.
 	if err := k.cmInformer.GetStore().Update(cm); err != nil {

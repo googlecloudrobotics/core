@@ -18,10 +18,10 @@ app_chart(
         "//third_party/akri:akri-configuration-crd.yaml",
         "//third_party/akri:akri-instance-crd.yaml",
     ],
+    extra_values = ["values-robot.yaml"],
     files = [
         ":akri-chart.robot",
     ],
-    extra_values = ["values-robot.yaml"],
 )
 
 app(

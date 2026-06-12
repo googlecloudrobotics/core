@@ -3,13 +3,13 @@ load("//bazel:app_chart.bzl", "app_chart")
 
 app_chart(
     name = "token-vendor-cloud",
+    extra_values = ["values-cloud.yaml"],
     files = [
         "dashboard.json",
     ],
     images = {
         "token-vendor-go": "//src/go/cmd/token-vendor:token-vendor-image",
     },
-    extra_values = ["values-cloud.yaml"],
 )
 
 app(

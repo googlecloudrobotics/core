@@ -16,6 +16,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/mail"
@@ -23,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -141,7 +141,7 @@ var jwtVerifySignature = jwt.VerifySignature
 func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (*DeviceAuth, error) {
 	p, err := jwt.PayloadUnsafe(jwtk)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to extract JWT payload")
+		return nil, fmt.Errorf("failed to extract JWT payload: %w", err)
 	}
 	exp := time.Unix(p.Exp, 0)
 	if exp.Before(time.Now()) {
@@ -149,7 +149,7 @@ func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (*DeviceAut
 			exp, time.Since(exp), p.Iss)
 	}
 	if err := acceptedAudience(p.Aud, tv.accAud); err != nil {
-		return nil, errors.Wrapf(err, "validation of JWT audience failed (iss: %q)", p.Iss)
+		return nil, fmt.Errorf("validation of JWT audience failed (iss: %q): %w", p.Iss, err)
 	}
 	if !IsValidDeviceID(p.Iss) {
 		return nil, fmt.Errorf("missing or invalid device identifier (`iss`: %q)", p.Iss)
@@ -157,14 +157,14 @@ func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (*DeviceAut
 	deviceID := p.Iss
 	k, err := tv.repo.LookupKey(ctx, deviceID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to retrieve public Key for device %q", deviceID)
+		return nil, fmt.Errorf("failed to retrieve public Key for device %q: %w", deviceID, err)
 	}
 	if k.PublicKey == "" {
-		return nil, errors.Errorf("no public Key found for device %q", deviceID)
+		return nil, fmt.Errorf("no public Key found for device %q", deviceID)
 	}
 	err = jwtVerifySignature(jwtk, k.PublicKey)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to verify signature for device %q", deviceID)
+		return nil, fmt.Errorf("failed to verify signature for device %q: %w", deviceID, err)
 	}
 
 	effectiveSub := p.Sub
@@ -210,7 +210,7 @@ func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokens
 	}
 	cloudToken, err := tv.ts.Token(ctx, saName, delegate)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to retrieve a cloud token for device %q", authInfo.DeviceID)
+		return nil, fmt.Errorf("failed to retrieve a cloud token for device %q: %w", authInfo.DeviceID, err)
 	}
 	slog.Info("Handing out cloud token", slog.String("DeviceID", authInfo.DeviceID), slog.String("ServiceAccount", saName),
 		slog.String("ActAs", authInfo.ServiceAcc))

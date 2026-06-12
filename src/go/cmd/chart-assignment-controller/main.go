@@ -28,7 +28,6 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment"
 	"github.com/googlecloudrobotics/ilog"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -115,13 +114,13 @@ func runController(ctx context.Context, cfg *rest.Config, cluster string) error 
 		HealthProbeBindAddress: fmt.Sprintf(":%d", *healthzPort),
 	})
 	if err != nil {
-		return errors.Wrap(err, "create controller manager")
+		return fmt.Errorf("create controller manager: %w", err)
 	}
 	if err := chartassignment.Add(ctx, mgr, *cloudCluster); err != nil {
-		return errors.Wrap(err, "add ChartAssignment controller")
+		return fmt.Errorf("add ChartAssignment controller: %w", err)
 	}
 	if err := mgr.AddHealthzCheck("trivial", healthz.Ping); err != nil {
-		return errors.Wrap(err, "add healthz check")
+		return fmt.Errorf("add healthz check: %w", err)
 	}
 
 	if *webhookEnabled {

@@ -24,7 +24,6 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"github.com/googlecloudrobotics/ilog"
-	"github.com/pkg/errors"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,7 +75,7 @@ func Add(ctx context.Context, mgr manager.Manager, cloud bool) error {
 		},
 	)
 	if err != nil {
-		return errors.Wrap(err, "add field indexer")
+		return fmt.Errorf("add field indexer: %w", err)
 	}
 	err = c.Watch(
 		source.Kind(mgr.GetCache(), kclient.Object(&apps.ChartAssignment{}), &handler.EnqueueRequestForObject{}),
@@ -99,7 +98,7 @@ func Add(ctx context.Context, mgr manager.Manager, cloud bool) error {
 			}),
 	)
 	if err != nil {
-		return errors.Wrap(err, "watch Apps")
+		return fmt.Errorf("watch Apps: %w", err)
 	}
 	return nil
 }
@@ -333,7 +332,7 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 	if !stringsContain(as.Finalizers, finalizer) {
 		as.Finalizers = append(as.Finalizers, finalizer)
 		if err := r.kube.Update(ctx, as); err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "add finalizer")
+			return reconcile.Result{}, fmt.Errorf("add finalizer: %w", err)
 		}
 	}
 
@@ -346,7 +345,7 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 			// https://github.com/kubernetes-sigs/controller-runtime/issues/377
 			return reconcile.Result{}, nil
 		}
-		return reconcile.Result{}, errors.Wrap(err, "update status")
+		return reconcile.Result{}, fmt.Errorf("update status: %w", err)
 	}
 	// Quickly requeue for status updates when deployment is in progress.
 	switch as.Status.Phase {
@@ -389,7 +388,7 @@ func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) er
 			setCondition(as, apps.ChartAssignmentConditionReady, condition(false),
 				"waiting for namespace creation")
 		} else {
-			return errors.Wrap(err, "get namespace")
+			return fmt.Errorf("get namespace: %w", err)
 		}
 	} else {
 		// Determine readiness based on pods in the app namespace being ready.
@@ -397,7 +396,7 @@ func (r *Reconciler) setStatus(ctx context.Context, as *apps.ChartAssignment) er
 		var pods core.PodList
 		// Note, this return 0 is the namespace has not been created!
 		if err := r.kube.List(ctx, &pods, kclient.InNamespace(as.Spec.NamespaceName)); err != nil {
-			return errors.Wrap(err, "list pods")
+			return fmt.Errorf("list pods: %w", err)
 		}
 
 		// Omit pods that have opted out of status checking.

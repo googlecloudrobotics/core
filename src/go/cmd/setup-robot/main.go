@@ -17,6 +17,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -31,7 +32,6 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
 	"github.com/googlecloudrobotics/ilog"
-	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
@@ -154,7 +154,7 @@ func checkRobotName(ctx context.Context, client dynamic.Interface) error {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		return errors.Wrap(err, "list local robots")
+		return fmt.Errorf("list local robots: %w", err)
 	}
 	for _, r := range robots.Items {
 		if r.GetName() != *robotName {

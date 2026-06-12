@@ -27,7 +27,6 @@ import (
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/controller/approllout"
 	"github.com/googlecloudrobotics/ilog"
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -90,13 +89,13 @@ func runController(ctx context.Context, cfg *rest.Config, params map[string]inte
 		HealthProbeBindAddress: fmt.Sprintf(":%d", *healthzPort),
 	})
 	if err != nil {
-		return errors.Wrap(err, "create controller manager")
+		return fmt.Errorf("create controller manager: %w", err)
 	}
 	if err := approllout.Add(ctx, mgr, chartutil.Values(params)); err != nil {
-		return errors.Wrap(err, "add AppRollout controller")
+		return fmt.Errorf("add AppRollout controller: %w", err)
 	}
 	if err := mgr.AddHealthzCheck("trivial", healthz.Ping); err != nil {
-		return errors.Wrap(err, "add healthz check")
+		return fmt.Errorf("add healthz check: %w", err)
 	}
 
 	srv := mgr.GetWebhookServer()

@@ -1,5 +1,5 @@
 load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-load("@io_bazel_rules_go//go:def.bzl", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 
 # gazelle:go_test file
@@ -7,6 +7,7 @@ load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 proto_library(
     name = "grpc_test_proto",
     srcs = ["grpc_test.proto"],
+    visibility = ["//visibility:public"],
 )
 
 go_proto_library(
@@ -14,6 +15,7 @@ go_proto_library(
     compilers = ["@io_bazel_rules_go//proto:go_grpc"],
     importpath = "github.com/googlecloudrobotics/core/src/go/tests/relay",
     proto = ":grpc_test_proto",
+    visibility = ["//visibility:public"],
 )
 
 go_test(
@@ -23,6 +25,7 @@ go_test(
     # https://github.com/googlecloudrobotics/core/issues/507
     flaky = True,
     deps = [
+        ":go_default_library",
         "//src/go/cmd/http-relay-client/client:go_default_library",
         "//src/go/cmd/http-relay-server/server:go_default_library",
         "@com_github_golang_glog//:go_default_library",
@@ -34,14 +37,13 @@ go_test(
     size = "small",
     srcs = ["grpc_test.go"],
     deps = [
-        ":grpc_test_proto_go",
+        ":go_default_library",
         "//src/go/cmd/http-relay-client/client:go_default_library",
         "//src/go/cmd/http-relay-server/server:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//metadata:go_default_library",
     ],
 )
-
 
 go_test(
     name = "nok8s_relay_test",
@@ -53,8 +55,8 @@ go_test(
     ],
     rundir = ".",
     deps = [
+        ":go_default_library",
         "//src/go/cmd/http-relay-client/client:go_default_library",
-        "@com_github_pkg_errors//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//interop/grpc_testing:go_default_library",
@@ -62,4 +64,11 @@ go_test(
         "@org_golang_google_grpc//status:go_default_library",
         "@org_golang_x_net//websocket:go_default_library",
     ],
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":grpc_test_proto_go"],
+    importpath = "github.com/googlecloudrobotics/core/src/go/tests/relay",
+    visibility = ["//visibility:public"],
 )

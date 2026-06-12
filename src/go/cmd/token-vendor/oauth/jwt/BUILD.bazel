@@ -5,10 +5,7 @@ go_library(
     srcs = ["jwt.go"],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth/jwt",
     visibility = ["//visibility:public"],
-    deps = [
-        "@com_github_form3tech_oss_jwt_go//:go_default_library",
-        "@com_github_pkg_errors//:go_default_library",
-    ],
+    deps = ["@com_github_form3tech_oss_jwt_go//:go_default_library"],
 )
 
 go_test(
