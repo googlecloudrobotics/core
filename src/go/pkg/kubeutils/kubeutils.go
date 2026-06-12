@@ -139,9 +139,9 @@ func UpdateSecret(ctx context.Context, k8s kubernetes.Interface, input *corev1.S
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				_, err = s.Create(ctx, input, metav1.CreateOptions{})
-				return backoff.Permanent(errors.Wrap(err, "create secret"))
+				return backoff.Permanent(errors.Wrapf(err, "failed to create secret %s/%s", input.Namespace, input.Name))
 			}
-			return backoff.Permanent(errors.Wrap(err, "get secret"))
+			return backoff.Permanent(errors.Wrapf(err, "failed to get secret %s/%s", input.Namespace, input.Name))
 		}
 		secret.Labels = input.Labels
 		secret.Annotations = input.Annotations
@@ -151,7 +151,7 @@ func UpdateSecret(ctx context.Context, k8s kubernetes.Interface, input *corev1.S
 			// Retry conflicts.
 			return err
 		}
-		return backoff.Permanent(errors.Wrap(err, "update secret"))
+		return backoff.Permanent(errors.Wrapf(err, "failed to update secret %s/%s", input.Namespace, input.Name))
 	}, b)
 
 }

@@ -441,7 +441,7 @@ func setupCluster(synkPath string, cluster *cluster) error {
 					Name: gcr.SecretName,
 				})
 				if err = c.Update(ctx, &sa); k8serrors.IsConflict(err) {
-					return fmt.Errorf("conflict")
+					return fmt.Errorf("conflict updating service account %s/%s", sa.Namespace, sa.Name)
 				} else if err != nil {
 					return backoff.Permanent(errors.Wrap(err, "update service account"))
 				}

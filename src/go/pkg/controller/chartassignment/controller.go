@@ -435,7 +435,7 @@ func (r *Reconciler) ensureDeleted(ctx context.Context, as *apps.ChartAssignment
 	r.releases.ensureDeleted(as)
 	status, ok := r.releases.status(as.Name)
 	if !ok {
-		return fmt.Errorf("release status not found")
+		return fmt.Errorf("release status not found for ChartAssignment %q", as.Name)
 	}
 
 	if status.phase != apps.ChartAssignmentPhaseDeleted {

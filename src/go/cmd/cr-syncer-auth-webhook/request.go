@@ -8,8 +8,6 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // Regex for RFC 1123 subdomain format
@@ -49,7 +47,7 @@ func parseURL(urlString string) (*incomingRequest, error) {
 	//                             parts[0] parts[1] parts[2]   parts[3]   parts[4] parts[5]
 	parts := strings.Split(strings.TrimPrefix(url.Path, "/apis/core.kubernetes/apis/"), "/")
 	if len(parts) < 3 || len(parts) > 7 {
-		return nil, errors.New("unexpected URL length")
+		return nil, fmt.Errorf("unexpected URL path %q (split into %d parts)", url.Path, len(parts))
 	}
 	if parts[2] != "namespaces" {
 		// Add in "/namespaces/default" so remaining code can use fixed indices.
@@ -74,11 +72,11 @@ func parseURL(urlString string) (*incomingRequest, error) {
 		return &result, nil
 	}
 	if len(labelSelectors) > 1 || !strings.HasPrefix(labelSelectors[0], robotNameSelectorPrefix) {
-		return nil, errors.New("invalid label selector")
+		return nil, fmt.Errorf("invalid label selector %v", labelSelectors)
 	}
 	result.RobotName = strings.TrimPrefix(labelSelectors[0], robotNameSelectorPrefix)
 	if !isValidRobotName(result.RobotName) {
-		return nil, errors.New("invalid robot name")
+		return nil, fmt.Errorf("invalid robot name %q", result.RobotName)
 	}
 	return &result, nil
 }

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -123,7 +124,7 @@ func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *
 	if err != nil {
 		return fmt.Errorf("failed to list namespaces: %v", err)
 	}
-	haveError := false
+	var failedNamespaces []string
 	for _, ns := range nsList.Items {
 		if ns.DeletionTimestamp != nil {
 			slog.Info("namespace is marked for deletion, skipping", slog.String("Namespace", ns.ObjectMeta.Name))
@@ -160,7 +161,7 @@ func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *
 			slog.Error("failed to update kubernetes secret",
 				slog.String("Namespace", namespace),
 				ilog.Err(err))
-			haveError = true
+			failedNamespaces = append(failedNamespaces, namespace)
 			continue
 		}
 		// Tell k8s to use this key by pointing the default SA at it.
@@ -169,11 +170,11 @@ func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *
 			slog.Error("failed to update kubernetes service account",
 				slog.String("Namespace", namespace),
 				ilog.Err(err))
-			haveError = true
+			failedNamespaces = append(failedNamespaces, namespace)
 		}
 	}
-	if haveError {
-		return fmt.Errorf("failed to update one or more namespaces")
+	if len(failedNamespaces) > 0 {
+		return fmt.Errorf("failed to update GCR credentials in namespaces: %s", strings.Join(failedNamespaces, ", "))
 	}
 	return nil
 }

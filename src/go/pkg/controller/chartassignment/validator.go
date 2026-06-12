@@ -67,24 +67,24 @@ func (v *chartAssignmentValidator) Handle(_ context.Context, req admission.Reque
 
 func (v *chartAssignmentValidator) validate(cur, old *apps.ChartAssignment) error {
 	if cur.Spec.NamespaceName == "" {
-		return fmt.Errorf("namespace name missing")
+		return fmt.Errorf("invalid ChartAssignment %q: spec.namespaceName is missing", cur.Name)
 	}
 	errs := validation.ValidateNamespaceName(cur.Spec.NamespaceName, false)
 	if len(errs) > 0 {
-		return fmt.Errorf("invalid namespace name %q: %s", cur.Spec.NamespaceName, strings.Join(errs, ", "))
+		return fmt.Errorf("invalid ChartAssignment %q: invalid spec.namespaceName %q: %s", cur.Name, cur.Spec.NamespaceName, strings.Join(errs, ", "))
 	}
 	if old != nil {
 		if cur.Spec.NamespaceName != old.Spec.NamespaceName {
-			return fmt.Errorf("target namespace name must not be changed")
+			return fmt.Errorf("invalid ChartAssignment %q: spec.namespaceName must not be changed", cur.Name)
 		}
 	}
 	c := cur.Spec.Chart
 	if c.Inline != "" {
 		if c.Repository != "" || c.Name != "" {
-			return fmt.Errorf("chart repository, and name must be empty for inline charts")
+			return fmt.Errorf("invalid ChartAssignment %q: spec.chart.repository and spec.chart.name must be empty for inline charts", cur.Name)
 		}
 	} else if c.Repository == "" || c.Name == "" || c.Version == "" {
-		return fmt.Errorf("non-inline chart must be fully specified")
+		return fmt.Errorf("invalid ChartAssignment %q: non-inline chart must have repository, name, and version specified", cur.Name)
 	}
 	return nil
 }
