@@ -17,13 +17,16 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
@@ -183,6 +186,101 @@ func TestClientHandlerWithChunkedResponse(t *testing.T) {
 	}
 	if want, got := "trailer value", resp.Trailer.Get("Some-Trailer"); want != got {
 		t.Errorf("Wrong trailer value; want %s; got %s", want, got)
+	}
+}
+
+func TestHeaderMarshaling(t *testing.T) {
+	h := http.Header{}
+	h.Add("X-Test", "value1")
+	h.Add("X-Test", "value2")
+	h.Add("Y-Test", "value3")
+
+	marshaled := marshalHeader(&h)
+	if len(marshaled) != 3 {
+		t.Errorf("Expected 3 marshaled headers, got %d", len(marshaled))
+	}
+
+	w := httptest.NewRecorder()
+	unmarshalHeader(w, marshaled)
+
+	if got := w.Header().Values("X-Test"); len(got) != 2 || got[0] != "value1" || got[1] != "value2" {
+		t.Errorf("X-Test header unmarshaled incorrectly: %v", got)
+	}
+	if got := w.Header().Get("Y-Test"); got != "value3" {
+		t.Errorf("Y-Test header unmarshaled incorrectly: %s", got)
+	}
+}
+
+func TestExtractBackendNameAndPath(t *testing.T) {
+	tests := []struct {
+		desc        string
+		path        string
+		headers     map[string]string
+		wantBackend string
+		wantPath    string
+		wantErr     error
+	}{
+		{
+			desc:        "client prefix with backend and path",
+			path:        "/client/my-backend/foo/bar",
+			wantBackend: "my-backend",
+			wantPath:    "/foo/bar",
+		},
+		{
+			desc:        "client prefix with backend and no path",
+			path:        "/client/my-backend",
+			wantBackend: "my-backend",
+			wantPath:    "/",
+		},
+		{
+			desc:        "client prefix with backend and trailing slash",
+			path:        "/client/my-backend/",
+			wantBackend: "my-backend",
+			wantPath:    "/",
+		},
+		{
+			desc:    "client prefix missing backend",
+			path:    "/client/",
+			wantErr: ErrRequestPathTooShort,
+		},
+		{
+			desc:        "grpc request with header",
+			path:        "/my.Service/Method",
+			headers:     map[string]string{"X-Server-Name": "my-backend"},
+			wantBackend: "my-backend",
+			wantPath:    "/my.Service/Method",
+		},
+		{
+			desc:    "grpc request missing header",
+			path:    "/my.Service/Method",
+			wantErr: ErrMissingServerNameHeader,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tc.path, nil)
+			for k, v := range tc.headers {
+				req.Header.Set(k, v)
+			}
+
+			backend, path, err := extractBackendNameAndPath(req)
+			if tc.wantErr != nil {
+				if !errors.Is(err, tc.wantErr) {
+					t.Errorf("Expected error %v, got %v", tc.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if backend != tc.wantBackend {
+				t.Errorf("Expected backend %q, got %q", tc.wantBackend, backend)
+			}
+			if path != tc.wantPath {
+				t.Errorf("Expected path %q, got %q", tc.wantPath, path)
+			}
+		})
 	}
 }
 
@@ -425,5 +523,197 @@ func TestRequestToUnknownBackendResponse503(t *testing.T) {
 func BenchmarkCreateId(b *testing.B) {
 	for b.Loop() {
 		createId()
+	}
+}
+
+func TestHealthHandler(t *testing.T) {
+	server := NewServer(Config{})
+	req := httptest.NewRequest("GET", "/healthz", nil)
+	w := httptest.NewRecorder()
+	server.health(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status OK, got %v", resp.Status)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != "ok" {
+		t.Errorf("Expected body 'ok', got %q", string(body))
+	}
+}
+
+func TestServerRequestStreamErrors(t *testing.T) {
+	server := NewServer(Config{})
+
+	t.Run("missing id", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/server/requeststream", nil)
+		w := httptest.NewRecorder()
+		server.serverRequestStream(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status 400, got %d", w.Code)
+		}
+	})
+
+	t.Run("unknown id", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/server/requeststream?id=unknown", nil)
+		w := httptest.NewRecorder()
+		server.serverRequestStream(w, req)
+		if w.Code != http.StatusGone {
+			t.Errorf("Expected status 410, got %d", w.Code)
+		}
+	})
+}
+
+func TestServerResponseInvalidBody(t *testing.T) {
+	server := NewServer(Config{})
+	req := httptest.NewRequest("POST", "/server/response", strings.NewReader("invalid proto"))
+	w := httptest.NewRecorder()
+	server.serverResponse(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+func TestServerRequestMissingServer(t *testing.T) {
+	server := NewServer(Config{})
+	req := httptest.NewRequest("GET", "/server/request", nil)
+	w := httptest.NewRecorder()
+	server.serverRequest(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+func TestNewServerConfig(t *testing.T) {
+	t.Run("default config", func(t *testing.T) {
+		s := NewServer(Config{})
+		if s.conf.Port != 0 {
+			t.Errorf("Expected port 0, got %d", s.conf.Port)
+		}
+		if s.conf.BlockSize != DefaultBlockSize {
+			t.Errorf("Expected BlockSize %d, got %d", DefaultBlockSize, s.conf.BlockSize)
+		}
+		if s.conf.InactiveRequestTimeout != DefaultInactiveRequestTimeout {
+			t.Errorf("Expected InactiveRequestTimeout %v, got %v", DefaultInactiveRequestTimeout, s.conf.InactiveRequestTimeout)
+		}
+	})
+
+	t.Run("custom config", func(t *testing.T) {
+		conf := Config{
+			Port:                   8080,
+			BlockSize:              1024,
+			InactiveRequestTimeout: 10 * time.Second,
+		}
+		s := NewServer(conf)
+		if s.conf.Port != 8080 {
+			t.Errorf("Expected port 8080, got %d", s.conf.Port)
+		}
+		if s.conf.BlockSize != 1024 {
+			t.Errorf("Expected BlockSize 1024, got %d", s.conf.BlockSize)
+		}
+		if s.conf.InactiveRequestTimeout != 10*time.Second {
+			t.Errorf("Expected InactiveRequestTimeout 10s, got %v", s.conf.InactiveRequestTimeout)
+		}
+	})
+
+	t.Run("port -1", func(t *testing.T) {
+		s := NewServer(Config{Port: -1})
+		if s.conf.Port != DefaultPort {
+			t.Errorf("Expected port %d, got %d", DefaultPort, s.conf.Port)
+		}
+	})
+}
+
+func TestTrailers(t *testing.T) {
+	tests := []struct {
+		name string
+		resp *pb.HttpResponse
+		want http.Header
+	}{
+		{
+			name: "Regular trailers",
+			resp: &pb.HttpResponse{
+				StatusCode: proto.Int32(200),
+				Body:       []byte("body"),
+				Trailer: []*pb.HttpHeader{{
+					Name:  proto.String("X-Trailer"),
+					Value: proto.String("value"),
+				}},
+				Eof: proto.Bool(true),
+			},
+			want: http.Header{"X-Trailer": []string{"value"}},
+		},
+		{
+			name: "Grpc headers as trailers",
+			resp: &pb.HttpResponse{
+				StatusCode: proto.Int32(200),
+				Header: []*pb.HttpHeader{{
+					Name:  proto.String("Grpc-Status"),
+					Value: proto.String("0"),
+				}},
+				Body: []byte("body"),
+				Eof:  proto.Bool(true),
+			},
+			want: http.Header{"Grpc-Status": []string{"0"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/client/foo/", nil)
+			respRecorder := httptest.NewRecorder()
+			server := NewServer(Config{})
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				server.userClientRequest(respRecorder, req)
+			}()
+
+			relayRequest, err := server.b.GetRequest(context.Background(), "foo", "/")
+			if err != nil {
+				t.Fatalf("Failed to get request: %v", err)
+			}
+
+			tt.resp.Id = relayRequest.Id
+			server.b.SendResponse(tt.resp)
+
+			wg.Wait()
+			resp := respRecorder.Result()
+			for k, wantValues := range tt.want {
+				gotValues := resp.Trailer.Values(k)
+				if !reflect.DeepEqual(gotValues, []string(wantValues)) {
+					t.Errorf("Trailer %s = %v, want %v", k, gotValues, wantValues)
+				}
+			}
+		})
+	}
+}
+
+func TestResponseFilterChunking(t *testing.T) {
+	server := NewServer(Config{})
+	backendCtx := backendContext{ServerName: "test"}
+	in := make(chan *pb.HttpResponse, 2)
+	in <- &pb.HttpResponse{StatusCode: proto.Int32(200), Body: []byte("chunk1")}
+	in <- &pb.HttpResponse{Body: []byte("chunk2")}
+	close(in)
+
+	_, status, chunks := server.responseFilter(backendCtx, in)
+	if status != 200 {
+		t.Errorf("Expected status 200, got %d", status)
+	}
+
+	c1 := <-chunks
+	if string(c1.Body) != "chunk1" {
+		t.Errorf("Expected chunk1, got %q", string(c1.Body))
+	}
+	c2 := <-chunks
+	if string(c2.Body) != "chunk2" {
+		t.Errorf("Expected chunk2, got %q", string(c2.Body))
+	}
+
+	_, more := <-chunks
+	if more {
+		t.Error("Expected chunks channel to be closed")
 	}
 }
