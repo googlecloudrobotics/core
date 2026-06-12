@@ -102,7 +102,7 @@ type RelayClientUnavailableError struct {
 }
 
 func (e *RelayClientUnavailableError) Error() string {
-	return fmt.Sprintf("Cannot reach the client %q. Check that it's turned on, set up, and connected to the internet. (unknown client)", e.client)
+	return fmt.Sprintf("cannot reach the client %q; check that it's turned on, set up, and connected to the internet (unknown client)", e.client)
 }
 
 // broker implements a thread-safe map for the request and response queues.
@@ -138,7 +138,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	id := *request.Id
 	targetUrl, err := url.Parse(*request.Url)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse URL: %v", err)
+		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
 
 	r.m.Lock()
@@ -149,7 +149,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	}
 	if r.resp[id] != nil {
 		r.m.Unlock()
-		return nil, fmt.Errorf("Multiple clients trying to handle request ID %s on server %s", id, server)
+		return nil, fmt.Errorf("multiple clients trying to handle request ID %s on server %s", id, server)
 	}
 	ts := time.Now()
 	r.resp[id] = &pendingResponse{
@@ -173,7 +173,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	case <-time.After(10 * time.Second):
 		// This branch is triggered if the channel is not ready to consume the request
 		// since it is still busy with handling a different request.
-		return nil, fmt.Errorf("Cannot reach the client %q. Check that it's turned on, set up, and connected to the internet. If the network config recently changed, try again in 1-2 minutes. (timeout waiting for relay client to accept request)", server)
+		return nil, fmt.Errorf("cannot reach the client %q; check that it's turned on, set up, and connected to the internet; if the network config recently changed, try again in 1-2 minutes (timeout waiting for relay client to accept request)", server)
 	}
 }
 
@@ -204,9 +204,9 @@ func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpR
 		return req, nil
 	case <-time.After(time.Second * 30):
 		brokerResponses.WithLabelValues("server_request", "timeout", server).Inc()
-		return nil, fmt.Errorf("No request received within timeout")
+		return nil, fmt.Errorf("no request received within timeout")
 	case <-ctx.Done():
-		return nil, fmt.Errorf("Server is restarting")
+		return nil, fmt.Errorf("server is restarting")
 	}
 }
 
@@ -265,7 +265,7 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	if pr == nil {
 		r.m.Unlock()
 		brokerResponses.WithLabelValues("server_response", "not recognized or reaches the inactivity timeout", backendName).Inc()
-		return fmt.Errorf("Duplicate or invalid request ID %s", id)
+		return fmt.Errorf("duplicate or invalid request ID %s", id)
 	}
 	// hold `sendMutex` throughout the function to ensure that `responseStream` is not closed
 	// while we are writing to it. We must acquire the lock while we are holding `r.m` to
@@ -292,7 +292,7 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	case pr.responseStream <- resp:
 		break
 	case <-pr.markReap:
-		return fmt.Errorf("Closed due to inactivity")
+		return fmt.Errorf("closed due to inactivity")
 	}
 
 	brokerRequests.WithLabelValues("server_response", backendName).Inc()

@@ -69,5 +69,5 @@ func (f *DefaultFactory) GetNetworkInterfaceIP(namePrefix string) (string, error
 			}
 		}
 	}
-	return "", fmt.Errorf("Could not look up IP of interface with prefix: %v", namePrefix)
+	return "", fmt.Errorf("could not look up IP of interface with prefix: %v", namePrefix)
 }

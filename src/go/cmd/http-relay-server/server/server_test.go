@@ -197,13 +197,13 @@ func TestClientBadRequest(t *testing.T) {
 			desc:     "url-path misses the backend name and path",
 			req:      httptest.NewRequest("GET", "/client/", strings.NewReader("body")),
 			wantCode: 400,
-			wantMsg:  "Request path too short:",
+			wantMsg:  "request path too short:",
 		},
 		{
 			desc:     "url-path misses the backend header",
 			req:      httptest.NewRequest("GET", "/", strings.NewReader("body")),
 			wantCode: 400,
-			wantMsg:  "Request without required header:",
+			wantMsg:  "request without required header:",
 		},
 	}
 
@@ -413,7 +413,7 @@ func TestRequestToUnknownBackendResponse503(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []byte("Cannot reach the client \"test\"")
+	expected := []byte("cannot reach the client \"test\"")
 	if !bytes.HasPrefix(body, expected) {
 		t.Errorf("Unexpected body prefix\nWant: %s\nGot: %s", expected, body)
 	}

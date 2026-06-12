@@ -151,7 +151,7 @@ func createKubeRelayEntry(projectID string, domain string, robotName string) err
 func setupDevCredentials(client *http.Client, domain string, robotName string) error {
 	hostname, err := os.Hostname()
 	if err != nil {
-		return fmt.Errorf("Failed to query hostname: %v", err)
+		return fmt.Errorf("failed to query hostname: %v", err)
 	}
 	auth := &robotauth.RobotAuth{
 		RobotName:           robotName,
@@ -167,7 +167,7 @@ func setupDevCredentials(client *http.Client, domain string, robotName string) e
 		return err
 	}
 	if err := auth.StoreInFile(); err != nil {
-		return fmt.Errorf("Failed to store private key: %v", err)
+		return fmt.Errorf("failed to store private key: %v", err)
 	}
 	return nil
 }

@@ -131,7 +131,7 @@ func extractBackendNameAndPath(r *http.Request) (backendName string, path string
 		pathParts := strings.SplitN(strings.TrimPrefix(r.URL.Path, clientPrefix), "/", 2)
 		backendName = pathParts[0]
 		if backendName == "" {
-			err = fmt.Errorf("Request path too short: missing remote server identifier")
+			err = fmt.Errorf("request path too short: missing remote server identifier")
 			return
 		}
 		path = "/"
@@ -143,7 +143,7 @@ func extractBackendNameAndPath(r *http.Request) (backendName string, path string
 		// identified by "X-Server-Name" header.
 		headers, ok := r.Header["X-Server-Name"]
 		if !ok {
-			err = fmt.Errorf("Request without required header: \"X-Server-Name\"")
+			err = fmt.Errorf("request without required header: \"X-Server-Name\"")
 			return
 		}
 		backendName = headers[0]

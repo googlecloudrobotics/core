@@ -291,7 +291,7 @@ func TestReapWhileSendingResponse(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		reqErr = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(false)})
-		if reqErr == nil || reqErr.Error() != "Closed due to inactivity" {
+		if reqErr == nil || reqErr.Error() != "closed due to inactivity" {
 			t.Errorf("Wrong SendResponse error or no error:", reqErr)
 		}
 		wg.Done()
