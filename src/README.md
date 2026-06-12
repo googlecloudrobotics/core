@@ -12,21 +12,21 @@ BUILD files for Go.
 
 To automatically update dependencies in bazel BUILD files run:
 
-```
+```shell
 bazel run //:gazelle
 ```
 
 To re-generate Go modules dependencies run this from the top-level source
 directory:
 
-```
+```shell
 ./src/gomod.sh
 ```
 
 This will always download the latest stable tag of a go module. To use a
 specific version run eg::
 
-```
+```shell
 cd src
 # use an older version, that the latest stable
 go get -d github.com/mitchellh/go-server-timing@v1.0.1
@@ -42,13 +42,13 @@ More tips on this [one-pager](https://encore.dev/guide/go.mod)
 
 Install go-license:
 
-```
+```shell
 go install github.com/google/go-licenses@latest
 ```
 
 run it:
 
-```
+```shell
 cd src
 # get a vsc of all licenses
 ~/go/bin/go-licenses csv .
@@ -59,7 +59,7 @@ cd src
 ### Docs
 
 In order to force a new snapshot, run
-```bash
+```shell
 VERSION=$(curl -s https://proxy.golang.org/github.com/googlecloudrobotics/core/@latest | jq -r ".Version")
 echo "https://pkg.go.dev/github.com/googlecloudrobotics/core/src/go@${VERSION}"
 ```
