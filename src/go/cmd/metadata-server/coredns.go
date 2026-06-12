@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"strings"
 
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -47,13 +47,13 @@ var (
 	hostsAnyPattern                  = regexp.MustCompile(`hosts [^{]*{\n`)
 )
 
-func getCorefile(ctx context.Context, k8s kubernetes.Interface) (*v1.ConfigMap, error) {
+func getCorefile(ctx context.Context, k8s kubernetes.Interface) (*corev1.ConfigMap, error) {
 	cm, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Get(ctx, configMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ConfigMap %s: %v", configMapName, err)
 	}
 	if _, ok := cm.Data[corefileName]; !ok {
-		return nil, fmt.Errorf("ConfigMap %s doesn't contain key %s", configMapName, corefileName)
+		return nil, fmt.Errorf("missing key %s in ConfigMap %s", corefileName, configMapName)
 	}
 	if !strings.Contains(cm.Data[corefileName], zoneStart) {
 		return nil, fmt.Errorf("zone start %q not found in Corefile", zoneStart)
@@ -61,7 +61,7 @@ func getCorefile(ctx context.Context, k8s kubernetes.Interface) (*v1.ConfigMap, 
 	return cm, nil
 }
 
-func writeCorefile(ctx context.Context, k8s kubernetes.Interface, cm *v1.ConfigMap) error {
+func writeCorefile(ctx context.Context, k8s kubernetes.Interface, cm *corev1.ConfigMap) error {
 	_, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Update(ctx, cm, metav1.UpdateOptions{})
 	return err
 }

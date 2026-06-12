@@ -492,11 +492,11 @@ func DeploymentReady(ctx context.Context, c client.Client, namespace, name strin
 	}
 	if d.Spec.Replicas == nil {
 		if d.Status.ReadyReplicas <= 0 {
-			return fmt.Errorf("Replicas not ready")
+			return fmt.Errorf("replicas not ready")
 		}
 		return nil
 	} else if d.Status.ReadyReplicas != *d.Spec.Replicas {
-		return fmt.Errorf("Replicas not ready")
+		return fmt.Errorf("replicas not ready")
 	}
 	return nil
 }

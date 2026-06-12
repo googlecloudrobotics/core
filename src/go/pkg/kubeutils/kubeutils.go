@@ -60,11 +60,11 @@ func CloudKubernetesContextName(projectID, region string) string {
 func GetCloudKubernetesContext() (string, error) {
 	gcpProjectID, defined := os.LookupEnv("GCP_PROJECT_ID")
 	if !defined {
-		return "", fmt.Errorf("GCP_PROJECT_ID environment variable is not defined")
+		return "", fmt.Errorf("environment variable GCP_PROJECT_ID is not defined")
 	}
 	gcpRegion, defined := os.LookupEnv("GCP_REGION")
 	if !defined {
-		return "", fmt.Errorf("GCP_REGION environment variable is not defined")
+		return "", fmt.Errorf("environment variable GCP_REGION is not defined")
 	}
 
 	return CloudKubernetesContextName(gcpProjectID, gcpRegion), nil
@@ -75,7 +75,7 @@ func GetCloudKubernetesContext() (string, error) {
 func GetRobotKubernetesContext() (string, error) {
 	gcpProjectID, defined := os.LookupEnv("GCP_PROJECT_ID")
 	if !defined {
-		return "", fmt.Errorf("GCP_PROJECT_ID environment variable is not defined")
+		return "", fmt.Errorf("environment variable GCP_PROJECT_ID is not defined")
 	}
 
 	return fmt.Sprintf("%s-robot", gcpProjectID), nil

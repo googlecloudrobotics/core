@@ -76,12 +76,12 @@ func validateKeyOptions(opts repository.KeyOptions) error {
 	// Sanity check for the config values
 	if opts.ServiceAccount != "" {
 		if err := validateEmail(opts.ServiceAccount); err != nil {
-			return fmt.Errorf("ServiceAccount field is not a valid email address: %v", err)
+			return fmt.Errorf("field ServiceAccount does not contain a valid email address: %v", err)
 		}
 	}
 	if opts.ServiceAccountDelegate != "" {
 		if err := validateEmail(opts.ServiceAccountDelegate); err != nil {
-			return fmt.Errorf("ServiceAccountDelegate field is not a valid email address: %v", err)
+			return fmt.Errorf("field ServiceAccountDelegate does not contain a valid email address: %v", err)
 		}
 	}
 	return nil

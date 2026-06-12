@@ -44,11 +44,11 @@ func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext strin
 	// create the kubernetes clientSet
 	k8sCfg, err := kubeutils.LoadOutOfClusterConfig(kubernetesContext)
 	if err != nil {
-		return fmt.Errorf("Loading of kubernetes config failed: %v", err)
+		return fmt.Errorf("loading of kubernetes config failed: %v", err)
 	}
 	clientSet, err := kubernetes.NewForConfig(k8sCfg)
 	if err != nil {
-		return fmt.Errorf("Creating the kubernetes client set failed: %v", err)
+		return fmt.Errorf("creating the kubernetes client set failed: %v", err)
 	}
 
 	numNonRunningPods := 0
@@ -62,12 +62,12 @@ func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext strin
 		slog.Info("Querying pods...", slog.String("Context", kubernetesContext))
 		pods, err := clientSet.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 		if err != nil {
-			return fmt.Errorf("Failed to query pods: %v", err)
+			return fmt.Errorf("failed to query pods: %v", err)
 		}
 		slog.Info("...done.", slog.Int("PodCount", len(pods.Items)))
 
 		if len(pods.Items) == 0 {
-			return fmt.Errorf("Could not find any pods in cluster")
+			return fmt.Errorf("could not find any pods in cluster")
 		}
 
 		numNonRunningPods = 0
@@ -126,7 +126,7 @@ func checkHealthOfKubernetesCluster(ctx context.Context, kubernetesContext strin
 	}
 
 	if numNonRunningPods != 0 || failingContainers != 0 {
-		return fmt.Errorf("Unhealthy cluster status after waiting for %d sec: %d non-running pods, %d failing containers\n",
+		return fmt.Errorf("unhealthy cluster status after waiting for %d sec: %d non-running pods, %d failing containers",
 			podInitializationTimeout/time.Second, numNonRunningPods, failingContainers)
 	}
 	slog.Info("All pods are happily running :)")

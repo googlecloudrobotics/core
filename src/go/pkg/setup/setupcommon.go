@@ -60,7 +60,7 @@ func GetRobotName(ctx context.Context, f util.Factory, client dynamic.ResourceIn
 	_, err := client.Get(ctx, robotName, metav1.GetOptions{})
 	if err != nil {
 		if s, ok := err.(*apierrors.StatusError); ok && s.ErrStatus.Reason == metav1.StatusReasonNotFound {
-			return "", fmt.Errorf("Robot %v not found.", robotName)
+			return "", fmt.Errorf("robot %v not found", robotName)
 		}
 		return "", err
 	}
@@ -133,14 +133,14 @@ func WaitForDNS(domain string, retries uint64) error {
 				}
 			}
 
-			return fmt.Errorf("IP not found")
+			return fmt.Errorf("no ip v4 address in dns result for %q", domain)
 		},
 		newExponentialBackoff(time.Second, 2, retries),
 		func(_ error, _ time.Duration) {
 			slog.Info("... Retry dns", slog.String("Domain", domain))
 		},
 	); err != nil {
-		return fmt.Errorf("DNS lookup for %q failed: %w", domain, err)
+		return fmt.Errorf("dns lookup for %q failed: %w", domain, err)
 	}
 
 	return nil
@@ -172,13 +172,13 @@ func WaitForService(client *http.Client, url string, retries uint64) error {
 // given as part of the RobotAuth struct.
 func PublishCredentialsToCloud(client *http.Client, auth *robotauth.RobotAuth, retries uint64) error {
 	if len(auth.PrivateKey) == 0 {
-		return fmt.Errorf("Missing key in given auth object")
+		return fmt.Errorf("missing key in given auth object")
 	}
 	if err := isKeyRegistryAvailable(auth, client, retries); err != nil {
-		return fmt.Errorf("Failed to connect to cloud key registry: %w", err)
+		return fmt.Errorf("failed to connect to cloud key registry: %w", err)
 	}
 	if err := publishPublicKeyToCloudRegistry(auth, client); err != nil {
-		return fmt.Errorf("Failed to register key with cloud key registry: %w", err)
+		return fmt.Errorf("failed to register key with cloud key registry: %w", err)
 	}
 	return nil
 }
@@ -187,7 +187,7 @@ func isKeyRegistryAvailable(auth *robotauth.RobotAuth, client *http.Client, retr
 	// Make sure the cloud cluster take requests
 	url := fmt.Sprintf("https://%s/apis/core.token-vendor/v1/public-key.read", auth.Domain)
 	if err := WaitForService(client, url, retries); err != nil {
-		return fmt.Errorf("Failed to connect to the cloud cluster: %w. Please retry in 5 minutes.", err)
+		return fmt.Errorf("failed to connect to the cloud cluster: %w; please retry in 5 minutes", err)
 	}
 	return nil
 }
@@ -226,7 +226,7 @@ func publishPublicKeyToCloudRegistry(auth *robotauth.RobotAuth, client *http.Cli
 func getPublicKey(privateKey []byte) ([]byte, error) {
 	block, _ := pem.Decode(privateKey)
 	if block == nil {
-		return nil, fmt.Errorf("Private key is not a valid PEM object")
+		return nil, fmt.Errorf("private key is not a valid PEM object")
 	}
 	var rsaKey *rsa.PrivateKey
 	if block.Type == "RSA PRIVATE KEY" {
@@ -242,7 +242,7 @@ func getPublicKey(privateKey []byte) ([]byte, error) {
 		}
 		rsaKey = key.(*rsa.PrivateKey)
 	} else {
-		return nil, fmt.Errorf("Expected a private key, got %s", block.Type)
+		return nil, fmt.Errorf("expected a private key, got %s", block.Type)
 	}
 	pubKey, err := x509.MarshalPKIXPublicKey(&rsaKey.PublicKey)
 	if err != nil {
@@ -287,7 +287,7 @@ func CreateOrUpdateRobot(ctx context.Context, client dynamic.ResourceInterface, 
 			_, err := client.Create(ctx, robot, metav1.CreateOptions{})
 			return err
 		} else {
-			return fmt.Errorf("Failed to get robot %v: %w", robotName, err)
+			return fmt.Errorf("failed to get robot %v: %w", robotName, err)
 		}
 	}
 

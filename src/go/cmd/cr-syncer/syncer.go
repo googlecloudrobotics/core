@@ -159,7 +159,7 @@ func getStorageVersionIndex(crd crdtypes.CustomResourceDefinition) (int, error) 
 			return ix, nil
 		}
 	}
-	return 0, fmt.Errorf("Invalid Custom Resource %s: no version with stored=true set", crd.ObjectMeta.Name)
+	return 0, fmt.Errorf("invalid custom resource %s: no version with stored=true set", crd.ObjectMeta.Name)
 }
 
 func newCRSyncer(
@@ -185,7 +185,7 @@ func newCRSyncer(
 	}
 	versionIx, err := getStorageVersionIndex(crd)
 	if err != nil {
-		return nil, errors.Wrap(err, "Bad crd passed to newCRSyncer")
+		return nil, errors.Wrap(err, "bad crd passed to newCRSyncer")
 	}
 
 	gvr := schema.GroupVersionResource{
@@ -458,14 +458,14 @@ func (s *crSyncer) syncDownstream(key string) error {
 	} else if src.Object["status"] != nil {
 		srcStatus, ok := src.Object["status"].(map[string]interface{})
 		if !ok {
-			return fmt.Errorf("Expected status of %s in downstream cluster to be a dict", src.GetName())
+			return fmt.Errorf("expected status of %s in downstream cluster to be a dict", src.GetName())
 		}
 		if dst.Object["status"] == nil {
 			dst.Object["status"] = make(map[string]interface{})
 		}
 		dstStatus, ok := dst.Object["status"].(map[string]interface{})
 		if !ok {
-			return fmt.Errorf("Expected status of %s in upstream cluster to be a dict", src.GetName())
+			return fmt.Errorf("expected status of %s in upstream cluster to be a dict", src.GetName())
 		}
 		if srcStatus[s.subtree] != nil {
 			dstStatus[s.subtree] = srcStatus[s.subtree]

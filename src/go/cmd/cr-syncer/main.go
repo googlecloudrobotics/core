@@ -218,7 +218,7 @@ func streamCrds(done <-chan struct{}, clientset crdclientset.Interface, crds cha
 	slog.Info("Syncing cache for CRDs")
 	ok := cache.WaitForCacheSync(done, informer.HasSynced)
 	if !ok {
-		return fmt.Errorf("WaitForCacheSync failed")
+		return fmt.Errorf("failed to run WaitForCacheSync on crds")
 	}
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
