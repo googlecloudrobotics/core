@@ -413,7 +413,7 @@ func (s *Synk) applyAll(
 
 func validateNamespace(r *unstructured.Unstructured, optsNs string) error {
 	ns := r.GetNamespace()
-	allowed := []string{"", "kube-system", optsNs}
+	allowed := []string{"", "kube-system", "default", optsNs}
 	if slices.Contains(allowed, ns) {
 		return nil
 	}
