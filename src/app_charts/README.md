@@ -3,7 +3,7 @@
 Use `bazel run :push` on the app directory to build & upload Docker images,
 upload Helm charts and update the app manifest:
 
-```bash
+```shell
 bazel run //src/app_charts/k8s-relay:k8s-relay.push <registry-location>
 ```
 

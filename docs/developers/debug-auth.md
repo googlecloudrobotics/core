@@ -8,7 +8,7 @@ You can call Cloud APIs with curl to see whether authorization works.
 
 ### Your own credentials
 
-```bash
+```shell
 PROJECT_NUMBER=201199916163
 curl -v -H "Content-Type: application/json" \
         -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
@@ -20,7 +20,7 @@ curl -v -H "Content-Type: application/json" \
 You can create a JSON file with the robot account's credentials on
 the [Cloud console's credentials page](https://console.cloud.google.com/apis/credentials).
 
-```bash
+```shell
 PROJECT_NUMBER=201199916163
 JSON_CREDENTIALS=/tmp/my-project-b7364a68fa92.json
 curl -v -H "Content-Type: application/json" \
