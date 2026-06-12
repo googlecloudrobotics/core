@@ -3,10 +3,11 @@ package jwt
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 
 	jwt "github.com/form3tech-oss/jwt-go"
-	"github.com/pkg/errors"
 )
 
 type payload struct {
@@ -29,12 +30,12 @@ func PayloadUnsafe(jwtk string) (*payload, error) {
 	}
 	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to decode JWT payload section")
+		return nil, fmt.Errorf("failed to decode JWT payload section: %w", err)
 	}
 	dat := payload{}
 	err = json.Unmarshal(payloadBytes, &dat)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal JWT payload section")
+		return nil, fmt.Errorf("failed to unmarshal JWT payload section: %w", err)
 	}
 	return &dat, nil
 }
@@ -43,7 +44,7 @@ func PayloadUnsafe(jwtk string) (*payload, error) {
 func VerifySignature(jwtk string, pubKey string) error {
 	key, err := jwt.ParseRSAPublicKeyFromPEM([]byte(pubKey))
 	if err != nil {
-		return errors.Wrap(err, "failed to parse public key")
+		return fmt.Errorf("failed to parse public key: %w", err)
 	}
 	_, err = jwt.Parse(jwtk, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
@@ -52,7 +53,7 @@ func VerifySignature(jwtk string, pubKey string) error {
 		return key, nil
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to parse and verify signature")
+		return fmt.Errorf("failed to parse and verify signature: %w", err)
 	}
 	return nil
 }

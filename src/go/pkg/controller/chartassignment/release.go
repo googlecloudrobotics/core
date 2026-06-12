@@ -30,7 +30,6 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	"github.com/googlecloudrobotics/ilog"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -223,7 +222,7 @@ func (r *release) delete(as *apps.ChartAssignment) {
 
 	if err := r.synk.Delete(context.Background(), as.Name); err != nil {
 		r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
-		r.setFailed(errors.Wrap(err, "delete release"), synk.IsTransientErr(err))
+		r.setFailed(fmt.Errorf("delete release: %w", err), synk.IsTransientErr(err))
 	}
 	r.recorder.Event(as, core.EventTypeNormal, "Success", "chart deleted successfully")
 	r.setPhase(apps.ChartAssignmentPhaseDeleted)
@@ -292,7 +291,7 @@ func loadAndExpandChart(as *apps.ChartAssignment) ([]*unstructured.Unstructured,
 		},
 	})
 	if err != nil {
-		return nil, false, errors.Wrap(err, "render chart")
+		return nil, false, fmt.Errorf("render chart: %w", err)
 	}
 	// TODO: consider giving the synk package first-class support for raw manifests
 	// so that their decoding errors are fully surfaced in the ResourceSet. Otherwise,
@@ -313,21 +312,21 @@ func loadChart(cspec *apps.AssignedChart) (*chart.Chart, string, error) {
 	} else {
 		archive, err = fetchChartTar(cspec.Repository, cspec.Name, cspec.Version)
 		if err != nil {
-			return nil, "", errors.Wrap(err, "retrieve chart")
+			return nil, "", fmt.Errorf("retrieve chart: %w", err)
 		}
 	}
 	c, err := chartutil.LoadArchive(archive)
 	if err != nil {
-		return nil, "", errors.Wrap(err, "load chart archive")
+		return nil, "", fmt.Errorf("load chart archive: %w", err)
 	}
 
 	// Ensure charts in requirements.yaml are actually in packaged in.
 	if req, err := chartutil.LoadRequirements(c); err == nil {
 		if err := renderutil.CheckDependencies(c, req); err != nil {
-			return nil, "", errors.Wrap(err, "check chart dependencies")
+			return nil, "", fmt.Errorf("check chart dependencies: %w", err)
 		}
 	} else if err != chartutil.ErrRequirementsNotFound {
-		return nil, "", errors.Wrap(err, "load chart requirements")
+		return nil, "", fmt.Errorf("load chart requirements: %w", err)
 	}
 
 	// TODO: handle empty c.Values, cspec.Values
@@ -336,13 +335,13 @@ func loadChart(cspec *apps.AssignedChart) (*chart.Chart, string, error) {
 	// them explicitly.
 	vals, err := chartutil.ReadValues([]byte(c.Values.Raw))
 	if err != nil {
-		return nil, "", errors.Wrap(err, "reading chart values")
+		return nil, "", fmt.Errorf("reading chart values: %w", err)
 	}
 	vals.MergeInto(chartutil.Values(cspec.Values)) // ChartAssignment values.
 
 	valsRaw, err := vals.YAML()
 	if err != nil {
-		return nil, "", errors.Wrap(err, "encode values")
+		return nil, "", fmt.Errorf("encode values: %w", err)
 	}
 	return c, valsRaw, nil
 }

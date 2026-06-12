@@ -2,11 +2,11 @@ package oauth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/pkg/errors"
 	"google.golang.org/api/iam/v1"
 	"google.golang.org/api/option"
 )
@@ -29,11 +29,11 @@ const (
 func NewTokenVerifier(ctx context.Context, c *http.Client, project string) (*TokenVerifier, error) {
 	s, err := iam.NewService(ctx, option.WithHTTPClient(c))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create service client")
+		return nil, fmt.Errorf("failed to create service client: %w", err)
 	}
 	tc, err := newTokenCache(cacheSize, cacheExpire)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create token cache")
+		return nil, fmt.Errorf("failed to create token cache: %w", err)
 	}
 	return &TokenVerifier{s: s, project: project, cache: tc}, nil
 }
@@ -55,8 +55,8 @@ func (v *TokenVerifier) Verify(ctx context.Context, token Token, sa string) erro
 	ts := time.Now()
 	resp, err := doTestIamPermissions(ctx, v.s, string(token), resource, []string{iamActAs})
 	if err != nil {
-		return errors.Wrapf(err, "TestIamPermissions failed for resource %q with permission %q after %.3fs",
-			resource, iamActAs, time.Since(ts).Seconds())
+		return fmt.Errorf("TestIamPermissions failed for resource %q with permission %q after %.3fs: %w",
+			resource, iamActAs, time.Since(ts).Seconds(), err)
 	}
 	if !contains(resp.Permissions, iamActAs) {
 		v.cache.add(token, resource, false)

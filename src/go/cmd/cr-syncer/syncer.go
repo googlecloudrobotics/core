@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -24,7 +25,6 @@ import (
 	"time"
 
 	"github.com/googlecloudrobotics/ilog"
-	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -185,7 +185,7 @@ func newCRSyncer(
 	}
 	versionIx, err := getStorageVersionIndex(crd)
 	if err != nil {
-		return nil, errors.Wrap(err, "bad crd passed to newCRSyncer")
+		return nil, fmt.Errorf("bad crd passed to newCRSyncer: %w", err)
 	}
 
 	gvr := schema.GroupVersionResource{

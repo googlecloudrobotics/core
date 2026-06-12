@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/cenkalti/backoff"
-	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -138,20 +137,23 @@ func UpdateSecret(ctx context.Context, k8s kubernetes.Interface, input *corev1.S
 		secret, err := s.Get(ctx, input.Name, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				_, err = s.Create(ctx, input, metav1.CreateOptions{})
-				return backoff.Permanent(errors.Wrapf(err, "failed to create secret %s/%s", input.Namespace, input.Name))
+				if _, err = s.Create(ctx, input, metav1.CreateOptions{}); err != nil {
+					return backoff.Permanent(fmt.Errorf("failed to create secret %s/%s: %w", input.Namespace, input.Name, err))
+				}
+				return nil
 			}
-			return backoff.Permanent(errors.Wrapf(err, "failed to get secret %s/%s", input.Namespace, input.Name))
+			return backoff.Permanent(fmt.Errorf("failed to get secret %s/%s: %w", input.Namespace, input.Name, err))
 		}
 		secret.Labels = input.Labels
 		secret.Annotations = input.Annotations
 		secret.Data = input.Data
-		_, err = s.Update(ctx, secret, metav1.UpdateOptions{})
-		if k8serrors.IsConflict(err) {
-			// Retry conflicts.
-			return err
+		if _, err = s.Update(ctx, secret, metav1.UpdateOptions{}); err != nil {
+			if k8serrors.IsConflict(err) {
+				// Retry conflicts.
+				return err
+			}
+			return backoff.Permanent(fmt.Errorf("failed to update secret %s/%s: %w", input.Namespace, input.Name, err))
 		}
-		return backoff.Permanent(errors.Wrapf(err, "failed to update secret %s/%s", input.Namespace, input.Name))
+		return nil
 	}, b)
-
 }

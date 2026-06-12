@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/pkg/errors"
 	iam "google.golang.org/api/iamcredentials/v1"
 	"google.golang.org/api/option"
 )
@@ -42,7 +41,7 @@ const (
 func NewGCPTokenSource(ctx context.Context, client *http.Client, scopes []string) (*GCPTokenSource, error) {
 	service, err := iam.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create IAM service client")
+		return nil, fmt.Errorf("failed to create IAM service client: %w", err)
 	}
 	return &GCPTokenSource{service: service, scopes: scopes}, nil
 }
@@ -74,11 +73,11 @@ func (g *GCPTokenSource) Token(ctx context.Context, saName, saDelegateName strin
 	resp, err := g.service.Projects.ServiceAccounts.
 		GenerateAccessToken(resource, &req).Context(ctx).Do()
 	if err != nil {
-		return nil, errors.Wrapf(err, "GenerateAccessToken(..) for %q failed", resource)
+		return nil, fmt.Errorf("GenerateAccessToken(..) for %q failed: %w", resource, err)
 	}
 	tok, err := tokenResponse(resp, g.scopes, time.Now())
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to generate token response from GCP response")
+		return nil, fmt.Errorf("failed to generate token response from GCP response: %w", err)
 	}
 	return tok, nil
 }
@@ -92,7 +91,7 @@ func tokenResponse(r *iam.GenerateAccessTokenResponse, scopes []string, now time
 	// calculate ExpiresIn
 	exp, err := time.Parse(time.RFC3339Nano, r.ExpireTime)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse expiration time %q", r.ExpireTime)
+		return nil, fmt.Errorf("failed to parse expiration time %q: %w", r.ExpireTime, err)
 	}
 	diff := now.Sub(exp)
 	tr.ExpiresIn = int64(math.Abs(diff.Seconds()))

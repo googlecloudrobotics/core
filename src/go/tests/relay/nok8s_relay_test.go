@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -32,7 +33,6 @@ import (
 	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client"
-	"github.com/pkg/errors"
 	"golang.org/x/net/websocket"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -72,7 +72,7 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 	r.rs.Stdout = os.Stdout
 	r.rs.Stderr = io.MultiWriter(os.Stderr, &rsOut)
 	if err := r.rs.Start(); err != nil {
-		return errors.Wrap(err, "failed to start relay-server")
+		return fmt.Errorf("failed to start relay-server: %w", err)
 	}
 	r.rsPort = ""
 	for i := 0; i < 10; i++ {
@@ -101,7 +101,7 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 	r.rc.Stdout = os.Stdout
 	r.rc.Stderr = os.Stderr
 	if err := r.rc.Start(); err != nil {
-		return errors.Wrap(err, "failed to start relay-client")
+		return fmt.Errorf("failed to start relay-client: %w", err)
 	}
 
 	connected := false
@@ -114,7 +114,7 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 		time.Sleep(1 * time.Second)
 	}
 	if !connected {
-		errors.New("timeout waiting for relay-client to connect to relay-server")
+		return errors.New("timeout waiting for relay-client to connect to relay-server")
 	}
 	return nil
 }
@@ -122,10 +122,10 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 // stop tears down the relay processes
 func (r *relay) stop() error {
 	if err := r.rs.Process.Kill(); err != nil {
-		return errors.Wrap(err, "failed to kill relay-server")
+		return fmt.Errorf("failed to kill relay-server: %w", err)
 	}
 	if err := r.rc.Process.Kill(); err != nil {
-		return errors.Wrap(err, "failed to kill relay-client")
+		return fmt.Errorf("failed to kill relay-client: %w", err)
 	}
 	return nil
 }

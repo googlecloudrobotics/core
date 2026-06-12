@@ -19,6 +19,7 @@ package synk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"reflect"
@@ -32,7 +33,6 @@ import (
 	"github.com/cenkalti/backoff"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/ilog"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -178,7 +178,7 @@ func (s *Synk) Init() error {
 		return err
 	}
 	if _, err := s.applyOne(context.Background(), &u, nil); err != nil {
-		return errors.Wrap(err, "create ResourceSet CRD")
+		return fmt.Errorf("create ResourceSet CRD: %w", err)
 	}
 
 	err := backoff.Retry(
@@ -189,14 +189,14 @@ func (s *Synk) Init() error {
 				return err
 			}
 			if !ok {
-				return errors.Errorf("CRD %q is not available", u.GetName())
+				return fmt.Errorf("CRD %q is not available", u.GetName())
 			}
 			return nil
 		},
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 60),
 	)
 	if err != nil {
-		return errors.Wrap(err, "wait for ResourceSet CRD")
+		return fmt.Errorf("wait for ResourceSet CRD: %w", err)
 	}
 
 	return nil
@@ -278,7 +278,7 @@ func IsTransientErr(err error) bool {
 	if ok1 || ok2 {
 		return true
 	}
-	err = errors.Cause(err)
+	err = cause(err)
 	switch {
 	// May happen on resourceVersion mismatches or patch conflicts.
 	case k8serrors.IsConflict(err):
@@ -344,7 +344,7 @@ func (s *Synk) applyAll(
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 60),
 	)
 	if err != nil {
-		return results, errors.Wrap(err, "wait for CRDs")
+		return results, fmt.Errorf("wait for CRDs: %w", err)
 	}
 	// Reset all discovery and mapping once again.
 	s.resetMapper()
@@ -417,7 +417,7 @@ func validateNamespace(r *unstructured.Unstructured, optsNs string) error {
 	if slices.Contains(allowed, ns) {
 		return nil
 	}
-	return errors.Errorf("invalid namespace %q on %q, expected one of %v", ns, resourceKey(r), allowed)
+	return fmt.Errorf("invalid namespace %q on %q, expected one of %v", ns, resourceKey(r), allowed)
 }
 
 // initialize a new ResourceSet version for the given name and prepare resources
@@ -436,7 +436,7 @@ func (s *Synk) initialize(
 	crds, regulars := separateCRDsFromResources(resources)
 
 	if err := s.populateNamespaces(ctx, opts.Namespace, crds, regulars...); err != nil {
-		return nil, nil, errors.Wrap(err, "set default namespaces")
+		return nil, nil, fmt.Errorf("set default namespaces: %w", err)
 	}
 	// TODO: consider putting this and other validation as a step after initialize
 	// so we can give validation errors in batch in the ResourceSet status.
@@ -452,7 +452,7 @@ func (s *Synk) initialize(
 	var err error
 	opts.version, err = s.next(ctx, opts.name)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "get next ResourceSet version")
+		return nil, nil, fmt.Errorf("get next ResourceSet version: %w", err)
 	}
 
 	var rs apps.ResourceSet
@@ -484,7 +484,7 @@ func (s *Synk) initialize(
 		StartedAt: metav1.Now(),
 	}
 	if err := s.createResourceSet(ctx, &rs); err != nil {
-		return nil, nil, errors.Wrapf(err, "create resources object %q", rs.Name)
+		return nil, nil, fmt.Errorf("create resources object %q: %w", rs.Name, err)
 	}
 
 	return &rs, resources, nil
@@ -510,7 +510,7 @@ func (s *Synk) populateNamespaces(
 			// This error is only fatal if it actually fails to discover resources.
 			// Otherwise it indicates that the apiserver has cached some bad
 			// information about an aggregated API extension.
-			return errors.Wrap(err, "discover server resources")
+			return fmt.Errorf("discover server resources: %w", err)
 		}
 		slog.Warn("Ignoring error from ServerGroupsAndResources", ilog.Err(err))
 	}
@@ -527,7 +527,7 @@ func (s *Synk) populateNamespaces(
 	for _, crd := range crds {
 		var typed apiextensions.CustomResourceDefinition
 		if err := convert(crd, &typed); err != nil {
-			return errors.Wrapf(err, "invalid CustomResourceDefinition %q", resourceKey(crd))
+			return fmt.Errorf("invalid CustomResourceDefinition %q: %w", resourceKey(crd), err)
 		}
 		for _, v := range typed.Spec.Versions {
 			k := typed.Spec.Group + "/" + v.Name + "/" + typed.Spec.Names.Kind
@@ -569,7 +569,7 @@ func setAppliedAnnotation(u *unstructured.Unstructured) error {
 		return err
 	}
 	if len(b) >= totalAnnotationSizeLimitB {
-		return errors.Errorf("skipping annotation %q for %q: size %d > max. allowed size %d",
+		return fmt.Errorf("skipping annotation %q for %q: size %d > max. allowed size %d",
 			corev1.LastAppliedConfigAnnotation, u.GetName(), len(b), totalAnnotationSizeLimitB)
 	}
 	anns := u.GetAnnotations()
@@ -590,7 +590,7 @@ func validateOwnerRefs(r *unstructured.Unstructured, set *apps.ResourceSet) erro
 	}
 	name, version, ok := decodeResourceSetName(set.Name)
 	if !ok {
-		return errors.Errorf("invalid ResourceSet name %q", set.Name)
+		return fmt.Errorf("invalid ResourceSet name %q", set.Name)
 	}
 	for _, or := range r.GetOwnerReferences() {
 		if or.APIVersion != "apps.cloudrobotics.com/v1alpha1" || or.Kind != "ResourceSet" {
@@ -598,14 +598,14 @@ func validateOwnerRefs(r *unstructured.Unstructured, set *apps.ResourceSet) erro
 		}
 		n, v, ok := decodeResourceSetName(or.Name)
 		if !ok {
-			return errors.Errorf("ResourceSet owner reference with invalid name %q", or.Name)
+			return fmt.Errorf("ResourceSet owner reference with invalid name %q", or.Name)
 		}
 		if n != name {
-			return errors.Errorf("owned by conflicting ResourceSet object %q", or.Name)
+			return fmt.Errorf("owned by conflicting ResourceSet object %q", or.Name)
 		}
 		if v > version {
 			// TODO(rodrigoq): should this be transient to cope with concurrent synk runs?
-			return errors.Errorf("owned by newer ResourceSet %q > v%d", or.Name, version)
+			return fmt.Errorf("owned by newer ResourceSet %q > v%d", or.Name, version)
 		}
 	}
 	return nil
@@ -665,14 +665,14 @@ func replace(ctx context.Context, client dynamic.ResourceInterface, resource *un
 	policy := metav1.DeletePropagationForeground
 	deleteOpts := metav1.DeleteOptions{PropagationPolicy: &policy}
 	if err := client.Delete(ctx, resource.GetName(), deleteOpts); err != nil {
-		return nil, errors.Wrap(err, "delete")
+		return nil, fmt.Errorf("delete: %w", err)
 	}
 	res, err := client.Create(ctx, resource, metav1.CreateOptions{})
 	if err != nil {
 		// This is likely to occur if deletion is not immediate, in which case
 		// this returns a transient AlreadyExists error, and the outer loop will
 		// retry until the resource is deleted.
-		return nil, errors.Wrap(err, "create")
+		return nil, fmt.Errorf("create: %w", err)
 	}
 	return res, nil
 }
@@ -682,7 +682,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 	// TODO: This may be valid if generateName is set instead. In this case we
 	// want to create the resource in any case.
 	if resource.GetName() == "" {
-		return apps.ResourceActionNone, errors.Errorf("missing resource name for %s", resource.GroupVersionKind().String())
+		return apps.ResourceActionNone, fmt.Errorf("missing resource name for %s", resource.GroupVersionKind().String())
 	}
 	ctx, span := trace.StartSpan(ctx, "Apply "+resource.GetName())
 	defer span.End()
@@ -693,7 +693,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 
 	mapping, err := s.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
-		return apps.ResourceActionNone, errors.Wrap(err, "get REST mapping")
+		return apps.ResourceActionNone, fmt.Errorf("get REST mapping: %w", err)
 	}
 	var client dynamic.ResourceInterface
 	if mapping.Scope.Name() == meta.RESTScopeNameRoot {
@@ -716,15 +716,15 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		res, err := client.Create(ctx, resource, metav1.CreateOptions{})
 		createSpan.End()
 		if err != nil {
-			return apps.ResourceActionCreate, errors.Wrap(err, "create resource")
+			return apps.ResourceActionCreate, fmt.Errorf("create resource: %w", err)
 		}
 		*resource = *res
 		return apps.ResourceActionCreate, nil
 	} else if err != nil {
-		return apps.ResourceActionNone, errors.Wrap(err, "get resource")
+		return apps.ResourceActionNone, fmt.Errorf("get resource: %w", err)
 	}
 	if err := validateOwnerRefs(current, set); err != nil {
-		return apps.ResourceActionNone, errors.Wrap(err, "owner conflict")
+		return apps.ResourceActionNone, fmt.Errorf("owner conflict: %w", err)
 	}
 
 	// Get what is running, what was installed and what we want to run.
@@ -754,7 +754,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 			// for full kubectl compatibility.
 			patchMeta, err := strategicpatch.NewPatchMetaFromStruct(obj)
 			if err != nil {
-				return apps.ResourceActionNone, errors.Wrap(err, "lookup patch meta")
+				return apps.ResourceActionNone, fmt.Errorf("lookup patch meta: %w", err)
 			}
 			// TODO: Make overwrite boolean configurable for full kubectl compatibility.
 			patch, err = strategicpatch.CreateThreeWayMergePatch(
@@ -762,7 +762,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 				patchMeta, true,
 			)
 			if err != nil {
-				return apps.ResourceActionNone, errors.Wrap(err, "create strategic-merge-patch")
+				return apps.ResourceActionNone, fmt.Errorf("create strategic-merge-patch: %w", err)
 			}
 			patchType = types.StrategicMergePatchType
 
@@ -774,11 +774,11 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 				mergepatch.RequireMetadataKeyUnchanged("name"),
 			)
 			if err != nil {
-				return apps.ResourceActionNone, errors.Wrap(err, "create json-merge-patch")
+				return apps.ResourceActionNone, fmt.Errorf("create json-merge-patch: %w", err)
 			}
 			patchType = types.MergePatchType
 		} else {
-			return apps.ResourceActionNone, errors.Wrap(err, "instantiate object")
+			return apps.ResourceActionNone, fmt.Errorf("instantiate object: %w", err)
 		}
 		// As the ownerReference is bumped, the patch will never be empty
 		// and we cannot skip it.
@@ -817,13 +817,13 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 
 	// If patching/updating failed, consider deleting and recreating the resource.
 	if !canReplace(resource, patchErr) {
-		return apps.ResourceActionUpdate, errors.Wrap(patchErr, "apply patch or update")
+		return apps.ResourceActionUpdate, fmt.Errorf("apply patch or update: %w", patchErr)
 	}
 	_, replace_span := trace.StartSpan(ctx, "Replace "+resource.GetName())
 	res, err := replace(ctx, client, resource)
 	replace_span.End()
 	if err != nil {
-		return apps.ResourceActionReplace, errors.Wrap(err, "replace")
+		return apps.ResourceActionReplace, fmt.Errorf("replace: %w", err)
 	}
 	*resource = *res
 	return apps.ResourceActionReplace, nil
@@ -982,7 +982,7 @@ func (s *Synk) updateResourceSetStatus(ctx context.Context, rs *apps.ResourceSet
 	}
 	res, err := s.client.Resource(resourceSetGVR).Update(ctx, &u, metav1.UpdateOptions{})
 	if err != nil {
-		return errors.Wrap(err, "update ResourceSet status")
+		return fmt.Errorf("update ResourceSet status: %w", err)
 	}
 	return convert(res, rs)
 }
@@ -996,12 +996,12 @@ func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, versio
 		LabelSelector: "name=" + name,
 	})
 	if err != nil {
-		return errors.Wrap(err, "list existing resources")
+		return fmt.Errorf("list existing resources: %w", err)
 	}
 	for _, r := range list.Items {
 		phase, found, err := unstructured.NestedString(r.Object, "status", "phase")
 		if err != nil {
-			return errors.Wrapf(err, "failed to get status.phase from ResourceSet %q", r.GetName())
+			return fmt.Errorf("failed to get status.phase from ResourceSet %q: %w", r.GetName(), err)
 		}
 		if !found || phase != "Failed" {
 			continue
@@ -1015,7 +1015,7 @@ func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, versio
 		// kubectl doesn't allow to opt into foreground deletion in general but
 		// here it would likely bring us closer to the apply --prune semantics.
 		if err := c.Delete(ctx, r.GetName(), metav1.DeleteOptions{}); err != nil {
-			return errors.Wrapf(err, "delete ResourceSet %q", r.GetName())
+			return fmt.Errorf("delete ResourceSet %q: %w", r.GetName(), err)
 		}
 	}
 	return nil
@@ -1030,7 +1030,7 @@ func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int3
 		LabelSelector: "name=" + name,
 	})
 	if err != nil {
-		return errors.Wrap(err, "list existing resources")
+		return fmt.Errorf("list existing resources: %w", err)
 	}
 	for _, r := range list.Items {
 		n, v, ok := decodeResourceSetName(r.GetName())
@@ -1042,7 +1042,7 @@ func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int3
 		// kubectl doesn't allow to opt into foreground deletion in general but
 		// here it would likely bring us closer to the apply --prune semantics.
 		if err := c.Delete(ctx, r.GetName(), metav1.DeleteOptions{}); err != nil {
-			return errors.Wrapf(err, "delete ResourceSet %q", r.GetName())
+			return fmt.Errorf("delete ResourceSet %q: %w", r.GetName(), err)
 		}
 	}
 	return nil
@@ -1052,7 +1052,7 @@ func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int3
 func (s *Synk) next(ctx context.Context, name string) (version int32, err error) {
 	list, err := s.client.Resource(resourceSetGVR).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return 0, errors.Wrap(err, "list existing ResourceSets")
+		return 0, fmt.Errorf("list existing ResourceSets: %w", err)
 	}
 	var curVersion int32
 	for _, r := range list.Items {
@@ -1141,4 +1141,14 @@ func convert(from, to runtime.Object) error {
 		return err
 	}
 	return json.Unmarshal(b, &to)
+}
+
+func cause(err error) error {
+	for {
+		u := errors.Unwrap(err)
+		if u == nil {
+			return err
+		}
+		err = u
+	}
 }

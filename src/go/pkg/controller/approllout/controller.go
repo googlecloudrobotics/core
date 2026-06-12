@@ -17,6 +17,7 @@ package approllout
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -28,7 +29,6 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	"github.com/googlecloudrobotics/ilog"
-	"github.com/pkg/errors"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
@@ -69,23 +69,23 @@ func Add(ctx context.Context, mgr manager.Manager, baseValues chartutil.Values) 
 		Reconciler: r,
 	})
 	if err != nil {
-		return errors.Wrap(err, "create controller")
+		return fmt.Errorf("create controller: %w", err)
 	}
 
 	err = mgr.GetCache().IndexField(ctx, &apps.ChartAssignment{}, fieldIndexOwners, indexOwnerReferences)
 	if err != nil {
-		return errors.Wrap(err, "add field indexer")
+		return fmt.Errorf("add field indexer: %w", err)
 	}
 	err = mgr.GetCache().IndexField(ctx, &apps.AppRollout{}, fieldIndexAppName, indexAppName)
 	if err != nil {
-		return errors.Wrap(err, "add field indexer")
+		return fmt.Errorf("add field indexer: %w", err)
 	}
 
 	err = c.Watch(
 		source.Kind(mgr.GetCache(), kclient.Object(&apps.AppRollout{}), &handler.EnqueueRequestForObject{}),
 	)
 	if err != nil {
-		return errors.Wrap(err, "watch AppRollouts")
+		return fmt.Errorf("watch AppRollouts: %w", err)
 	}
 	// We don't trigger on ChartAssignment creations since it was either ourselves
 	// or a CA we don't care about anyway.
@@ -105,7 +105,7 @@ func Add(ctx context.Context, mgr manager.Manager, baseValues chartutil.Values) 
 			}),
 	)
 	if err != nil {
-		return errors.Wrap(err, "watch ChartAssignments")
+		return fmt.Errorf("watch ChartAssignments: %w", err)
 	}
 	// Determining which rollouts are affected by a robot change is tedious.
 	// We just enqueue all AppRollouts again.
@@ -138,7 +138,7 @@ func Add(ctx context.Context, mgr manager.Manager, baseValues chartutil.Values) 
 			}),
 	)
 	if err != nil {
-		return errors.Wrap(err, "watch Robots")
+		return fmt.Errorf("watch Robots: %w", err)
 	}
 	err = c.Watch(
 		source.Kind(mgr.GetCache(), kclient.Object(&apps.App{}),
@@ -158,7 +158,7 @@ func Add(ctx context.Context, mgr manager.Manager, baseValues chartutil.Values) 
 			}),
 	)
 	if err != nil {
-		return errors.Wrap(err, "watch Apps")
+		return fmt.Errorf("watch Apps: %w", err)
 	}
 	return nil
 }
@@ -220,7 +220,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		// AppRollout was already deleted, nothing to do.
 		return reconcile.Result{}, nil
 	} else if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "get AppRollout %q", req)
+		return reconcile.Result{}, fmt.Errorf("get AppRollout %q: %w", req, err)
 	}
 	return r.reconcile(ctx, &ar)
 }
@@ -248,15 +248,15 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	// existing tests.
 	err := r.kube.List(ctx, &curCAs, kclient.MatchingFields(map[string]string{fieldIndexOwners: string(ar.UID)}))
 	if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "list ChartAssignments for owner UID %s", ar.UID)
+		return reconcile.Result{}, fmt.Errorf("list ChartAssignments for owner UID %s: %w", ar.UID, err)
 	}
 
 	if err := r.kube.List(ctx, &robots); err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "list all Robots")
+		return reconcile.Result{}, fmt.Errorf("list all Robots: %w", err)
 	}
 
 	if err := r.kube.List(ctx, &al, kclient.MatchingLabels{labelAppName: ar.Spec.AppName}); err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "list all App Versions")
+		return reconcile.Result{}, fmt.Errorf("list all App Versions: %w", err)
 	}
 
 	// There might be old Apps laying around that do not conform to this
@@ -293,10 +293,11 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 
 	wantCAs, err := generateChartAssignments(al.Items, robots.Items, ar, r.baseValues)
 	if err != nil {
-		if _, ok := errors.Cause(err).(errRobotSelectorOverlap); ok {
+		var selectorErr errRobotSelectorOverlap
+		if errors.As(err, &selectorErr) {
 			return reconcile.Result{}, r.updateErrorStatus(ctx, ar, err.Error())
 		}
-		return reconcile.Result{}, errors.Wrap(err, "generate ChartAssignments")
+		return reconcile.Result{}, fmt.Errorf("generate ChartAssignments: %w", err)
 	}
 
 	// ChartAssignments that are no longer wanted. We pre-populate it with
@@ -323,26 +324,26 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 
 		if !exists {
 			if err := r.kube.Create(ctx, ca); err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "create ChartAssignment %q", ca.Name)
+				return reconcile.Result{}, fmt.Errorf("create ChartAssignment %q: %w", ca.Name, err)
 			}
 			slog.Info("Created ChartAssignment", slog.String("Name", ca.Name))
 			continue
 		}
 		if changed, err := chartAssignmentChanged(&prev, ca); err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "check ChartAssignment changed")
+			return reconcile.Result{}, fmt.Errorf("check ChartAssignment changed: %w", err)
 		} else if !changed {
 			continue
 		}
 		ca.ResourceVersion = prev.ResourceVersion
 		if err := r.kube.Update(ctx, ca); err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "update ChartAssignment %q", ca.Name)
+			return reconcile.Result{}, fmt.Errorf("update ChartAssignment %q: %w", ca.Name, err)
 		}
 		slog.Info("Updated ChartAssignment", slog.String("Name", ca.Name))
 	}
 	// Delete obsolete assignments.
 	for _, ca := range dropCAs {
 		if err := r.kube.Delete(ctx, &ca); err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "delete ChartAssignment %q", ca.Name)
+			return reconcile.Result{}, fmt.Errorf("delete ChartAssignment %q: %w", ca.Name, err)
 		}
 		slog.Info("Deleted ChartAssignment", slog.String("Name", ca.Name))
 	}
@@ -350,7 +351,7 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	setStatus(ar, len(wantCAs), curCAs.Items)
 
 	if err := r.kube.Status().Update(ctx, ar); err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "update status")
+		return reconcile.Result{}, fmt.Errorf("update status: %w", err)
 	}
 	return reconcile.Result{}, nil
 }
@@ -358,7 +359,7 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 func (r *Reconciler) updateErrorStatus(ctx context.Context, ar *apps.AppRollout, msg string) error {
 	setCondition(ar, apps.AppRolloutConditionSettled, core.ConditionFalse, msg)
 	if err := r.kube.Status().Update(ctx, ar); err != nil {
-		return errors.Wrap(err, "update status")
+		return fmt.Errorf("update status: %w", err)
 	}
 	return nil
 }
@@ -488,7 +489,7 @@ func generateChartAssignments(
 	for _, rcomp := range rollout.Spec.Robots {
 		robots, err := matchingRobots(robots, rcomp.Selector)
 		if err != nil {
-			return nil, errors.Wrap(err, "select robots")
+			return nil, fmt.Errorf("select robots: %w", err)
 		}
 		// map is populated by for all the rcomp.Version, no need to check ok
 		app, ok := appVersions[rcomp.Version]
@@ -812,26 +813,26 @@ func (v *appRolloutValidator) Handle(_ context.Context, req admission.Request) a
 
 func appRolloutValidate(cur *apps.AppRollout) error {
 	if cur.Spec.AppName == "" {
-		return errors.Errorf("spec.appName is missing for AppRollout %q", cur.Name)
+		return fmt.Errorf("spec.appName is missing for AppRollout %q", cur.Name)
 	}
 	errs := validation.NameIsDNSSubdomain(cur.Spec.AppName, false)
 	if len(errs) > 0 {
-		return errors.Errorf("validate app name: %s", strings.Join(errs, ", "))
+		return fmt.Errorf("validate app name: %s", strings.Join(errs, ", "))
 	}
 	if _, ok := cur.Spec.Cloud.Values["robots"]; ok {
-		return errors.Errorf(".spec.cloud.values.robots is a reserved field and must not be set")
+		return fmt.Errorf(".spec.cloud.values.robots is a reserved field and must not be set")
 	}
 	for i, r := range cur.Spec.Robots {
 		if _, ok := r.Values["robot"]; ok {
-			return errors.Errorf(".spec.robots[].values.robot is a reserved field and must not be set")
+			return fmt.Errorf(".spec.robots[].values.robot is a reserved field and must not be set")
 		}
 		if r.Selector == nil {
-			return errors.Errorf("no selector provided for robots %d", i)
+			return fmt.Errorf("no selector provided for robots %d", i)
 		}
 		// Reject if a selector has neither a matcher nor `any` set.
 		// This mostly helps catching missing `matchLabels`.
 		if r.Selector.Any == nil && r.Selector.LabelSelector == nil {
-			return errors.Errorf("empty selector for robots %d (matchLabels not specified?)", i)
+			return fmt.Errorf("empty selector for robots %d (matchLabels not specified?)", i)
 		}
 	}
 	return nil

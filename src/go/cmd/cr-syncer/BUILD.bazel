@@ -17,7 +17,6 @@ go_library(
         "//src/go/pkg/robotauth:go_default_library",
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
         "@com_github_motemen_go_loghttp//:go_default_library",
-        "@com_github_pkg_errors//:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/apis/apiextensions/v1:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/client/clientset/clientset:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/client/informers/externalversions:go_default_library",
