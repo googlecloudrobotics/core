@@ -16,6 +16,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -26,6 +27,15 @@ import (
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	"github.com/prometheus/client_golang/prometheus"
+)
+
+var (
+	ErrMultipleClients   = errors.New("multiple clients trying to handle request ID")
+	ErrRelayTimeout      = errors.New("timeout waiting for relay client to accept request")
+	ErrNoRequest         = errors.New("no request received within timeout")
+	ErrServerRestarting  = errors.New("server is restarting")
+	ErrInvalidRequestID  = errors.New("duplicate or invalid request ID")
+	ErrClosedInactivity  = errors.New("closed due to inactivity")
 )
 
 var (
@@ -149,7 +159,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	}
 	if r.resp[id] != nil {
 		r.m.Unlock()
-		return nil, fmt.Errorf("multiple clients trying to handle request ID %s on server %s", id, server)
+		return nil, fmt.Errorf("%w %s on server %s", ErrMultipleClients, id, server)
 	}
 	ts := time.Now()
 	r.resp[id] = &pendingResponse{
@@ -173,7 +183,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	case <-time.After(10 * time.Second):
 		// This branch is triggered if the channel is not ready to consume the request
 		// since it is still busy with handling a different request.
-		return nil, fmt.Errorf("cannot reach the client %q; check that it's turned on, set up, and connected to the internet; if the network config recently changed, try again in 1-2 minutes (timeout waiting for relay client to accept request)", server)
+		return nil, fmt.Errorf("cannot reach the client %q; check that it's turned on, set up, and connected to the internet; if the network config recently changed, try again in 1-2 minutes (%w)", server, ErrRelayTimeout)
 	}
 }
 
@@ -204,9 +214,9 @@ func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpR
 		return req, nil
 	case <-time.After(time.Second * 30):
 		brokerResponses.WithLabelValues("server_request", "timeout", server).Inc()
-		return nil, fmt.Errorf("no request received within timeout")
+		return nil, ErrNoRequest
 	case <-ctx.Done():
-		return nil, fmt.Errorf("server is restarting")
+		return nil, ErrServerRestarting
 	}
 }
 
@@ -265,7 +275,7 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	if pr == nil {
 		r.m.Unlock()
 		brokerResponses.WithLabelValues("server_response", "not recognized or reaches the inactivity timeout", backendName).Inc()
-		return fmt.Errorf("duplicate or invalid request ID %s", id)
+		return fmt.Errorf("%w %s", ErrInvalidRequestID, id)
 	}
 	// hold `sendMutex` throughout the function to ensure that `responseStream` is not closed
 	// while we are writing to it. We must acquire the lock while we are holding `r.m` to
@@ -292,7 +302,7 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	case pr.responseStream <- resp:
 		break
 	case <-pr.markReap:
-		return fmt.Errorf("closed due to inactivity")
+		return ErrClosedInactivity
 	}
 
 	brokerRequests.WithLabelValues("server_response", backendName).Inc()

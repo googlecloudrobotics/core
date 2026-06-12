@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -42,6 +43,11 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"golang.org/x/sync/errgroup"
+)
+
+var (
+	ErrRequestPathTooShort     = errors.New("request path too short")
+	ErrMissingServerNameHeader = errors.New("missing required header")
 )
 
 const (
@@ -131,7 +137,7 @@ func extractBackendNameAndPath(r *http.Request) (backendName string, path string
 		pathParts := strings.SplitN(strings.TrimPrefix(r.URL.Path, clientPrefix), "/", 2)
 		backendName = pathParts[0]
 		if backendName == "" {
-			err = fmt.Errorf("request path %q too short: missing remote server identifier after %q", r.URL.Path, clientPrefix)
+			err = fmt.Errorf("%w: %q missing remote server identifier after %q", ErrRequestPathTooShort, r.URL.Path, clientPrefix)
 			return
 		}
 		path = "/"
@@ -143,7 +149,7 @@ func extractBackendNameAndPath(r *http.Request) (backendName string, path string
 		// identified by "X-Server-Name" header.
 		headers, ok := r.Header["X-Server-Name"]
 		if !ok {
-			err = fmt.Errorf("request for path %q is missing required header %q", r.URL.Path, "X-Server-Name")
+			err = fmt.Errorf("%w: %q missing for path %q", ErrMissingServerNameHeader, "X-Server-Name", r.URL.Path)
 			return
 		}
 		backendName = headers[0]
@@ -264,9 +270,7 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 			// Here we get the client stream (e.g. kubectl or k9s)
 			n, err := bufrw.Read(bytes)
 			if err != nil {
-				// TODO(https://github.com/golang/go/issues/4373): in Go 1.13,
-				// we may be able to suppress the "read from closed connection" better.
-				if strings.Contains(err.Error(), "use of closed network connection") {
+				if errors.Is(err, net.ErrClosed) {
 					// Request ended and connection closed by HTTP server.
 					slog.Info("End of bidi-stream stream (closed socket)", slog.String("ID", backendCtx.Id))
 				} else {
