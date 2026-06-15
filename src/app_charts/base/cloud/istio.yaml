@@ -169,7 +169,7 @@ kind: PodDisruptionBudget
 metadata:
   name: crc-auth-gateway-catchall-pdb
 spec:
-  minAvailable: 1
+  maxUnavailable: 33%
   selector:
     matchLabels:
       app: crc-auth-gateway-catchall-svc
