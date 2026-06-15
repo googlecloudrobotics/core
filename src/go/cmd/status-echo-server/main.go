@@ -85,10 +85,10 @@ func determineStatusCode(req *http.Request, defaultStatus int) int {
 	if statusStr != "" {
 		parsedCode, err := strconv.Atoi(statusStr)
 		if err != nil {
-			slog.Warn("status code could not be converted to integer", "error", err)
+			slog.Warn("Status code could not be converted to integer", "error", err)
 			statusCode = http.StatusBadRequest
 		} else if http.StatusText(parsedCode) == "" {
-			slog.Warn("unrecognized HTTP status code requested", "code", parsedCode)
+			slog.Warn("Unrecognized HTTP status code requested", "code", parsedCode)
 			statusCode = http.StatusBadRequest
 		} else {
 			statusCode = parsedCode
