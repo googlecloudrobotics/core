@@ -161,62 +161,62 @@ The request for unauthenticated users flows like this:
 
 First set the name of your project:
 
-```bash
+```shell
 PROJECT=testproject
 ```
 
 Publish a key for the device `robot-dev-testuser`:
 
-```bash
+```shell
 curl -D - --max-time 3 --data-binary "@api/v1/testdata/rsa_cert.pem" -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" -H "Content-type: application/x-pem-file" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/public-key.publish?device-id=robot-dev-testuser
 ```
 
 Optionally set extra options for the device:
 
-```bash
+```shell
 curl -D - --max-time 3 -d '{"service-account":"svc@${PROJECT}.iam.gserviceaccount.com"}' -H "Content-Type: application/json" -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" -H "Content-type: application/x-pem-file" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/public-key.configure?device-id=robot-dev-testuser
 ```
 
 Read the key again:
 
-```bash
+```shell
 curl -D - --max-time 3 -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/public-key.read?device-id=robot-dev-testuser
 ```
 
 Verify if your local user account has access to the human and robot ACL:
 
-```bash
+```shell
 curl -D - --max-time 3 -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/token.verify
 ```
 
 and
 
-```bash
+```shell
 curl -D - --max-time 3 -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/token.verify?robots=true
 ```
 
 Request a cloud access token for the robot. First generate a valid JWT using the intstructions at [testdata/README.md](api/v1/testdata/README.md). Afterwards use it to request the cloud token:
 
-```bash
+```shell
 JWT=$(cat api/v1/testdata/jwt.bin)
 curl -D - --max-time 3 --data-binary "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${JWT}" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/token.oauth2
 ```
 
 You can capture the token in `$TOKEN` with:
 
-```bash
+```shell
 TOKEN=$(curl -s --max-time 3 --data-binary "grant_type=urn:ietf:params:oauth:grant-typ
 e:jwt-bearer&assertion=${JWT}" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/token.oauth2 | jq -r .access_token)
 ```
 
 Verify if the token has access to the robots ACL (it should respond 200):
 
-```bash
+```shell
 curl -D - --max-time 3 -H "Authorization: Bearer ${TOKEN}" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/token.verify?robots=true
 ```
 
 Verify if the token does *not* have access to the human ACL (it should respond 403):
 
-```bash
+```shell
 curl -D - --max-time 3 -H "Authorization: Bearer ${TOKEN}" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/token.verify
 ```
