@@ -66,7 +66,12 @@ go_test(
 
 go_library(
     name = "go_default_library",
+    srcs = ["testutil.go"],
     embed = [":grpc_test_proto_go"],
     importpath = "github.com/googlecloudrobotics/core/src/go/tests/relay",
     visibility = ["//visibility:public"],
+    deps = [
+        "//src/go/cmd/http-relay-client/client:go_default_library",
+        "//src/go/cmd/http-relay-server/server:go_default_library",
+    ],
 )
