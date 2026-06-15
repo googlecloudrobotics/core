@@ -178,6 +178,7 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("failed to read /var/run/secrets/kubernetes.io/serviceaccount/token", ilog.Err(err))
 		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
 	}
 	w.Header().Add("Authorization", "Bearer "+string(k8sToken))
 	w.WriteHeader(http.StatusOK)
