@@ -58,7 +58,7 @@ func main() {
 	slog.SetDefault(slog.New(logHandler))
 
 	ctx := context.Background()
-	if *stackdriverProjectID != "" && *cloudCluster == false {
+	if *stackdriverProjectID != "" && !*cloudCluster {
 		sd, err := stackdriver.NewExporter(stackdriver.Options{
 			ProjectID: *stackdriverProjectID,
 		})
@@ -72,7 +72,7 @@ func main() {
 	}
 
 	var clusterName string
-	if *cloudCluster == true {
+	if *cloudCluster {
 		clusterName = "cloud"
 		slog.Info("Starting chart-assignment-controller in cloud setup")
 	} else {

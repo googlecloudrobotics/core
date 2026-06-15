@@ -57,8 +57,7 @@ func detectChangesToFile(filename string) <-chan struct{} {
 		slog.Error("NewWatcher", slog.Any("Error", err))
 		os.Exit(1)
 	}
-	err = watcher.Add(filename)
-	if err != nil {
+	if err := watcher.Add(filename); err != nil {
 		slog.Error("Watcher.Add", slog.Any("Error", err))
 		os.Exit(1)
 	}

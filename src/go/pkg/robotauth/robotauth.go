@@ -73,8 +73,7 @@ func LoadFromFile(keyfile string) (*RobotAuth, error) {
 	}
 
 	var robotAuth RobotAuth
-	err = json.Unmarshal(raw, &robotAuth)
-	if err != nil {
+	if err := json.Unmarshal(raw, &robotAuth); err != nil {
 		return nil, fmt.Errorf("failed to parse %v: %v", credentialsFile, err)
 	}
 
@@ -110,8 +109,7 @@ func (r *RobotAuth) StoreInFile() error {
 		return err
 	}
 
-	err = os.WriteFile(file, raw, 0600)
-	if err != nil {
+	if err := os.WriteFile(file, raw, 0600); err != nil {
 		return fmt.Errorf("failed to write %v: %v", credentialsFile, err)
 	}
 

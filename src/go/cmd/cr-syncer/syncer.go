@@ -339,14 +339,12 @@ func (s *crSyncer) processNextWorkItem(
 	// Errors are counted in syncUpstream and syncDownstream functions
 	if s.conflictErrors >= *conflictErrorLimit {
 		slog.Info("Restarting informers because of too many conflict errors", slog.String("CRD", s.crd.GetName()))
-		err := s.restartInformers()
-		if err != nil {
+		if err := s.restartInformers(); err != nil {
 			slog.Warn("Restarting informers failed", slog.String("CRD", s.crd.GetName()))
 			q.AddRateLimited(key)
 			return true
-		} else {
-			s.conflictErrors = 0
 		}
+		s.conflictErrors = 0
 	}
 
 	ctx, err := tag.New(ctx, tag.Insert(tagEventSource, qName))

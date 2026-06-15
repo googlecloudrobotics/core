@@ -268,8 +268,7 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 			// This must be a new buffer each time, as the channel is not making a copy
 			bytes := make([]byte, s.conf.BlockSize)
 			// Here we get the client stream (e.g. kubectl or k9s)
-			n, err := bufrw.Read(bytes)
-			if err != nil {
+			if n, err := bufrw.Read(bytes); err != nil {
 				if errors.Is(err, net.ErrClosed) {
 					// Request ended and connection closed by HTTP server.
 					slog.Info("End of bidi-stream stream (closed socket)", slog.String("ID", backendCtx.Id))
@@ -278,19 +277,20 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 					slog.Error("Error reading from bidi-stream", slog.String("ID", backendCtx.Id), ilog.Err(err))
 				}
 				return
+			} else {
+				slog.Info("Read from bidi-stream", slog.String("ID", backendCtx.Id), slog.Int("Bytes", n))
+				if ok = s.b.PutRequestStream(backendCtx.Id, bytes[:n]); !ok {
+					slog.Info("End of bidi-stream stream", slog.String("ID", backendCtx.Id))
+					return
+				}
+				slog.Info("Uploaded from bidi-stream", slog.String("ID", backendCtx.Id), slog.Int("Bytes", n))
 			}
-			slog.Info("Read from bidi-stream", slog.String("ID", backendCtx.Id), slog.Int("Bytes", n))
-			if ok = s.b.PutRequestStream(backendCtx.Id, bytes[:n]); !ok {
-				slog.Info("End of bidi-stream stream", slog.String("ID", backendCtx.Id))
-				return
-			}
-			slog.Info("Uploaded from bidi-stream", slog.String("ID", backendCtx.Id), slog.Int("Bytes", n))
 		}
 	}()
 
 	numBytes := 0
 	for responseChunk := range responseChunks {
-		if _, err = bufrw.Write(responseChunk.Body); err != nil {
+		if _, err := bufrw.Write(responseChunk.Body); err != nil {
 			slog.Error("Error writing response to bidi-stream", slog.String("ID", backendCtx.Id), ilog.Err(err))
 			return
 		}
@@ -434,7 +434,7 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	// i.e. this will block until
 	numBytes := 0
 	for responseChunk := range responseChunksChan {
-		if _, err = w.Write(responseChunk.Body); err != nil {
+		if _, err := w.Write(responseChunk.Body); err != nil {
 			slog.Error("Error writing response to user-client", slog.String("ID", backendCtx.Id), ilog.Err(err))
 			return
 		}
@@ -524,13 +524,13 @@ func (s *Server) serverResponse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	br := &pb.HttpResponse{}
-	if err = proto.Unmarshal(body, br); err != nil {
+	if err := proto.Unmarshal(body, br); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Send the response to the actual user-client using our broker.
-	if err = s.b.SendResponse(br); err != nil {
+	if err := s.b.SendResponse(br); err != nil {
 		// SendResponse fails if and only if the request ID is bad.
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
