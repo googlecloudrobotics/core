@@ -37,6 +37,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"io"
 
 	"github.com/googlecloudrobotics/ilog"
 )
@@ -59,7 +60,7 @@ func echoHandler(w http.ResponseWriter, req *http.Request) {
 
 	statusCode := determineStatusCode(req, *httpStatus)
 	w.WriteHeader(statusCode)
-	w.Write([]byte(http.StatusText(statusCode)))
+	io.WriteString(w, http.StatusText(statusCode))
 }
 
 func determineStatusCode(req *http.Request, defaultStatus int) int {
@@ -76,7 +77,7 @@ func determineStatusCode(req *http.Request, defaultStatus int) int {
 			statusStr = suffix
 		}
 	}
-	if statusStr == "" {
+	if (statusStr == "") && (req.URL.RawQuery != "") {
 		statusStr = req.URL.Query().Get("status")
 	}
 
@@ -97,8 +98,11 @@ func determineStatusCode(req *http.Request, defaultStatus int) int {
 	return statusCode
 }
 
-// Using a single endpoint for both health and readiness probes since there are no external dependencies for now. 
 func healthzHandler(w http.ResponseWriter, req *http.Request) {
+	fmt.Fprintln(w, "OK")
+}
+
+func readyzHandler(w http.ResponseWriter, req *http.Request) {
 	if isShuttingDown.Load() {
 		http.Error(w, "Server shutting down", http.StatusServiceUnavailable)
 		return
@@ -117,6 +121,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", healthzHandler)
+	mux.HandleFunc("/readyz", readyzHandler)
 	mux.HandleFunc("/", echoHandler)
 
 	addr := fmt.Sprintf(":%d", *port)
@@ -153,7 +158,7 @@ func shutdownServer(srv *http.Server, forceCancel context.CancelFunc) {
 	time.Sleep(readinessDrainDelay)
 
 	// Attempt a graceful shutdown (finish processing of current requests).
-	slog.Info("Initiating server shutdown with timeout of", shutdownPeriod)
+	slog.Info("Initiating server shutdown", "timeout", shutdownPeriod)
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownPeriod)
 	defer cancel()
 

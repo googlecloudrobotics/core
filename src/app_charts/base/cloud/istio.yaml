@@ -130,7 +130,7 @@ spec:
         - --http_status=404
         readinessProbe:
           httpGet: 
-            path: /healthz
+            path: /readyz
             port: 8080
             scheme: HTTP
           initialDelaySeconds: 2 
@@ -169,7 +169,7 @@ kind: PodDisruptionBudget
 metadata:
   name: crc-auth-gateway-catchall-pdb
 spec:
-  maxUnavailable: 1
+  minAvailable: 1
   selector:
     matchLabels:
       app: crc-auth-gateway-catchall-svc
@@ -189,12 +189,6 @@ spec:
   - type: Resource
     resource:
       name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 80
-  - type: Resource
-    resource:
-      name: memory
       target:
         type: Utilization
         averageUtilization: 80

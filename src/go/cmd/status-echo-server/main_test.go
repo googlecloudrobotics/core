@@ -156,13 +156,27 @@ func TestHealthzHandler(t *testing.T) {
 	}
 }
 
-func TestHealthzHandler_ShuttingDown(t *testing.T) {
+func TestReadyzHandler(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	w := httptest.NewRecorder()
+	readyzHandler(w, req)
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("got %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+	body := w.Body.String()
+	if body != "OK\n" {
+		t.Errorf("got %q, want %q", body, "OK\n")
+	}
+}
+
+func TestReadyzHandler_ShuttingDown(t *testing.T) {
 	isShuttingDown.Store(true)
 	defer isShuttingDown.Store(false) // Reset after test
 
-	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 	w := httptest.NewRecorder()
-	healthzHandler(w, req)
+	readyzHandler(w, req)
 	resp := w.Result()
 
 	if resp.StatusCode != http.StatusServiceUnavailable {
