@@ -110,7 +110,6 @@ metadata:
   labels:
     app: crc-auth-gateway-catchall-svc
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: crc-auth-gateway-catchall-svc
@@ -130,11 +129,26 @@ spec:
         - --port=8080
         - --http_status=404
         readinessProbe:
-          tcpSocket:
+          httpGet:
+            path: /readyz
             port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 2 
+          periodSeconds: 5
         livenessProbe:
-          tcpSocket:
+          httpGet: 
+            path: /healthz
             port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 2 
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: "1.0"
+            memory: "32Mi"
+          limits:
+            cpu: "1.5"
+            memory: "64Mi"
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -148,6 +162,36 @@ spec:
         runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: crc-auth-gateway-catchall-pdb
+spec:
+  maxUnavailable: 33%
+  selector:
+    matchLabels:
+      app: crc-auth-gateway-catchall-svc
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: crc-auth-gateway-catchall-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: crc-auth-gateway-catchall-svc
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
 ---
 apiVersion: v1
 kind: Service
