@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client"
-	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server/server"
-	pb "github.com/googlecloudrobotics/core/src/go/tests/relay"
+	rt "github.com/googlecloudrobotics/core/src/go/tests/relay"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -22,14 +20,14 @@ const (
 )
 
 type testServer struct {
-	pb.UnimplementedTestServiceServer
+	rt.UnimplementedTestServiceServer
 }
 
-func (s *testServer) Unary(ctx context.Context, req *pb.StringMessage) (*pb.StringMessage, error) {
-	return &pb.StringMessage{Value: "Echo: " + req.Value}, nil
+func (s *testServer) Unary(ctx context.Context, req *rt.StringMessage) (*rt.StringMessage, error) {
+	return &rt.StringMessage{Value: "Echo: " + req.Value}, nil
 }
 
-func (s *testServer) ClientStream(stream pb.TestService_ClientStreamServer) error {
+func (s *testServer) ClientStream(stream rt.TestService_ClientStreamServer) error {
 	var received []string
 	for {
 		in, err := stream.Recv()
@@ -42,20 +40,20 @@ func (s *testServer) ClientStream(stream pb.TestService_ClientStreamServer) erro
 		received = append(received, in.Value)
 	}
 	respVal := fmt.Sprintf("Echo: %v", received)
-	return stream.SendAndClose(&pb.StringMessage{Value: respVal})
+	return stream.SendAndClose(&rt.StringMessage{Value: respVal})
 }
 
-func (s *testServer) ServerStream(req *pb.StringMessage, stream pb.TestService_ServerStreamServer) error {
+func (s *testServer) ServerStream(req *rt.StringMessage, stream rt.TestService_ServerStreamServer) error {
 	for i := 0; i < numServerStreamedMessages; i++ {
 		respVal := fmt.Sprintf("Echo %d: %s", i, req.Value)
-		if err := stream.Send(&pb.StringMessage{Value: respVal}); err != nil {
+		if err := stream.Send(&rt.StringMessage{Value: respVal}); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *testServer) BiDiStream(stream pb.TestService_BiDiStreamServer) error {
+func (s *testServer) BiDiStream(stream rt.TestService_BiDiStreamServer) error {
 	for {
 		in, err := stream.Recv()
 		if err == io.EOF {
@@ -65,112 +63,52 @@ func (s *testServer) BiDiStream(stream pb.TestService_BiDiStreamServer) error {
 			return err
 		}
 		respVal := fmt.Sprintf("Echo: %s", in.Value)
-		if err = stream.Send(&pb.StringMessage{Value: respVal}); err != nil {
+		if err = stream.Send(&rt.StringMessage{Value: respVal}); err != nil {
 			return err
 		}
 	}
 }
 
-type relayEnv struct {
-	relayPort   int
-	backendPort int
-}
-
-func pickUnusedPort(t *testing.T) int {
-	t.Helper()
-	var addr *net.TCPAddr
-	var err error
-	if addr, err = net.ResolveTCPAddr("tcp", "localhost:0"); err == nil {
-		var list *net.TCPListener
-		if list, err = net.ListenTCP("tcp", addr); err == nil {
-			defer list.Close()
-			return list.Addr().(*net.TCPAddr).Port
-		}
-	}
-	t.Fatalf("Failed to pick a free TCP port: %v", err)
-	return 0
-}
-
-func mustInitRelay(t *testing.T) *relayEnv {
+func mustInitRelay(t *testing.T) (*rt.RelayEnv, net.Listener) {
 	t.Helper()
 
-	backendPort := pickUnusedPort(t)
-	relayPort := pickUnusedPort(t)
+	config := client.DefaultClientConfig()
+	config.RelayScheme = "http"
+	config.BackendScheme = "http"
+	config.DisableAuthForRemote = true
+	config.ForceHttp2 = true // Enable HTTP/2 for gRPC
+	config.NumPendingRequests = 5
 
-	go func() {
-		relayServer := server.NewServer(server.Config{
-			Port:      relayPort,
-			BlockSize: 10 * 1024,
-		})
-		relayServer.Start()
-	}()
-
-	go func() {
-		config := client.DefaultClientConfig()
-		config.RelayScheme = "http"
-		config.RelayAddress = fmt.Sprint("localhost:", relayPort)
-		config.BackendScheme = "http"
-		config.BackendAddress = fmt.Sprint("localhost:", backendPort)
-		config.DisableAuthForRemote = true
-		config.ForceHttp2 = true // Enable HTTP/2 for gRPC
-		config.NumPendingRequests = 5
-		relayClient := client.NewClient(config)
-		relayClient.Start()
-	}()
-
-	relayHealthzAddr := fmt.Sprintf("http://localhost:%d/healthz", relayPort)
-	relayHealthy := false
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		res, err := http.Get(relayHealthzAddr)
-		if err != nil {
-			time.Sleep(250 * time.Millisecond)
-		} else {
-			relayHealthy = true
-			res.Body.Close()
-			break
-		}
-	}
-	if !relayHealthy {
-		t.Fatal("Failed to bring up http relay.")
-	}
-
-	return &relayEnv{
-		relayPort:   relayPort,
-		backendPort: backendPort,
-	}
+	return rt.SetupRelay(t, config)
 }
 
 func TestUnaryOverRelay(t *testing.T) {
-	relayEnv := mustInitRelay(t)
+	relayEnv, lis := mustInitRelay(t)
+	defer lis.Close()
 
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", relayEnv.backendPort))
-	if err != nil {
-		t.Fatalf("failed to listen on backend port %d: %v", relayEnv.backendPort, err)
-	}
 	grpcServer := grpc.NewServer()
-	pb.RegisterTestServiceServer(grpcServer, &testServer{})
+	rt.RegisterTestServiceServer(grpcServer, &testServer{})
 	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			t.Fatalf("grpcServer.Serve(lis) failed unexpectedly: %v", err)
-		}
+		grpcServer.Serve(lis)
 	}()
 	defer grpcServer.Stop()
 
-	conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", relayEnv.relayPort), grpc.WithInsecure())
+	rt.WaitForClient(t, relayEnv.RelayPort, "server_name")
+
+	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", relayEnv.RelayPort), grpc.WithInsecure())
 	if err != nil {
 		t.Fatalf("Failed to create client connection: %v", err)
 	}
 	defer conn.Close()
 
-	grpcClient := pb.NewTestServiceClient(conn)
+	grpcClient := rt.NewTestServiceClient(conn)
 	ctx := metadata.AppendToOutgoingContext(t.Context(), "x-server-name", "server_name")
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	reqVal := "hello"
 	t.Logf("Calling Unary with %q", reqVal)
-	resp, err := grpcClient.Unary(ctx, &pb.StringMessage{Value: reqVal})
+	resp, err := grpcClient.Unary(ctx, &rt.StringMessage{Value: reqVal})
 	if err != nil {
 		t.Fatalf("failed to call Unary: %v", err)
 	}
@@ -182,36 +120,33 @@ func TestUnaryOverRelay(t *testing.T) {
 }
 
 func TestServerStreamingOverRelay(t *testing.T) {
-	relayEnv := mustInitRelay(t)
+	relayEnv, lis := mustInitRelay(t)
+	defer lis.Close()
 
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", relayEnv.backendPort))
-	if err != nil {
-		t.Fatalf("failed to listen on backend port %d: %v", relayEnv.backendPort, err)
-	}
 	grpcServer := grpc.NewServer()
-	pb.RegisterTestServiceServer(grpcServer, &testServer{})
+	rt.RegisterTestServiceServer(grpcServer, &testServer{})
 	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			t.Fatalf("grpcServer.Serve(lis) failed unexpectedly: %v", err)
-		}
+		grpcServer.Serve(lis)
 	}()
 	defer grpcServer.Stop()
 
-	relayAddr := fmt.Sprintf("localhost:%d", relayEnv.relayPort)
+	rt.WaitForClient(t, relayEnv.RelayPort, "server_name")
+
+	relayAddr := fmt.Sprintf("127.0.0.1:%d", relayEnv.RelayPort)
 	conn, err := grpc.Dial(relayAddr, grpc.WithInsecure())
 	if err != nil {
 		t.Fatalf("Failed to create client connection: %v", err)
 	}
 	defer conn.Close()
 
-	grpcClient := pb.NewTestServiceClient(conn)
+	grpcClient := rt.NewTestServiceClient(conn)
 	ctx := metadata.AppendToOutgoingContext(t.Context(), "x-server-name", "server_name")
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	reqVal := "hello"
 	t.Logf("Calling ServerStream with %q", reqVal)
-	stream, err := grpcClient.ServerStream(ctx, &pb.StringMessage{Value: reqVal})
+	stream, err := grpcClient.ServerStream(ctx, &rt.StringMessage{Value: reqVal})
 	if err != nil {
 		t.Fatalf("failed to call ServerStream: %v", err)
 	}
@@ -232,29 +167,26 @@ func TestServerStreamingOverRelay(t *testing.T) {
 }
 
 func TestClientStreamingOverRelay(t *testing.T) {
-	relayEnv := mustInitRelay(t)
+	relayEnv, lis := mustInitRelay(t)
+	defer lis.Close()
 
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", relayEnv.backendPort))
-	if err != nil {
-		t.Fatalf("failed to listen on backend port %d: %v", relayEnv.backendPort, err)
-	}
 	grpcServer := grpc.NewServer()
-	pb.RegisterTestServiceServer(grpcServer, &testServer{})
+	rt.RegisterTestServiceServer(grpcServer, &testServer{})
 	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			t.Fatalf("grpcServer.Serve(lis) failed unexpectedly: %v", err)
-		}
+		grpcServer.Serve(lis)
 	}()
 	defer grpcServer.Stop()
 
-	relayAddr := fmt.Sprintf("localhost:%d", relayEnv.relayPort)
+	rt.WaitForClient(t, relayEnv.RelayPort, "server_name")
+
+	relayAddr := fmt.Sprintf("127.0.0.1:%d", relayEnv.RelayPort)
 	conn, err := grpc.Dial(relayAddr, grpc.WithInsecure())
 	if err != nil {
 		t.Fatalf("Failed to create client connection: %v", err)
 	}
 	defer conn.Close()
 
-	grpcClient := pb.NewTestServiceClient(conn)
+	grpcClient := rt.NewTestServiceClient(conn)
 	ctx := metadata.AppendToOutgoingContext(t.Context(), "x-server-name", "server_name")
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -267,7 +199,7 @@ func TestClientStreamingOverRelay(t *testing.T) {
 	messages := []string{"hello", "world", "client", "streaming"}
 	for _, msg := range messages {
 		t.Logf("Sending: %q", msg)
-		if err := stream.Send(&pb.StringMessage{Value: msg}); err != nil {
+		if err := stream.Send(&rt.StringMessage{Value: msg}); err != nil {
 			t.Fatalf("failed to send: %v", err)
 		}
 	}
@@ -284,29 +216,26 @@ func TestClientStreamingOverRelay(t *testing.T) {
 }
 
 func TestBiDiStreamingOverRelay(t *testing.T) {
-	relayEnv := mustInitRelay(t)
+	relayEnv, lis := mustInitRelay(t)
+	defer lis.Close()
 
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", relayEnv.backendPort))
-	if err != nil {
-		t.Fatalf("failed to listen on backend port %d: %v", relayEnv.backendPort, err)
-	}
 	grpcServer := grpc.NewServer()
-	pb.RegisterTestServiceServer(grpcServer, &testServer{})
+	rt.RegisterTestServiceServer(grpcServer, &testServer{})
 	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			t.Fatalf("grpcServer.Serve(lis) failed unexpectedly: %v", err)
-		}
+		grpcServer.Serve(lis)
 	}()
 	defer grpcServer.Stop()
 
-	relayAddr := fmt.Sprint("localhost:", relayEnv.relayPort)
+	rt.WaitForClient(t, relayEnv.RelayPort, "server_name")
+
+	relayAddr := fmt.Sprint("127.0.0.1:", relayEnv.RelayPort)
 	conn, err := grpc.Dial(relayAddr, grpc.WithInsecure())
 	if err != nil {
 		t.Fatalf("Failed to create client connection: %v", err)
 	}
 	defer conn.Close()
 
-	grpcClient := pb.NewTestServiceClient(conn)
+	grpcClient := rt.NewTestServiceClient(conn)
 
 	ctx := metadata.AppendToOutgoingContext(t.Context(), "x-server-name", "server_name")
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -323,7 +252,7 @@ func TestBiDiStreamingOverRelay(t *testing.T) {
 	wg.Go(func() {
 		for _, msg := range messages {
 			t.Logf("Sending: %q", msg)
-			if err := stream.Send(&pb.StringMessage{Value: msg}); err != nil {
+			if err := stream.Send(&rt.StringMessage{Value: msg}); err != nil {
 				t.Errorf("failed to send: %v", err)
 				return
 			}
