@@ -35,7 +35,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	crcapps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"golang.org/x/sync/errgroup"
@@ -521,4 +521,3 @@ func (f *Fixture) ChartAssignmentHasStatus(ca *crcapps.ChartAssignment, expected
 		return nil
 	}
 }
-

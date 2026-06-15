@@ -9,7 +9,7 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
-	github.com/cenkalti/backoff v2.2.1+incompatible
+	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590

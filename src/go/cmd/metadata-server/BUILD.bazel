@@ -16,7 +16,7 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//src/go/pkg/robotauth:go_default_library",
-        "@com_github_cenkalti_backoff//:go_default_library",
+        "@com_github_cenkalti_backoff_v4//:go_default_library",
         "@com_github_fsnotify_fsnotify//:go_default_library",
         "@com_github_google_nftables//:go_default_library",
         "@com_github_google_nftables//expr:go_default_library",

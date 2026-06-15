@@ -42,7 +42,7 @@ import (
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 	"github.com/googlecloudrobotics/ilog"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/plugin/ochttp/propagation/tracecontext"
 	"go.opencensus.io/trace"
