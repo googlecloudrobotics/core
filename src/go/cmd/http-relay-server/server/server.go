@@ -544,6 +544,16 @@ func (s *Server) serverResponse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) Start() {
+	addr := fmt.Sprintf(":%d", s.conf.Port)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		slog.Error("Failed to listen", slog.String("Address", addr), ilog.Err(err))
+		panic("Failed to listen")
+	}
+	s.StartOnListener(ln)
+}
+
+func (s *Server) StartOnListener(ln net.Listener) {
 	h := http.NewServeMux()
 	h.HandleFunc("/healthz", s.health)
 	h.HandleFunc("/", s.userClientRequest)
@@ -565,7 +575,6 @@ func (s *Server) Start() {
 		Handler: h2h,
 	}
 	h1s := &http.Server{
-		Addr:    fmt.Sprintf(":%d", s.conf.Port),
 		Handler: och,
 		BaseContext: func(l net.Listener) context.Context {
 			slog.Info("Relay server listening", slog.Int("Port", l.Addr().(*net.TCPAddr).Port))
@@ -576,7 +585,7 @@ func (s *Server) Start() {
 	// listener, or because we got SIGTERM.
 	g, gCtx := errgroup.WithContext(mainCtx)
 	g.Go(func() error {
-		if err := h1s.ListenAndServe(); err != http.ErrServerClosed {
+		if err := h1s.Serve(ln); err != http.ErrServerClosed {
 			return err
 		}
 		// ErrServerClosed follows SIGTERM which is normal when updating the
