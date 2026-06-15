@@ -22,8 +22,6 @@ go_test(
     name = "in_process_relay_test",
     size = "small",
     srcs = ["in_process_relay_test.go"],
-    # https://github.com/googlecloudrobotics/core/issues/507
-    flaky = True,
     deps = [
         ":go_default_library",
         "//src/go/cmd/http-relay-client/client:go_default_library",
