@@ -19,9 +19,9 @@ go_proto_library(
 )
 
 go_test(
-    name = "in_process_relay_test",
+    name = "http_test",
     size = "small",
-    srcs = ["in_process_relay_test.go"],
+    srcs = ["http_test.go"],
     deps = [
         ":go_default_library",
         "//src/go/cmd/http-relay-client/client:go_default_library",

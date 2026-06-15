@@ -45,7 +45,8 @@ func (r backendResetter) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func initRelay() {
+func initRelay(t *testing.T) {
+	t.Helper()
 	once.Do(func() {
 		glog.Info("Running init.")
 
@@ -139,26 +140,27 @@ func initRelay() {
 	})
 }
 
-func serveFunction(
+func serveFunction(t *testing.T,
 	f func(w http.ResponseWriter, r *http.Request)) interface{ Shutdown(context.Context) error } {
-	return serveFunctionWithTimeout(f, 10*time.Second)
+	t.Helper()
+	return serveFunctionWithTimeout(t, f, 10*time.Second)
 }
 
-func serveFunctionWithTimeout(
+func serveFunctionWithTimeout(t *testing.T,
 	f func(w http.ResponseWriter, r *http.Request),
 	handlerTimeout time.Duration) interface{ Shutdown(context.Context) error } {
-
+	t.Helper()
 	setBackendHandler(http.TimeoutHandler(http.HandlerFunc(f), handlerTimeout, "Timeout"))
 	return backendResetter{}
 }
 
 func TestHttpResponse(t *testing.T) {
-	initRelay()
+	initRelay(t)
 
 	expectedResponse := []byte("Unit test response.")
 
 	// Setup a backend function which just serves a string.
-	httpServer := serveFunction(func(w http.ResponseWriter, r *http.Request) {
+	httpServer := serveFunction(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write(expectedResponse)
 	})
 	defer httpServer.Shutdown(context.Background())
@@ -177,10 +179,10 @@ func TestHttpResponse(t *testing.T) {
 }
 
 func TestHttpTimeout(t *testing.T) {
-	initRelay()
+	initRelay(t)
 
 	// Setup a backend server which will create a timeout and result in a 503.
-	httpServer := serveFunctionWithTimeout(func(w http.ResponseWriter, r *http.Request) {
+	httpServer := serveFunctionWithTimeout(t, func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)
 	}, 1*time.Second)
 	defer httpServer.Shutdown(context.Background())
@@ -199,7 +201,7 @@ func TestHttpTimeout(t *testing.T) {
 }
 
 func TestHttpErrorPropagation(t *testing.T) {
-	initRelay()
+	initRelay(t)
 
 	tests := []struct {
 		name       string
@@ -223,7 +225,7 @@ func TestHttpErrorPropagation(t *testing.T) {
 		// Invoke a sub-test
 		t.Run(test.name, func(t *testing.T) {
 			// Setup a backend function which just serves an error code.
-			httpServer := serveFunction(func(w http.ResponseWriter, r *http.Request) {
+			httpServer := serveFunction(t, func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(test.statusCode)
 			})
 			defer httpServer.Shutdown(context.Background())
