@@ -27,6 +27,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -37,7 +38,6 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
-	"io"
 
 	"github.com/googlecloudrobotics/ilog"
 )
@@ -146,13 +146,13 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	// Stop listening for OS signals and handoff to graceful degradation. 
+	// Stop listening for OS signals and handoff to graceful degradation.
 	stop()
 	shutdownServer(srv, stopOngoingGracefully)
 }
 
 func shutdownServer(srv *http.Server, forceCancel context.CancelFunc) {
-	// Fail health checks to stop routing of new traffic to terminating pod. 
+	// Fail health checks to stop routing of new traffic to terminating pod.
 	isShuttingDown.Store(true)
 	slog.Info("Received shutdown signal. Failing health check and waiting for drain delay.")
 	time.Sleep(readinessDrainDelay)
@@ -164,14 +164,14 @@ func shutdownServer(srv *http.Server, forceCancel context.CancelFunc) {
 
 	err := srv.Shutdown(shutdownCtx)
 
-	// Cancel base context to signal any stubborn handlers to abort. 
+	// Cancel base context to signal any stubborn handlers to abort.
 	forceCancel()
 
-	// Hard stop after graceful shutdown time out. 
+	// Hard stop after graceful shutdown time out.
 	if err != nil {
 		slog.Warn("Failed to wait for ongoing requests to finish, forcing cancellation.", "error", err)
 		srv.Close()
-		return 
+		return
 	}
 
 	slog.Info("Server has shut down gracefully")
