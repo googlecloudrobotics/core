@@ -3,6 +3,7 @@
 ## General Instructions
 
 - The codebase is built using `bazel`.
+- After editing .src/go.mod or changing `deps` in BUILD.bazel files, run `bazel run //:gazelle`
 - ./src/go/pkg/apis contains generated code. Do not edit.
 - ./scripts contains maintenance scripts. Do not run them.
 - Consider documentation from ./docs for extra context.
