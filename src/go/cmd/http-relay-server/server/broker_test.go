@@ -320,14 +320,14 @@ func TestReapWhileSendingRequest(t *testing.T) {
 	go func() {
 		req, reqErr = b.GetRequest(context.Background(), "foo", "/")
 		if reqErr != nil {
-			t.Errorf("GetRequest error:", reqErr)
+			t.Errorf("GetRequest error: %v", reqErr)
 		}
 		wg.Done()
 	}()
 	go func() {
 		_, respErr = b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
 		if respErr != nil {
-			t.Errorf("RelayRequest error:", respErr)
+			t.Errorf("RelayRequest error: %v", respErr)
 		}
 		wg.Done()
 	}()
@@ -336,7 +336,7 @@ func TestReapWhileSendingRequest(t *testing.T) {
 		t.Errorf("Error making broker connection")
 	}
 
-	// start sending response to backend, BUT do not start consuming on the backend side
+	// start sending request stream to backend, BUT do not start consuming on the backend side
 	wg.Add(1)
 	go func() {
 		if ok := b.PutRequestStream(*req.Id, []byte(*req.Id)); !ok {
@@ -350,4 +350,76 @@ func TestReapWhileSendingRequest(t *testing.T) {
 	// reap the request
 	b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
 	wg.Wait()
+}
+
+func TestRelayRequestUrlParseError(t *testing.T) {
+	b := newBroker()
+	req := &pb.HttpRequest{
+		Id:  proto.String(idOne),
+		Url: proto.String("http://[fe80::%31]/"), // Invalid URL
+	}
+	_, err := b.RelayRequest("foo", req)
+	if err == nil {
+		t.Error("Expected URL parse error, got nil")
+	}
+}
+
+func TestRelayRequestMultipleClients(t *testing.T) {
+	b := newBroker()
+	b.req["foo"] = make(chan *pb.HttpRequest, 1)
+	req1 := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
+	_, err := b.RelayRequest("foo", req1)
+	if err != nil {
+		t.Fatalf("RelayRequest 1 failed: %v", err)
+	}
+
+	req2 := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
+	_, err = b.RelayRequest("foo", req2)
+	if !errors.Is(err, ErrMultipleClients) {
+		t.Errorf("Expected ErrMultipleClients, got %v", err)
+	}
+}
+
+func TestGetRequestServerRestarting(t *testing.T) {
+	b := newBroker()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	_, err := b.GetRequest(ctx, "foo", "/")
+	if !errors.Is(err, ErrServerRestarting) {
+		t.Errorf("Expected ErrServerRestarting, got %v", err)
+	}
+}
+
+func TestRelayRequestRelayTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping slow timeout test")
+	}
+	b := newBroker()
+	// Create an unbuffered channel and don't read from it to trigger timeout.
+	b.req["foo"] = make(chan *pb.HttpRequest)
+	req := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
+
+	_, err := b.RelayRequest("foo", req)
+	if !errors.Is(err, ErrRelayTimeout) {
+		t.Errorf("Expected ErrRelayTimeout, got %v", err)
+	}
+}
+
+func TestGetRequestStreamTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping slow timeout test")
+	}
+	b := newBroker()
+	b.req["foo"] = make(chan *pb.HttpRequest, 1) // make it block
+	req := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
+	b.RelayRequest("foo", req)
+
+	data, ok := b.GetRequestStream(idOne)
+	if !ok {
+		t.Error("Expected ok=true")
+	}
+	if len(data) != 0 {
+		t.Errorf("Expected empty data on timeout, got %d bytes", len(data))
+	}
 }
