@@ -43,9 +43,8 @@ import (
 )
 
 const (
-	_shutdownPeriod      = 15 * time.Second
-	_shutdownHardPeriod  = 3 * time.Second
-	_readinessDrainDelay = 5 * time.Second
+	shutdownPeriod      = 15 * time.Second
+	readinessDrainDelay = 5 * time.Second
 )
 
 var (
@@ -152,11 +151,11 @@ func shutdownServer(srv *http.Server, forceCancel context.CancelFunc) {
 	// Fail health checks to stop routing of new traffic to terminating pod. 
 	isShuttingDown.Store(true)
 	slog.Info("Received shutdown signal. Failing health check and waiting for drain delay.")
-	time.Sleep(_readinessDrainDelay)
+	time.Sleep(readinessDrainDelay)
 
 	// Attempt a graceful shutdown (finish processing of current requests).
-	slog.Info("Initiating server shutdown with timeout of", _shutdownPeriod)
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), _shutdownPeriod)
+	slog.Info("Initiating server shutdown with timeout of", shutdownPeriod)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownPeriod)
 	defer cancel()
 
 	err := srv.Shutdown(shutdownCtx)
