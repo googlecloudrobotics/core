@@ -99,7 +99,7 @@ func determineStatusCode(req *http.Request, defaultStatus int) int {
 }
 
 func healthzHandler(w http.ResponseWriter, req *http.Request) {
-	fmt.Fprintln(w, "OK")
+	io.WriteString(w, "OK\n")
 }
 
 func readyzHandler(w http.ResponseWriter, req *http.Request) {
@@ -107,7 +107,7 @@ func readyzHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Server shutting down", http.StatusServiceUnavailable)
 		return
 	}
-	fmt.Fprintln(w, "OK")
+	io.WriteString(w, "OK\n")
 }
 
 func main() {

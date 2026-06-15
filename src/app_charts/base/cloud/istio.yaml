@@ -129,7 +129,7 @@ spec:
         - --port=8080
         - --http_status=404
         readinessProbe:
-          httpGet: 
+          httpGet:
             path: /readyz
             port: 8080
             scheme: HTTP
