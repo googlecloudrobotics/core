@@ -16,23 +16,27 @@ to a small set of early access partners. We will gladly accept contributions
 and feedback, but we are making no stability or support guarantees at this
 point in time.
 
-# Documentation
+## Documentation
 
-Documentation of the platform and related How-to guides can be found at: https://googlecloudrobotics.github.io/core/
+Documentation of the platform and related how-to guides can be found at:
+https://googlecloudrobotics.github.io/core/. The source code for this 
+documentation is located in the `docs` folder.
 
-# Get Involved
+## Get Involved
 
 If you want to get involved, please refer to [CONTRIBUTING.md](CONTRIBUTING.md),
 reach out to [cloud-robotics-discuss@googlegroups.com](https://groups.google.com/forum/#!forum/cloud-robotics-discuss)
 or ask Stack Overflow questions with [#google-cloud-robotics](https://stackoverflow.com/questions/tagged/google-cloud-robotics).
 
-# Source Code
+## Source Code
 
 Most interesting bits are under `src`:
 
 * app_charts: contains kubernetes resources for the core platform and apps
-* bootstrap: provisioning for the cloud (terraform) and the robot (debian package)
+* bootstrap: provisioning for the cloud (terraform) and the robot (script)
 * go/: the code that goes into images referenced from `app_charts`
+
+External dependencies are managed through the `third_party` folder.
 
 The root directory contains a `deploy.sh` script for building and installing the software. More
 details on that are in the [building from sources](how-to/deploy-from-sources) guide.
