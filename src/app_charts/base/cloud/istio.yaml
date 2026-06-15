@@ -110,7 +110,6 @@ metadata:
   labels:
     app: crc-auth-gateway-catchall-svc
 spec:
-  replicas: 2
   selector:
     matchLabels:
       app: crc-auth-gateway-catchall-svc
@@ -143,6 +142,13 @@ spec:
             scheme: HTTP
           initialDelaySeconds: 2 
           periodSeconds: 5
+        resources:
+          requests:
+            cpu: "1.0"
+            memory: "32Mi"
+          limits:
+            cpu: "1.5"
+            memory: "64Mi"
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -156,13 +162,7 @@ spec:
         runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
-      resources:
-        requests:
-          cpu: "1.0"
-          memory: "32Mi"
-        limits:
-          cpu: "1.5"
-          memory: "64Mi"
+
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
