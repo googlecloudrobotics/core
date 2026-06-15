@@ -49,6 +49,41 @@ func TestEchoHandler(t *testing.T) {
 			wantStatus: http.StatusOK,
 			wantBody:   "OK",
 		},
+		{
+			desc:       "Status from path",
+			path:       "/status/201",
+			httpStatus: http.StatusOK,
+			wantStatus: http.StatusCreated,
+			wantBody:   "Created",
+		},
+		{
+			desc:       "Status from query",
+			path:       "/?status=202",
+			httpStatus: http.StatusOK,
+			wantStatus: http.StatusAccepted,
+			wantBody:   "Accepted",
+		},
+		{
+			desc:       "Invalid status in path defaults to 400",
+			path:       "/status/999",
+			httpStatus: http.StatusOK,
+			wantStatus: http.StatusBadRequest,
+			wantBody:   "Bad Request",
+		},
+		{
+			desc:       "Non-numeric status in query defaults to 400",
+			path:       "/?status=abc",
+			httpStatus: http.StatusOK,
+			wantStatus: http.StatusBadRequest,
+			wantBody:   "Bad Request",
+		},
+		{
+			desc:       "Path status takes precedence over query",
+			path:       "/status/201?status=202",
+			httpStatus: http.StatusOK,
+			wantStatus: http.StatusCreated,
+			wantBody:   "Created",
+		},
 	}
 
 	for _, tc := range tests {
@@ -75,5 +110,62 @@ func TestEchoHandler(t *testing.T) {
 				t.Errorf("got %q, want %q", body, tc.wantBody)
 			}
 		})
+	}
+}
+
+type discardResponseWriter struct {
+	header http.Header
+}
+
+func newDiscardResponseWriter() *discardResponseWriter {
+	return &discardResponseWriter{
+		header: make(http.Header),
+	}
+}
+
+func (d *discardResponseWriter) Header() http.Header {
+	return d.header
+}
+
+func (d *discardResponseWriter) Write(b []byte) (int, error) {
+	return len(b), nil
+}
+
+func (d *discardResponseWriter) WriteHeader(statusCode int) {
+}
+
+func BenchmarkEchoHandler(b *testing.B) {
+	req := httptest.NewRequest(http.MethodGet, "/status/200", nil)
+	w := newDiscardResponseWriter()
+	for b.Loop() {
+		echoHandler(w, req)
+	}
+}
+
+func TestHealthzHandler(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	w := httptest.NewRecorder()
+	healthzHandler(w, req)
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("got %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+	body := w.Body.String()
+	if body != "OK\n" {
+		t.Errorf("got %q, want %q", body, "OK\n")
+	}
+}
+
+func TestHealthzHandler_ShuttingDown(t *testing.T) {
+	isShuttingDown.Store(true)
+	defer isShuttingDown.Store(false) // Reset after test
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	w := httptest.NewRecorder()
+	healthzHandler(w, req)
+	resp := w.Result()
+
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("got %d, want %d", resp.StatusCode, http.StatusServiceUnavailable)
 	}
 }
