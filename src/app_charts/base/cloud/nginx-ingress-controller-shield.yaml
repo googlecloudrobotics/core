@@ -1,0 +1,333 @@
+{{- if eq .Values.use_nginx_shield "true" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    k8s-app: nginx-ingress-controller-shield
+  name: nginx-ingress-controller-shield
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      k8s-app: nginx-ingress-controller-shield
+  template:
+    metadata:
+      labels:
+        k8s-app: nginx-ingress-controller-shield
+    spec:
+      serviceAccountName: ingress-nginx
+      shareProcessNamespace: true
+      initContainers:
+      - name: cert-loader
+        image: alpine/k8s:1.29.2
+        restartPolicy: Always
+        command: ["/bin/sh", "-c", "/scripts/loader.sh"]
+        volumeMounts:
+        - name: certs-nginx
+          mountPath: /etc/nginx/certs
+        - name: script
+          mountPath: /scripts
+        startupProbe:
+          exec:
+            command: ["test", "-f", "/etc/nginx/certs/wildcard-mappings.map"]
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 30
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+      containers:
+      - name: ingress-nginx-controller
+        image: nginxinc/nginx-unprivileged:1.31.1-alpine
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        - containerPort: 443
+          name: https
+          protocol: TCP
+        livenessProbe:
+          failureThreshold: 5
+          tcpSocket:
+            port: http
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        readinessProbe:
+          failureThreshold: 3
+          tcpSocket:
+            port: http
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          requests:
+            cpu: "1"
+            memory: 1Gi
+          limits:
+            cpu: "2"
+            memory: 2Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+            drop:
+            - ALL
+          runAsUser: 101
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+          readOnly: true
+        - name: certs-default
+          mountPath: /etc/nginx/certs/tls.crt
+          subPath: tls.crt
+          readOnly: true
+        - name: certs-default
+          mountPath: /etc/nginx/certs/tls.key
+          subPath: tls.key
+          readOnly: true
+        - name: certs-nginx
+          mountPath: /etc/nginx/certs
+      volumes:
+      - name: config
+        configMap:
+          name: nginx-ingress-controller-shield
+      - name: script
+        configMap:
+          name: nginx-ingress-controller-shield
+          defaultMode: 0744
+      - name: certs-nginx
+        emptyDir: {}
+      - name: certs-default
+        secret:
+          secretName: tls
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nginx-ingress-controller-shield-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-ingress-controller-shield
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-ingress-controller-shield
+  namespace: default
+data:
+  loader.sh: "#!/bin/sh\nset -eu\n\nCERT_DIR=\"/etc/nginx/certs\"\nMAP_FILE=\"$CERT_DIR/wildcard-mappings.map\"\n\nmkdir
+    -p \"$CERT_DIR\"\ntouch \"$MAP_FILE\" # Ensure it exists for NGINX boot\nchmod
+    644 \"$MAP_FILE\"\n\n# Start the sync loop\nwhile true; do\n  echo \"Syncing TLS
+    secrets...\"\n  \n  # Create a temporary file for the new map\n  NEW_MAP_FILE=$(mktemp)\n
+    \ \n  # Track synced filenames in this run to detect deletions\n  synced_files=\"\"\n
+    \ changed=false\n  \n  # Find all TLS secrets across all namespaces and retrieve
+    their data in one list operation\n  # Tab-separated values: namespace <tab> name
+    <tab> base64_crt <tab> base64_key\n  secrets_data=$(kubectl get secrets --all-namespaces
+    --field-selector type=kubernetes.io/tls -o jsonpath='{range .items[*]}{.metadata.namespace}{\"\\t\"}{.metadata.name}{\"\\t\"}{.data.tls\\.crt}{\"\\t\"}{.data.tls\\.key}{\"\\n\"}{end}')\n\n
+    \ if [ -n \"$secrets_data\" ]; then\n    # Use Here-doc redirection to avoid subshell
+    in the loop so variable changes persist\n    while IFS=\"$(printf '\\t')\" read
+    -r ns name crt key; do\n      # Skip completely empty lines\n      if [ -z \"$ns\"
+    ] && [ -z \"$name\" ]; then\n        continue\n      fi\n\n      # Call out invalid
+    records where cert or key data is missing\n      if [ -z \"$ns\" ] || [ -z \"$name\"
+    ] || [ -z \"$crt\" ] || [ -z \"$key\" ]; then\n        echo \"Warning: Invalid
+    or missing certificate/key data in secret ${ns:-<unknown>}/${name:-<unknown>}\"\n
+    \       continue\n      fi\n      \n      # Skip the default namespace since its
+    certificate is mounted statically\n      if [ \"$ns\" = \"default\" ]; then\n
+    \       continue\n      fi\n      \n      # Save certificates using namespace
+    prefix to prevent collisions on the shared volume\n      filename=\"$ns-$name\"\n
+    \     synced_files=\"$synced_files $filename.crt $filename.key\"\n\n      # Decode
+    to temporary files to compare content\n      echo \"$crt\" | base64 -d > \"$CERT_DIR/$filename.crt.tmp\"
+    2>/dev/null || continue\n      echo \"$key\" | base64 -d > \"$CERT_DIR/$filename.key.tmp\"
+    2>/dev/null || continue\n\n      # Update crt file if missing or modified\n      if
+    [ ! -f \"$CERT_DIR/$filename.crt\" ] || ! cmp -s \"$CERT_DIR/$filename.crt.tmp\"
+    \"$CERT_DIR/$filename.crt\"; then\n        mv \"$CERT_DIR/$filename.crt.tmp\"
+    \"$CERT_DIR/$filename.crt\"\n        chmod 644 \"$CERT_DIR/$filename.crt\"\n        changed=true\n
+    \       echo \"Updated certificate for $ns/$name -> $filename.crt\"\n      else\n
+    \       rm \"$CERT_DIR/$filename.crt.tmp\"\n      fi\n\n      # Update key file
+    if missing or modified\n      if [ ! -f \"$CERT_DIR/$filename.key\" ] || ! cmp
+    -s \"$CERT_DIR/$filename.key.tmp\" \"$CERT_DIR/$filename.key\"; then\n        mv
+    \"$CERT_DIR/$filename.key.tmp\" \"$CERT_DIR/$filename.key\"\n        chmod 644
+    \"$CERT_DIR/$filename.key\"\n        changed=true\n        echo \"Updated private
+    key for $ns/$name -> $filename.key\"\n      else\n        rm \"$CERT_DIR/$filename.key.tmp\"\n
+    \     fi\n\n      # Extract domains by querying Ingress resources referencing
+    this secret in the same namespace\n      domains=$(kubectl get ingress -n \"$ns\"
+    -o jsonpath='{range .items[*]}{range .spec.tls[?(@.secretName==\"'\"$name\"'\")]}{.hosts[*]}{\"
+    \"}{end}{end}' 2>/dev/null || true)\n\n      # Append mappings (both wildcard
+    and exact match) for each domain found in the cert.\n      for domain in $domains;
+    do\n        case \"$domain\" in\n          \\*.*)\n            base_domain=\"${domain#\\*.}\"\n
+    \           # Escape dots for regex matching\n            regex_domain=$(echo
+    \"$base_domain\" | sed 's/\\./\\\\./g')\n            map_line=\"~^.+\\\\.$regex_domain$
+    $filename;\"\n            if ! grep -qF \"$map_line\" \"$NEW_MAP_FILE\" >/dev/null
+    2>&1; then\n              echo \"$map_line\" >> \"$NEW_MAP_FILE\"\n            fi\n
+    \           ;;\n          *)\n            map_line=\"$domain $filename;\"\n            if
+    ! grep -qF \"$map_line\" \"$NEW_MAP_FILE\" >/dev/null 2>&1; then\n              echo
+    \"$map_line\" >> \"$NEW_MAP_FILE\"\n            fi\n            ;;\n        esac\n
+    \     done\n    done <<EOF\n$secrets_data\nEOF\n  fi\n  \n  # Compare map file\n
+    \ if [ ! -f \"$MAP_FILE\" ] || ! cmp -s \"$NEW_MAP_FILE\" \"$MAP_FILE\"; then\n
+    \   mv \"$NEW_MAP_FILE\" \"$MAP_FILE\"\n    chmod 644 \"$MAP_FILE\"\n    changed=true\n
+    \   echo \"Updated wildcard mappings: $MAP_FILE\"\n  else\n    rm \"$NEW_MAP_FILE\"\n
+    \ fi\n\n  # Clean up old cert files that are no longer active\n  for file in \"$CERT_DIR\"/*.crt
+    \"$CERT_DIR\"/*.key; do\n    [ -e \"$file\" ] || continue\n    name_only=$(basename
+    \"$file\")\n    if [ \"$name_only\" != \"tls.crt\" ] && [ \"$name_only\" != \"tls.key\"
+    ]; then\n      case \" $synced_files \" in\n        *\" $name_only \"*)\n          ;;\n
+    \       *)\n          rm \"$file\"\n          changed=true\n          echo \"Deleted
+    obsolete certificate file: $name_only\"\n          ;;\n      esac\n    fi\n  done\n\n
+    \ # Reload NGINX master process if any changes occurred\n  if [ \"$changed\" =
+    true ]; then\n    nginx_pid=$(pgrep -f \"nginx: master process\" || true)\n    if
+    [ -n \"$nginx_pid\" ]; then\n      echo \"Signaling NGINX (PID $nginx_pid) to
+    reload...\"\n      kill -HUP \"$nginx_pid\"\n    fi\n  else\n    echo \"No changes
+    detected. Skipping reload.\"\n  fi\n\n  sleep 60\ndone\n"
+  nginx.conf: "# Automatically set the number of worker processes based on available
+    CPU cores\nworker_processes auto;\npid /tmp/nginx.pid;\n\n# Event processing\nevents
+    {\n\n  # Set the maximum number of simultaneous connections\n  # that can be opened
+    by a worker process\n  worker_connections 4096;\n}\n\nhttp {\n\n  log_format main
+    '$remote_addr - $remote_user - [$time_local] \"$request\" '\n                  '$status
+    $body_bytes_sent \"$http_referer\" \"$http_user_agent\"'\n                  '$request_length
+    $request_time $upstream_addr'\n                  '$upstream_response_length $upstream_response_time
+    $upstream_status';\n\n  # Write access logs to stdout for ease of container logging
+    and monitoring.\n  access_log /dev/stdout main;\n\n  # Write error logs to stderr
+    with 'warn' log level to capture important warnings and errors.\n  error_log /dev/stderr
+    warn;\n\n\n  # Performance Optimization\n  sendfile on;\n  tcp_nopush on;\n  tcp_nodelay
+    on;\n\n  # Disables request body buffering to the proxy's disk. \n  # This streams
+    the request body (such as client uploads) directly to the backend as it arrives,\n
+    \ # avoiding disk space issues and improving latency during large file uploads
+    (up to 5GB).\n  proxy_request_buffering off;\n\n  # Sets the maximum allowed size
+    of the client request body. \n  # support uploads up to 5GB while protecting the
+    server from extremely \n  # large denial-of-service (DoS) payload attacks.\n  #
+    nginx.ingress.kubernetes.io/proxy-body-size: {{ $ingress_size_limit = 6g }}\n
+    \ client_max_body_size 6g; \n  client_body_buffer_size 5M;\n  http2_body_preread_size
+    5M;\n\n  # Disables response buffering from the proxied backend. \n  # This streams
+    responses (such as large downloads) to the client immediately as they arrive,
+    \n  # preventing Nginx from buffering massive responses on disk or in memory.\n
+    \ proxy_buffering off;\n\n  # Timeouts for large transfers\n  # Set timeout for
+    reading the client request body to 300 seconds. \n  # This prevents slow uploads
+    (up to 5GB) from timing out during network lags or pauses.\n  client_body_timeout
+    300s;\n  \n  # Set timeout for transmitting a response to the client to 300 seconds.\n
+    \ # This prevents slow downloads (up to 5GB) from timing out during transmission
+    pauses.\n  send_timeout 300s;\n\n  # 3. Disable gRPC Buffering (If using gRPC)\n
+    \ # Configures the buffer size for reading the response header from a gRPC backend.\n
+    \ grpc_buffer_size 256k;\n\n  # Ensure massive cookies or OIDC tokens don't cause
+    a 414 or 502 error   \n  # Sets the maximum number and size of buffers for reading
+    large client request headers (e.g. large cookies, OIDC/OAuth tokens).\n  large_client_header_buffers
+    4 256k; \n  \n  # Configures the buffer size used for reading the first part of
+    the response from a proxied server.\n  proxy_buffer_size 256k; \n  \n  # Sets
+    the number and size of buffers used for reading a response from a proxied server.\n
+    \ proxy_buffers 4 256k; \n  \n  # Limits the total size of buffers that can be
+    busy sending responses to the client while the response is still being read.\n
+    \ proxy_busy_buffers_size 256k;\n\n  # Map WebSocket upgrades to connection upgrade
+    header to support proxying WebSockets dynamically.\n  map $http_upgrade $connection_upgrade
+    {\n      default upgrade;\n      ''      \"\"; \n  }\n\n  # Map content-type to
+    detect gRPC traffic (starts with application/grpc).\n  map $http_content_type
+    $is_grpc {\n      default 0;\n      \"~*^application/grpc\" 1;\n  }\n\n  # Map
+    the SNI hostname to the correct certificate filename\n  map $ssl_server_name $cert_name
+    {\n      default tls;\n\n      # Load wildcard mappings dynamically\n      include
+    /etc/nginx/certs/wildcard-mappings.map;\n  }\n\n  # Listen on port 80 for non-secure
+    HTTP requests\n  # Redirect all HTTP traffic to HTTPS (port 443) using a 301 Permanent
+    Redirect.\n  server {\n      listen 80;      \n      server_name _;\n      return
+    301 https://$host$request_uri;\n  }\n\n  # HTTPS Server - Dynamic SNI matching
+    with default fallback cert\n  server {\n    \n    # Listen on port 443 for all
+    secure HTTPS requests.\n    listen 443 ssl default_server;\n    \n    # Enable
+    HTTP/2 \n    http2 on; \n\n    # Catch all domains\n    server_name _;\n\n    #
+    Dynamically evaluated certificate based on SNI host \n    # or mapped wildcard
+    (defaults to 'tls')\n    ssl_certificate     /etc/nginx/certs/$cert_name.crt;\n
+    \   ssl_certificate_key /etc/nginx/certs/$cert_name.key;\n\n    # Configure accepted
+    secure SSL protocols (TLSv1.2 and TLSv1.3 only).\n    ssl_protocols       TLSv1.2
+    TLSv1.3;\n\n    # Limit the maximum number of concurrent HTTP/2 streams to \n
+    \   # prevent resource exhaustion attacks (HTTP/2 Rapid Reset mitigation).\n    http2_max_concurrent_streams
+    128;\n\n    # Maximum number of requests that can be served through \n    # one
+    keep-alive connection.\n    keepalive_requests 1000;\n\n    # Defines a timeout
+    for reading client request headers \n    # to mitigate slowloris-type DoS attacks.\n
+    \   client_header_timeout 10s;\n\n    # Verify that responses come from CRC NGINX
+    Shield\n    add_header X-CRC-NGINX-SHIELD \"active\" always;\n\n    # Location
+    block for HTTP/HTTPS web traffic routing.\n    location / {\n      # Map custom
+    error page 418 to internally forward \n      # to the @grpc_backend location block.\n
+    \     error_page 418 = @grpc_backend;\n\n      # If the request content-type is
+    grpc, trigger the 418 redirect \n      # to route the request to the gRPC backend.\n
+    \     if ($is_grpc) {\n          return 418;\n      }\n\n      # -----------------------------------------------------------\n
+    \     # STANDARD WEB TRAFFIC (Encrypted HTTP/1.1)\n      # -----------------------------------------------------------\n
+    \     # Forward standard HTTP/1.1 traffic to the backend HTTPS address.\n      #
+    Legacy NGINX Ingress Controller ClusterIP domain\n      proxy_pass https://nginx-ingress-controller-internal:443;\n
+    \     \n      # Enable Server Name Indication (SNI) when connecting to the upstream
+    HTTPS backend.\n      proxy_ssl_server_name on;\n\n      # Set the SNI hostname
+    to match the incoming client host header.\n      proxy_ssl_name $host;\n\n      #
+    Disable verification of the backend self-signed certificates for the POC environment.\n
+    \     proxy_ssl_verify off;\n      \n      # Force the proxy protocol to use HTTP/1.1
+    to match standard backend communication.\n      proxy_http_version 1.1;\n      \n
+    \     # Dynamic WebSocket / Keep-Alive headers\n      # Forward the Upgrade header
+    to support WebSockets.\n      proxy_set_header Upgrade $http_upgrade;\n\n      #
+    Set Connection header value based on Upgrade mapping (dynamic upgrade or keepalive).\n
+    \     proxy_set_header Connection $connection_upgrade;\n      \n      # Preserve
+    original Host header from client.\n      proxy_set_header Host $host;\n\n      #
+    Pass real client IP to the backend.\n      proxy_set_header X-Real-IP $remote_addr;\n\n
+    \     # Append the client IP to the forwarded-for chain.\n      proxy_set_header
+    X-Forwarded-For $proxy_add_x_forwarded_for;\n\n      # Set the original protocol
+    to https.\n      proxy_set_header X-Forwarded-Proto https;\n\n      # Extended
+    read timeout (1 hour) to support long-polling connections.\n      # nginx.ingress.kubernetes.io/proxy-read-timeout\n
+    \     proxy_read_timeout 3600s;\n\n      # Extended send timeout (1 hour) to support
+    slow proxy writes.\n      # nginx.ingress.kubernetes.io/proxy-send-timeout\n      proxy_send_timeout
+    3600s;\n\n      # Timeout for establishing a connection to the backend.\n      #
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: \"15\"\n      # 75 second timeout
+    maximum\n      proxy_connect_timeout 75s;\n    }\n\n    # Internal location block
+    for gRPC traffic routing.\n    location @grpc_backend {\n      # -----------------------------------------------------------\n
+    \     # gRPC TRAFFIC (Encrypted HTTP/2)\n      # -----------------------------------------------------------\n
+    \     # Forward gRPC requests using secure grpcs protocol to the backend on port
+    443.\n      grpc_pass grpcs://nginx-ingress-controller-internal:443;\n      \n      # Enable
+    SNI (Server Name Indication) for gRPC backend connection.\n      grpc_ssl_server_name
+    on; \n\n      # Set the SNI hostname to match the client host.\n      grpc_ssl_name
+    $host;\n\n      # Disable validation of self-signed certificate of upstream gRPC
+    backend.\n      grpc_ssl_verify off; \n      \n      # Pass Host header to backend.\n
+    \     grpc_set_header Host $host;\n\n      # Pass client IP to backend.\n      grpc_set_header
+    X-Real-IP $remote_addr;\n\n      # Append client IP to X-Forwarded-For chain.\n
+    \     grpc_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\n      # Set
+    original protocol header to https.\n      grpc_set_header X-Forwarded-Proto https;\n\n
+    \     # Extended timeout (1 hour) for reading gRPC stream responses from upstream
+    backend.\n      grpc_read_timeout 3600s;\n\n      # Extended timeout (1 hour)
+    for sending gRPC stream requests to upstream backend.\n      grpc_send_timeout
+    3600s;\n    }\n  }\n}\n"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-ingress-controller-internal
+  labels:
+    app: nginx-ingress-controller-internal
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - appProtocol: HTTP
+    name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - appProtocol: HTTPS
+    name: https
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    k8s-app: nginx-ingress-controller
+  sessionAffinity: None
+  type: ClusterIP
+{{- end}}
