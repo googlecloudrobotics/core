@@ -22,7 +22,6 @@ import (
 	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -33,9 +32,9 @@ type FakeResourceSets struct {
 	Fake *FakeAppsV1alpha1
 }
 
-var resourcesetsResource = schema.GroupVersionResource{Group: "apps.cloudrobotics.com", Version: "v1alpha1", Resource: "resourcesets"}
+var resourcesetsResource = v1alpha1.SchemeGroupVersion.WithResource("resourcesets")
 
-var resourcesetsKind = schema.GroupVersionKind{Group: "apps.cloudrobotics.com", Version: "v1alpha1", Kind: "ResourceSet"}
+var resourcesetsKind = v1alpha1.SchemeGroupVersion.WithKind("ResourceSet")
 
 // Get takes name of the resourceSet, and returns the corresponding resourceSet object, and an error if there is any.
 func (c *FakeResourceSets) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ResourceSet, err error) {
@@ -108,7 +107,7 @@ func (c *FakeResourceSets) UpdateStatus(ctx context.Context, resourceSet *v1alph
 // Delete takes name of the resourceSet and deletes it. Returns an error if one occurs.
 func (c *FakeResourceSets) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(resourcesetsResource, name), &v1alpha1.ResourceSet{})
+		Invokes(testing.NewRootDeleteActionWithOptions(resourcesetsResource, name, opts), &v1alpha1.ResourceSet{})
 	return err
 }
 

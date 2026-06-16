@@ -22,7 +22,6 @@ import (
 	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -34,9 +33,9 @@ type FakeRobots struct {
 	ns   string
 }
 
-var robotsResource = schema.GroupVersionResource{Group: "registry.cloudrobotics.com", Version: "v1alpha1", Resource: "robots"}
+var robotsResource = v1alpha1.SchemeGroupVersion.WithResource("robots")
 
-var robotsKind = schema.GroupVersionKind{Group: "registry.cloudrobotics.com", Version: "v1alpha1", Kind: "Robot"}
+var robotsKind = v1alpha1.SchemeGroupVersion.WithKind("Robot")
 
 // Get takes name of the robot, and returns the corresponding robot object, and an error if there is any.
 func (c *FakeRobots) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Robot, err error) {
@@ -115,7 +114,7 @@ func (c *FakeRobots) UpdateStatus(ctx context.Context, robot *v1alpha1.Robot, op
 // Delete takes name of the robot and deletes it. Returns an error if one occurs.
 func (c *FakeRobots) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(robotsResource, c.ns, name), &v1alpha1.Robot{})
+		Invokes(testing.NewDeleteActionWithOptions(robotsResource, c.ns, name, opts), &v1alpha1.Robot{})
 
 	return err
 }

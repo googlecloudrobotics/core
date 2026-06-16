@@ -22,7 +22,6 @@ import (
 	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -33,9 +32,9 @@ type FakeChartAssignments struct {
 	Fake *FakeAppsV1alpha1
 }
 
-var chartassignmentsResource = schema.GroupVersionResource{Group: "apps.cloudrobotics.com", Version: "v1alpha1", Resource: "chartassignments"}
+var chartassignmentsResource = v1alpha1.SchemeGroupVersion.WithResource("chartassignments")
 
-var chartassignmentsKind = schema.GroupVersionKind{Group: "apps.cloudrobotics.com", Version: "v1alpha1", Kind: "ChartAssignment"}
+var chartassignmentsKind = v1alpha1.SchemeGroupVersion.WithKind("ChartAssignment")
 
 // Get takes name of the chartAssignment, and returns the corresponding chartAssignment object, and an error if there is any.
 func (c *FakeChartAssignments) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ChartAssignment, err error) {
@@ -108,7 +107,7 @@ func (c *FakeChartAssignments) UpdateStatus(ctx context.Context, chartAssignment
 // Delete takes name of the chartAssignment and deletes it. Returns an error if one occurs.
 func (c *FakeChartAssignments) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(chartassignmentsResource, name), &v1alpha1.ChartAssignment{})
+		Invokes(testing.NewRootDeleteActionWithOptions(chartassignmentsResource, name, opts), &v1alpha1.ChartAssignment{})
 	return err
 }
 
