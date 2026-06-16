@@ -8,7 +8,7 @@ go_library(
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client",
     deps = [
         "//src/proto/http-relay:go_default_library",
-        "@com_github_cenkalti_backoff//:go_default_library",
+        "@com_github_cenkalti_backoff_v4//:go_default_library",
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
         "@io_opencensus_go//plugin/ochttp:go_default_library",
         "@io_opencensus_go//plugin/ochttp/propagation/tracecontext:go_default_library",

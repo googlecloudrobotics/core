@@ -28,7 +28,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"github.com/googlecloudrobotics/ilog"
 	"golang.org/x/oauth2"
