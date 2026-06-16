@@ -26,7 +26,6 @@ go_test(
         ":go_default_library",
         "//src/go/cmd/http-relay-client/client:go_default_library",
         "//src/go/cmd/http-relay-server/server:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
     ],
 )
 

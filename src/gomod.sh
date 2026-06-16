@@ -23,7 +23,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export GO111MODULE=on
 
 cd ${DIR}
-go mod tidy -compat=1.17
+go mod tidy
 bazel run //:gazelle
 
 echo "updates done"
