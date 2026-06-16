@@ -63,7 +63,6 @@ require (
 
 require (
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible
-	github.com/golang/glog v1.2.5
 	github.com/google/go-cmp v0.7.0
 	github.com/google/nftables v0.3.0
 	github.com/googlecloudrobotics/ilog v0.0.0-20240112131211-2efd642f756e
