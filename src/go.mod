@@ -41,13 +41,13 @@ require (
 	// See https://github.com/kubernetes/kubernetes/issues/125501
 	// Keep at 0.34.4 until fakes support bookmark events for initial events stream.
 	k8s.io/api v0.36.2
-	k8s.io/apiextensions-apiserver v0.34.4
+	k8s.io/apiextensions-apiserver v0.36.2
 	k8s.io/apimachinery v0.36.2
 	k8s.io/cli-runtime v0.36.2
 	k8s.io/client-go v0.36.2
 	k8s.io/helm v2.17.0+incompatible
 	k8s.io/klog v1.0.0
-	sigs.k8s.io/controller-runtime v0.22.3
+	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/kind v0.17.0
 	sigs.k8s.io/yaml v1.6.0
 )
@@ -86,7 +86,6 @@ require (
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mdlayher/netlink v1.7.3-0.20250113171957-fbb4dce95f42 // indirect
 	github.com/mdlayher/socket v0.5.0 // indirect
@@ -145,6 +144,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.22.0 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
+	// TODO: remove this indirect dependency once sigs.k8s.io/controller-runtime is updated to v0.24.1 or higher
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jaypipes/pcidb v1.1.1
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
