@@ -127,11 +127,10 @@ func NewIdentityHandler(ctx context.Context) (*IdentityHandler, error) {
 		return nil, fmt.Errorf("failed to read robot id file %s: %w", *robotIdFile, err)
 	}
 
-	i := &IdentityHandler{
+	return &IdentityHandler{
 		AllowedSources: allowedSources,
 		robotAuth:      robotAuth,
-	}
-	return i, nil
+	}, nil
 }
 
 func fromAcceptedIP(w http.ResponseWriter, r *http.Request, allowedSources *net.IPNet) bool {
@@ -160,7 +159,6 @@ func (h *IdentityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Unable to create JWT", ilog.Err(err))
 		http.Error(w, "Unable to create jwt", http.StatusInternalServerError)
 		return
-
 	}
 
 	w.Header().Set("Metadata-Flavor", "Google")

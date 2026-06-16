@@ -107,7 +107,8 @@ func main() {
 	ctx := context.Background()
 	var rep repository.PubKeyRepository
 	var err error
-	if *keyStore == Kubernetes {
+	switch *keyStore {
+	case Kubernetes:
 		config, err := rest.InClusterConfig()
 		if err != nil {
 			slog.Error("Failed to get config", ilog.Err(err))
@@ -120,18 +121,16 @@ func main() {
 			slog.Error("Failed to make clientset", ilog.Err(err))
 			os.Exit(1)
 		}
-		rep, err = k8s.NewK8sRepository(ctx, cs, *namespace)
-		if err != nil {
+		if rep, err = k8s.NewK8sRepository(ctx, cs, *namespace); err != nil {
 			slog.Error("Failed to make k8s repository client", ilog.Err(err))
 			os.Exit(1)
 		}
-	} else if *keyStore == Memory {
-		rep, err = memory.NewMemoryRepository(ctx)
-		if err != nil {
+	case Memory:
+		if rep, err = memory.NewMemoryRepository(ctx); err != nil {
 			slog.Error("Failed to make in-memory repository", ilog.Err(err))
 			os.Exit(1)
 		}
-	} else {
+	default:
 		slog.Error("unsupported key store option", slog.String("Value", *keyStore))
 		os.Exit(1)
 	}
@@ -166,8 +165,7 @@ func main() {
 
 	// serve API
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
-	err = api.SetupAndServe(addr)
-	if err != nil {
+	if err := api.SetupAndServe(addr); err != nil {
 		slog.Error("Failed to listen", slog.String("IP", addr), ilog.Err(err))
 		os.Exit(1)
 	}

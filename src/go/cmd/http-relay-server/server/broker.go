@@ -128,10 +128,10 @@ type broker struct {
 }
 
 func newBroker() *broker {
-	var r broker
-	r.req = make(map[string]chan *pb.HttpRequest)
-	r.resp = make(map[string]*pendingResponse)
-	return &r
+	return &broker{
+		req:  make(map[string]chan *pb.HttpRequest),
+		resp: make(map[string]*pendingResponse),
+	}
 }
 
 // Healthy can be used for server health checks. If the server is deadlocked it

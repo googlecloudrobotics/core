@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"time"
 
@@ -38,20 +39,20 @@ func updateCredentials(ctx context.Context) error {
 	// Connect to the surrounding k8s cluster.
 	localConfig, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to load in-cluster config: %w", err)
 	}
 	localClient, err := kubernetes.NewForConfig(localConfig)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
 	robotAuth, err := robotauth.LoadFromFile(*robotIdFile)
 	if err != nil {
-		log.Fatalf("failed to read robot id file %s: %v", *robotIdFile, err)
+		return fmt.Errorf("failed to read robot id file %s: %w", *robotIdFile, err)
 	}
 
 	effectiveSA, err := robotAuth.ServiceAccountEmail(*robotSAName)
 	if err != nil {
-		log.Fatalf("failed to construct service account from '%s': %v", *robotSAName, err)
+		return fmt.Errorf("failed to construct service account from '%s': %w", *robotSAName, err)
 	}
 
 	// Perform a token exchange with the TokenVendor in the cloud cluster and update the

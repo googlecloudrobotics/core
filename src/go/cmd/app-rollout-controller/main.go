@@ -68,7 +68,7 @@ func main() {
 	}
 
 	if err := runController(ctx, kubernetesConfig, helmParams); err != nil {
-		slog.Error("Exit", ilog.Err(runController(ctx, kubernetesConfig, helmParams)))
+		slog.Error("Exit", ilog.Err(err))
 		os.Exit(1)
 	}
 	slog.Info("Exit")
