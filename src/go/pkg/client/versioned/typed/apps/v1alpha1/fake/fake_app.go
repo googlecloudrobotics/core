@@ -22,7 +22,6 @@ import (
 	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -33,9 +32,9 @@ type FakeApps struct {
 	Fake *FakeAppsV1alpha1
 }
 
-var appsResource = schema.GroupVersionResource{Group: "apps.cloudrobotics.com", Version: "v1alpha1", Resource: "apps"}
+var appsResource = v1alpha1.SchemeGroupVersion.WithResource("apps")
 
-var appsKind = schema.GroupVersionKind{Group: "apps.cloudrobotics.com", Version: "v1alpha1", Kind: "App"}
+var appsKind = v1alpha1.SchemeGroupVersion.WithKind("App")
 
 // Get takes name of the app, and returns the corresponding app object, and an error if there is any.
 func (c *FakeApps) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.App, err error) {
@@ -97,7 +96,7 @@ func (c *FakeApps) Update(ctx context.Context, app *v1alpha1.App, opts v1.Update
 // Delete takes name of the app and deletes it. Returns an error if one occurs.
 func (c *FakeApps) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(appsResource, name), &v1alpha1.App{})
+		Invokes(testing.NewRootDeleteActionWithOptions(appsResource, name, opts), &v1alpha1.App{})
 	return err
 }
 

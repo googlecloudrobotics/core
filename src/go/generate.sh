@@ -22,7 +22,7 @@
 set -e
 
 # K8S release for api, apimachinery and code-generator
-K8S_RELEASE="release-1.22"
+K8S_RELEASE="release-1.28"
 
 CURRENT_DIR=$(pwd)
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
