@@ -53,14 +53,14 @@ type K8sRepository struct {
 func NewK8sRepository(ctx context.Context, kcl kubernetes.Interface, ns string) (*K8sRepository, error) {
 	// The informer provides an in-memory cache and prevents us from hammering the apiserver.
 	cmInformer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (object runtime.Object, e error) {
 				return kcl.CoreV1().ConfigMaps(ns).List(ctx, options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (i watch.Interface, e error) {
 				return kcl.CoreV1().ConfigMaps(ns).Watch(ctx, options)
 			},
-		},
+		}, kcl),
 		&corev1.ConfigMap{},
 		resyncPeriod,
 		cache.Indexers{},

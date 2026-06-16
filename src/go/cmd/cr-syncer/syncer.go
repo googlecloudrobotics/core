@@ -151,6 +151,8 @@ type crSyncer struct {
 	conflictErrors int
 
 	done chan struct{} // Terminates all background processes.
+
+	local, remote dynamic.Interface
 }
 
 func getStorageVersionIndex(crd crdtypes.CustomResourceDefinition) (int, error) {
@@ -206,6 +208,8 @@ func newCRSyncer(
 		upstream:   remote.Resource(gvr).Namespace(ns),
 		downstream: local.Resource(gvr).Namespace(ns),
 		done:       make(chan struct{}),
+		local:      local,
+		remote:     remote,
 	}
 	switch src := annotations[annotationSpecSource]; src {
 	case "":
@@ -228,15 +232,15 @@ func newCRSyncer(
 		}
 	}
 
-	s.upstreamInf = s.newInformer(s.upstream)
-	s.downstreamInf = s.newInformer(s.downstream)
+	s.upstreamInf = s.newInformer(s.upstream, s.remote)
+	s.downstreamInf = s.newInformer(s.downstream, s.local)
 
 	return s, nil
 }
 
-func (s *crSyncer) newInformer(client dynamic.ResourceInterface) cache.SharedIndexInformer {
+func (s *crSyncer) newInformer(client dynamic.ResourceInterface, parent dynamic.Interface) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				options.LabelSelector = s.labelSelector
 				options.TimeoutSeconds = timeout
@@ -247,7 +251,7 @@ func (s *crSyncer) newInformer(client dynamic.ResourceInterface) cache.SharedInd
 				options.TimeoutSeconds = timeout
 				return client.Watch(s.ctx, options)
 			},
-		},
+		}, parent),
 		&unstructured.Unstructured{},
 		resyncPeriod,
 		nil,
@@ -284,8 +288,8 @@ func (s *crSyncer) stopInformers() {
 
 func (s *crSyncer) restartInformers() error {
 	s.stopInformers()
-	s.upstreamInf = s.newInformer(s.upstream)
-	s.downstreamInf = s.newInformer(s.downstream)
+	s.upstreamInf = s.newInformer(s.upstream, s.remote)
+	s.downstreamInf = s.newInformer(s.downstream, s.local)
 	return s.startInformers()
 }
 
