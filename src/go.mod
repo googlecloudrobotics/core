@@ -57,7 +57,7 @@ require (
 	github.com/aws/aws-sdk-go v1.45.25 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/prometheus/statsd_exporter v0.22.8 // indirect
-	golang.org/x/oauth2 v0.34.0
+	golang.org/x/oauth2 v0.36.0
 	google.golang.org/genproto v0.0.0-20250922171735-9219d122eba9 // indirect
 )
 
