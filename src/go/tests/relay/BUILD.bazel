@@ -12,7 +12,7 @@ proto_library(
 
 go_proto_library(
     name = "grpc_test_proto_go",
-    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],  # keep
     importpath = "github.com/googlecloudrobotics/core/src/go/tests/relay",
     proto = ":grpc_test_proto",
     visibility = ["//visibility:public"],

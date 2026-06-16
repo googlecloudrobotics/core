@@ -1,6 +1,6 @@
 module github.com/googlecloudrobotics/core/src
 
-go 1.25.0
+go 1.26.1
 
 require (
 	cloud.google.com/go v0.123.0 // indirect
