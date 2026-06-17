@@ -352,6 +352,7 @@ type relayWithGrpcServer struct {
 }
 
 func (r *relayWithGrpcServer) mustStop(t *testing.T) {
+	t.Helper()
 	r.Listener.Close()
 	r.GrpcServer.Stop()
 	if err := r.Relay.stop(); err != nil {
