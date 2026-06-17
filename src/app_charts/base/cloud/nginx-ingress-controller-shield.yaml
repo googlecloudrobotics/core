@@ -16,8 +16,27 @@ spec:
         k8s-app: nginx-ingress-controller-shield
     spec:
       serviceAccountName: ingress-nginx
+      shareProcessNamespace: true
+      initContainers:
+      - name: cert-loader
+        image: alpine:3.21.7
+        restartPolicy: Always
+        command: ["/bin/sh", "-c", "/scripts/loader.sh"]
+        volumeMounts:
+        - name: certs-default
+          mountPath: /etc/nginx/certs
+          readOnly: true
+        - name: script
+          mountPath: /scripts
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
       containers:
-      - name: ingress-nginx-controller
+      - name: nginx
         image: nginxinc/nginx-unprivileged:1.31.1-alpine
         ports:
         - containerPort: 80
@@ -45,8 +64,8 @@ spec:
             cpu: "1"
             memory: 1Gi
           limits:
-            cpu: "2"
-            memory: 2Gi
+            cpu: "1"
+            memory: 1Gi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -61,17 +80,16 @@ spec:
           subPath: nginx.conf
           readOnly: true
         - name: certs-default
-          mountPath: /etc/nginx/certs/tls.crt
-          subPath: tls.crt
+          mountPath: /etc/nginx/certs
           readOnly: true
-        - name: certs-default
-          mountPath: /etc/nginx/certs/tls.key
-          subPath: tls.key
-          readOnly: true  
       volumes:
       - name: config
         configMap:
           name: nginx-ingress-controller-shield
+      - name: script
+        configMap:
+          name: nginx-ingress-controller-shield
+          defaultMode: 0744
       - name: certs-default
         secret:
           secretName: tls
@@ -102,6 +120,43 @@ metadata:
   name: nginx-ingress-controller-shield
   namespace: default
 data:
+  loader.sh: |
+    #!/bin/sh
+    set -eu
+
+    CERT_FILE="/etc/nginx/certs/tls.crt"
+
+    # Wait for the certificate file to exist before starting
+    echo "Waiting for certificate file at $CERT_FILE..."
+    while [ ! -f "$CERT_FILE" ]; do
+      sleep 1
+    done
+
+    LAST_HASH=$(sha256sum "$CERT_FILE" | awk '{print $1}')
+    echo "Initial certificate hash: $LAST_HASH"
+    echo "Starting certificate monitor loop..."
+
+    while true; do
+      sleep 60
+      
+      if [ -f "$CERT_FILE" ]; then
+        CURRENT_HASH=$(sha256sum "$CERT_FILE" | awk '{print $1}')
+        if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
+          echo "Certificate change detected! Reloading NGINX..."
+          nginx_pid=$(pgrep -f "nginx: master process" || true)
+          if [ -n "$nginx_pid" ]; then
+            echo "Sending HUP signal to NGINX master process (PID: $nginx_pid)..."
+            kill -HUP "$nginx_pid"
+          else
+            echo "Error: NGINX master process not found!"
+          fi
+          LAST_HASH="$CURRENT_HASH"
+        fi
+      else
+        echo "Warning: Certificate file $CERT_FILE disappeared!"
+      fi
+    done
+
   nginx.conf: |
     # Automatically set the number of worker processes based on available CPU cores
     worker_processes auto;
