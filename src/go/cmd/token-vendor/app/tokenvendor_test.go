@@ -268,6 +268,7 @@ func getInMemoryRepo(deviceId, key string) repository.PubKeyRepository {
 }
 
 func createFakeJWTWithSubject(t *testing.T, deviceId, subject string) string {
+	t.Helper()
 	jwtWithSubject := jwt.StandardClaims{
 		Audience:  nil,
 		ExpiresAt: time.Now().Add(10 * time.Second).Unix(),

@@ -70,6 +70,7 @@ type fixture struct {
 }
 
 func newFixture(t *testing.T) *fixture {
+	t.Helper()
 	return &fixture{T: t}
 }
 
@@ -676,6 +677,7 @@ func unmarshalYAML(t *testing.T, v interface{}, s string) {
 }
 
 func toUnstructured(t *testing.T, o runtime.Object) *unstructured.Unstructured {
+	t.Helper()
 	var u unstructured.Unstructured
 	if err := convert(o, &u); err != nil {
 		t.Fatal(err)

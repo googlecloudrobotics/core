@@ -68,6 +68,7 @@ const (
 )
 
 func createCorefile(t *testing.T, k8s kubernetes.Interface, corefileData string) {
+	t.Helper()
 	if _, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Create(
 		context.Background(),
 		&v1.ConfigMap{
@@ -84,6 +85,7 @@ func createCorefile(t *testing.T, k8s kubernetes.Interface, corefileData string)
 }
 
 func readCorefile(t *testing.T, k8s kubernetes.Interface) string {
+	t.Helper()
 	cm, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Get(context.Background(), configMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("error reading ConfigMap coredns: %v", err)

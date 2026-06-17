@@ -60,6 +60,7 @@ type fixture struct {
 }
 
 func newFixture(t *testing.T) *fixture {
+	t.Helper()
 	return &fixture{T: t}
 }
 
@@ -553,6 +554,7 @@ func TestCRSyncer_populateWorkqueueWithFilter(t *testing.T) {
 }
 
 func channelFromQueue(t *testing.T, queue workqueue.Interface, inf cache.SharedIndexInformer) <-chan *unstructured.Unstructured {
+	t.Helper()
 	ch := make(chan *unstructured.Unstructured, 1)
 	go func() {
 		defer close(ch)

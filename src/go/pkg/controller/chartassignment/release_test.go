@@ -15,6 +15,7 @@ const (
 )
 
 func verifyValues(t *testing.T, have string, wantValues chartutil.Values) {
+	t.Helper()
 	if want, err := wantValues.YAML(); err != nil {
 		t.Fatal(err)
 	} else if want != have {

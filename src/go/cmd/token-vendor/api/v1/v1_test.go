@@ -104,6 +104,7 @@ func TestPublicKeyConfigureHandlerWithK8s(t *testing.T) {
 }
 
 func runPublicKeyConfigureHandlerWithK8sCase(t *testing.T, test *publicKeyConfigureHandlerK8sTest) {
+	t.Helper()
 	// Setup fake K8s environment
 	cs := fake.NewSimpleClientset()
 	if err := populateK8sEnv(cs, "default", test.configmaps); err != nil {
@@ -210,6 +211,7 @@ func populateK8sEnv(env kubernetes.Interface, ns string, maps []*corev1.ConfigMa
 }
 
 func runPublicKeyReadHandlerWithK8sCase(t *testing.T, test *publicKeyReadHandlerK8sTest) {
+	t.Helper()
 	// Setup fake K8s environment
 	cs := fake.NewSimpleClientset()
 	if err := populateK8sEnv(cs, "default", test.configmaps); err != nil {
@@ -250,6 +252,7 @@ func runPublicKeyReadHandlerWithK8sCase(t *testing.T, test *publicKeyReadHandler
 }
 
 func mustRespBodyFromFile(t *testing.T, file string) io.ReadCloser {
+	t.Helper()
 	isResponseBody, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -258,6 +261,7 @@ func mustRespBodyFromFile(t *testing.T, file string) io.ReadCloser {
 }
 
 func mustNewRequest(t *testing.T, method, url string, body io.Reader) *http.Request {
+	t.Helper()
 	r, err := http.NewRequest(method, url, body)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -266,6 +270,7 @@ func mustNewRequest(t *testing.T, method, url string, body io.Reader) *http.Requ
 }
 
 func mustFileOpen(t *testing.T, name string) io.Reader {
+	t.Helper()
 	f, err := os.Open(name)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -274,6 +279,7 @@ func mustFileOpen(t *testing.T, name string) io.Reader {
 }
 
 func mustFileToString(t *testing.T, name string) string {
+	t.Helper()
 	fp := mustFileOpen(t, name)
 	bytes, err := io.ReadAll(fp)
 	if err != nil {
@@ -333,6 +339,7 @@ func TestPublicKeyPublishHandlerWithK8s(t *testing.T) {
 }
 
 func runPublicKeyPublishHandlerWithK8sCase(t *testing.T, test *publicKeyPublishHandlerK8sTest) {
+	t.Helper()
 	// Setup fake K8s environment
 	cs := fake.NewSimpleClientset()
 	if err := populateK8sEnv(cs, "default", test.configmaps); err != nil {

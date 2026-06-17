@@ -28,6 +28,7 @@ import (
 )
 
 func assertMocksDoneWithin(t *testing.T, d time.Duration) {
+	t.Helper()
 	for start := time.Now(); time.Since(start) < d; {
 		if gock.IsDone() {
 			return
