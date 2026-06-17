@@ -16,30 +16,6 @@ spec:
         k8s-app: nginx-ingress-controller-shield
     spec:
       serviceAccountName: ingress-nginx
-      shareProcessNamespace: true
-      initContainers:
-      - name: cert-loader
-        image: alpine/k8s:1.29.2
-        restartPolicy: Always
-        command: ["/bin/sh", "-c", "/scripts/loader.sh"]
-        volumeMounts:
-        - name: certs-nginx
-          mountPath: /etc/nginx/certs
-        - name: script
-          mountPath: /scripts
-        startupProbe:
-          exec:
-            command: ["test", "-f", "/etc/nginx/certs/wildcard-mappings.map"]
-          initialDelaySeconds: 1
-          periodSeconds: 2
-          failureThreshold: 30
-        resources:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
       containers:
       - name: ingress-nginx-controller
         image: nginxinc/nginx-unprivileged:1.31.1-alpine
@@ -91,19 +67,11 @@ spec:
         - name: certs-default
           mountPath: /etc/nginx/certs/tls.key
           subPath: tls.key
-          readOnly: true
-        - name: certs-nginx
-          mountPath: /etc/nginx/certs
+          readOnly: true  
       volumes:
       - name: config
         configMap:
           name: nginx-ingress-controller-shield
-      - name: script
-        configMap:
-          name: nginx-ingress-controller-shield
-          defaultMode: 0744
-      - name: certs-nginx
-        emptyDir: {}
       - name: certs-default
         secret:
           secretName: tls
@@ -134,147 +102,6 @@ metadata:
   name: nginx-ingress-controller-shield
   namespace: default
 data:
-  loader.sh: |
-    #!/bin/sh
-    set -eu
-
-    CERT_DIR="/etc/nginx/certs"
-    MAP_FILE="$CERT_DIR/wildcard-mappings.map"
-
-    mkdir -p "$CERT_DIR"
-    touch "$MAP_FILE" # Ensure it exists for NGINX boot
-    chmod 644 "$MAP_FILE"
-
-    # Start the sync loop
-    while true; do
-      echo "Syncing TLS secrets..."
-      
-      # Create a temporary file for the new map
-      NEW_MAP_FILE=$(mktemp)
-      
-      # Track synced filenames in this run to detect deletions
-      synced_files=""
-      changed=false
-      
-      # Find all TLS secrets across all namespaces and retrieve their data in one list operation
-      # Tab-separated values: namespace <tab> name <tab> base64_crt <tab> base64_key
-      secrets_data=$(kubectl get secrets --all-namespaces --field-selector type=kubernetes.io/tls -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.data.tls\.crt}{"\t"}{.data.tls\.key}{"\n"}{end}')
-
-      if [ -n "$secrets_data" ]; then
-        # Use Here-doc redirection to avoid subshell in the loop so variable changes persist
-        while IFS="$(printf '\t')" read -r ns name crt key; do
-          # Skip completely empty lines
-          if [ -z "$ns" ] && [ -z "$name" ]; then
-            continue
-          fi
-
-          # Call out invalid records where cert or key data is missing
-          if [ -z "$ns" ] || [ -z "$name" ] || [ -z "$crt" ] || [ -z "$key" ]; then
-            echo "Warning: Invalid or missing certificate/key data in secret ${ns:-<unknown>}/${name:-<unknown>}"
-            continue
-          fi
-          
-          # Skip the default namespace since its certificate is mounted statically
-          if [ "$ns" = "default" ]; then
-            continue
-          fi
-          
-          # Save certificates using namespace prefix to prevent collisions on the shared volume
-          filename="$ns-$name"
-          synced_files="$synced_files $filename.crt $filename.key"
-
-          # Decode to temporary files to compare content
-          echo "$crt" | base64 -d > "$CERT_DIR/$filename.crt.tmp" 2>/dev/null || continue
-          echo "$key" | base64 -d > "$CERT_DIR/$filename.key.tmp" 2>/dev/null || continue
-
-          # Update crt file if missing or modified
-          if [ ! -f "$CERT_DIR/$filename.crt" ] || ! cmp -s "$CERT_DIR/$filename.crt.tmp" "$CERT_DIR/$filename.crt"; then
-            mv "$CERT_DIR/$filename.crt.tmp" "$CERT_DIR/$filename.crt"
-            chmod 644 "$CERT_DIR/$filename.crt"
-            changed=true
-            echo "Updated certificate for $ns/$name -> $filename.crt"
-          else
-            rm "$CERT_DIR/$filename.crt.tmp"
-          fi
-
-          # Update key file if missing or modified
-          if [ ! -f "$CERT_DIR/$filename.key" ] || ! cmp -s "$CERT_DIR/$filename.key.tmp" "$CERT_DIR/$filename.key"; then
-            mv "$CERT_DIR/$filename.key.tmp" "$CERT_DIR/$filename.key"
-            chmod 644 "$CERT_DIR/$filename.key"
-            changed=true
-            echo "Updated private key for $ns/$name -> $filename.key"
-          else
-            rm "$CERT_DIR/$filename.key.tmp"
-          fi
-
-          # Extract domains by querying Ingress resources referencing this secret in the same namespace
-          domains=$(kubectl get ingress -n "$ns" -o jsonpath='{range .items[*]}{range .spec.tls[?(@.secretName=="'"$name"'")]}{.hosts[*]}{" "}{end}{end}' 2>/dev/null || true)
-
-          # Append mappings (both wildcard and exact match) for each domain found in the cert.
-          for domain in $domains; do
-            case "$domain" in
-              \*.*)
-                base_domain="${domain#\*.}"
-                # Escape dots for regex matching
-                regex_domain=$(echo "$base_domain" | sed 's/\./\\./g')
-                map_line="~^.+\\.$regex_domain$ $filename;"
-                if ! grep -qF "$map_line" "$NEW_MAP_FILE" >/dev/null 2>&1; then
-                  echo "$map_line" >> "$NEW_MAP_FILE"
-                fi
-                ;;
-              *)
-                map_line="$domain $filename;"
-                if ! grep -qF "$map_line" "$NEW_MAP_FILE" >/dev/null 2>&1; then
-                  echo "$map_line" >> "$NEW_MAP_FILE"
-                fi
-                ;;
-            esac
-          done
-        done <<EOF
-    $secrets_data
-    EOF
-      fi
-      
-      # Compare map file
-      if [ ! -f "$MAP_FILE" ] || ! cmp -s "$NEW_MAP_FILE" "$MAP_FILE"; then
-        mv "$NEW_MAP_FILE" "$MAP_FILE"
-        chmod 644 "$MAP_FILE"
-        changed=true
-        echo "Updated wildcard mappings: $MAP_FILE"
-      else
-        rm "$NEW_MAP_FILE"
-      fi
-
-      # Clean up old cert files that are no longer active
-      for file in "$CERT_DIR"/*.crt "$CERT_DIR"/*.key; do
-        [ -e "$file" ] || continue
-        name_only=$(basename "$file")
-        if [ "$name_only" != "tls.crt" ] && [ "$name_only" != "tls.key" ]; then
-          case " $synced_files " in
-            *" $name_only "*)
-              ;;
-            *)
-              rm "$file"
-              changed=true
-              echo "Deleted obsolete certificate file: $name_only"
-              ;;
-          esac
-        fi
-      done
-
-      # Reload NGINX master process if any changes occurred
-      if [ "$changed" = true ]; then
-        nginx_pid=$(pgrep -f "nginx: master process" || true)
-        if [ -n "$nginx_pid" ]; then
-          echo "Signaling NGINX (PID $nginx_pid) to reload..."
-          kill -HUP "$nginx_pid"
-        fi
-      else
-        echo "No changes detected. Skipping reload."
-      fi
-
-      sleep 60
-    done
   nginx.conf: |
     # Automatically set the number of worker processes based on available CPU cores
     worker_processes auto;
@@ -362,14 +189,6 @@ data:
           "~*^application/grpc" 1;
       }
 
-      # Map the SNI hostname to the correct certificate filename
-      map $ssl_server_name $cert_name {
-          default tls;
-
-          # Load wildcard mappings dynamically
-          include /etc/nginx/certs/wildcard-mappings.map;
-      }
-
       # Listen on port 80 for non-secure HTTP requests
       # Redirect all HTTP traffic to HTTPS (port 443) using a 301 Permanent Redirect.
       server {
@@ -392,8 +211,8 @@ data:
 
         # Dynamically evaluated certificate based on SNI host 
         # or mapped wildcard (defaults to 'tls')
-        ssl_certificate     /etc/nginx/certs/$cert_name.crt;
-        ssl_certificate_key /etc/nginx/certs/$cert_name.key;
+        ssl_certificate     /etc/nginx/certs/tls.crt;
+        ssl_certificate_key /etc/nginx/certs/tls.key;
 
         # Configure accepted secure SSL protocols (TLSv1.2 and TLSv1.3 only).
         ssl_protocols       TLSv1.2 TLSv1.3;
@@ -426,7 +245,7 @@ data:
           }
 
           # -----------------------------------------------------------
-          # STANDARD WEB TRAFFIC (Encrypted HTTP/1.1)
+          # STANDARD WEB TRAFFIC (HTTP/1.1)
           # -----------------------------------------------------------
           # Forward standard HTTP/1.1 traffic to the backend HTTPS address.
           # Legacy NGINX Ingress Controller ClusterIP domain
@@ -480,7 +299,7 @@ data:
         # Internal location block for gRPC traffic routing.
         location @grpc_backend {
           # -----------------------------------------------------------
-          # gRPC TRAFFIC (Encrypted HTTP/2)
+          # gRPC TRAFFIC (HTTP/2)
           # -----------------------------------------------------------
           # Forward gRPC requests using secure grpcs protocol to the backend on port 443.
           grpc_pass grpcs://nginx-ingress-controller-internal:443;
