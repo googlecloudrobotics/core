@@ -12,6 +12,7 @@ app_management: "true"
 onprem_federation: "true"
 # Temporary setting to guard the migration from nginx-ingress-controller to istio
 use_istio: "false"
+use_nginx_shield: "false"
 
 oauth2_proxy:
   cookie_secret: ""
