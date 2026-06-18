@@ -14,6 +14,13 @@ data:
   # The token-vendor checks the Original-URI header to accept tokens from query
   # parameters.
   proxy-add-original-uri-header: "true"
+
+  {{- if eq .Values.use_nginx_shield "true" }}
+  # Best practice: Pair it with trusted proxy IP ranges
+  use-forwarded-headers: "true"
+  proxy-real-ip-cidr: "10.0.0.0/8,192.168.0.0/16"
+  {{- end}}
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -124,7 +131,11 @@ spec:
       targetPort: 443
       appProtocol: HTTPS
   selector:
+    {{- if eq .Values.use_nginx_shield "true" }}
+    k8s-app: nginx-ingress-controller-shield
+    {{- else }}
     k8s-app: nginx-ingress-controller
+    {{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: IngressClass
