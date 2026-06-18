@@ -76,6 +76,12 @@ var (
 	)
 )
 
+var (
+	// timeout settings to be adjustable for tests
+	relayTimeout      = 10 * time.Second
+	getRequestTimeout = 30 * time.Second
+)
+
 func init() {
 	prometheus.MustRegister(brokerRequests)
 	prometheus.MustRegister(brokerResponses)
@@ -180,7 +186,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	// This blocks until we get a free spot in the broker's request channel.
 	case reqChan <- request:
 		return respChan, nil
-	case <-time.After(10 * time.Second):
+	case <-time.After(relayTimeout):
 		// This branch is triggered if the channel is not ready to consume the request
 		// since it is still busy with handling a different request.
 		return nil, fmt.Errorf("cannot reach the client %q; check that it's turned on, set up, and connected to the internet; if the network config recently changed, try again in 1-2 minutes (%w)", server, ErrRelayTimeout)
@@ -212,7 +218,7 @@ func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpR
 	case req := <-reqChan:
 		brokerResponses.WithLabelValues("server_request", "ok", server).Inc()
 		return req, nil
-	case <-time.After(time.Second * 30):
+	case <-time.After(getRequestTimeout):
 		brokerResponses.WithLabelValues("server_request", "timeout", server).Inc()
 		return nil, ErrNoRequest
 	case <-ctx.Done():
@@ -235,7 +241,7 @@ func (r *broker) GetRequestStream(id string) ([]byte, bool) {
 	select {
 	case data := <-pr.requestStream:
 		return data, true
-	case <-time.After(time.Second * 30):
+	case <-time.After(getRequestTimeout):
 		return []byte{}, true
 	}
 }
