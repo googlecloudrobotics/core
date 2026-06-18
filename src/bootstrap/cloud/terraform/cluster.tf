@@ -100,6 +100,10 @@ resource "google_container_cluster" "cloud-robotics-ar" {
 
   initial_node_count = 1
 
+  gateway_api_config {
+    channel = "CHANNEL_STANDARD"
+  }
+
   timeouts {
     create = "1h"
     update = "1h"
