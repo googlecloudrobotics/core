@@ -52,7 +52,53 @@ cat ${tmpdir}/istio_full.yaml \
   | sed "s/: '{{ .Files.Get \"\(.*\)\" }}'/: |-\n{{ .Files.Get \"\1\" | nindent 4 }}/g" \
   > ${tmpdir}/istio.yaml
 
-# Step 3: make this a helm template itself
+# Step 3: Download and package Istio Grafana dashboards
+echo "Downloading Istio Grafana dashboards..."
+DASHBOARDS=(
+  "istio-mesh-dashboard.gen.json"
+  "istio-performance-dashboard.json"
+  "istio-service-dashboard.json"
+  "istio-workload-dashboard.json"
+  "pilot-dashboard.gen.json"
+)
+
+dashboard_yaml="${tmpdir}/dashboards.yaml"
+touch "${dashboard_yaml}"
+
+curl_args=()
+for dashboard in "${DASHBOARDS[@]}"; do
+  curl_args+=(
+    -o "${tmpdir}/${dashboard}"
+    "https://raw.githubusercontent.com/istio/istio/${VERSION}/manifests/addons/dashboards/${dashboard}"
+  )
+done
+
+if ! curl -fsSL "${curl_args[@]}"; then
+  echo "Failed to download dashboards" >&2
+  exit 1
+fi
+
+for dashboard in "${DASHBOARDS[@]}"; do
+  json_file="${tmpdir}/${dashboard}"
+  name=$(basename "${dashboard}" | sed -E 's/\.gen\.json$//' | sed -E 's/\.json$//')
+  key="${name}.json"
+  
+  cat <<EOF >> "${dashboard_yaml}"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-dashboard-${name}
+  labels:
+    grafana: "1"
+data:
+  ${key}: |-
+EOF
+  sed 's/^/    /' "${json_file}" >> "${dashboard_yaml}"
+  echo "" >> "${dashboard_yaml}"
+done
+
+# Step 4: make this a helm template itself
 dst="${SCRIPT_DIR}/istio-generated.yaml"
 {
   echo '{{- if eq .Values.use_istio "true" }}'
@@ -68,9 +114,12 @@ dst="${SCRIPT_DIR}/istio-generated.yaml"
   echo "# Istio System Manifests"
   echo "# ---------------------------------------------------------"
   cat ${tmpdir}/istio.yaml
+  echo "---"
+  echo "# ---------------------------------------------------------"
+  echo "# Istio Grafana Dashboards"
+  echo "# ---------------------------------------------------------"
+  cat "${dashboard_yaml}"
   echo '{{- end }}'
 } >${dst}
-
-
 
 echo "Updated ${dst}"
