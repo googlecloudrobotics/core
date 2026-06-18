@@ -1,4 +1,4 @@
-{{- if eq .Values.use_nginx_shield "true" }}
+{{- if and (eq .Values.use_nginx_shield "true") (eq .Values.use_istio "false") }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
