@@ -65,10 +65,21 @@ DASHBOARDS=(
 dashboard_yaml="${tmpdir}/dashboards.yaml"
 true > "${dashboard_yaml}"
 
+curl_args=()
+for dashboard in "${DASHBOARDS[@]}"; do
+  curl_args+=(
+    -o "${tmpdir}/${dashboard}"
+    "https://raw.githubusercontent.com/istio/istio/${VERSION}/manifests/addons/dashboards/${dashboard}"
+  )
+done
+
+if ! curl -fsSL "${curl_args[@]}"; then
+  echo "Failed to download dashboards" >&2
+  exit 1
+fi
+
 for dashboard in "${DASHBOARDS[@]}"; do
   json_file="${tmpdir}/${dashboard}"
-  curl -fsSL "https://raw.githubusercontent.com/istio/istio/${VERSION}/manifests/addons/dashboards/${dashboard}" -o "${json_file}"
-  
   name=$(basename "${dashboard}" | sed -E 's/\.gen\.json$//' | sed -E 's/\.json$//')
   key="${name}.json"
   
