@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -26,6 +27,17 @@ import (
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 	"google.golang.org/protobuf/proto"
 )
+
+func TestMain(m *testing.M) {
+	// Set short timeouts for tests to speed them up.
+	// These can be overridden on a test-by-test basis if needed using:
+	//   oldRelayTimeout := relayTimeout
+	//   relayTimeout = ...
+	//   defer func() { relayTimeout = oldRelayTimeout }()
+	relayTimeout = 100 * time.Millisecond
+	getRequestTimeout = 200 * time.Millisecond
+	os.Exit(m.Run())
+}
 
 const (
 	// These IDs are used for testing multiple requests. The contents of the
@@ -272,14 +284,14 @@ func TestReapWhileSendingResponse(t *testing.T) {
 	go func() {
 		req, reqErr = b.GetRequest(context.Background(), "foo", "/")
 		if reqErr != nil {
-			t.Errorf("GetRequest error:", reqErr)
+			t.Errorf("GetRequest error: %v", reqErr)
 		}
 		wg.Done()
 	}()
 	go func() {
 		_, respErr = b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
 		if respErr != nil {
-			t.Errorf("RelayRequest error:", respErr)
+			t.Errorf("RelayRequest error: %v", respErr)
 		}
 		wg.Done()
 	}()

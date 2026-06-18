@@ -75,7 +75,7 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 		return fmt.Errorf("failed to start relay-server: %w", err)
 	}
 	r.rsPort = ""
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 100; i++ {
 		slog.Info("Output", slog.String("Output", rsOut.String()))
 		if m := rsPortMatcher.FindStringSubmatch(rsOut.String()); m != nil {
 			r.rsPort = m[1]
@@ -83,7 +83,7 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 			break
 		}
 		slog.Info("Waiting for relay to be up-and-running ...")
-		time.Sleep(1 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 	}
 	if r.rsPort == "" {
 		return errors.New("timeout waiting for relay-server to launch")
@@ -105,13 +105,13 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 	}
 
 	connected := false
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 100; i++ {
 		if strings.Contains(rsOut.String(), "Relay client connected") {
 			connected = true
 			break
 		}
 		slog.Info("Waiting for relay to be up-and-running ...")
-		time.Sleep(1 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 	}
 	if !connected {
 		return errors.New("timeout waiting for relay-client to connect to relay-server")

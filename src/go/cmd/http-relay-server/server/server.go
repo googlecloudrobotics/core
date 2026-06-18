@@ -577,13 +577,13 @@ func (s *Server) StartOnListener(ln net.Listener) {
 	h1s := &http.Server{
 		Handler: och,
 		BaseContext: func(l net.Listener) context.Context {
-			slog.Info("Relay server listening", slog.Int("Port", l.Addr().(*net.TCPAddr).Port))
 			return mainCtx
 		},
 	}
 	// Wait for the server to terminate, either because it failed to create a
 	// listener, or because we got SIGTERM.
 	g, gCtx := errgroup.WithContext(mainCtx)
+	slog.Info("Relay server listening", slog.Int("Port", ln.Addr().(*net.TCPAddr).Port))
 	g.Go(func() error {
 		if err := h1s.Serve(ln); err != http.ErrServerClosed {
 			return err
