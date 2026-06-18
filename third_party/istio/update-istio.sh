@@ -63,7 +63,7 @@ DASHBOARDS=(
 )
 
 dashboard_yaml="${tmpdir}/dashboards.yaml"
-true > "${dashboard_yaml}"
+touch "${dashboard_yaml}"
 
 curl_args=()
 for dashboard in "${DASHBOARDS[@]}"; do
