@@ -94,6 +94,7 @@ app_chart(
     extra_templates = [
         "@com_github_kubernetes_sigs_application//:app_crd",
         "//third_party/kube-prometheus-stack:01-crds.yaml",
+        "//third_party/gateway-api:grpcroute-generated.yaml",
         "//third_party/istio:istio-generated.yaml",
     ],
     files = [
