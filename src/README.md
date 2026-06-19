@@ -9,7 +9,7 @@ Run `bazel build //...` to build everything and likewise `bazel test //...` to
 run all tests. For a test coverage report run:
 
 ```shell
-bazel coverage --combined_report=lcov //…
+bazel coverage --combined_report=lcov //...
 genhtml --branch-coverage --output genhtml "$(bazel info output_path)/_coverage/_coverage_report.dat"
 xdg-open genhtml/index.html
 ```
