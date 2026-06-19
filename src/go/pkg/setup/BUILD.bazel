@@ -37,6 +37,10 @@ go_test(
     deps = [
         "//src/go/pkg/setup/util:go_default_library",  # keep
         "@com_github_golang_mock//gomock:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
+        "@io_k8s_client_go//dynamic/fake:go_default_library",
     ],
 )

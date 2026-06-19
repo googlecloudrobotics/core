@@ -15,12 +15,23 @@
 package setup
 
 import (
+	"bytes"
+	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic/fake"
 )
 
 func TestSelectRobot(t *testing.T) {
@@ -65,3 +76,128 @@ func TestWaitForService_OkIfServiceResponds(t *testing.T) {
 		t.Errorf("WaitForService returned error: %v", err)
 	}
 }
+
+func TestCreateOrUpdateRobot(t *testing.T) {
+	scheme := runtime.NewScheme()
+	client := fake.NewSimpleDynamicClient(scheme)
+	resource := client.Resource(schema.GroupVersionResource{
+		Group:    "registry.cloudrobotics.com",
+		Version:  "v1alpha1",
+		Resource: "robots",
+	})
+
+	ctx := context.Background()
+	robotName := "test-robot"
+	robotType := "test-type"
+	project := "test-project"
+	labels := map[string]string{"foo": "bar"}
+	annotations := map[string]string{"baz": "qux"}
+
+	// 1. Test Create
+	err := CreateOrUpdateRobot(ctx, resource, robotName, robotType, project, labels, annotations)
+	if err != nil {
+		t.Fatalf("CreateOrUpdateRobot failed to create: %v", err)
+	}
+
+	got, err := resource.Get(ctx, robotName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get created robot: %v", err)
+	}
+	if got.GetName() != robotName {
+		t.Errorf("Expected name %q, got %q", robotName, got.GetName())
+	}
+	if !reflect.DeepEqual(got.GetLabels(), labels) {
+		t.Errorf("Expected labels %v, got %v", labels, got.GetLabels())
+	}
+	if !reflect.DeepEqual(got.GetAnnotations(), annotations) {
+		t.Errorf("Expected annotations %v, got %v", annotations, got.GetAnnotations())
+	}
+
+	// 2. Test Update
+	newLabels := map[string]string{"foo": "updated", "new": "label"}
+	err = CreateOrUpdateRobot(ctx, resource, robotName, "new-type", project, newLabels, nil)
+	if err != nil {
+		t.Fatalf("CreateOrUpdateRobot failed to update: %v", err)
+	}
+
+	got, err = resource.Get(ctx, robotName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get updated robot: %v", err)
+	}
+	if !reflect.DeepEqual(got.GetLabels(), newLabels) {
+		t.Errorf("Expected labels %v, got %v", newLabels, got.GetLabels())
+	}
+	spec := got.Object["spec"].(map[string]interface{})
+	if spec["type"] != "new-type" {
+		t.Errorf("Expected type %q, got %q", "new-type", spec["type"])
+	}
+}
+
+func TestGetPublicKey(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pkcs8Bytes, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name string
+		pem  []byte
+	}{
+		{
+			name: "PKCS1",
+			pem: pem.EncodeToMemory(&pem.Block{
+				Type:  "RSA PRIVATE KEY",
+				Bytes: x509.MarshalPKCS1PrivateKey(key),
+			}),
+		},
+		{
+			name: "PKCS8",
+			pem: pem.EncodeToMemory(&pem.Block{
+				Type:  "PRIVATE KEY",
+				Bytes: pkcs8Bytes,
+			}),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			pub, err := getPublicKey(tc.pem)
+			if err != nil {
+				t.Fatalf("getPublicKey() failed: %v", err)
+			}
+			if !bytes.Contains(pub, []byte("BEGIN PUBLIC KEY")) {
+				t.Errorf("result missing header: %s", string(pub))
+			}
+		})
+	}
+}
+
+func TestGetPublicKey_Invalid(t *testing.T) {
+	tests := []struct {
+		name string
+		pem  []byte
+	}{
+		{
+			name: "not a PEM block",
+			pem:  []byte("not a key"),
+		},
+		{
+			name: "empty input",
+			pem:  []byte(""),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := getPublicKey(tc.pem); err == nil {
+				t.Errorf("getPublicKey(%s) should have failed", tc.name)
+			}
+		})
+	}
+}
+
