@@ -37,7 +37,7 @@ spec:
             memory: 128Mi
       containers:
       - name: nginx
-        image: nginxinc/nginx-unprivileged:1.31.1-alpine
+        image: nginxinc/nginx-unprivileged:1.31.2-alpine
         ports:
         - containerPort: 80
           name: http
