@@ -24,6 +24,7 @@ import (
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta/testrestmapper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,25 +44,30 @@ import (
 // Thus we implement our own static one.
 type fakeCachedDiscoveryClient struct {
 	discovery.CachedDiscoveryInterface
+	resources map[string]*metav1.APIResourceList
 }
 
 func (d *fakeCachedDiscoveryClient) Invalidate() {}
 
 func (d *fakeCachedDiscoveryClient) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
-	return nil, []*metav1.APIResourceList{
-		{
-			GroupVersion: "v1",
-			APIResources: []metav1.APIResource{
-				{Kind: "Pod", Namespaced: true},
-				{Kind: "Namespace", Namespaced: false},
-			},
-		},
-	}, nil
+	var list []*metav1.APIResourceList
+	for _, l := range d.resources {
+		list = append(list, l)
+	}
+	return nil, list, nil
+}
+
+func (d *fakeCachedDiscoveryClient) ServerResourcesForGroupVersion(gv string) (*metav1.APIResourceList, error) {
+	if list, ok := d.resources[gv]; ok {
+		return list, nil
+	}
+	return nil, k8serrors.NewNotFound(schema.GroupResource{}, gv)
 }
 
 type fixture struct {
 	*testing.T
-	fake *k8stest.Fake
+	fake      *k8stest.Fake
+	discovery *fakeCachedDiscoveryClient
 
 	// Starting state the respective client will report.
 	objects []runtime.Object
@@ -71,16 +77,29 @@ type fixture struct {
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
-	return &fixture{T: t}
+	f := &fixture{
+		T:         t,
+		discovery: &fakeCachedDiscoveryClient{resources: make(map[string]*metav1.APIResourceList)},
+	}
+	// Add default v1 resources.
+	f.discovery.resources["v1"] = &metav1.APIResourceList{
+		GroupVersion: "v1",
+		APIResources: []metav1.APIResource{
+			{Kind: "Pod", Namespaced: true},
+			{Kind: "Namespace", Namespaced: false},
+		},
+	}
+	return f
 }
 
 func (f *fixture) newSynk() *Synk {
 	sc := runtime.NewScheme()
 	scheme.AddToScheme(sc)
-	apps.AddToScheme(sc) // For tests with CRDs.
+	apps.AddToScheme(sc)          // For tests with CRDs.
+	apiextensions.AddToScheme(sc) // For CRD tests.
 	var (
 		client = dynamicfake.NewSimpleDynamicClient(sc, f.objects...)
-		s      = New(client, &fakeCachedDiscoveryClient{})
+		s      = New(client, f.discovery)
 	)
 	s.mapper = testrestmapper.TestOnlyStaticRESTMapper(sc)
 	s.resetMapper = func() {}
@@ -114,42 +133,49 @@ func (f *fixture) verifyWriteActions() {
 
 func TestSynk_IsTransientErr(t *testing.T) {
 	tests := []struct {
-		err  error
+		name string
+		errs []error
 		want bool
 	}{
 		{
-			errors.New("generic error"),
-			false,
+			name: "transient",
+			want: true,
+			errs: []error{
+				transientErr{errors.New("transientErr struct")},
+				&transientErr{errors.New("transientErr pointer")},
+				k8serrors.NewResourceExpired("gone"),
+				k8serrors.NewForbidden(schema.GroupResource{
+					Group:    "apps",
+					Resource: "deployments",
+				}, "my-deployment", errors.New("unable to create new content in namespace app-test-chart because it is being terminated")),
+				k8serrors.NewConflict(schema.GroupResource{}, "", nil),
+				k8serrors.NewAlreadyExists(schema.GroupResource{}, ""),
+				k8serrors.NewNotFound(schema.GroupResource{}, ""),
+				k8serrors.NewGone(""),
+				k8serrors.NewInternalError(errors.New("internal")),
+				k8serrors.NewServerTimeout(schema.GroupResource{}, "", 0),
+				k8serrors.NewTimeoutError("", 0),
+				k8serrors.NewTooManyRequests("", 0),
+				k8serrors.NewServiceUnavailable(""),
+				&discovery.ErrGroupDiscoveryFailed{Groups: map[schema.GroupVersion]error{}},
+			},
 		},
 		{
-			transientErr{errors.New("transientErr struct")},
-			true,
-		},
-		{
-			&transientErr{errors.New("transientErr pointer")},
-			true,
-		},
-		{
-			k8serrors.NewUnauthorized("unauthorized"),
-			false,
-		},
-		{
-			k8serrors.NewResourceExpired("gone"),
-			true,
-		},
-		{
-			k8serrors.NewForbidden(schema.GroupResource{
-				Group:    "apps",
-				Resource: "deployments",
-			}, "my-deployment", errors.New("unable to create new content in namespace app-test-chart because it is being terminated")),
-			true,
+			name: "non-transient",
+			want: false,
+			errs: []error{
+				errors.New("generic error"),
+				k8serrors.NewUnauthorized("unauthorized"),
+			},
 		},
 	}
 
 	for _, tc := range tests {
-		t.Run(tc.err.Error(), func(t *testing.T) {
-			if got := IsTransientErr(tc.err); got != tc.want {
-				t.Errorf("IsTransientErr(%v)=%v, want %v", tc.err, got, tc.want)
+		t.Run(tc.name, func(t *testing.T) {
+			for _, err := range tc.errs {
+				if got := IsTransientErr(err); got != tc.want {
+					t.Errorf("IsTransientErr(%T) = %v, want %v", err, got, tc.want)
+				}
 			}
 		})
 	}
@@ -657,6 +683,170 @@ data:
 
 	if applied := getAppliedAnnotation(&cmLarge); len(applied) > 0 {
 		t.Errorf("expected no last-applied annotation set, but got %v", applied)
+	}
+}
+
+func TestSynk_validateNamespace(t *testing.T) {
+	tests := []struct {
+		desc      string
+		namespace string
+		optsNs    string
+		wantErr   bool
+	}{
+		{
+			desc:      "empty namespace is allowed",
+			namespace: "",
+			optsNs:    "my-ns",
+			wantErr:   false,
+		},
+		{
+			desc:      "kube-system is allowed",
+			namespace: "kube-system",
+			optsNs:    "my-ns",
+			wantErr:   false,
+		},
+		{
+			desc:      "default is allowed",
+			namespace: "default",
+			optsNs:    "my-ns",
+			wantErr:   false,
+		},
+		{
+			desc:      "opts namespace is allowed",
+			namespace: "my-ns",
+			optsNs:    "my-ns",
+			wantErr:   false,
+		},
+		{
+			desc:      "other namespace is not allowed",
+			namespace: "other-ns",
+			optsNs:    "my-ns",
+			wantErr:   true,
+		},
+		{
+			desc:      "custom ns not allowed-listed via optsNs",
+			namespace: "my-ns",
+			optsNs:    "",
+			wantErr:   true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			r := newUnstructured("v1", "Pod", tc.namespace, "pod1")
+			err := validateNamespace(r, tc.optsNs)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("validateNamespace() error = %v, wantErr %v", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestSynk_canReplace(t *testing.T) {
+	tests := []struct {
+		desc     string
+		kind     string
+		err      error
+		expected bool
+	}{
+		{
+			desc:     "Deployment immutable field error",
+			kind:     "Deployment",
+			err:      errors.New("field is immutable"),
+			expected: true,
+		},
+		{
+			desc:     "Service may not change once set error",
+			kind:     "Service",
+			err:      errors.New("may not change once set"),
+			expected: true,
+		},
+		{
+			desc:     "Job immutable field error",
+			kind:     "Job",
+			err:      errors.New("field is immutable"),
+			expected: true,
+		},
+		{
+			desc:     "ValidatingWebhookConfiguration must be specified for an update",
+			kind:     "ValidatingWebhookConfiguration",
+			err:      errors.New("must be specified for an update"),
+			expected: true,
+		},
+		{
+			desc:     "Pod immutable field error (not replaceable)",
+			kind:     "Pod",
+			err:      errors.New("field is immutable"),
+			expected: false,
+		},
+		{
+			desc:     "Random error",
+			kind:     "Deployment",
+			err:      errors.New("random error"),
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			r := newUnstructured("v1", tc.kind, "ns", "name")
+			if got := canReplace(r, tc.err); got != tc.expected {
+				t.Errorf("canReplace() = %v, want %v", got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestSynk_Delete(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	s := f.newSynk()
+
+	err := s.Delete(ctx, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f.expectActions(
+		k8stest.NewRootDeleteCollectionAction(resourceSetGVR, metav1.ListOptions{LabelSelector: "name=test"}),
+	)
+	// DeleteCollectionAction doesn't match DeleteActionImpl in sprintAction.
+	// But it should be in writes.
+	writes := filterReadActions(f.fake.Actions())
+	if len(writes) != 1 {
+		t.Errorf("expected 1 write action, got %d", len(writes))
+	}
+}
+
+func TestSynk_Init(t *testing.T) {
+	f := newFixture(t)
+	s := f.newSynk()
+
+	// Mock discovery to return the ResourceSet CRD after it's created.
+	// Init calls crdAvailable which calls ServerResourcesForGroupVersion.
+	f.discovery.resources["apps.cloudrobotics.com/v1alpha1"] = &metav1.APIResourceList{
+		GroupVersion: "apps.cloudrobotics.com/v1alpha1",
+		APIResources: []metav1.APIResource{
+			{Name: "resourcesets", Kind: "ResourceSet"},
+		},
+	}
+
+	err := s.Init()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should have called Create for the CRD.
+	writes := filterReadActions(f.fake.Actions())
+	found := false
+	for _, a := range writes {
+		if ca, ok := a.(k8stest.CreateAction); ok && ca.GetResource().Resource == "customresourcedefinitions" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected Create action for CustomResourceDefinition")
 	}
 }
 

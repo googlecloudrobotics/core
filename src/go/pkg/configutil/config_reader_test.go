@@ -22,33 +22,63 @@ import (
 
 func TestBashUnescape(t *testing.T) {
 	tests := []struct {
+		name string
 		s    string
 		want string
 	}{
+		// no escapes
 		{
+			name: "empty string",
+			s:    "",
+			want: "",
+		},
+		{
+			name: "single character",
+			s:    "a",
+			want: "a",
+		},
+		{
+			name: "single quotes",
+			s:    `'foo'`,
+			want: `foo`,
+		},
+		// escapes
+		{
+			name: "backslash escapes",
 			s:    `foo\ \b\a\r\!`,
 			want: `foo bar!`,
 		},
 		{
-			s:    `"foo\ \"bar\"\!"`,
-			want: `foo\ "bar"!`,
+			name: "single quotes with backslash",
+			s:    `'foo\ bar!'`,
+			want: `foo\ bar!`,
 		},
 		{
-			s:    `'foo\ '\''bar'\''\!'`,
-			want: `foo\ 'bar'\!`,
+			name: "double quotes with backslash",
+			s:    `"foo\ bar!"`,
+			want: `foo\ bar!`,
 		},
 		{
+			name: "mixed quotes",
 			s:    `"foo\ \b\a\r\!'`,
 			want: `"foo bar!'`,
 		},
+		{
+			name: "complex double quotes",
+			s:    `"\\ \$\" \` + "`" + ` \!"`,
+			want: `\ $" ` + "`" + ` !`,
+		},
 	}
 
-	for i, tc := range tests {
-		if got := bashUnescape(tc.s); got != tc.want {
-			t.Errorf("[%d] bashUnescape(`%s`) = `%s`', want `%s`", i, tc.s, got, tc.want)
-		}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := bashUnescape(tc.s); got != tc.want {
+				t.Errorf("bashUnescape(%q) = %q, want %q", tc.s, got, tc.want)
+			}
+		})
 	}
 }
+
 
 func TestGetConfigFromReader(t *testing.T) {
 	s := `

@@ -270,6 +270,7 @@ type transientErr struct {
 }
 
 // IsTransientErr returns true if the error may resolve by retrying the operation.
+// It must not be called with a nil error.
 func IsTransientErr(err error) bool {
 	// Either a custom error is specifically wrapped in transientErr or the innermost
 	// error is a known transient Kubernetes API error.

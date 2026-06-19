@@ -4,9 +4,12 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"testing/quick"
@@ -154,5 +157,104 @@ func TestCreateJWTSource(t *testing.T) {
 	}
 	if want := time.Unix(textTokenExpiryUnix, 0); token.Expiry != want {
 		t.Errorf("token.Expiry = %v, want %v", token.Expiry, want)
+	}
+}
+
+func TestCreatePrivateKey(t *testing.T) {
+	r := &RobotAuth{}
+	if err := r.CreatePrivateKey(); err != nil {
+		t.Fatalf("CreatePrivateKey() failed: %v", err)
+	}
+
+	if len(r.PrivateKey) == 0 {
+		t.Fatal("CreatePrivateKey() did not set PrivateKey")
+	}
+
+	block, _ := pem.Decode(r.PrivateKey)
+	if block == nil {
+		t.Fatal("Failed to decode generated PrivateKey as PEM")
+	}
+	if block.Type != "PRIVATE KEY" {
+		t.Errorf("Expected PEM type 'PRIVATE KEY', got %q", block.Type)
+	}
+}
+
+func TestServiceAccountEmail(t *testing.T) {
+	r := &RobotAuth{
+		RobotName: "my-robot",
+		ProjectId: "my-project",
+	}
+
+	tests := []struct {
+		name    string
+		saName  string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "short name",
+			saName:  "robot-service",
+			want:    "robot-service@my-project.iam.gserviceaccount.com",
+			wantErr: false,
+		},
+		{
+			name:    "full email",
+			saName:  "other@other-project.iam.gserviceaccount.com",
+			want:    "other@other-project.iam.gserviceaccount.com",
+			wantErr: false,
+		},
+		{
+			name:    "empty name",
+			saName:  "",
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "invalid email",
+			saName:  "somebody@example.com",
+			want:    "",
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := r.ServiceAccountEmail(tc.saName)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("ServiceAccountEmail(%q) error = %v, wantErr %v", tc.saName, err, tc.wantErr)
+				return
+			}
+			if got != tc.want {
+				t.Errorf("ServiceAccountEmail(%q) = %q, want %q", tc.saName, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFileLoadStoreRoundtrip(t *testing.T) {
+	tmpDir := t.TempDir()
+	keyFile := filepath.Join(tmpDir, "robot-id.json")
+
+	r := &RobotAuth{
+		RobotName:           "my-robot",
+		ProjectId:           "my-project",
+		PublicKeyRegistryId: "my-registry",
+		PrivateKey:          []byte("secret"),
+		Domain:              "example.com",
+	}
+
+	// Let's just test LoadFromFile with a specific path.
+	data, _ := json.Marshal(r)
+	if err := os.WriteFile(keyFile, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := LoadFromFile(keyFile)
+	if err != nil {
+		t.Fatalf("LoadFromFile() failed: %v", err)
+	}
+
+	if !reflect.DeepEqual(r, got) {
+		t.Errorf("LoadFromFile() = %v, want %v", got, r)
 	}
 }
