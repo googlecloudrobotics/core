@@ -32,7 +32,6 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
-	"github.com/googlecloudrobotics/core/src/go/pkg/setup/util"
 	"github.com/googlecloudrobotics/ilog"
 
 	"golang.org/x/oauth2"
@@ -66,7 +65,6 @@ func main() {
 	slog.SetDefault(slog.New(logHandler))
 
 	ctx := context.Background()
-	f := &util.DefaultFactory{}
 
 	vars, err := configutil.ReadConfig(*project)
 	if err != nil {
@@ -92,7 +90,7 @@ func main() {
 	robotGVR := schema.GroupVersionResource{Group: "registry.cloudrobotics.com", Version: "v1alpha1", Resource: "robots"}
 	robotClient := k8s.Resource(robotGVR).Namespace("default")
 
-	if *robotName, err = setup.GetRobotName(ctx, f, robotClient, *robotName); err != nil {
+	if *robotName, err = setup.GetRobotName(ctx, os.Stdin, robotClient, *robotName); err != nil {
 		slog.Error("Failed to get robot name", ilog.Err(err))
 		os.Exit(1)
 	}
