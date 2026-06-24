@@ -10,40 +10,59 @@ data:
     #!/bin/sh
     set -eu
 
-    CERT_FILE="/etc/nginx/certs/tls.crt"
+    SECRET_CERT="/etc/nginx/certs/tls.crt"
+    ACTIVE_CONF="/tmp/nginx/nginx.conf"
+    HTTP_CONF="/nginx-templates/nginx-http.conf"
+    HTTPS_CONF="/nginx-templates/nginx-https.conf"
 
-    # Wait for the certificate file to exist before starting
-    echo "Waiting for certificate file at $CERT_FILE..."
-    while [ ! -f "$CERT_FILE" ]; do
-      sleep 1
-    done
-
-    LAST_HASH=$(sha256sum "$CERT_FILE" | awk '{print $1}')
-    echo "Initial certificate hash: $LAST_HASH"
-    echo "Starting certificate monitor loop..."
-
-    while true; do
-      sleep 60
-      
-      if [ -f "$CERT_FILE" ]; then
-        CURRENT_HASH=$(sha256sum "$CERT_FILE" | awk '{print $1}')
-        if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
-          echo "Certificate change detected! Reloading NGINX..."
-          nginx_pid=$(pgrep -f "nginx: master process" || true)
-          if [ -n "$nginx_pid" ]; then
-            echo "Sending HUP signal to NGINX master process (PID: $nginx_pid)..."
-            kill -HUP "$nginx_pid"
-          else
-            echo "Error: NGINX master process not found!"
-          fi
-          LAST_HASH="$CURRENT_HASH"
-        fi
+    get_hash() {
+      if [ -f "$SECRET_CERT" ]; then
+        sha256sum "$SECRET_CERT" | awk '{print $1}'
       else
-        echo "Warning: Certificate file $CERT_FILE disappeared!"
+        echo "none"
+      fi
+    }
+
+    LAST_HASH=$(get_hash)
+
+    echo "Bootstrapping..."
+    if [ "$LAST_HASH" = "none" ]; then
+      echo "Certificate not found. Starting in HTTP bootstrap mode."
+      cp "$HTTP_CONF" "${ACTIVE_CONF}.tmp"
+    else
+      echo "Certificate found. Starting in HTTPS mode."
+      cp "$HTTPS_CONF" "${ACTIVE_CONF}.tmp"
+    fi
+    mv "${ACTIVE_CONF}.tmp" "$ACTIVE_CONF"
+
+    echo "Starting configuration monitor loop..."
+    while true; do
+      sleep 30
+      
+      CURRENT_HASH=$(get_hash)
+      if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
+        echo "Certificate state changed! Reloading NGINX..."
+        
+        if [ "$CURRENT_HASH" = "none" ]; then
+          cp "$HTTP_CONF" "${ACTIVE_CONF}.tmp"
+        else
+          cp "$HTTPS_CONF" "${ACTIVE_CONF}.tmp"
+        fi
+        mv "${ACTIVE_CONF}.tmp" "$ACTIVE_CONF"
+        
+        nginx_pid=$(pgrep -f "nginx: master process" || true)
+        if [ -n "$nginx_pid" ]; then
+          echo "Sending HUP signal to NGINX master process (PID: $nginx_pid)..."
+          kill -HUP "$nginx_pid"
+        else
+          echo "Warning: NGINX master process not found to reload."
+        fi
+        
+        LAST_HASH="$CURRENT_HASH"
       fi
     done
 
-  nginx.conf: |
+  nginx-https.conf: |
     # Automatically set the number of worker processes based on available CPU cores
     worker_processes auto;
     pid /tmp/nginx.pid;
@@ -277,6 +296,51 @@ data:
           # Extended timeout (1 hour) for sending gRPC stream requests to upstream backend.
           grpc_send_timeout 3600s;
         }
+      }
+    }
+
+  nginx-http.conf: |
+    worker_processes auto;
+    pid /tmp/nginx.pid;
+
+    events {
+      worker_connections 4096;
+    }
+
+    http {
+      log_format main '$remote_addr - $remote_user - [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" "$http_user_agent" '
+                      '$request_length $request_time $upstream_addr '
+                      '$upstream_response_length $upstream_response_time $upstream_status';
+
+      access_log /dev/stdout main;
+      error_log /dev/stderr warn;
+
+      sendfile on;
+      tcp_nopush on;
+      tcp_nodelay on;
+
+      upstream backend_http_bootstrap {
+          server nginx-ingress-controller-internal:80;
+          keepalive 64;
+      }
+
+      # Bootstrap configuration for HTTP-01 challenges
+      server {
+          listen 80;
+          server_name _;
+          
+          # Verify that responses come from CRC NGINX Shield
+          add_header X-CRC-NGINX-SHIELD "active" always;
+
+          location / {
+              # Proxy everything to internal port 80 so cert-manager's HTTP-01 solver can answer
+              proxy_pass http://backend_http_bootstrap;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto http;
+          }
       }
     }
 {{- end}}

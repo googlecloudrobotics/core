@@ -15,7 +15,7 @@ spec:
       labels:
         k8s-app: nginx-ingress-controller-shield
       annotations:
-        checksum/nginx-config-map: {{ include (print $.Template.BasePath "/cloud/nginx-ingress-controller-shield-configmap.yaml") . | sha256sum }}
+        checksum/nginx-config-map: {{ include (print $.Template.BasePath "/nginx-ingress-controller-shield-configmap.yaml") . | sha256sum }}
     spec:
       serviceAccountName: ingress-nginx
       shareProcessNamespace: true
@@ -29,12 +29,24 @@ spec:
         image: alpine:3.21.7
         restartPolicy: Always
         command: ["/bin/sh", "-c", "/scripts/loader.sh"]
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - /tmp/nginx/nginx.conf
+          periodSeconds: 1
+          failureThreshold: 30
         volumeMounts:
         - name: certs-default
           mountPath: /etc/nginx/certs
           readOnly: true
         - name: script
           mountPath: /scripts
+        - name: config
+          mountPath: /nginx-templates
+          readOnly: true
+        - name: nginx-conf
+          mountPath: /tmp/nginx
         resources:
           requests:
             cpu: 50m
@@ -51,6 +63,7 @@ spec:
       containers:
       - name: nginx
         image: nginxinc/nginx-unprivileged:1.31.2-alpine
+        command: ["nginx", "-g", "daemon off;", "-c", "/tmp/nginx/nginx.conf"]
         ports:
         - containerPort: 80
           name: http
@@ -87,12 +100,11 @@ spec:
             drop:
             - ALL
         volumeMounts:
-        - name: config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
-          readOnly: true
         - name: certs-default
           mountPath: /etc/nginx/certs
+          readOnly: true
+        - name: nginx-conf
+          mountPath: /tmp/nginx
           readOnly: true
       volumes:
       - name: config
@@ -102,9 +114,12 @@ spec:
         configMap:
           name: nginx-ingress-controller-shield
           defaultMode: 0744
+      - name: nginx-conf
+        emptyDir: {}
       - name: certs-default
         secret:
           secretName: tls
+          optional: true
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
