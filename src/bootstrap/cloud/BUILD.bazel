@@ -1,4 +1,5 @@
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files", "strip_prefix")
 
 genrule(
     name = "setup-robot-digest",
@@ -7,30 +8,37 @@ genrule(
     cmd = "cp $(location //src/go/cmd/setup-robot:setup-robot-image.digest) $@",
 )
 
-pkg_tar(
-    name = "bazel-bin",
+pkg_files(
+    name = "bazel-bin-files",
     srcs = [
         ":setup-robot-digest",
         "//src/app_charts/base:base-cloud",
         "//src/app_charts/platform-apps:platform-apps-cloud",
     ],
-    mode = "644",
-    package_dir = "/bazel-bin",
-    strip_prefix = "/",
+    attributes = pkg_attributes(mode = "0644"),
+    prefix = "bazel-bin",
+    strip_prefix = strip_prefix.from_root(""),
 )
 
-pkg_tar(
-    name = "files",
+pkg_files(
+    name = "install-from-binary",
+    srcs = ["INSTALL_FROM_BINARY"],
+    attributes = pkg_attributes(mode = "0644"),
+    strip_prefix = strip_prefix.files_only(),
+)
+
+pkg_files(
+    name = "core-files-644",
     srcs = [
         "//:config.sh.tmpl",
         "//src/bootstrap/cloud/terraform",
     ],
-    mode = "644",
-    strip_prefix = "/",
+    attributes = pkg_attributes(mode = "0644"),
+    strip_prefix = strip_prefix.from_root(""),
 )
 
-pkg_tar(
-    name = "scripts",
+pkg_files(
+    name = "core-files-755",
     srcs = [
         "//:deploy.sh",
         "//scripts:common.sh",
@@ -39,34 +47,32 @@ pkg_tar(
         "//scripts:set-config.sh",
         "//src/bootstrap/robot:setup_robot.sh",
     ],
-    mode = "755",
-    strip_prefix = "/",
+    attributes = pkg_attributes(mode = "0755"),
+    strip_prefix = strip_prefix.from_root(""),
 )
 
-pkg_tar(
-    name = "binary_tools",
+pkg_files(
+    name = "binary-tools-files",
     srcs = [
         "//src/go/cmd/synk",
         "//src/go/cmd/token-vendor:token-vendor-app",
         "@hashicorp_terraform//:terraform",
         "@kubernetes_helm//:helm",
     ],
-    mode = "755",
-    package_dir = "/bin",
+    attributes = pkg_attributes(mode = "0755"),
+    prefix = "bin",
+    strip_prefix = strip_prefix.files_only(),
 )
 
 pkg_tar(
     name = "crc-binary",
-    srcs = [
-        "INSTALL_FROM_BINARY",
-    ],
     extension = "tar.gz",
-    mode = "644",
     package_dir = "/cloud-robotics-core",
-    deps = [
-        ":bazel-bin",
-        ":binary_tools",
-        ":files",
-        ":scripts",
+    srcs = [
+        ":bazel-bin-files",
+        ":binary-tools-files",
+        ":core-files-644",
+        ":core-files-755",
+        ":install-from-binary",
     ],
 )
