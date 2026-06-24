@@ -24,9 +24,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,11 +35,6 @@ import (
 )
 
 func TestSelectRobot(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockFactory := NewMockFactory(mockCtrl)
-
 	robots := []unstructured.Unstructured{
 		{
 			Object: map[string]interface{}{
@@ -59,11 +54,11 @@ func TestSelectRobot(t *testing.T) {
 		},
 	}
 
-	mockFactory.EXPECT().ScanInt().Return(1, nil).Times(1)
+	reader := strings.NewReader("1\n")
 
-	id, err := selectRobot(mockFactory, robots)
+	id, err := selectRobot(reader, robots)
 	if id != "ro-1234" || err != nil {
-		t.Errorf("selectRobot(mockFactory, oneRobot) = %v, %v want ro-1234, nil", id, err)
+		t.Errorf("selectRobot(reader, oneRobot) = %v, %v want ro-1234, nil", id, err)
 	}
 }
 

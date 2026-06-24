@@ -34,8 +34,6 @@ import (
 )
 
 const (
-	LocalContext = "kubernetes-admin@kubernetes"
-
 	localConfig            = "~/.kube/config"
 	deletionTimeoutSeconds = 60
 )
@@ -81,10 +79,6 @@ func GetRobotKubernetesContext() (string, error) {
 }
 
 // LoadOutOfClusterConfig loads a local kubernetes config on the robot or workstation.
-func LoadOutOfClusterConfigLocal() (*rest.Config, error) {
-	return LoadOutOfClusterConfig(LocalContext)
-}
-
 func LoadOutOfClusterConfig(context string) (*rest.Config, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	loadingRules.ExplicitPath = ExpandUser(localConfig)

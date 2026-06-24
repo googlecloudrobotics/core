@@ -21,16 +21,17 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
-	"github.com/googlecloudrobotics/core/src/go/pkg/setup/util"
 
 	"golang.org/x/crypto/ssh/terminal"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,7 +43,7 @@ import (
 // GetRobotName returns a valid robot name or an error. If the robotName parameter
 // is non-empty, it checks if it is valid. If it is an empty string, the user is
 // prompted to select a robot.
-func GetRobotName(ctx context.Context, f util.Factory, client dynamic.ResourceInterface, robotName string) (string, error) {
+func GetRobotName(ctx context.Context, r io.Reader, client dynamic.ResourceInterface, robotName string) (string, error) {
 	if robotName == "" {
 		exitIfNotRunningInTerminal("ERROR: --robot-name not specified")
 
@@ -51,7 +52,7 @@ func GetRobotName(ctx context.Context, f util.Factory, client dynamic.ResourceIn
 			return "", err
 		}
 
-		robotName, err := selectRobot(f, robots.Items)
+		robotName, err := selectRobot(r, robots.Items)
 		if err != nil {
 			return "", err
 		}
@@ -76,9 +77,17 @@ func exitIfNotRunningInTerminal(message ...interface{}) {
 	}
 }
 
+func scanInt(r io.Reader) (int, error) {
+	var s string
+	if _, err := fmt.Fscan(r, &s); err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(s)
+}
+
 // Ask the user to select the robot from a list. Saves name to disk after
 // selection.
-func selectRobot(f util.Factory, robots []unstructured.Unstructured) (string, error) {
+func selectRobot(r io.Reader, robots []unstructured.Unstructured) (string, error) {
 	fmt.Printf("  # %-20v %-10v %-16v\n", "Name", "Type", "Create Time")
 	for i, robot := range robots {
 		spec, ok := robot.Object["spec"].(map[string]interface{})
@@ -93,7 +102,7 @@ func selectRobot(f util.Factory, robots []unstructured.Unstructured) (string, er
 	var ix int
 	for {
 		var err error
-		ix, err = f.ScanInt()
+		ix, err = scanInt(r)
 		if err == nil && 1 <= ix && ix <= len(robots) {
 			break
 		}
