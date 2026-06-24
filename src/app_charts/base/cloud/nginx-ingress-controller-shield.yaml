@@ -113,7 +113,7 @@ spec:
       - name: script
         configMap:
           name: nginx-ingress-controller-shield
-          defaultMode: 0744
+          defaultMode: 0755
       - name: nginx-conf
         emptyDir: {}
       - name: certs-default
