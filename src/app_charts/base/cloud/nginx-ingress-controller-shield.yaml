@@ -14,20 +14,39 @@ spec:
     metadata:
       labels:
         k8s-app: nginx-ingress-controller-shield
+      annotations:
+        checksum/nginx-config-map: {{ include (print $.Template.BasePath "/nginx-ingress-controller-shield-configmap.yaml") . | sha256sum }}
     spec:
       serviceAccountName: ingress-nginx
       shareProcessNamespace: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
       - name: cert-loader
         image: alpine:3.21.7
         restartPolicy: Always
         command: ["/bin/sh", "-c", "/scripts/loader.sh"]
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - /tmp/nginx/nginx.conf
+          periodSeconds: 1
+          failureThreshold: 30
         volumeMounts:
         - name: certs-default
           mountPath: /etc/nginx/certs
           readOnly: true
         - name: script
           mountPath: /scripts
+        - name: config
+          mountPath: /nginx-templates
+          readOnly: true
+        - name: nginx-conf
+          mountPath: /tmp/nginx
         resources:
           requests:
             cpu: 50m
@@ -35,9 +54,16 @@ spec:
           limits:
             cpu: 100m
             memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          capabilities:
+            drop:
+            - ALL
       containers:
       - name: nginx
         image: nginxinc/nginx-unprivileged:1.31.2-alpine
+        command: ["nginx", "-g", "daemon off;", "-c", "/tmp/nginx/nginx.conf"]
         ports:
         - containerPort: 80
           name: http
@@ -73,14 +99,12 @@ spec:
             - NET_BIND_SERVICE
             drop:
             - ALL
-          runAsUser: 101
         volumeMounts:
-        - name: config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
-          readOnly: true
         - name: certs-default
           mountPath: /etc/nginx/certs
+          readOnly: true
+        - name: nginx-conf
+          mountPath: /tmp/nginx
           readOnly: true
       volumes:
       - name: config
@@ -89,10 +113,13 @@ spec:
       - name: script
         configMap:
           name: nginx-ingress-controller-shield
-          defaultMode: 0744
+          defaultMode: 0755
+      - name: nginx-conf
+        emptyDir: {}
       - name: certs-default
         secret:
           secretName: tls
+          optional: true
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -113,281 +140,6 @@ spec:
       target:
         type: Utilization
         averageUtilization: 80
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-ingress-controller-shield
-  namespace: default
-data:
-  loader.sh: |
-    #!/bin/sh
-    set -eu
-
-    CERT_FILE="/etc/nginx/certs/tls.crt"
-
-    # Wait for the certificate file to exist before starting
-    echo "Waiting for certificate file at $CERT_FILE..."
-    while [ ! -f "$CERT_FILE" ]; do
-      sleep 1
-    done
-
-    LAST_HASH=$(sha256sum "$CERT_FILE" | awk '{print $1}')
-    echo "Initial certificate hash: $LAST_HASH"
-    echo "Starting certificate monitor loop..."
-
-    while true; do
-      sleep 60
-      
-      if [ -f "$CERT_FILE" ]; then
-        CURRENT_HASH=$(sha256sum "$CERT_FILE" | awk '{print $1}')
-        if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
-          echo "Certificate change detected! Reloading NGINX..."
-          nginx_pid=$(pgrep -f "nginx: master process" || true)
-          if [ -n "$nginx_pid" ]; then
-            echo "Sending HUP signal to NGINX master process (PID: $nginx_pid)..."
-            kill -HUP "$nginx_pid"
-          else
-            echo "Error: NGINX master process not found!"
-          fi
-          LAST_HASH="$CURRENT_HASH"
-        fi
-      else
-        echo "Warning: Certificate file $CERT_FILE disappeared!"
-      fi
-    done
-
-  nginx.conf: |
-    # Automatically set the number of worker processes based on available CPU cores
-    worker_processes auto;
-    pid /tmp/nginx.pid;
-
-    # Event processing
-    events {
-
-      # Set the maximum number of simultaneous connections
-      # that can be opened by a worker process
-      worker_connections 4096;
-    }
-
-    http {
-
-      log_format main '$remote_addr - $remote_user - [$time_local] "$request" '
-                      '$status $body_bytes_sent "$http_referer" "$http_user_agent"'
-                      '$request_length $request_time $upstream_addr'
-                      '$upstream_response_length $upstream_response_time $upstream_status';
-
-      # Write access logs to stdout for ease of container logging and monitoring.
-      access_log /dev/stdout main;
-
-      # Write error logs to stderr with 'warn' log level to capture important warnings and errors.
-      error_log /dev/stderr warn;
-
-
-      # Performance Optimization
-      sendfile on;
-      tcp_nopush on;
-      tcp_nodelay on;
-
-      # Disables request body buffering to the proxy's disk. 
-      # This streams the request body (such as client uploads) directly to the backend as it arrives,
-      # avoiding disk space issues and improving latency during large file uploads (up to 5GB).
-      proxy_request_buffering off;
-
-      # Sets the maximum allowed size of the client request body. 
-      # support uploads up to 5GB while protecting the server from extremely 
-      # large denial-of-service (DoS) payload attacks.
-      client_max_body_size 6g; 
-      client_body_buffer_size 5M;
-      http2_body_preread_size 5M;
-
-      # Disables response buffering from the proxied backend. 
-      # This streams responses (such as large downloads) to the client immediately as they arrive, 
-      # preventing Nginx from buffering massive responses on disk or in memory.
-      proxy_buffering off;
-
-      # Timeouts for large transfers
-      # Set timeout for reading the client request body to 300 seconds. 
-      # This prevents slow uploads (up to 5GB) from timing out during network lags or pauses.
-      client_body_timeout 300s;
-      
-      # Set timeout for transmitting a response to the client to 300 seconds.
-      # This prevents slow downloads (up to 5GB) from timing out during transmission pauses.
-      send_timeout 300s;
-
-      # 3. Disable gRPC Buffering (If using gRPC)
-      # Configures the buffer size for reading the response header from a gRPC backend.
-      grpc_buffer_size 256k;
-
-      # Ensure massive cookies or OIDC tokens don't cause a 414 or 502 error   
-      # Sets the maximum number and size of buffers for reading large client request headers (e.g. large cookies, OIDC/OAuth tokens).
-      large_client_header_buffers 4 256k; 
-      
-      # Configures the buffer size used for reading the first part of the response from a proxied server.
-      proxy_buffer_size 256k; 
-      
-      # Sets the number and size of buffers used for reading a response from a proxied server.
-      proxy_buffers 4 256k; 
-      
-      # Limits the total size of buffers that can be busy sending responses to the client while the response is still being read.
-      proxy_busy_buffers_size 256k;
-
-      # Map WebSocket upgrades to connection upgrade header to support proxying WebSockets dynamically.
-      map $http_upgrade $connection_upgrade {
-          default upgrade;
-          ''      ""; 
-      }
-
-      # Map content-type to detect gRPC traffic (starts with application/grpc).
-      map $http_content_type $is_grpc {
-          default 0;
-          "~*^application/grpc" 1;
-      }
-
-      # Listen on port 80 for non-secure HTTP requests
-      # Redirect all HTTP traffic to HTTPS (port 443) using a 301 Permanent Redirect.
-      server {
-          listen 80;      
-          server_name _;
-          return 301 https://$host$request_uri;
-      }
-
-      # HTTPS Server - Dynamic SNI matching with default fallback cert
-      server {
-        
-        # Listen on port 443 for all secure HTTPS requests.
-        listen 443 ssl default_server;
-        
-        # Enable HTTP/2 
-        http2 on; 
-
-        # Catch all domains
-        server_name _;
-
-        # Dynamically evaluated certificate based on SNI host 
-        # or mapped wildcard (defaults to 'tls')
-        ssl_certificate     /etc/nginx/certs/tls.crt;
-        ssl_certificate_key /etc/nginx/certs/tls.key;
-
-        # Configure accepted secure SSL protocols (TLSv1.2 and TLSv1.3 only).
-        ssl_protocols       TLSv1.2 TLSv1.3;
-
-        # Limit the maximum number of concurrent HTTP/2 streams to 
-        # prevent resource exhaustion attacks (HTTP/2 Rapid Reset mitigation).
-        http2_max_concurrent_streams 128;
-
-        # Maximum number of requests that can be served through 
-        # one keep-alive connection.
-        keepalive_requests 1000;
-
-        # Defines a timeout for reading client request headers 
-        # to mitigate slowloris-type DoS attacks.
-        client_header_timeout 10s;
-
-        # Verify that responses come from CRC NGINX Shield
-        add_header X-CRC-NGINX-SHIELD "active" always;
-
-        # Location block for HTTP/HTTPS web traffic routing.
-        location / {
-          # Map custom error page 418 to internally forward 
-          # to the @grpc_backend location block.
-          error_page 418 = @grpc_backend;
-
-          # If the request content-type is grpc, trigger the 418 redirect 
-          # to route the request to the gRPC backend.
-          if ($is_grpc) {
-              return 418;
-          }
-
-          # -----------------------------------------------------------
-          # STANDARD WEB TRAFFIC (HTTP/1.1)
-          # -----------------------------------------------------------
-          # Forward standard HTTP/1.1 traffic to the backend HTTPS address.
-          # Legacy NGINX Ingress Controller ClusterIP domain
-          proxy_pass https://nginx-ingress-controller-internal:443;
-          
-          # Enable Server Name Indication (SNI) when connecting to the upstream HTTPS backend.
-          proxy_ssl_server_name on;
-
-          # Set the SNI hostname to match the incoming client host header.
-          proxy_ssl_name $host;
-
-          # Disable verification of the backend self-signed certificates for the POC environment.
-          proxy_ssl_verify off;
-          
-          # Force the proxy protocol to use HTTP/1.1 to match standard backend communication.
-          proxy_http_version 1.1;
-          
-          # Dynamic WebSocket / Keep-Alive headers
-          # Forward the Upgrade header to support WebSockets.
-          proxy_set_header Upgrade $http_upgrade;
-
-          # Set Connection header value based on Upgrade mapping (dynamic upgrade or keepalive).
-          proxy_set_header Connection $connection_upgrade;
-          
-          # Preserve original Host header from client.
-          proxy_set_header Host $host;
-
-          # Pass real client IP to the backend.
-          proxy_set_header X-Real-IP $remote_addr;
-
-          # Append the client IP to the forwarded-for chain.
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-          # Set the original protocol to https.
-          proxy_set_header X-Forwarded-Proto https;
-
-          # Extended read timeout (1 hour) to support long-polling connections.
-          # nginx.ingress.kubernetes.io/proxy-read-timeout
-          proxy_read_timeout 3600s;
-
-          # Extended send timeout (1 hour) to support slow proxy writes.
-          # nginx.ingress.kubernetes.io/proxy-send-timeout
-          proxy_send_timeout 3600s;
-
-          # Timeout for establishing a connection to the backend.
-          # nginx.ingress.kubernetes.io/proxy-connect-timeout: "15"
-          # 75 second timeout maximum
-          proxy_connect_timeout 75s;
-        }
-
-        # Internal location block for gRPC traffic routing.
-        location @grpc_backend {
-          # -----------------------------------------------------------
-          # gRPC TRAFFIC (HTTP/2)
-          # -----------------------------------------------------------
-          # Forward gRPC requests using secure grpcs protocol to the backend on port 443.
-          grpc_pass grpcs://nginx-ingress-controller-internal:443;
-          
-          # Enable SNI (Server Name Indication) for gRPC backend connection.
-          grpc_ssl_server_name on; 
-
-          # Set the SNI hostname to match the client host.
-          grpc_ssl_name $host;
-
-          # Disable validation of self-signed certificate of upstream gRPC backend.
-          grpc_ssl_verify off; 
-          
-          # Pass Host header to backend.
-          grpc_set_header Host $host;
-
-          # Pass client IP to backend.
-          grpc_set_header X-Real-IP $remote_addr;
-
-          # Append client IP to X-Forwarded-For chain.
-          grpc_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-          # Set original protocol header to https.
-          grpc_set_header X-Forwarded-Proto https;
-
-          # Extended timeout (1 hour) for reading gRPC stream responses from upstream backend.
-          grpc_read_timeout 3600s;
-
-          # Extended timeout (1 hour) for sending gRPC stream requests to upstream backend.
-          grpc_send_timeout 3600s;
-        }
-      }
-    }
 ---
 apiVersion: v1
 kind: Service
