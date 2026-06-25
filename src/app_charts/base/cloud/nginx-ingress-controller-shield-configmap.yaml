@@ -10,12 +10,18 @@ data:
     #!/bin/sh
     set -eu
 
-    SECRET_CERT="/etc/nginx/certs/tls.crt"
     ACTIVE_CONF="/tmp/nginx/nginx.conf"
     HTTP_CONF="/nginx-templates/nginx-http.conf"
     HTTPS_CONF="/nginx-templates/nginx-https.conf"
 
-    get_hash() {
+    CERT_DIR="/etc/nginx/certs"
+    SECRET_CERT="/etc/nginx/certs/default_tls.crt"
+    SNI_MAP="/tmp/nginx/sni_map.conf"
+
+    # Global state updated by update_dynamic_certs()
+    cert_map_changed=0
+
+    get_default_cert_hash() {
       if [ -f "$SECRET_CERT" ]; then
         sha256sum "$SECRET_CERT" | awk '{print $1}'
       else
@@ -23,33 +29,112 @@ data:
       fi
     }
 
-    LAST_HASH=$(get_hash)
+    activate_config() {
+      local cert_hash="$1"
+      if [ "$cert_hash" = "none" ]; then
+        echo "Default TLS certificate not found. Activating HTTP fallback mode."
+        cp "$HTTP_CONF" "${ACTIVE_CONF}.tmp"
+      else
+        echo "Default TLS certificate found. Activating HTTPS mode."
+        cp "$HTTPS_CONF" "${ACTIVE_CONF}.tmp"
+      fi
+      mv "${ACTIVE_CONF}.tmp" "$ACTIVE_CONF"
+    }
+
+    update_dynamic_certs() {
+      local changed=0
+      local secrets_file="/tmp/nginx/secrets.tmp"
+      local active_secrets_file="/tmp/nginx/active_secrets.tmp"
+
+      > "$active_secrets_file"
+
+      secrets=$(kubectl get secrets -A --field-selector type=kubernetes.io/tls -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.data.tls\.crt}{"\t"}{.data.tls\.key}{"\n"}{end}')
+
+      if [ -n "$secrets" ]; then
+        echo "$secrets" > "$secrets_file"
+        while IFS="$(printf '\t')" read -r ns name crt_b64 key_b64; do
+          if [ -z "$ns" ] || [ -z "$name" ] || [ -z "$crt_b64" ] || [ -z "$key_b64" ]; then continue; fi
+
+          local secret_id="${ns}_${name}"
+          echo "$secret_id" >> "$active_secrets_file"
+
+          cert_file="$CERT_DIR/${secret_id}.crt"
+          key_file="$CERT_DIR/${secret_id}.key"
+
+          echo "$crt_b64" | base64 -d > "${cert_file}.new" 2>/dev/null || continue
+          echo "$key_b64" | base64 -d > "${key_file}.new" 2>/dev/null || continue
+
+          if ! cmp -s "$cert_file" "${cert_file}.new" 2>/dev/null || ! cmp -s "$key_file" "${key_file}.new" 2>/dev/null; then
+            mv "${cert_file}.new" "$cert_file"
+            mv "${key_file}.new" "$key_file"
+            changed=1
+          else
+            rm -f "${cert_file}.new" "${key_file}.new"
+          fi
+        done < "$secrets_file"
+        rm -f "$secrets_file"
+      fi
+
+      # Cleanup deleted secrets
+      for f in "$CERT_DIR"/*.crt; do
+        [ -e "$f" ] || continue
+        local fname=$(basename "$f" .crt)
+        if ! grep -q -x "$fname" "$active_secrets_file" 2>/dev/null; then
+          echo "Secret $fname deleted from Kubernetes. Cleaning up files..."
+          rm -f "$CERT_DIR/${fname}.crt" "$CERT_DIR/${fname}.key"
+          changed=1
+        fi
+      done
+
+      rm -f "$active_secrets_file"
+
+
+      mappings=$(kubectl get ingress -A -o go-template='{{range .items}}{{$ns := .metadata.namespace}}{{range .spec.tls}}{{if .secretName}}{{$sec := .secretName}}{{range .hosts}}{{.}} {{$ns}}_{{$sec}}{{"\n"}}{{end}}{{end}}{{end}}{{end}}')
+
+      > "${SNI_MAP}.tmp"
+
+      if [ -n "$mappings" ]; then
+        echo "$mappings" | awk '!seen[$1]++' | while read -r host secret_id; do
+          if [ -n "$host" ] && [ -n "$secret_id" ]; then
+            if [ -f "$CERT_DIR/${secret_id}.crt" ] && [ -f "$CERT_DIR/${secret_id}.key" ]; then
+              echo "    \"$host\" \"$CERT_DIR/$secret_id\";" >> "${SNI_MAP}.tmp"
+            fi
+          fi
+        done
+      fi
+
+      if ! cmp -s "$SNI_MAP" "${SNI_MAP}.tmp"; then
+        mv "${SNI_MAP}.tmp" "$SNI_MAP"
+        changed=1
+      fi
+
+      cert_map_changed=$changed
+      return 0
+    }
 
     echo "Bootstrapping..."
-    if [ "$LAST_HASH" = "none" ]; then
-      echo "Certificate not found. Starting in HTTP bootstrap mode."
-      cp "$HTTP_CONF" "${ACTIVE_CONF}.tmp"
-    else
-      echo "Certificate found. Starting in HTTPS mode."
-      cp "$HTTPS_CONF" "${ACTIVE_CONF}.tmp"
-    fi
-    mv "${ACTIVE_CONF}.tmp" "$ACTIVE_CONF"
+    touch "$SNI_MAP"
+    update_dynamic_certs || true
+
+    DEFAULT_CERT_LAST_HASH=$(get_default_cert_hash)
+    activate_config "$DEFAULT_CERT_LAST_HASH"
 
     echo "Starting configuration monitor loop..."
     while true; do
       sleep 30
-      
-      CURRENT_HASH=$(get_hash)
-      if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
+
+      update_dynamic_certs
+
+      DEFAULT_CERT_HASH=$(get_default_cert_hash)
+
+      if [ "$DEFAULT_CERT_HASH" != "$DEFAULT_CERT_LAST_HASH" ] || [ "$cert_map_changed" -eq 1 ]; then
         echo "Certificate state changed! Reloading NGINX..."
-        
-        if [ "$CURRENT_HASH" = "none" ]; then
-          cp "$HTTP_CONF" "${ACTIVE_CONF}.tmp"
-        else
-          cp "$HTTPS_CONF" "${ACTIVE_CONF}.tmp"
+
+        # Only rewrite the main configuration if the default cert toggled between missing/present
+        if [ "$DEFAULT_CERT_HASH" != "$DEFAULT_CERT_LAST_HASH" ]; then
+          activate_config "$DEFAULT_CERT_HASH"
         fi
-        mv "${ACTIVE_CONF}.tmp" "$ACTIVE_CONF"
-        
+
         nginx_pid=$(pgrep -f "nginx: master process" || true)
         if [ -n "$nginx_pid" ]; then
           echo "Sending HUP signal to NGINX master process (PID: $nginx_pid)..."
@@ -57,8 +142,7 @@ data:
         else
           echo "Warning: NGINX master process not found to reload."
         fi
-        
-        LAST_HASH="$CURRENT_HASH"
+        DEFAULT_CERT_LAST_HASH="$DEFAULT_CERT_HASH"
       fi
     done
 
@@ -93,28 +177,34 @@ data:
       tcp_nopush on;
       tcp_nodelay on;
 
-      # Disables request body buffering to the proxy's disk. 
+      # TLS Performance & Handshake Optimization
+      ssl_session_cache shared:SSL:10m;
+      ssl_session_timeout 1h;
+      ssl_certificate_cache max=100 inactive=30s valid=5m;
+      ssl_session_tickets off;
+
+      # Disables request body buffering to the proxy's disk.
       # This streams the request body (such as client uploads) directly to the backend as it arrives,
       # avoiding disk space issues and improving latency during large file uploads (up to 5GB).
       proxy_request_buffering off;
 
-      # Sets the maximum allowed size of the client request body. 
-      # support uploads up to 5GB while protecting the server from extremely 
+      # Sets the maximum allowed size of the client request body.
+      # support uploads up to 5GB while protecting the server from extremely
       # large denial-of-service (DoS) payload attacks.
-      client_max_body_size 6g; 
+      client_max_body_size 6g;
       client_body_buffer_size 5M;
       http2_body_preread_size 5M;
 
-      # Disables response buffering from the proxied backend. 
-      # This streams responses (such as large downloads) to the client immediately as they arrive, 
+      # Disables response buffering from the proxied backend.
+      # This streams responses (such as large downloads) to the client immediately as they arrive,
       # preventing Nginx from buffering massive responses on disk or in memory.
       proxy_buffering off;
 
       # Timeouts for large transfers
-      # Set timeout for reading the client request body to 300 seconds. 
+      # Set timeout for reading the client request body to 300 seconds.
       # This prevents slow uploads (up to 5GB) from timing out during network lags or pauses.
       client_body_timeout 300s;
-      
+
       # Set timeout for transmitting a response to the client to 300 seconds.
       # This prevents slow downloads (up to 5GB) from timing out during transmission pauses.
       send_timeout 300s;
@@ -123,29 +213,37 @@ data:
       # Configures the buffer size for reading the response header from a gRPC backend.
       grpc_buffer_size 64k;
 
-      # Ensure massive cookies or OIDC tokens don't cause a 414 or 502 error   
+      # Ensure massive cookies or OIDC tokens don't cause a 414 or 502 error
       # Sets the maximum number and size of buffers for reading large client request headers (e.g. large cookies, OIDC/OAuth tokens).
-      large_client_header_buffers 4 64k; 
-      
+      large_client_header_buffers 4 64k;
+
       # Configures the buffer size used for reading the first part of the response from a proxied server.
-      proxy_buffer_size 64k; 
-      
+      proxy_buffer_size 64k;
+
       # Sets the number and size of buffers used for reading a response from a proxied server.
-      proxy_buffers 4 64k; 
-      
+      proxy_buffers 4 64k;
+
       # Limits the total size of buffers that can be busy sending responses to the client while the response is still being read.
       proxy_busy_buffers_size 64k;
 
       # Map WebSocket upgrades to connection upgrade header to support proxying WebSockets dynamically.
       map $http_upgrade $connection_upgrade {
           default upgrade;
-          ''      ""; 
+          ''      "";
       }
 
       # Map content-type to detect gRPC traffic (starts with application/grpc).
       map $http_content_type $is_grpc {
           default 0;
           "~*^application/grpc" 1;
+      }
+
+      map $ssl_server_name $cert_path {
+          hostnames;
+
+          default "/etc/nginx/certs/default_tls";
+
+          include /tmp/nginx/sni_map.conf;
       }
 
       # Upstream pool for standard HTTP/HTTPS traffic
@@ -163,40 +261,40 @@ data:
       # Listen on port 80 for non-secure HTTP requests
       # Redirect all HTTP traffic to HTTPS (port 443) using a 301 Permanent Redirect.
       server {
-          listen 80;      
+          listen 80;
           server_name _;
           return 301 https://$host$request_uri;
       }
 
       # HTTPS Server - Dynamic SNI matching with default fallback cert
       server {
-        
+
         # Listen on port 443 for all secure HTTPS requests.
         listen 443 ssl default_server;
-        
-        # Enable HTTP/2 
-        http2 on; 
+
+        # Enable HTTP/2
+        http2 on;
 
         # Catch all domains
         server_name _;
 
-        # Dynamically evaluated certificate based on SNI host 
+        # Dynamically evaluated certificate based on SNI host
         # or mapped wildcard (defaults to 'tls')
-        ssl_certificate     /etc/nginx/certs/tls.crt;
-        ssl_certificate_key /etc/nginx/certs/tls.key;
+        ssl_certificate     $cert_path.crt;
+        ssl_certificate_key $cert_path.key;
 
         # Configure accepted secure SSL protocols (TLSv1.2 and TLSv1.3 only).
         ssl_protocols       TLSv1.2 TLSv1.3;
 
-        # Limit the maximum number of concurrent HTTP/2 streams to 
+        # Limit the maximum number of concurrent HTTP/2 streams to
         # prevent resource exhaustion attacks (HTTP/2 Rapid Reset mitigation).
         http2_max_concurrent_streams 128;
 
-        # Maximum number of requests that can be served through 
+        # Maximum number of requests that can be served through
         # one keep-alive connection.
         keepalive_requests 1000;
 
-        # Defines a timeout for reading client request headers 
+        # Defines a timeout for reading client request headers
         # to mitigate slowloris-type DoS attacks.
         client_header_timeout 10s;
 
@@ -205,11 +303,11 @@ data:
 
         # Location block for HTTP/HTTPS web traffic routing.
         location / {
-          # Map custom error page 418 to internally forward 
+          # Map custom error page 418 to internally forward
           # to the @grpc_backend location block.
           error_page 418 = @grpc_backend;
 
-          # If the request content-type is grpc, trigger the 418 redirect 
+          # If the request content-type is grpc, trigger the 418 redirect
           # to route the request to the gRPC backend.
           if ($is_grpc) {
               return 418;
@@ -221,7 +319,7 @@ data:
           # Forward standard HTTP/1.1 traffic to the backend HTTPS address.
           # Legacy NGINX Ingress Controller ClusterIP domain
           proxy_pass https://backend_http;
-          
+
           # Enable Server Name Indication (SNI) when connecting to the upstream HTTPS backend.
           proxy_ssl_server_name on;
 
@@ -230,14 +328,14 @@ data:
 
           # Force the proxy protocol to use HTTP/1.1 to match standard backend communication.
           proxy_http_version 1.1;
-          
+
           # Dynamic WebSocket / Keep-Alive headers
           # Forward the Upgrade header to support WebSockets.
           proxy_set_header Upgrade $http_upgrade;
 
           # Set Connection header value based on Upgrade mapping (dynamic upgrade or keepalive).
           proxy_set_header Connection $connection_upgrade;
-          
+
           # Preserve original Host header from client.
           proxy_set_header Host $host;
 
@@ -271,9 +369,9 @@ data:
           # -----------------------------------------------------------
           # Forward gRPC requests using secure grpcs protocol to the backend on port 443.
           grpc_pass grpcs://backend_grpc;
-          
+
           # Enable SNI (Server Name Indication) for gRPC backend connection.
-          grpc_ssl_server_name on; 
+          grpc_ssl_server_name on;
 
           # Set the SNI hostname to match the client host.
           grpc_ssl_name $host;
@@ -329,7 +427,7 @@ data:
       server {
           listen 80;
           server_name _;
-          
+
           # Verify that responses come from CRC NGINX Shield
           add_header X-CRC-NGINX-SHIELD "active" always;
 

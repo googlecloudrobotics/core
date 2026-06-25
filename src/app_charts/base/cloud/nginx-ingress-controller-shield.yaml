@@ -26,7 +26,7 @@ spec:
           type: RuntimeDefault
       initContainers:
       - name: cert-loader
-        image: alpine:3.21.7
+        image: alpine/k8s:1.33.13
         restartPolicy: Always
         command: ["/bin/sh", "-c", "/scripts/loader.sh"]
         startupProbe:
@@ -37,9 +37,8 @@ spec:
           periodSeconds: 1
           failureThreshold: 30
         volumeMounts:
-        - name: certs-default
+        - name: nginx-certs
           mountPath: /etc/nginx/certs
-          readOnly: true
         - name: script
           mountPath: /scripts
         - name: config
@@ -100,7 +99,7 @@ spec:
             drop:
             - ALL
         volumeMounts:
-        - name: certs-default
+        - name: nginx-certs
           mountPath: /etc/nginx/certs
           readOnly: true
         - name: nginx-conf
@@ -116,10 +115,8 @@ spec:
           defaultMode: 0755
       - name: nginx-conf
         emptyDir: {}
-      - name: certs-default
-        secret:
-          secretName: tls
-          optional: true
+      - name: nginx-certs
+        emptyDir: {}
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
