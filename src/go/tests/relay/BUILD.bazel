@@ -30,6 +30,15 @@ go_test(
 )
 
 go_test(
+    name = "throughput_benchmark_test",
+    srcs = ["throughput_benchmark_test.go"],
+    deps = [
+        ":go_default_library",
+        "//src/go/cmd/http-relay-client/client:go_default_library",
+    ],
+)
+
+go_test(
     name = "grpc_test",
     size = "small",
     srcs = ["grpc_test.go"],

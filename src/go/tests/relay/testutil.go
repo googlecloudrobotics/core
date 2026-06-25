@@ -16,6 +16,7 @@ package relay
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -28,7 +29,7 @@ import (
 )
 
 // listenAndPort opens a TCP listener on a random free port on 127.0.0.1.
-func listenAndPort(t *testing.T) (net.Listener, int) {
+func listenAndPort(t testing.TB) (net.Listener, int) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -38,7 +39,7 @@ func listenAndPort(t *testing.T) (net.Listener, int) {
 }
 
 // waitForRelay waits for the relay server at the given port to become healthy.
-func waitForRelay(t *testing.T, relayPort int) {
+func waitForRelay(t testing.TB, relayPort int) {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for {
@@ -57,7 +58,7 @@ func waitForRelay(t *testing.T, relayPort int) {
 }
 
 // WaitForClient waits for the relay client to register with the relay server.
-func WaitForClient(t *testing.T, relayPort int, serverName string) {
+func WaitForClient(t testing.TB, relayPort int, serverName string) {
 	t.Helper()
 	relayAddress := fmt.Sprintf("http://127.0.0.1:%d/client/%s/", relayPort, serverName)
 	deadline := time.Now().Add(10 * time.Second)
@@ -80,15 +81,15 @@ func WaitForClient(t *testing.T, relayPort int, serverName string) {
 }
 
 // startRelay starts a relay server on the given listener and a relay client with the given config.
-func startRelay(t *testing.T, relayLn net.Listener, config client.ClientConfig) {
+func startRelay(t testing.TB, ctx context.Context, relayLn net.Listener, config client.ClientConfig) {
 	t.Helper()
 	relayServer := server.NewServer(server.Config{
 		BlockSize: 10 * 1024,
 	})
-	go relayServer.StartOnListener(relayLn)
+	go relayServer.StartOnListener(ctx, relayLn)
 
 	relayClient := client.NewClient(config)
-	go relayClient.Start()
+	go relayClient.Start(ctx)
 }
 
 // RelayEnv holds the configuration for a relay test environment.
@@ -98,8 +99,8 @@ type RelayEnv struct {
 }
 
 // SetupRelay creates a new relay environment with a relay server and client.
-// It returns the environment and a listener for the backend server.
-func SetupRelay(t *testing.T, config client.ClientConfig) (*RelayEnv, net.Listener) {
+// It returns the environment, a listener for the backend server, and a cleanup function.
+func SetupRelay(t testing.TB, config client.ClientConfig) (*RelayEnv, net.Listener, func()) {
 	t.Helper()
 
 	backendLn, backendPort := listenAndPort(t)
@@ -108,11 +109,18 @@ func SetupRelay(t *testing.T, config client.ClientConfig) (*RelayEnv, net.Listen
 	config.RelayAddress = fmt.Sprintf("127.0.0.1:%d", relayPort)
 	config.BackendAddress = fmt.Sprintf("127.0.0.1:%d", backendPort)
 
-	startRelay(t, relayLn, config)
+	ctx, cancel := context.WithCancel(context.Background())
+	startRelay(t, ctx, relayLn, config)
 	waitForRelay(t, relayPort)
+
+	cleanup := func() {
+		cancel()
+		backendLn.Close()
+		// Do not close relayLn here; server.StartOnListener handles it via Shutdown.
+	}
 
 	return &RelayEnv{
 		RelayPort:   relayPort,
 		BackendPort: backendPort,
-	}, backendLn
+	}, backendLn, cleanup
 }

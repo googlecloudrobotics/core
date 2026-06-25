@@ -29,7 +29,8 @@ func setupRelay(t *testing.T, handler http.Handler) *relayEnv {
 	config.BackendScheme = "http"
 	config.DisableAuthForRemote = true
 
-	env, backendLn := rt.SetupRelay(t, config)
+	env, backendLn, cleanup := rt.SetupRelay(t, config)
+	t.Cleanup(cleanup)
 
 	backendSrv := &http.Server{
 		ReadTimeout:  5 * time.Second,
