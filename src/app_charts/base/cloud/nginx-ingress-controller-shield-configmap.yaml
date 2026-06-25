@@ -15,8 +15,10 @@ data:
     HTTPS_CONF="/nginx-templates/nginx-https.conf"
 
     CERT_DIR="/etc/nginx/certs"
-    SECRET_CERT="/etc/nginx/certs/default_tls.crt"
+    SECRET_CERT="/etc/nginx/certs/default_tls.pem"
     SNI_MAP="/tmp/nginx/sni_map.conf"
+    SECRETS_TMP="/tmp/nginx/secrets.tmp"
+    ACTIVE_SECRETS_TMP="/tmp/nginx/active_secrets.tmp"
 
     # Global state updated by update_dynamic_certs()
     cert_map_changed=0
@@ -43,61 +45,78 @@ data:
 
     update_dynamic_certs() {
       local changed=0
-      local secrets_file="/tmp/nginx/secrets.tmp"
-      local active_secrets_file="/tmp/nginx/active_secrets.tmp"
+      local secrets
 
-      > "$active_secrets_file"
+      # Robustly fetch secrets, do not crash on API server timeouts
+      if ! secrets=$(kubectl get secrets -A --field-selector type=kubernetes.io/tls -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.data.tls\.crt}{"\t"}{.data.tls\.key}{"\n"}{end}' 2>/dev/null); then
+        echo "Warning: Failed to query secrets from Kubernetes API. Skipping sync..." >&2
+        return 0
+      fi
 
-      secrets=$(kubectl get secrets -A --field-selector type=kubernetes.io/tls -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.data.tls\.crt}{"\t"}{.data.tls\.key}{"\n"}{end}')
+      > "$ACTIVE_SECRETS_TMP"
 
       if [ -n "$secrets" ]; then
-        echo "$secrets" > "$secrets_file"
+        echo "$secrets" > "$SECRETS_TMP"
         while IFS="$(printf '\t')" read -r ns name crt_b64 key_b64; do
           if [ -z "$ns" ] || [ -z "$name" ] || [ -z "$crt_b64" ] || [ -z "$key_b64" ]; then continue; fi
 
           local secret_id="${ns}_${name}"
-          echo "$secret_id" >> "$active_secrets_file"
+          echo "$secret_id" >> "$ACTIVE_SECRETS_TMP"
 
-          cert_file="$CERT_DIR/${secret_id}.crt"
-          key_file="$CERT_DIR/${secret_id}.key"
+          cert_file="$CERT_DIR/${secret_id}.pem"
 
-          echo "$crt_b64" | base64 -d > "${cert_file}.new" 2>/dev/null || continue
-          echo "$key_b64" | base64 -d > "${key_file}.new" 2>/dev/null || continue
+          # Write certificate and key to a single PEM file to atomically update both.
+          # This avoids any certificate-key mismatch race condition during handshakes.
+          if ! (echo "$crt_b64" | base64 -d && echo "" && echo "$key_b64" | base64 -d) > "${cert_file}.new" 2>/dev/null; then
+            rm -f "${cert_file}.new"
+            continue
+          fi
 
-          if ! cmp -s "$cert_file" "${cert_file}.new" 2>/dev/null || ! cmp -s "$key_file" "${key_file}.new" 2>/dev/null; then
+          if ! cmp -s "$cert_file" "${cert_file}.new" 2>/dev/null; then
             mv "${cert_file}.new" "$cert_file"
-            mv "${key_file}.new" "$key_file"
             changed=1
           else
-            rm -f "${cert_file}.new" "${key_file}.new"
+            rm -f "${cert_file}.new"
           fi
-        done < "$secrets_file"
-        rm -f "$secrets_file"
+        done < "$SECRETS_TMP"
+        rm -f "$SECRETS_TMP"
       fi
 
       # Cleanup deleted secrets
-      for f in "$CERT_DIR"/*.crt; do
+      for f in "$CERT_DIR"/*.pem; do
         [ -e "$f" ] || continue
-        local fname=$(basename "$f" .crt)
-        if ! grep -q -x "$fname" "$active_secrets_file" 2>/dev/null; then
+        local fname=$(basename "$f" .pem)
+        if ! grep -q -x "$fname" "$ACTIVE_SECRETS_TMP" 2>/dev/null; then
           echo "Secret $fname deleted from Kubernetes. Cleaning up files..."
-          rm -f "$CERT_DIR/${fname}.crt" "$CERT_DIR/${fname}.key"
+          rm -f "$CERT_DIR/${fname}.pem"
           changed=1
         fi
       done
 
-      rm -f "$active_secrets_file"
+      rm -f "$ACTIVE_SECRETS_TMP"
 
 
-      mappings=$(kubectl get ingress -A -o go-template='{{range .items}}{{$ns := .metadata.namespace}}{{range .spec.tls}}{{if .secretName}}{{$sec := .secretName}}{{range .hosts}}{{.}} {{$ns}}_{{$sec}}{{"\n"}}{{end}}{{end}}{{end}}{{end}}')
+      local mappings
+      # Robustly fetch ingress mappings, do not crash on API server timeouts
+      if ! mappings=$(kubectl get ingress -A -o go-template='{{range .items}}{{$ns := .metadata.namespace}}{{range .spec.tls}}{{if .secretName}}{{$sec := .secretName}}{{range .hosts}}{{.}} {{$ns}}_{{$sec}}{{"\n"}}{{end}}{{end}}{{end}}{{end}}' 2>/dev/null); then
+        echo "Warning: Failed to query Ingress resources from Kubernetes API. Skipping sync..." >&2
+        return 0
+      fi
 
       > "${SNI_MAP}.tmp"
 
       if [ -n "$mappings" ]; then
         echo "$mappings" | awk '!seen[$1]++' | while read -r host secret_id; do
           if [ -n "$host" ] && [ -n "$secret_id" ]; then
-            if [ -f "$CERT_DIR/${secret_id}.crt" ] && [ -f "$CERT_DIR/${secret_id}.key" ]; then
-              echo "    \"$host\" \"$CERT_DIR/$secret_id\";" >> "${SNI_MAP}.tmp"
+            # Sanitize host: allow only alphanumeric, dots, hyphens, and wildcard prefix to prevent config injection
+            local clean_host=$(echo "$host" | tr -d -c 'a-zA-Z0-9.*-')
+            if [ "$host" != "$clean_host" ] || [ -z "$clean_host" ]; then
+              echo "Warning: Skipping invalid or unsafe host: $host" >&2
+              continue
+            fi
+
+            if [ -f "$CERT_DIR/${secret_id}.pem" ]; then
+              echo "    \"$clean_host\" \"$CERT_DIR/$secret_id\";" >> "${SNI_MAP}.tmp"
             fi
           fi
         done
@@ -135,7 +154,7 @@ data:
           activate_config "$DEFAULT_CERT_HASH"
         fi
 
-        nginx_pid=$(pgrep -f "nginx: master process" || true)
+        nginx_pid=$(pgrep -o -f "nginx: master process" || true)
         if [ -n "$nginx_pid" ]; then
           echo "Sending HUP signal to NGINX master process (PID: $nginx_pid)..."
           kill -HUP "$nginx_pid"
@@ -280,8 +299,8 @@ data:
 
         # Dynamically evaluated certificate based on SNI host
         # or mapped wildcard (defaults to 'tls')
-        ssl_certificate     $cert_path.crt;
-        ssl_certificate_key $cert_path.key;
+        ssl_certificate     $cert_path.pem;
+        ssl_certificate_key $cert_path.pem;
 
         # Configure accepted secure SSL protocols (TLSv1.2 and TLSv1.3 only).
         ssl_protocols       TLSv1.2 TLSv1.3;

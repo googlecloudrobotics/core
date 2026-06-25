@@ -18,6 +18,7 @@ spec:
         checksum/nginx-config-map: {{ include (print $.Template.BasePath "/nginx-ingress-controller-shield-configmap.yaml") . | sha256sum }}
     spec:
       serviceAccountName: ingress-nginx
+      automountServiceAccountToken: false
       shareProcessNamespace: true
       securityContext:
         runAsNonRoot: true
@@ -46,6 +47,9 @@ spec:
           readOnly: true
         - name: nginx-conf
           mountPath: /tmp/nginx
+        - name: kube-api-access
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
         resources:
           requests:
             cpu: 50m
@@ -114,9 +118,29 @@ spec:
           name: nginx-ingress-controller-shield
           defaultMode: 0755
       - name: nginx-conf
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 10Mi
       - name: nginx-certs
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 50Mi
+      - name: kube-api-access
+        projected:
+          defaultMode: 420
+          sources:
+          - serviceAccountToken:
+              expirationSeconds: 3607
+              path: token
+          - configMap:
+              items:
+              - key: ca.crt
+                path: ca.crt
+              name: kube-root-ca.crt
+          - downwardAPI:
+              items:
+              - fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+                path: namespace
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
