@@ -155,7 +155,7 @@ func NewClient(config ClientConfig) *Client {
 	return c
 }
 
-func (c *Client) Start() {
+func (c *Client) Start(ctx context.Context) {
 	var err error
 
 	remoteTransport := http.DefaultTransport.(*http.Transport).Clone()
@@ -169,7 +169,7 @@ func (c *Client) Start() {
 	remote := &http.Client{Transport: remoteTransport}
 
 	if !c.config.DisableAuthForRemote {
-		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, remote)
+		ctx := context.WithValue(ctx, oauth2.HTTPClient, remote)
 		scope := "https://www.googleapis.com/auth/cloud-platform.read-only"
 		if remote, err = google.DefaultClient(ctx, scope); err != nil {
 			slog.Error("unable to set up credentials for relay-server authentication", ilog.Err(err))
@@ -252,11 +252,15 @@ func (c *Client) Start() {
 	}
 
 	wg := new(sync.WaitGroup)
-	wg.Add(c.config.NumPendingRequests)
 	for i := 0; i < c.config.NumPendingRequests; i++ {
-		go c.localProxyWorker(remote, local)
+		wg.Go(func() {
+			c.localProxyWorker(ctx, remote, local)
+		})
 	}
-	// Waiting for all goroutines to finish (they never do)
+	// Wait for context to be done or all workers to finish
+	wg.Go(func() {
+		<-ctx.Done()
+	})
 	wg.Wait()
 }
 
@@ -265,12 +269,17 @@ func addServiceName(span *trace.Span) {
 	span.AddAttributes(relayClientAttr)
 }
 
-func (c *Client) getRequest(remote *http.Client, relayURL string) (*pb.HttpRequest, error) {
+func (c *Client) getRequest(ctx context.Context, remote *http.Client, relayURL string) (*pb.HttpRequest, error) {
 	if debugLogs {
 		slog.Info("Connecting to relay server to get next request", slog.String("ServerName", c.config.ServerName))
 	}
 
-	resp, err := remote.Get(relayURL)
+	req, err := http.NewRequestWithContext(ctx, "GET", relayURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := remote.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -717,7 +726,7 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 	}
 }
 
-func (c *Client) localProxy(remote, local *http.Client) error {
+func (c *Client) localProxy(ctx context.Context, remote, local *http.Client) error {
 	// Read pending request from the relay-server.
 	relayURL := c.buildRelayURL()
 
@@ -734,12 +743,12 @@ func (c *Client) localProxy(remote, local *http.Client) error {
 
 	err := backoff.RetryNotify(func() error {
 		var err error
-		req, err = c.getRequest(remote, relayURL)
+		req, err = c.getRequest(ctx, remote, relayURL)
 		if errors.Is(err, ErrTimeout) {
 			return backoff.Permanent(err)
 		}
 		return err
-	}, &exponentialBackoff, func(err error, _ time.Duration) {
+	}, backoff.WithContext(&exponentialBackoff, ctx), func(err error, _ time.Duration) {
 		if err == nil {
 			return
 		}
@@ -760,13 +769,25 @@ func (c *Client) localProxy(remote, local *http.Client) error {
 	return nil
 }
 
-func (c *Client) localProxyWorker(remote, local *http.Client) {
+func (c *Client) localProxyWorker(ctx context.Context, remote, local *http.Client) {
 	slog.Info("Starting to relay server request loop", slog.String("ServerName", c.config.ServerName))
 	for {
-		err := c.localProxy(remote, local)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		err := c.localProxy(ctx, remote, local)
 		if err != nil && !errors.Is(err, ErrTimeout) {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
 			slog.Error("localProxy", ilog.Err(err))
-			time.Sleep(1 * time.Second)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(1 * time.Second):
+			}
 		}
 	}
 }

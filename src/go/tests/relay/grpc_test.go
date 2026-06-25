@@ -79,7 +79,10 @@ func mustInitRelay(t *testing.T) (*rt.RelayEnv, net.Listener) {
 	config.ForceHttp2 = true // Enable HTTP/2 for gRPC
 	config.NumPendingRequests = 5
 
-	return rt.SetupRelay(t, config)
+	env, lis, cleanup := rt.SetupRelay(t, config)
+	t.Cleanup(cleanup)
+
+	return env, lis
 }
 
 func TestUnaryOverRelay(t *testing.T) {

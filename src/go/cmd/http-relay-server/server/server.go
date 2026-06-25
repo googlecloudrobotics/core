@@ -26,10 +26,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
@@ -95,11 +92,6 @@ func NewServer(conf Config) *Server {
 		conf: conf,
 		b:    newBroker(),
 	}
-	go func() {
-		for t := range time.Tick(10 * time.Second) {
-			s.b.ReapInactiveRequests(t.Add(-1 * conf.InactiveRequestTimeout))
-		}
-	}()
 	return s
 }
 
@@ -543,17 +535,17 @@ func (s *Server) serverResponse(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Relay client sent response", slog.String("ID", *br.Id))
 }
 
-func (s *Server) Start() {
+func (s *Server) Start(ctx context.Context) {
 	addr := fmt.Sprintf(":%d", s.conf.Port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		slog.Error("Failed to listen", slog.String("Address", addr), ilog.Err(err))
 		panic("Failed to listen")
 	}
-	s.StartOnListener(ln)
+	s.StartOnListener(ctx, ln)
 }
 
-func (s *Server) StartOnListener(ln net.Listener) {
+func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 	h := http.NewServeMux()
 	h.HandleFunc("/healthz", s.health)
 	h.HandleFunc("/", s.userClientRequest)
@@ -561,13 +553,6 @@ func (s *Server) StartOnListener(ln net.Listener) {
 	h.HandleFunc("/server/requeststream", s.serverRequestStream)
 	h.HandleFunc("/server/response", s.serverResponse)
 	h.Handle("/metrics", promhttp.Handler())
-
-	// This context will be terminated we get SIGTERM from Kubernetes. We need
-	// some boilerplate to make this terminate the HTTP server and the ongoing
-	// request contexts. This is based on:
-	// https://www.rudderstack.com/blog/implementing-graceful-shutdown-in-go/#:~:text=Canceling%20long%20running%20requests
-	mainCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	h2s := &http2.Server{}
 	h2h := h2c.NewHandler(h, h2s)
@@ -577,19 +562,32 @@ func (s *Server) StartOnListener(ln net.Listener) {
 	h1s := &http.Server{
 		Handler: och,
 		BaseContext: func(l net.Listener) context.Context {
-			return mainCtx
+			return ctx
 		},
 	}
 	// Wait for the server to terminate, either because it failed to create a
-	// listener, or because we got SIGTERM.
-	g, gCtx := errgroup.WithContext(mainCtx)
+	// listener, or because the context was cancelled.
+	g, gCtx := errgroup.WithContext(ctx)
 	slog.Info("Relay server listening", slog.Int("Port", ln.Addr().(*net.TCPAddr).Port))
+
 	g.Go(func() error {
-		if err := h1s.Serve(ln); err != http.ErrServerClosed {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-gCtx.Done():
+				return nil
+			case t := <-ticker.C:
+				s.b.ReapInactiveRequests(t.Add(-1 * s.conf.InactiveRequestTimeout))
+			}
+		}
+	})
+
+	g.Go(func() error {
+		if err := h1s.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
-		// ErrServerClosed follows SIGTERM which is normal when updating the
-		// server.
+		// ErrServerClosed follows Shutdown.
 		return nil
 	})
 	g.Go(func() error {
@@ -600,10 +598,11 @@ func (s *Server) StartOnListener(ln net.Listener) {
 	})
 
 	if err := g.Wait(); err != nil {
-		// SIGTERM indicates either a normal shutdown (eg pod update, node pool
-		// update) or a failed liveness check (eg broker deadlock), we can't
-		// easily tell. We panic to help debugging: if the environment sets
-		// GOTRACEBACK=all they will see stacktraces after the panic.
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+		// A non-nil error indicates either an abnormal shutdown or a failed 
+		// liveness check (eg broker deadlock).
 		slog.Error("Server terminated abnormally", ilog.Err(err))
 		panic("Server terminated abnormally")
 	}

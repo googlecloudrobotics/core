@@ -23,9 +23,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server/server"
@@ -63,10 +66,13 @@ func main() {
 		}
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	server := server.NewServer(server.Config{
 		Port:                   *port,
 		BlockSize:              *blockSize,
 		InactiveRequestTimeout: *inactiveRequestTimeout,
 	})
-	server.Start()
+	server.Start(ctx)
 }

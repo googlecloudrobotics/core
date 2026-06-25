@@ -21,6 +21,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -120,5 +121,5 @@ func main() {
 	}
 
 	client := client.NewClient(config)
-	client.Start()
+	client.Start(context.Background())
 }
