@@ -88,6 +88,7 @@ spec:
 
 	mockSynk := NewMockInterface(ctrl)
 	r := &release{
+		ctx:      t.Context(),
 		synk:     mockSynk,
 		recorder: &record.FakeRecorder{},
 	}
@@ -115,6 +116,7 @@ spec:
 
 	mockSynk := NewMockInterface(ctrl)
 	r := &release{
+		ctx:      t.Context(),
 		synk:     mockSynk,
 		recorder: &record.FakeRecorder{},
 	}

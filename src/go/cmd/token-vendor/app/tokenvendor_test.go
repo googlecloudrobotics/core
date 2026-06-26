@@ -248,7 +248,7 @@ func TestTokenVendor_ValidateJWT(t *testing.T) {
 				accAud:        tt.fields.accAud,
 				defaultSAName: tt.fields.defaultSAName,
 			}
-			got, err := tv.ValidateJWT(context.Background(), tt.args.jwtk)
+			got, err := tv.ValidateJWT(t.Context(), tt.args.jwtk)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateJWT() error = %v, wantErr %v", err, tt.wantErr)
 				return

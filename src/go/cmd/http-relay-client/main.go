@@ -28,6 +28,8 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client"
@@ -107,6 +109,9 @@ func main() {
 	logHandler := ilog.NewLogHandler(slog.Level(logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	if stackdriverProjectID != "" {
 		sd, err := stackdriver.NewExporter(stackdriver.Options{
 			ProjectID: stackdriverProjectID,
@@ -121,5 +126,5 @@ func main() {
 	}
 
 	client := client.NewClient(config)
-	client.Start(context.Background())
+	client.Start(ctx)
 }

@@ -15,7 +15,6 @@
 package k8s
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -26,7 +25,7 @@ import (
 
 // Publish a key, retrieve it again and check listing of all keys.
 func TestPublishListLookup(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	cs := fake.NewSimpleClientset()
 	kcl, err := NewK8sRepository(ctx, cs, "default")
 	if err != nil {
@@ -51,7 +50,7 @@ func TestPublishListLookup(t *testing.T) {
 
 // Publish a key and override it with another one.
 func TestPublishKeyUpdate(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	cs := fake.NewSimpleClientset()
 	kcl, err := NewK8sRepository(ctx, cs, "default")
 	if err != nil {
@@ -75,7 +74,7 @@ func TestPublishKeyUpdate(t *testing.T) {
 }
 
 func TestLookupDoesNotExist(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	cs := fake.NewSimpleClientset()
 	kcl, err := NewK8sRepository(ctx, cs, "default")
 	if err != nil {
@@ -91,7 +90,7 @@ func TestLookupDoesNotExist(t *testing.T) {
 }
 
 func TestConfigure(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	cs := fake.NewSimpleClientset()
 	kcl, err := NewK8sRepository(ctx, cs, "default")
 	if err != nil {
@@ -116,7 +115,7 @@ func TestConfigure(t *testing.T) {
 }
 
 func TestReConfigure(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	cs := fake.NewSimpleClientset()
 	kcl, err := NewK8sRepository(ctx, cs, "default")
 	if err != nil {

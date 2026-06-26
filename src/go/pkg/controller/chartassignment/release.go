@@ -47,6 +47,7 @@ import (
 
 // releases is a cache of releases currently handled.
 type releases struct {
+	ctx      context.Context
 	recorder record.EventRecorder
 	synk     synk.Interface
 
@@ -54,12 +55,13 @@ type releases struct {
 	m   map[string]*release
 }
 
-func newReleases(cfg *rest.Config, rec record.EventRecorder) (*releases, error) {
+func newReleases(ctx context.Context, cfg *rest.Config, rec record.EventRecorder) (*releases, error) {
 	synk, err := synk.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 	return &releases{
+		ctx:      ctx,
 		recorder: rec,
 		m:        map[string]*release{},
 		synk:     synk,
@@ -68,6 +70,7 @@ func newReleases(cfg *rest.Config, rec record.EventRecorder) (*releases, error) 
 
 // release is a cache object which acts as a proxy for Synk ResourceSets.
 type release struct {
+	ctx      context.Context
 	name     string
 	synk     synk.Interface
 	recorder record.EventRecorder
@@ -108,6 +111,7 @@ func (rs *releases) add(name string) *release {
 		return r
 	}
 	r = &release{
+		ctx:      rs.ctx,
 		name:     name,
 		synk:     rs.synk,
 		recorder: rs.recorder,
@@ -167,6 +171,8 @@ func (r *release) start(f func()) bool {
 	select {
 	case r.actorc <- f:
 		return true
+	case <-r.ctx.Done():
+		return false
 	default:
 	}
 	return false
@@ -220,7 +226,7 @@ func (r *release) delete(as *apps.ChartAssignment) {
 	r.setPhase(apps.ChartAssignmentPhaseDeleting)
 	r.recorder.Event(as, core.EventTypeNormal, "DeleteChart", "deleting chart")
 
-	if err := r.synk.Delete(context.Background(), as.Name); err != nil {
+	if err := r.synk.Delete(r.ctx, as.Name); err != nil {
 		r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
 		r.setFailed(fmt.Errorf("delete release: %w", err), synk.IsTransientErr(err))
 	}
@@ -265,7 +271,7 @@ func (r *release) update(as *apps.ChartAssignment) {
 			slog.Error("decoding TraceID", slog.String("TraceID", tid), ilog.Err(err))
 		}
 	}
-	ctx, span := trace.StartSpanWithRemoteParent(context.Background(), "Apply "+as.Name, spanContext)
+	ctx, span := trace.StartSpanWithRemoteParent(r.ctx, "Apply "+as.Name, spanContext)
 	_, err = r.synk.Apply(ctx, as.Name, opts, resources...)
 	span.End()
 	if err != nil {

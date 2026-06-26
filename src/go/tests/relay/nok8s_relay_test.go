@@ -392,7 +392,7 @@ func mustStartRelayWithGrpcServer(t *testing.T, service testpb.TestServiceServer
 	relayAddress := "127.0.0.1:" + result.Relay.rsPort
 
 	// Create gRPC client via relay.
-	result.Ctx = metadata.AppendToOutgoingContext(context.Background(), "x-server-name", "remote1")
+	result.Ctx = metadata.AppendToOutgoingContext(t.Context(), "x-server-name", "remote1")
 	result.Conn, err = grpc.DialContext(result.Ctx, relayAddress,
 		grpc.WithInsecure(),
 		grpc.WithDefaultCallOptions(

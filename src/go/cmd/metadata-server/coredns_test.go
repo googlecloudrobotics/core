@@ -15,7 +15,6 @@
 package main
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -70,7 +69,7 @@ const (
 func createCorefile(t *testing.T, k8s kubernetes.Interface, corefileData string) {
 	t.Helper()
 	if _, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Create(
-		context.Background(),
+		t.Context(),
 		&v1.ConfigMap{
 			Data: map[string]string{
 				corefileName: corefileData,
@@ -86,7 +85,7 @@ func createCorefile(t *testing.T, k8s kubernetes.Interface, corefileData string)
 
 func readCorefile(t *testing.T, k8s kubernetes.Interface) string {
 	t.Helper()
-	cm, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Get(context.Background(), configMapName, metav1.GetOptions{})
+	cm, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Get(t.Context(), configMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("error reading ConfigMap coredns: %v", err)
 		return ""
@@ -124,7 +123,7 @@ func TestPatchCorefile(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			k8s := fake.NewSimpleClientset()
 			createCorefile(t, k8s, tc.input)
 
@@ -163,7 +162,7 @@ func TestPatchCorefile(t *testing.T) {
 }
 
 func TestPatchCorefileUnexpected(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	k8s := fake.NewSimpleClientset()
 	createCorefile(t, k8s, defaultCorefileUnexpected)
 

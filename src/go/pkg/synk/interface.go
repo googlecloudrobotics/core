@@ -8,7 +8,7 @@ import (
 )
 
 type Interface interface {
-	Init() error
+	Init(ctx context.Context) error
 	Delete(ctx context.Context, name string) error
 	Apply(ctx context.Context, name string, opts *ApplyOptions, resources ...*unstructured.Unstructured) (*apps.ResourceSet, error)
 }

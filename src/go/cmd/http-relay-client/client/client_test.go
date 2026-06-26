@@ -16,7 +16,6 @@ package client
 
 import (
 	"bytes"
-	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -106,7 +105,7 @@ func TestLocalProxy(t *testing.T) {
 	config := DefaultClientConfig()
 	config.ServerName = "foo"
 	client := NewClient(config)
-	err := client.localProxy(context.Background(), &http.Client{}, &http.Client{})
+	err := client.localProxy(t.Context(), &http.Client{}, &http.Client{})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -175,7 +174,7 @@ func TestBackendError(t *testing.T) {
 	// 1. pulls a request from the realy-server (/server/request)
 	// 2. send that request to the backend server (here localhost:8080/foo/bar?a=b)
 	// 3. retrieves the response from the backend and sends it to the relay-server
-	err := client.localProxy(context.Background(), &http.Client{}, &http.Client{})
+	err := client.localProxy(t.Context(), &http.Client{}, &http.Client{})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -206,7 +205,7 @@ func TestServerTimeout(t *testing.T) {
 	config := DefaultClientConfig()
 	config.ServerName = "foo"
 	client := NewClient(config)
-	err := client.localProxy(context.Background(), &http.Client{}, &http.Client{})
+	err := client.localProxy(t.Context(), &http.Client{}, &http.Client{})
 	if err != ErrTimeout {
 		t.Errorf("Unexpected error: %v", err)
 	}

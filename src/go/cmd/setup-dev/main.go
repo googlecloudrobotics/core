@@ -24,7 +24,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"regexp"
+	"syscall"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -64,9 +66,10 @@ func main() {
 	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	vars, err := configutil.ReadConfig(*project)
+	vars, err := configutil.ReadConfig(ctx, *project)
 	if err != nil {
 		slog.Error("Failed to read config", ilog.Err(err))
 		os.Exit(1)
@@ -76,7 +79,7 @@ func main() {
 		domain = fmt.Sprintf("www.endpoints.%s.cloud.goog", *project)
 	}
 
-	tokenSource, err := google.DefaultTokenSource(context.Background(), "https://www.googleapis.com/auth/cloud-platform")
+	tokenSource, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
 		slog.Error("Failed to create OAuth2 token source", ilog.Err(err))
 		os.Exit(1)
@@ -100,7 +103,7 @@ func main() {
 	}
 	// TODO(ensonic): these are only used for the ssh-app
 	// dev credentials are always created
-	client := oauth2.NewClient(context.Background(), tokenSource)
+	client := oauth2.NewClient(ctx, tokenSource)
 	if err := setupDevCredentials(client, domain, *robotName); err != nil {
 		slog.Error("Failed to set up credentials", ilog.Err(err))
 		os.Exit(1)

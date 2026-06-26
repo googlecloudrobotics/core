@@ -16,7 +16,6 @@ package setup
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -81,7 +80,7 @@ func TestCreateOrUpdateRobot(t *testing.T) {
 		Resource: "robots",
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	robotName := "test-robot"
 	robotType := "test-type"
 	project := "test-project"

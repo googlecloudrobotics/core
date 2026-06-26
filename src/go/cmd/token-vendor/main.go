@@ -21,8 +21,10 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"strings"
+	"syscall"
 
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -104,7 +106,9 @@ func main() {
 	slog.SetDefault(slog.New(logHandler))
 
 	// init components
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	var rep repository.PubKeyRepository
 	var err error
 	switch *keyStore {
