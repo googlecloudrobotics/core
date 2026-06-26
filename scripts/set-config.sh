@@ -168,11 +168,11 @@ function set_default_vars {
   GKE_DATAPATH_PROVIDER="ADVANCED_DATAPATH"
 
   # Ask for gcp vm type
-  GCP_VM_TYPE=${GCP_VM_TYPE:-"e2-standard-4"}
-  read_variable GCP_VM_TYPE "Which GCP VM type should be used for the GKE nodes?" "${GCP_VM_TYPE}"
+  GCP_NODE_VM_TYPE=${GCP_NODE_VM_TYPE:-"e2-standard-4"}
+  read_variable GCP_NODE_VM_TYPE "Which GCP VM type should be used for the GKE nodes?" "${GCP_NODE_VM_TYPE}"
 
   # Ask for GKE min/max nodes
-  GKE_MIN_NODES=${GKE_MIN_NODES:-1}
+  GKE_MIN_NODES=${GKE_MIN_NODES:-2}
   while :; do
     read_variable GKE_MIN_NODES "What is the minimum number of nodes for the GKE cluster?" "${GKE_MIN_NODES}"
     if [[ "${GKE_MIN_NODES}" =~ ^[0-9]+$ ]]; then
@@ -293,7 +293,7 @@ print_variable "GCP project ID" "${GCP_PROJECT_ID}"
 print_variable "GCP region" "${GCP_REGION}"
 print_variable "GCP zone" "${GCP_ZONE}"
 print_variable "GKE cluster type" "${GKE_CLUSTER_TYPE}"
-print_variable "GCP VM type" "${GCP_VM_TYPE}"
+print_variable "GCP node VM type" "${GCP_NODE_VM_TYPE}"
 print_variable "GKE min nodes" "${GKE_MIN_NODES}"
 print_variable "GKE max nodes" "${GKE_MAX_NODES}"
 print_variable "GKE datapath provider" "${GKE_DATAPATH_PROVIDER}"
@@ -334,7 +334,7 @@ else
   save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CTX "gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
 fi
 save_variable "${CONFIG_FILE}" GKE_CLUSTER_TYPE "${GKE_CLUSTER_TYPE}"
-save_variable "${CONFIG_FILE}" GCP_VM_TYPE "${GCP_VM_TYPE}"
+save_variable "${CONFIG_FILE}" GCP_NODE_VM_TYPE "${GCP_NODE_VM_TYPE}"
 save_variable "${CONFIG_FILE}" GKE_MIN_NODES "${GKE_MIN_NODES}"
 save_variable "${CONFIG_FILE}" GKE_MAX_NODES "${GKE_MAX_NODES}"
 save_variable "${CONFIG_FILE}" GKE_DATAPATH_PROVIDER "${GKE_DATAPATH_PROVIDER}"
