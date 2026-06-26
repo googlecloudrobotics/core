@@ -96,3 +96,9 @@ variable "secret_manager_plugin" {
   type        = bool
   default     = false
 }
+
+variable "node_machine_type" {
+  description = "GCP VM type for GKE nodes"
+  type        = string
+  default     = "e2-standard-4"
+}

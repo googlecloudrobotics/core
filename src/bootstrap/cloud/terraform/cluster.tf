@@ -135,7 +135,7 @@ resource "google_container_node_pool" "cloud_robotics_base_pool" {
   }
 
   node_config {
-    machine_type = "e2-standard-4"
+    machine_type = var.node_machine_type
     # The GKE Metadata Server enables Workload Identity.
     workload_metadata_config {
       mode = "GKE_METADATA"
@@ -163,7 +163,7 @@ resource "google_container_node_pool" "cloud_robotics_base_pool_ar" {
   }
 
   node_config {
-    machine_type = "e2-standard-4"
+    machine_type = var.node_machine_type
     # The GKE Metadata Server enables Workload Identity.
     workload_metadata_config {
       mode = "GKE_METADATA"
