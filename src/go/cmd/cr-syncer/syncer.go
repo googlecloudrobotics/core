@@ -384,7 +384,7 @@ func (s *crSyncer) run() {
 		return
 	}
 
-	ctx, err := tag.New(context.Background(), tag.Insert(tagResource, s.crd.Name))
+	ctx, err := tag.New(s.ctx, tag.Insert(tagResource, s.crd.Name))
 	if err != nil {
 		panic(err)
 	}

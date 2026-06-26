@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,7 +18,7 @@ func TestHealthy(t *testing.T) {
 			gvr: "RobotList",
 		},
 	)
-	h := newHealthHandler(context.Background(), client)
+	h := newHealthHandler(t.Context(), client)
 	ts := httptest.NewServer(h)
 	defer ts.Close()
 
@@ -42,7 +41,7 @@ func TestHealthyForBadRequest(t *testing.T) {
 	client.PrependReactor("*", "*", func(k8stest.Action) (bool, runtime.Object, error) {
 		return true, nil, k8serrors.NewBadRequest("")
 	})
-	h := newHealthHandler(context.Background(), client)
+	h := newHealthHandler(t.Context(), client)
 	ts := httptest.NewServer(h)
 	defer ts.Close()
 
@@ -66,7 +65,7 @@ func TestUnhealthy(t *testing.T) {
 	client.PrependReactor("*", "*", func(k8stest.Action) (bool, runtime.Object, error) {
 		return true, nil, k8serrors.NewUnauthorized("")
 	})
-	h := newHealthHandler(context.Background(), client)
+	h := newHealthHandler(t.Context(), client)
 	ts := httptest.NewServer(h)
 	defer ts.Close()
 

@@ -105,17 +105,18 @@ func TestPublicKeyConfigureHandlerWithK8s(t *testing.T) {
 
 func runPublicKeyConfigureHandlerWithK8sCase(t *testing.T, test *publicKeyConfigureHandlerK8sTest) {
 	t.Helper()
+	ctx := t.Context()
 	// Setup fake K8s environment
 	cs := fake.NewSimpleClientset()
-	if err := populateK8sEnv(cs, "default", test.configmaps); err != nil {
+	if err := populateK8sEnv(ctx, cs, "default", test.configmaps); err != nil {
 		t.Fatal(err)
 	}
-	kcl, err := k8s.NewK8sRepository(context.TODO(), cs, "default")
+	kcl, err := k8s.NewK8sRepository(ctx, cs, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Setup app & API handler
-	tv, err := app.NewTokenVendor(context.TODO(), kcl, nil, nil, "aud", saName)
+	tv, err := app.NewTokenVendor(ctx, kcl, nil, nil, "aud", saName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,9 +202,9 @@ func TestPublicKeyReadHandlerWithK8s(t *testing.T) {
 	}
 }
 
-func populateK8sEnv(env kubernetes.Interface, ns string, maps []*corev1.ConfigMap) error {
+func populateK8sEnv(ctx context.Context, env kubernetes.Interface, ns string, maps []*corev1.ConfigMap) error {
 	for _, m := range maps {
-		if _, err := env.CoreV1().ConfigMaps(ns).Create(context.TODO(), m, metav1.CreateOptions{}); err != nil {
+		if _, err := env.CoreV1().ConfigMaps(ns).Create(ctx, m, metav1.CreateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -212,17 +213,18 @@ func populateK8sEnv(env kubernetes.Interface, ns string, maps []*corev1.ConfigMa
 
 func runPublicKeyReadHandlerWithK8sCase(t *testing.T, test *publicKeyReadHandlerK8sTest) {
 	t.Helper()
+	ctx := t.Context()
 	// Setup fake K8s environment
 	cs := fake.NewSimpleClientset()
-	if err := populateK8sEnv(cs, "default", test.configmaps); err != nil {
+	if err := populateK8sEnv(ctx, cs, "default", test.configmaps); err != nil {
 		t.Fatal(err)
 	}
-	kcl, err := k8s.NewK8sRepository(context.TODO(), cs, "default")
+	kcl, err := k8s.NewK8sRepository(ctx, cs, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Setup app & API handler
-	tv, err := app.NewTokenVendor(context.TODO(), kcl, nil, nil, "aud", saName)
+	tv, err := app.NewTokenVendor(ctx, kcl, nil, nil, "aud", saName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,17 +342,18 @@ func TestPublicKeyPublishHandlerWithK8s(t *testing.T) {
 
 func runPublicKeyPublishHandlerWithK8sCase(t *testing.T, test *publicKeyPublishHandlerK8sTest) {
 	t.Helper()
+	ctx := t.Context()
 	// Setup fake K8s environment
 	cs := fake.NewSimpleClientset()
-	if err := populateK8sEnv(cs, "default", test.configmaps); err != nil {
+	if err := populateK8sEnv(ctx, cs, "default", test.configmaps); err != nil {
 		t.Fatal(err)
 	}
-	kcl, err := k8s.NewK8sRepository(context.TODO(), cs, "default")
+	kcl, err := k8s.NewK8sRepository(ctx, cs, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Setup app & API handler
-	tv, err := app.NewTokenVendor(context.TODO(), kcl, nil, nil, "aud", saName)
+	tv, err := app.NewTokenVendor(ctx, kcl, nil, nil, "aud", saName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -605,6 +608,8 @@ func TestVerifyTokenHandler(t *testing.T) {
 }
 
 func runVerifyTokenHandlerTest(t *testing.T, test *VerifyTokenHandlerTest) {
+	t.Helper()
+	ctx := t.Context()
 	isToken := "ya29." + strings.Repeat("a", 100)
 	// fake IAM response
 	fakeIAMHandler := func(req *http.Request) *http.Response {
@@ -640,11 +645,11 @@ func runVerifyTokenHandlerTest(t *testing.T, test *VerifyTokenHandlerTest) {
 
 	// setup app and http client
 	client := NewTestHTTPClient(fakeIAMHandler)
-	tver, err := oauth.NewTokenVerifier(context.TODO(), client, "testproject")
+	tver, err := oauth.NewTokenVerifier(ctx, client, "testproject")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), nil, tver, nil, "aud", saName)
+	tv, err := app.NewTokenVendor(ctx, nil, tver, nil, "aud", saName)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -734,6 +739,8 @@ func TestTokenOAuth2HandlerExpired(t *testing.T) {
 }
 
 func runTokenOAuth2HandlerTestWithK8s(t *testing.T, test TokenOAuth2HandlerTest) {
+	t.Helper()
+	ctx := t.Context()
 	// fake GCP IAM response for an access token
 	fakeIAMAPI := func(req *http.Request) *http.Response {
 		const wantUrl = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/robot-service@testproject.iam.gserviceaccount.com:generateAccessToken?alt=json&prettyPrint=false"
@@ -752,12 +759,12 @@ func runTokenOAuth2HandlerTestWithK8s(t *testing.T, test TokenOAuth2HandlerTest)
 	}
 	// setup app and http client
 	clientIAM := NewTestHTTPClient(fakeIAMAPI)
-	ts, err := tokensource.NewGCPTokenSource(context.TODO(), clientIAM, test.scopes)
+	ts, err := tokensource.NewGCPTokenSource(ctx, clientIAM, test.scopes)
 	if err != nil {
 		t.Fatal(err)
 	}
 	cs := fake.NewSimpleClientset()
-	if err = populateK8sEnv(cs, "default",
+	if err = populateK8sEnv(ctx, cs, "default",
 		[]*corev1.ConfigMap{
 			{
 				TypeMeta: metav1.TypeMeta{
@@ -772,11 +779,11 @@ func runTokenOAuth2HandlerTestWithK8s(t *testing.T, test TokenOAuth2HandlerTest)
 		}); err != nil {
 		t.Fatal(err)
 	}
-	r, err := k8s.NewK8sRepository(context.TODO(), cs, "default")
+	r, err := k8s.NewK8sRepository(ctx, cs, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), r, nil, ts, test.acceptedAud, saName)
+	tv, err := app.NewTokenVendor(ctx, r, nil, ts, test.acceptedAud, saName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -851,7 +858,7 @@ func Test_verifyJWTHandler(t *testing.T) {
 	t.Parallel()
 
 	cs := fake.NewSimpleClientset()
-	if err := populateK8sEnv(cs, "default",
+	if err := populateK8sEnv(t.Context(), cs, "default",
 		[]*corev1.ConfigMap{
 			{
 				TypeMeta: metav1.TypeMeta{
@@ -866,11 +873,11 @@ func Test_verifyJWTHandler(t *testing.T) {
 		}); err != nil {
 		t.Fatal(err)
 	}
-	r, err := k8s.NewK8sRepository(context.TODO(), cs, "default")
+	r, err := k8s.NewK8sRepository(t.Context(), cs, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
-	tv, err := app.NewTokenVendor(context.TODO(), r, nil, nil, "testaud", saName)
+	tv, err := app.NewTokenVendor(t.Context(), r, nil, nil, "testaud", saName)
 	if err != nil {
 		t.Fatal(err)
 	}

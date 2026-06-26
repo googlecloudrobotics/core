@@ -15,7 +15,6 @@
 package main
 
 import (
-	"context"
 	"sync"
 	"testing"
 	"time"
@@ -62,7 +61,7 @@ func TestStreamCrdsSeesPreexistingObject(t *testing.T) {
 }
 
 func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	g := NewGomegaWithT(t)
 	cs := fakecrdclientset.NewSimpleClientset()
 
@@ -100,7 +99,7 @@ func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
 }
 
 func TestStreamCrdsSeesUpdate(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	g := NewGomegaWithT(t)
 	cs := fakecrdclientset.NewSimpleClientset()
 

@@ -54,7 +54,7 @@ func main() {
 	logHandler := ilog.NewLogHandler(slog.Level(*logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
-	ctx := context.Background()
+	ctx := signals.SetupSignalHandler()
 	kubernetesConfig, err := rest.InClusterConfig()
 	if err != nil {
 		slog.Error("Failed to initialize Kubernetes config", ilog.Err(err))
@@ -103,5 +103,5 @@ func runController(ctx context.Context, cfg *rest.Config, params map[string]inte
 	srv.Register("/approllout/validate", approllout.NewAppRolloutValidationWebhook(mgr))
 	srv.Register("/app/validate", approllout.NewAppValidationWebhook(mgr))
 
-	return mgr.Start(signals.SetupSignalHandler())
+	return mgr.Start(ctx)
 }

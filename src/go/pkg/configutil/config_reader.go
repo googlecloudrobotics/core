@@ -79,8 +79,7 @@ func setDefaultVars(vars map[string]string) {
 // Uses the following defaults if the variables are not set:
 //
 //	CLOUD_ROBOTICS_CONTAINER_REGISTRY="gcr.io/<GCP_PROJECT_ID>"
-func ReadConfig(project string, opts ...option.ClientOption) (map[string]string, error) {
-	ctx := context.Background()
+func ReadConfig(ctx context.Context, project string, opts ...option.ClientOption) (map[string]string, error) {
 	client, err := storage.NewClient(ctx, opts...)
 	if err != nil {
 		return nil, err

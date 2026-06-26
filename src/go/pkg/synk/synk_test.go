@@ -15,7 +15,6 @@
 package synk
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -183,7 +182,7 @@ func TestSynk_IsTransientErr(t *testing.T) {
 
 // TODO(rodrigoq): test Apply() directly rather than the private methods
 func TestSynk_initialize(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newFixture(t).newSynk()
 
 	_, _, err := s.initialize(ctx, &ApplyOptions{name: "test"},
@@ -238,7 +237,7 @@ status:
 }
 
 func TestSynk_updateResourceSetStatus(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	f := newFixture(t)
 	s := f.newSynk()
 
@@ -365,7 +364,7 @@ data:
 	// Note: We can't test applying an Unstructured object here, as the
 	// fake client doesn't support strategic merge patches:
 	// https://github.com/kubernetes/client-go/issues/613
-	results, err := f.newSynk().applyAll(context.Background(), set, &ApplyOptions{name: "test"},
+	results, err := f.newSynk().applyAll(t.Context(), set, &ApplyOptions{name: "test"},
 		cm.DeepCopy(),
 	)
 	if err != nil {
@@ -407,7 +406,7 @@ func TestSynk_applyAllIsCreatingResources(t *testing.T) {
 	set.Name = "test.v1"
 	set.UID = "deadbeef"
 
-	results, err := f.newSynk().applyAll(context.Background(), set, &ApplyOptions{name: "test"},
+	results, err := f.newSynk().applyAll(t.Context(), set, &ApplyOptions{name: "test"},
 		rollout.DeepCopy(),
 		deploy.DeepCopy(),
 	)
@@ -501,7 +500,7 @@ func TestSynk_applyAllRetriesResourceExpired(t *testing.T) {
 				return true, nil, k8serrors.NewResourceExpired("gone")
 			})
 
-			_, err := s.applyAll(context.Background(), set, &ApplyOptions{name: "test"},
+			_, err := s.applyAll(t.Context(), set, &ApplyOptions{name: "test"},
 				deploy.DeepCopy(),
 			)
 			if err == nil {
@@ -516,13 +515,13 @@ func TestSynk_applyAllRetriesResourceExpired(t *testing.T) {
 }
 
 func TestSynk_skipsTestResources(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newFixture(t).newSynk()
 
 	testPod := newUnstructured("v1", "Pod", "ns", "pod2")
 	testPod.SetAnnotations(map[string]string{"helm.sh/hook": "test-success"})
 
-	_, _, err := s.initialize(context.Background(), &ApplyOptions{name: "test"},
+	_, _, err := s.initialize(ctx, &ApplyOptions{name: "test"},
 		newUnstructured("v1", "Pod", "ns", "pod1"),
 		testPod,
 	)
@@ -557,7 +556,7 @@ status:
 }
 
 func TestSynk_deleteResourceSets(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	nu := func(name, version string) *unstructured.Unstructured {
 		u := newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", name+"."+version)
 		u.SetLabels(map[string]string{"name": name})
@@ -586,7 +585,7 @@ func TestSynk_deleteResourceSets(t *testing.T) {
 }
 
 func TestSynk_deleteFailedResourceSets(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	nu := func(name, version string, failed bool) *unstructured.Unstructured {
 		u := newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", name+"."+version)
 		u.SetLabels(map[string]string{"name": name})
@@ -643,7 +642,7 @@ spec:
       storage: true`)
 
 	if err := s.populateNamespaces(
-		context.Background(),
+		t.Context(),
 		"ns2",
 		[]*unstructured.Unstructured{&exampleCRD},
 		ns1, pod1, pod2, cr1,
@@ -798,7 +797,7 @@ func TestSynk_canReplace(t *testing.T) {
 }
 
 func TestSynk_Delete(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	f := newFixture(t)
 	s := f.newSynk()
 
@@ -831,7 +830,7 @@ func TestSynk_Init(t *testing.T) {
 		},
 	}
 
-	err := s.Init()
+	err := s.Init(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}

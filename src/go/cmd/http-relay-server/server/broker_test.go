@@ -92,7 +92,7 @@ func (bt *brokerConn) bakeRequest(b *broker, s string) {
 
 func (bt *brokerConn) runReceiver(t *testing.T, b *broker, s string, wg *sync.WaitGroup) {
 	bt.bakeRequest(b, s)
-	req, err := b.GetRequest(context.Background(), s, "/")
+	req, err := b.GetRequest(t.Context(), s, "/")
 	if err != nil {
 		t.Errorf("Error when getting request: %v", err)
 	}
@@ -129,7 +129,7 @@ func (bt *brokerConn) runSenderStream(t *testing.T, b *broker, s string, m strin
 // It returns after the first response has been sent.
 func (bt *brokerConn) runReceiverStream(t *testing.T, b *broker, s string, wg *sync.WaitGroup, done <-chan bool) {
 	bt.bakeRequest(b, s)
-	req, err := b.GetRequest(context.Background(), s, "/")
+	req, err := b.GetRequest(t.Context(), s, "/")
 	if err != nil {
 		t.Errorf("Error when getting request: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestTimeout(t *testing.T) {
 	}()
 	go func() {
 		slog.Info("Getting request")
-		b.GetRequest(context.Background(), "foo", "/")
+		b.GetRequest(t.Context(), "foo", "/")
 		slog.Info("Reaping inactive requests")
 		b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
 		slog.Info("Done")
@@ -282,7 +282,7 @@ func TestReapWhileSendingResponse(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
-		req, reqErr = b.GetRequest(context.Background(), "foo", "/")
+		req, reqErr = b.GetRequest(t.Context(), "foo", "/")
 		if reqErr != nil {
 			t.Errorf("GetRequest error: %v", reqErr)
 		}
@@ -330,7 +330,7 @@ func TestReapWhileSendingRequest(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
-		req, reqErr = b.GetRequest(context.Background(), "foo", "/")
+		req, reqErr = b.GetRequest(t.Context(), "foo", "/")
 		if reqErr != nil {
 			t.Errorf("GetRequest error: %v", reqErr)
 		}
@@ -394,7 +394,7 @@ func TestRelayRequestMultipleClients(t *testing.T) {
 
 func TestGetRequestServerRestarting(t *testing.T) {
 	b := newBroker()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel() // Cancel immediately
 
 	_, err := b.GetRequest(ctx, "foo", "/")

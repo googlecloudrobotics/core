@@ -132,7 +132,7 @@ func (o *ApplyOptions) errorf(r *unstructured.Unstructured, action apps.Resource
 // Init installs the ResourceSet CRD into the cluster and waits for
 // it to become available.
 // It does not need to be called before each use of Synk.
-func (s *Synk) Init() error {
+func (s *Synk) Init(ctx context.Context) error {
 	vTrue := true
 	crd := &apiextensions.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
@@ -177,7 +177,7 @@ func (s *Synk) Init() error {
 	if err := convert(crd, &u); err != nil {
 		return err
 	}
-	if _, err := s.applyOne(context.Background(), &u, nil); err != nil {
+	if _, err := s.applyOne(ctx, &u, nil); err != nil {
 		return fmt.Errorf("create ResourceSet CRD: %w", err)
 	}
 
@@ -193,7 +193,7 @@ func (s *Synk) Init() error {
 			}
 			return nil
 		},
-		backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 60),
+		backoff.WithContext(backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 60), ctx),
 	)
 	if err != nil {
 		return fmt.Errorf("wait for ResourceSet CRD: %w", err)

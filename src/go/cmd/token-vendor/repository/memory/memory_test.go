@@ -15,7 +15,6 @@
 package memory
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -24,7 +23,7 @@ import (
 
 // Test publish and lookup key
 func TestPublishAndLookup(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	m, err := NewMemoryRepository(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +51,7 @@ func TestPublishAndLookup(t *testing.T) {
 }
 
 func TestLookupNotFound(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	m, err := NewMemoryRepository(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +66,7 @@ func TestLookupNotFound(t *testing.T) {
 }
 
 func TestConfigure(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	m, err := NewMemoryRepository(ctx)
 	if err != nil {
 		t.Fatal(err)

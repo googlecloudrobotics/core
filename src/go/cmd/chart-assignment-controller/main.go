@@ -57,7 +57,7 @@ func main() {
 	logHandler := ilog.NewLogHandler(slog.Level(*logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
-	ctx := context.Background()
+	ctx := signals.SetupSignalHandler()
 	if *stackdriverProjectID != "" && !*cloudCluster {
 		sd, err := stackdriver.NewExporter(stackdriver.Options{
 			ProjectID: *stackdriverProjectID,
@@ -136,5 +136,5 @@ func runController(ctx context.Context, cfg *rest.Config, cluster string) error 
 		srv.Register("/chartassignment/validate", webhook)
 	}
 
-	return mgr.Start(signals.SetupSignalHandler())
+	return mgr.Start(ctx)
 }

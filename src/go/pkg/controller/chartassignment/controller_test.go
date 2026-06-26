@@ -15,7 +15,6 @@
 package chartassignment
 
 import (
-	"context"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -43,7 +42,7 @@ func TestReconciler_Reconcile_NotFound(t *testing.T) {
 
 	// When a resource is not found, the reconciler should return success (nil error)
 	// and not requeue, as there's nothing left to reconcile.
-	res, err := r.Reconcile(context.Background(), req)
+	res, err := r.Reconcile(t.Context(), req)
 	if err != nil {
 		t.Fatalf("Reconcile failed: %v", err)
 	}
@@ -69,7 +68,7 @@ func TestReconciler_ensureNamespace(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	ns, err := r.ensureNamespace(ctx, as)
 	if err != nil {
 		t.Fatalf("ensureNamespace failed: %v", err)
@@ -114,13 +113,13 @@ func TestReconciler_ensureSecrets(t *testing.T) {
 		},
 	}
 
-	err := r.ensureSecrets(context.Background(), as)
+	err := r.ensureSecrets(t.Context(), as)
 	if err != nil {
 		t.Fatalf("ensureSecrets failed: %v", err)
 	}
 
 	var copiedSecret corev1.Secret
-	err = client.Get(context.Background(), kclient.ObjectKey{Namespace: "app-ns", Name: "test-secret"}, &copiedSecret)
+	err = client.Get(t.Context(), kclient.ObjectKey{Namespace: "app-ns", Name: "test-secret"}, &copiedSecret)
 	if err != nil {
 		t.Fatalf("Secret not copied to app-ns: %v", err)
 	}
@@ -146,6 +145,7 @@ func TestReconciler_Reconcile_Delete(t *testing.T) {
 	mockSynk := NewMockInterface(ctrl)
 
 	releases := &releases{
+		ctx:  t.Context(),
 		m:    map[string]*release{},
 		synk: mockSynk,
 	}
@@ -158,6 +158,7 @@ func TestReconciler_Reconcile_Delete(t *testing.T) {
 
 	// Mock release status as Deleted
 	releases.m["test-app"] = &release{
+		ctx:    t.Context(),
 		status: releaseStatus{phase: apps.ChartAssignmentPhaseDeleted},
 	}
 
@@ -167,7 +168,7 @@ func TestReconciler_Reconcile_Delete(t *testing.T) {
 		NamespacedName: kclient.ObjectKey{Name: "test-app"},
 	}
 
-	res, err := r.Reconcile(context.Background(), req)
+	res, err := r.Reconcile(t.Context(), req)
 	if err != nil {
 		t.Fatalf("Reconcile failed: %v", err)
 	}
@@ -178,7 +179,7 @@ func TestReconciler_Reconcile_Delete(t *testing.T) {
 
 	// Verify ChartAssignment was deleted (no more finalizers)
 	var updatedAs apps.ChartAssignment
-	err = client.Get(context.Background(), kclient.ObjectKey{Name: "test-app"}, &updatedAs)
+	err = client.Get(t.Context(), kclient.ObjectKey{Name: "test-app"}, &updatedAs)
 	if !k8serrors.IsNotFound(err) {
 		t.Errorf("Expected ChartAssignment to be deleted, but found: %v", updatedAs)
 	}
