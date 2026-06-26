@@ -102,3 +102,15 @@ variable "node_machine_type" {
   type        = string
   default     = "e2-standard-4"
 }
+
+variable "min_node_count" {
+  description = "Minimum number of nodes in the GKE node pool"
+  type        = number
+  default     = 1
+}
+
+variable "max_node_count" {
+  description = "Maximum number of nodes in the GKE node pool"
+  type        = number
+  default     = 16
+}

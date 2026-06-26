@@ -162,6 +162,8 @@ certificate_provider = "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
 cluster_type = "${GKE_CLUSTER_TYPE}"
 datapath_provider = "${GKE_DATAPATH_PROVIDER}"
 node_machine_type = "${GCP_VM_TYPE}"
+min_node_count = ${GKE_MIN_NODES}
+max_node_count = ${GKE_MAX_NODES}
 onprem_federation = ${ONPREM_FEDERATION}
 secret_manager_plugin = ${GKE_SECRET_MANAGER_PLUGIN}
 EOF
