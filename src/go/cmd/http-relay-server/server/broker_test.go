@@ -435,3 +435,43 @@ func TestGetRequestStreamTimeout(t *testing.T) {
 		t.Errorf("Expected empty data on timeout, got %d bytes", len(data))
 	}
 }
+
+func TestStopRelayRequestCleanup(t *testing.T) {
+	b := newBroker()
+	b.req["foo"] = make(chan *pb.HttpRequest, 1)
+	req := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
+
+	respChan, err := b.RelayRequest("foo", req)
+	if err != nil {
+		t.Fatalf("RelayRequest failed: %v", err)
+	}
+
+	// Verify request is in broker
+	b.m.Lock()
+	if _, ok := b.resp[idOne]; !ok {
+		b.m.Unlock()
+		t.Fatal("Request not found in broker")
+	}
+	b.m.Unlock()
+
+	// Stop the request
+	b.StopRelayRequest(idOne)
+
+	// Verify request is removed from broker
+	b.m.Lock()
+	if _, ok := b.resp[idOne]; ok {
+		b.m.Unlock()
+		t.Error("Request still found in broker after StopRelayRequest")
+	}
+	b.m.Unlock()
+
+	// Verify the response channel is closed
+	select {
+	case _, ok := <-respChan:
+		if ok {
+			t.Error("respChan not closed after StopRelayRequest")
+		}
+	case <-time.After(time.Second):
+		t.Error("Timed out waiting for respChan to close")
+	}
+}

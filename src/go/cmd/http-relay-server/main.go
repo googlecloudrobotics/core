@@ -25,7 +25,10 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -46,10 +49,18 @@ var (
 		"the log message level required to be logged")
 	inactiveRequestTimeout = flag.Duration("inactive_request_timeout", server.DefaultInactiveRequestTimeout,
 		"Timeout for inactive requests. In particular, this sets a limit on how long the backend can wait before writing headers and the response status.")
+	pprofPort = flag.Int("pprof_port", 0, "If non-zero, serves pprof endpoints on this port.")
 )
 
 func main() {
 	flag.Parse()
+	if *pprofPort != 0 {
+		go func() {
+			slog.Info("Starting pprof server", slog.Int("port", *pprofPort))
+			err := http.ListenAndServe(fmt.Sprintf(":%d", *pprofPort), nil)
+			slog.Error("pprof server failed", ilog.Err(err))
+		}()
+	}
 	logHandler := ilog.NewLogHandler(slog.Level(*logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
