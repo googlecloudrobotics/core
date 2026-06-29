@@ -16,7 +16,6 @@ package server
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -56,7 +55,7 @@ func TestClientHandler(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
-	relayRequest, err := server.b.GetRequest(context.Background(), "foo", "/")
+	relayRequest, err := server.b.GetRequest(t.Context(), "foo", "/")
 	if err != nil {
 		t.Errorf("Error when getting request: %v", err)
 	}
@@ -124,7 +123,7 @@ func TestClientHandlerWithChunkedResponse(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
-	relayRequest, err := server.b.GetRequest(context.Background(), "foo", "/")
+	relayRequest, err := server.b.GetRequest(t.Context(), "foo", "/")
 	if err != nil {
 		t.Errorf("Error when getting request: %v", err)
 	}
@@ -356,7 +355,7 @@ func TestRequestStreamHandler(t *testing.T) {
 	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
 
 	// Simulate a 101 Switching Protocols response from the backend.
-	relayRequest, err := server.b.GetRequest(context.Background(), "foo", "/")
+	relayRequest, err := server.b.GetRequest(t.Context(), "foo", "/")
 	if err != nil {
 		t.Errorf("Error when getting request: %v", err)
 	}
@@ -670,7 +669,7 @@ func TestTrailers(t *testing.T) {
 				server.userClientRequest(respRecorder, req)
 			}()
 
-			relayRequest, err := server.b.GetRequest(context.Background(), "foo", "/")
+			relayRequest, err := server.b.GetRequest(t.Context(), "foo", "/")
 			if err != nil {
 				t.Fatalf("Failed to get request: %v", err)
 			}

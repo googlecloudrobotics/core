@@ -137,8 +137,8 @@ func DefaultClientConfig() ClientConfig {
 		NumPendingRequests:  1,
 		MaxIdleConnsPerHost: 100,
 
-		MaxChunkSize: 50 * 1024,
-		BlockSize:    10 * 1024,
+		MaxChunkSize: 1024 * 1024, // 1MB. High throughput (e.g. 100MB/s) would otherwise trigger ~2000 POST requests/s at 50KB chunks.
+		BlockSize:    64 * 1024,   // 64KB. Controls the granularity of reads from the backend and internal channel pressure. Aligned with io.Copy.
 
 		DisableHttp2: false,
 		ForceHttp2:   false,
@@ -481,7 +481,13 @@ func (c *Client) buildResponses(in <-chan []byte, resp *pb.HttpResponse, out cha
 	timer := time.NewTimer(c.config.BackendResponseTimeout)
 	timeouts := 0
 
-	// TODO(haukeheibel): Why are we not simply reading the entire body? Why the chunking?
+	// Chunking is required for two reasons:
+	// 1. Streaming: long-lived connections (gRPC, WebSockets, kubectl exec) don't send EOF.
+	//    We must forward data as it arrives to maintain responsiveness.
+	// 2. Memory: large responses (e.g. 100MB+) would otherwise be buffered in memory,
+	//    potentially causing OOMs when marshaled into a single Protobuf message.
+	// MaxChunkSize limits the buffer size for fast data, while BackendResponseTimeout
+	// ensures low latency for slow/interactive data.
 	for {
 		select {
 		case b, more := <-in:

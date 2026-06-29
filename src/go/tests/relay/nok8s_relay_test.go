@@ -279,6 +279,7 @@ func TestDroppedBidiStreamFreesRelayChannel(t *testing.T) {
 				} else {
 					done <- err
 				}
+				return
 			}
 			if _, err := conn.Write(req); err != nil {
 				if err == io.EOF {
@@ -286,6 +287,7 @@ func TestDroppedBidiStreamFreesRelayChannel(t *testing.T) {
 				} else {
 					done <- err
 				}
+				return
 			}
 		}
 	}))
@@ -372,7 +374,12 @@ func mustStartRelayWithGrpcServer(t *testing.T, service testpb.TestServiceServer
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
-	result.GrpcServer = grpc.NewServer()
+	// We increase the max message size to 10MB to accommodate the large payload
+	// used in TestGrpcRelayChunkingOfLargeResponseWorks (5 * MaxChunkSize = 5MB).
+	result.GrpcServer = grpc.NewServer(
+		grpc.MaxRecvMsgSize(10*1024*1024),
+		grpc.MaxSendMsgSize(10*1024*1024),
+	)
 	testpb.RegisterTestServiceServer(result.GrpcServer, service)
 	go result.GrpcServer.Serve(result.Listener)
 
@@ -385,8 +392,14 @@ func mustStartRelayWithGrpcServer(t *testing.T, service testpb.TestServiceServer
 	relayAddress := "127.0.0.1:" + result.Relay.rsPort
 
 	// Create gRPC client via relay.
-	result.Ctx = metadata.AppendToOutgoingContext(context.Background(), "x-server-name", "remote1")
-	result.Conn, err = grpc.DialContext(result.Ctx, relayAddress, grpc.WithInsecure())
+	result.Ctx = metadata.AppendToOutgoingContext(t.Context(), "x-server-name", "remote1")
+	result.Conn, err = grpc.DialContext(result.Ctx, relayAddress,
+		grpc.WithInsecure(),
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(10*1024*1024),
+			grpc.MaxCallSendMsgSize(10*1024*1024),
+		),
+	)
 	if err != nil {
 		t.Fatalf("Failed to create client connection: %v", err)
 	}

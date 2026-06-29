@@ -15,7 +15,6 @@
 package main
 
 import (
-	"context"
 	"net/http"
 	"os"
 	"reflect"
@@ -109,7 +108,7 @@ func TestParseKeyValues_HandlesSpaces(t *testing.T) {
 }
 
 func TestCheckRobotName_SucceedsWhenCRDNotFound(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	sc := runtime.NewScheme()
 	*robotName = "robot_name"
 
@@ -135,7 +134,7 @@ func TestCheckRobotName_SucceedsWhenCRDNotFound(t *testing.T) {
 }
 
 func TestCheckRobotName(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	sc := runtime.NewScheme()
 	registry.AddToScheme(sc)
 	*robotName = "robot_name"
@@ -198,7 +197,7 @@ func TestCheckRobotName(t *testing.T) {
 }
 
 func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	hostname, err := os.Hostname()
 	if err != nil {
 		t.Fatal("Could not determine hostname")

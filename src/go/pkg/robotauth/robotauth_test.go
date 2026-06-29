@@ -1,7 +1,6 @@
 package robotauth
 
 import (
-	"context"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
@@ -71,11 +70,11 @@ func TestK8sSecretLoadStoreRoundtrip(t *testing.T) {
 	if err := quick.Check(func(a RobotAuth, ns string) bool {
 		cs := fake.NewSimpleClientset()
 
-		if err := a.StoreInK8sSecret(context.TODO(), cs, ns); err != nil {
-			t.Errorf("Failed to store k8s secret: %v", err)
+		if err := a.StoreInK8sSecret(t.Context(), cs, ns); err != nil {
+			t.Errorf("Failed to store secret: %v", err)
 		}
 
-		l, err := LoadFromK8sSecret(context.TODO(), cs, ns)
+		l, err := LoadFromK8sSecret(t.Context(), cs, ns)
 		if err != nil {
 			t.Errorf("Failed to read k8s secret: %v", err)
 		}
@@ -91,7 +90,7 @@ func TestCreateJWT(t *testing.T) {
 		PrivateKey: []byte(testPrivKey),
 	}
 
-	jwtk, err := a.CreateJWT(context.TODO(), time.Minute*10)
+	jwtk, err := a.CreateJWT(t.Context(), time.Minute*10)
 	if err != nil {
 		t.Errorf("Failed to create JWT: %v", err)
 	}

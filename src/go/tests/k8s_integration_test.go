@@ -173,7 +173,7 @@ func TestCloudClusterAppStatus(t *testing.T) {
 			Version: "v1alpha1",
 		})
 		slog.Info("Querying AppRollouts...", slog.String("Context", kubernetesContext))
-		err = client.List(context.Background(), appRollouts)
+		err = client.List(t.Context(), appRollouts)
 		if err != nil {
 			slog.Error("Failed to list AppRollouts", ilog.Err(err))
 			time.Sleep(10 * time.Second)
@@ -208,7 +208,7 @@ func TestCloudClusterAppStatus(t *testing.T) {
 }
 
 func TestKubernetesCloudClusterStatus(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	kubernetesCloudContext, err := kubeutils.GetCloudKubernetesContext()
 	if err != nil {
 		t.Error(err)
@@ -220,7 +220,7 @@ func TestKubernetesCloudClusterStatus(t *testing.T) {
 }
 
 func TestKubernetesRobotClusterStatus(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	kubernetesRobotContext, err := kubeutils.GetRobotKubernetesContext()
 	if err != nil {
 		t.Error(err)

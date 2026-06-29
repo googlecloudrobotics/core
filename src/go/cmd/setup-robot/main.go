@@ -22,9 +22,11 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/configutil"
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
@@ -175,7 +177,9 @@ func main() {
 	logHandler := ilog.NewLogHandler(slog.LevelInfo, os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	envToken := os.Getenv("ACCESS_TOKEN")
 	if envToken == "" {
 		slog.Error("ACCESS_TOKEN environment variable is required.")
@@ -207,7 +211,7 @@ func main() {
 	// Set up the OAuth2 token source.
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: envToken})
 
-	vars, err := configutil.ReadConfig(*project, option.WithTokenSource(tokenSource))
+	vars, err := configutil.ReadConfig(ctx, *project, option.WithTokenSource(tokenSource))
 	if err != nil {
 		slog.Error("Failed to read config for project", ilog.Err(err))
 		os.Exit(1)

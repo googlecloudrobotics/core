@@ -58,7 +58,7 @@ func Add(ctx context.Context, mgr manager.Manager, cloud bool) error {
 		cloud:    cloud,
 	}
 	var err error
-	r.releases, err = newReleases(mgr.GetConfig(), r.recorder)
+	r.releases, err = newReleases(ctx, mgr.GetConfig(), r.recorder)
 	if err != nil {
 		return err
 	}

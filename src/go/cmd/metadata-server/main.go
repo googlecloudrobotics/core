@@ -95,7 +95,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -188,12 +189,10 @@ func main() {
 		os.Exit(1)
 	}()
 
-	stop := make(chan os.Signal)
-	signal.Notify(stop, syscall.SIGTERM)
-
-	<-stop
+	<-ctx.Done()
 	if !*runningOnGKE {
-		RevertCorefile(ctx, k8s)
+		// Use a fresh context for cleanup because ctx is already cancelled here.
+		RevertCorefile(context.Background(), k8s)
 	}
 	removeNATRule()
 }

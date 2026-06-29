@@ -116,7 +116,7 @@ func runInit(cmd *cobra.Command, args []string) {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
-	if err := s.Init(); err != nil {
+	if err := s.Init(cmd.Context()); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
@@ -133,7 +133,7 @@ func runDelete(cmd *cobra.Command, args []string) {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
-	if err := s.Delete(context.Background(), args[0]); err != nil {
+	if err := s.Delete(cmd.Context(), args[0]); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
@@ -145,13 +145,13 @@ func runApply(cmd *cobra.Command, args []string) {
 		fmt.Fprintln(os.Stderr, "unrecognized number of arguments, exactly one (name) expected")
 		os.Exit(2)
 	}
-	if err := apply(args[0]); err != nil {
+	if err := apply(cmd.Context(), args[0]); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
 }
 
-func apply(name string) error {
+func apply(ctx context.Context, name string) error {
 	// If a target namesapce for the chart is given, enforce it.
 	namespace, enforceNamespace, err := restOpts.ToRawKubeConfigLoader().Namespace()
 	if err != nil {
@@ -190,7 +190,7 @@ func apply(name string) error {
 	}
 	if err := backoff.Retry(
 		func() error {
-			_, err := s.Apply(context.Background(), name, opts, resources...)
+			_, err := s.Apply(ctx, name, opts, resources...)
 			if err != nil {
 				if synk.IsTransientErr(err) {
 					return err
@@ -199,7 +199,7 @@ func apply(name string) error {
 			}
 			return nil
 		},
-		backoff.WithMaxRetries(backoff.NewConstantBackOff(retryBackoff), retries),
+		backoff.WithContext(backoff.WithMaxRetries(backoff.NewConstantBackOff(retryBackoff), retries), ctx),
 	); err != nil {
 		return fmt.Errorf("apply files: %w", err)
 	}

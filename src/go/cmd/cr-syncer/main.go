@@ -46,12 +46,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
@@ -62,7 +65,6 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"go.opencensus.io/zpages"
-	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -238,7 +240,6 @@ func streamCrds(done <-chan struct{}, clientset crdclientset.Interface, crds cha
 func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
-	ctx := context.Background()
 
 	ll := slog.Level(*logLevel)
 	if *verbose {
@@ -246,6 +247,9 @@ func main() {
 	}
 	logHandler := ilog.NewLogHandler(ll, os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	localConfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -304,31 +308,40 @@ func main() {
 		os.Exit(1)
 	}
 	syncers := make(map[string]*crSyncer)
-	for crd := range crds {
-		name := crd.CRD.GetName()
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("Shutting down")
+			return
+		case crd, ok := <-crds:
+			if !ok {
+				return
+			}
+			name := crd.CRD.GetName()
 
-		if cur, ok := syncers[name]; ok {
-			if crd.Type == watch.Added {
-				slog.Warn("Already had a running sync", slog.String("syncer", name))
-			}
-			cur.stop()
-			delete(syncers, name)
-		}
-		if crd.Type == watch.Added || crd.Type == watch.Modified {
-			// The modify procedure is very heavyweight: We throw away
-			// the informer for the CRD (read: all cached data) on every
-			// modification and recreate it. If that ever turns out to
-			// be a problem, we should use a shared informer cache
-			// instead.
-			s, err := newCRSyncer(ctx, *crd.CRD, local, remote, *robotName)
-			if err != nil {
-				if err != errIgnoredCRD {
-					slog.Error("skipping custom resource", slog.String("Resource", name), ilog.Err(err))
+			if cur, ok := syncers[name]; ok {
+				if crd.Type == watch.Added {
+					slog.Warn("Already had a running sync", slog.String("syncer", name))
 				}
-				continue
+				cur.stop()
+				delete(syncers, name)
 			}
-			syncers[name] = s
-			go s.run()
+			if crd.Type == watch.Added || crd.Type == watch.Modified {
+				// The modify procedure is very heavyweight: We throw away
+				// the informer for the CRD (read: all cached data) on every
+				// modification and recreate it. If that ever turns out to
+				// be a problem, we should use a shared informer cache
+				// instead.
+				s, err := newCRSyncer(ctx, *crd.CRD, local, remote, *robotName)
+				if err != nil {
+					if err != errIgnoredCRD {
+						slog.Error("skipping custom resource", slog.String("Resource", name), ilog.Err(err))
+					}
+					continue
+				}
+				syncers[name] = s
+				go s.run()
+			}
 		}
 	}
 }

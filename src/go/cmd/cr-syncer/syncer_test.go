@@ -15,7 +15,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -94,7 +93,7 @@ func (f *fixture) newCRSyncer(crd crdtypes.CustomResourceDefinition, robotName s
 		f.remoteObjects...,
 	)
 
-	crs, err := newCRSyncer(context.Background(), crd, f.local, f.remote, robotName)
+	crs, err := newCRSyncer(f.T.Context(), crd, f.local, f.remote, robotName)
 	if err != nil {
 		f.Fatal(err)
 	}

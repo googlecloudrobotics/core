@@ -98,7 +98,7 @@ data:
 
       local mappings
       # Robustly fetch ingress mappings, do not crash on API server timeouts
-      if ! mappings=$(kubectl get ingress -A -o go-template='{{range .items}}{{$ns := .metadata.namespace}}{{range .spec.tls}}{{if .secretName}}{{$sec := .secretName}}{{range .hosts}}{{.}} {{$ns}}_{{$sec}}{{"\n"}}{{end}}{{end}}{{end}}{{end}}' 2>/dev/null); then
+      if ! mappings=$(kubectl get ingress -A -o go-template='{{`{{range .items}}{{$ns := .metadata.namespace}}{{range .spec.tls}}{{if .secretName}}{{$sec := .secretName}}{{range .hosts}}{{.}} {{$ns}}_{{$sec}}{{"\n"}}{{end}}{{end}}{{end}}{{end}}`}}' 2>/dev/null); then
         echo "Warning: Failed to query Ingress resources from Kubernetes API. Skipping sync..." >&2
         return 0
       fi

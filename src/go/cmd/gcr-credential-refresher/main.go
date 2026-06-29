@@ -19,6 +19,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
@@ -64,13 +67,20 @@ func updateCredentials(ctx context.Context) error {
 // on startup, and then every 10 minutes.
 func main() {
 	flag.Parse()
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	for {
 		if err := updateCredentials(ctx); err != nil {
 			log.Fatal(err)
 		}
 		log.Printf("Updated GCR credentials in local cluster")
-		time.Sleep(updateInterval)
+
+		select {
+		case <-ctx.Done():
+			log.Printf("Shutting down")
+			return
+		case <-time.After(updateInterval):
+		}
 	}
 }
