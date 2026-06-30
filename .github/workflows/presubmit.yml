@@ -41,7 +41,7 @@ jobs:
             --ignore-failed-read
           digest=$(cat /tmp/changed_files.txt /tmp/changed_files.tar | sha256sum | cut -d " " -f1)
           echo "digest=$digest" >> $GITHUB_OUTPUT
-      - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/PRESUBMITS_SUCCEEDED
           key: PRESUBMITS_SUCCEEDED-${{ steps.pr-digest.outputs.digest }}
