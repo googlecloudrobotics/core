@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+GCP_PROJECT_ID='${project_id}'
+GCP_REGION='${region}'
+GCP_ZONE='${zone}'
+CLOUD_ROBOTICS_CONTAINER_REGISTRY='gcr.io/${project_id}'
+PRIVATE_DOCKER_PROJECTS='${join(" ", private_image_repositories)}'
+CLOUD_ROBOTICS_SHARED_OWNER_GROUP='${shared_owner_group}'
+CLOUD_ROBOTICS_COOKIE_SECRET='${cloud_robotics_cookie_secret}'
+CLOUD_ROBOTICS_OAUTH2_CLIENT_ID='${oauth2_client_id}'
+CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET='${oauth2_client_secret}'
+CLOUD_ROBOTICS_DOMAIN='${domain}'
+GCP_NODE_VM_TYPE='${node_machine_type}'
+GKE_MIN_NODES='${min_node_count}'
+GKE_MAX_NODES='${max_node_count}'
+CLOUD_ROBOTICS_INGRESS_IP='${ingress_ip}'
+declare -A CLOUD_ROBOTICS_INGRESS_IP_AR
+${ingress_ip_ar_bash}
+APP_MANAGEMENT=true
+ONPREM_FEDERATION="${onprem_federation}"
+GKE_SECRET_MANAGER_PLUGIN='${secret_manager_plugin}'
+PROVISIONED_BY_DEPLOY_SCRIPT=false

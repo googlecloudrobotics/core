@@ -7,9 +7,7 @@ removed {
   }
 }
 
-data "google_project" "project" {
-  project_id = var.id
-}
+data "google_project" "project" {}
 
 resource "google_project_iam_member" "owner_group" {
   count   = var.shared_owner_group == "" ? 0 : 1

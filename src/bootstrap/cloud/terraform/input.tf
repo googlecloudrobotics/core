@@ -2,10 +2,6 @@ variable "name" {
   description = "Deployment's human-readable name (my-project)"
 }
 
-variable "id" {
-  description = "Deployment's project id (my-project)"
-}
-
 variable "domain" {
   description = "Deployment domain (www.example.com)"
 }
@@ -119,4 +115,19 @@ variable "max_node_count" {
   description = "Maximum number of nodes in the GKE node pool"
   type        = number
   default     = 16
+}
+
+variable "oauth2_client" {
+  description = "Oauth2 client from https://console.cloud.google.com/apis/credentials"
+  type = object({
+    client_id = string
+    secret = string
+  })
+  default = null
+}
+
+variable "provisioned_by_deploy_script" {
+  description = "True if CRC resources are provisioned by deploy script"
+  type = bool
+  default = false
 }

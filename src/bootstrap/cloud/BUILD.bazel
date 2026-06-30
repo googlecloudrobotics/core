@@ -32,6 +32,7 @@ pkg_files(
     srcs = [
         "//:config.sh.tmpl",
         "//src/bootstrap/cloud/terraform",
+        "//src/terraform/modules/cloud",
     ],
     attributes = pkg_attributes(mode = "0644"),
     strip_prefix = strip_prefix.from_root(""),

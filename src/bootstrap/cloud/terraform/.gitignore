@@ -2,4 +2,5 @@
 config.auto.tfvars
 terraform.tfvars
 backend.tf
+provider.tf
 terraform.tfstate.*.backup

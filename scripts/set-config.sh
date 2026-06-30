@@ -123,6 +123,9 @@ if gcloud storage cp "${CLOUD_BUCKET}/config.sh" "${CONFIG_FILE}" 2>/dev/null; t
     exit 0
   fi
   source ${CONFIG_FILE}
+  if [[ "${PROVISIONED_BY_DEPLOY_SCRIPT}" == "false" ]]; then
+    die "ERROR: This project is managed by Terraform. Please modify your Terraform configuration instead of running set-config.sh."
+  fi
 else
   if [[ -n "${FLAG_EDIT_OAUTH}" ]]; then
     die "You have to create a config before you can enable OAuth."
