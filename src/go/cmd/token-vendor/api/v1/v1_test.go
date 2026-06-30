@@ -858,7 +858,8 @@ func Test_verifyJWTHandler(t *testing.T) {
 	t.Parallel()
 
 	cs := fake.NewSimpleClientset()
-	if err := populateK8sEnv(t.Context(), cs, "default",
+	ctx := t.Context()
+	if err := populateK8sEnv(ctx, cs, "default",
 		[]*corev1.ConfigMap{
 			{
 				TypeMeta: metav1.TypeMeta{
@@ -873,11 +874,11 @@ func Test_verifyJWTHandler(t *testing.T) {
 		}); err != nil {
 		t.Fatal(err)
 	}
-	r, err := k8s.NewK8sRepository(t.Context(), cs, "default")
+	r, err := k8s.NewK8sRepository(ctx, cs, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
-	tv, err := app.NewTokenVendor(t.Context(), r, nil, nil, "testaud", saName)
+	tv, err := app.NewTokenVendor(ctx, r, nil, nil, "testaud", saName)
 	if err != nil {
 		t.Fatal(err)
 	}

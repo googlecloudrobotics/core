@@ -22,6 +22,7 @@ go_test(
     srcs = ["setupcommon_test.go"],
     embed = [":go_default_library"],
     deps = [
+        "//src/go/pkg/robotauth:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",

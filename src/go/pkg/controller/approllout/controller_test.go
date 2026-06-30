@@ -15,14 +15,25 @@
 package approllout
 
 import (
+	"encoding/json"
+	"net/http"
 	"strings"
 	"testing"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
+	admissionv1 "k8s.io/api/admission/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/helm/pkg/chartutil"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sigs.k8s.io/yaml"
 )
 
@@ -855,4 +866,430 @@ metadata:
 			}
 		})
 	}
+}
+
+func TestReconciler_Reconcile(t *testing.T) {
+	scheme := runtime.NewScheme()
+	apps.AddToScheme(scheme)
+	registry.AddToScheme(scheme)
+	core.AddToScheme(scheme)
+
+	tests := []struct {
+		name       string
+		ar         *apps.AppRollout
+		app        *apps.App
+		robot      *registry.Robot
+		reqName    string
+		wantResult reconcile.Result
+		wantErr    bool
+		verify     func(t *testing.T, client kclient.Client)
+	}{
+		{
+			name:    "Success",
+			reqName: "my-rollout",
+			ar: &apps.AppRollout{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "my-rollout",
+					UID:        "rollout-uid",
+					Generation: 1,
+				},
+				Spec: apps.AppRolloutSpec{
+					AppName: "my-app",
+					Robots: []apps.AppRolloutSpecRobot{
+						{
+							Selector: &apps.RobotSelector{
+								Any: new(true),
+							},
+						},
+					},
+				},
+			},
+			app: &apps.App{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-app",
+					Labels: map[string]string{
+						labelAppName: "my-app",
+					},
+				},
+				Spec: apps.AppSpec{
+					Components: apps.AppComponents{
+						Cloud: apps.AppComponent{
+							Inline: "cloud-manifests",
+						},
+						Robot: apps.AppComponent{
+							Inline: "robot-manifests",
+						},
+					},
+				},
+			},
+			robot: &registry.Robot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-robot",
+				},
+			},
+			wantResult: reconcile.Result{},
+			verify: func(t *testing.T, client kclient.Client) {
+				var cloudCA apps.ChartAssignment
+				err := client.Get(t.Context(), kclient.ObjectKey{Name: "my-rollout-cloud"}, &cloudCA)
+				if err != nil {
+					t.Fatalf("Failed to get cloud CA: %v", err)
+				}
+				if cloudCA.Spec.ClusterName != "cloud" {
+					t.Errorf("Expected clusterName 'cloud', got %q", cloudCA.Spec.ClusterName)
+				}
+
+				var robotCA apps.ChartAssignment
+				err = client.Get(t.Context(), kclient.ObjectKey{Name: "my-rollout-robot-my-robot"}, &robotCA)
+				if err != nil {
+					t.Fatalf("Failed to get robot CA: %v", err)
+				}
+				if robotCA.Spec.ClusterName != "my-robot" {
+					t.Errorf("Expected clusterName 'my-robot', got %q", robotCA.Spec.ClusterName)
+				}
+
+				var updatedAr apps.AppRollout
+				err = client.Get(t.Context(), kclient.ObjectKey{Name: "my-rollout"}, &updatedAr)
+				if err != nil {
+					t.Fatalf("Failed to get AppRollout: %v", err)
+				}
+				if updatedAr.Status.Assignments != 2 {
+					t.Errorf("Expected 2 assignments in status, got %d", updatedAr.Status.Assignments)
+				}
+			},
+		},
+		{
+			name:    "SelectorOverlap",
+			reqName: "my-rollout",
+			ar: &apps.AppRollout{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "my-rollout",
+					UID:        "rollout-uid",
+					Generation: 1,
+				},
+				Spec: apps.AppRolloutSpec{
+					AppName: "my-app",
+					Robots: []apps.AppRolloutSpecRobot{
+						{
+							Selector: &apps.RobotSelector{
+								Any: new(true),
+							},
+						},
+						{
+							Selector: &apps.RobotSelector{
+								Any: new(true),
+							},
+						},
+					},
+				},
+			},
+			app: &apps.App{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-app",
+					Labels: map[string]string{
+						labelAppName: "my-app",
+					},
+				},
+				Spec: apps.AppSpec{
+					Components: apps.AppComponents{
+						Robot: apps.AppComponent{
+							Inline: "robot-manifests",
+						},
+					},
+				},
+			},
+			robot: &registry.Robot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-robot",
+				},
+			},
+			wantResult: reconcile.Result{},
+			verify: func(t *testing.T, client kclient.Client) {
+				var updatedAr apps.AppRollout
+				err := client.Get(t.Context(), kclient.ObjectKey{Name: "my-rollout"}, &updatedAr)
+				if err != nil {
+					t.Fatalf("Failed to get AppRollout: %v", err)
+				}
+
+				var settledCond *apps.AppRolloutCondition
+				for _, c := range updatedAr.Status.Conditions {
+					if c.Type == apps.AppRolloutConditionSettled {
+						settledCond = &c
+						break
+					}
+				}
+				if settledCond == nil {
+					t.Fatal("Settled condition not found")
+				}
+				if settledCond.Status != core.ConditionFalse {
+					t.Errorf("Expected Settled condition status False, got %v", settledCond.Status)
+				}
+				if !strings.Contains(settledCond.Message, "was selected multiple times") {
+					t.Errorf("Unexpected condition message: %q", settledCond.Message)
+				}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var initObjs []kclient.Object
+			if tc.ar != nil {
+				initObjs = append(initObjs, tc.ar)
+			}
+			if tc.app != nil {
+				initObjs = append(initObjs, tc.app)
+			}
+			if tc.robot != nil {
+				initObjs = append(initObjs, tc.robot)
+			}
+
+			client := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithStatusSubresource(&apps.AppRollout{}).
+				WithIndex(&apps.ChartAssignment{}, fieldIndexOwners, indexOwnerReferences).
+				WithObjects(initObjs...).
+				Build()
+
+			r := &Reconciler{
+				kube:       client,
+				baseValues: chartutil.Values{},
+			}
+
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: tc.reqName},
+			}
+
+			res, err := r.Reconcile(t.Context(), req)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("Reconcile() error = %v, wantErr %v", err, tc.wantErr)
+			}
+			if res != tc.wantResult {
+				t.Errorf("Reconcile() res = %v, want %v", res, tc.wantResult)
+			}
+
+			if tc.verify != nil {
+				tc.verify(t, client)
+			}
+		})
+	}
+}
+
+func TestAppValidator_Handle(t *testing.T) {
+	scheme := runtime.NewScheme()
+	apps.AddToScheme(scheme)
+
+	decoder := serializer.NewCodecFactory(scheme).UniversalDeserializer()
+	v := &appValidator{decoder: decoder}
+
+	tests := []struct {
+		name       string
+		req        admission.Request
+		wantAllow  bool
+		wantStatus int32
+	}{
+		{
+			name: "DecodeError",
+			req: admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					Object: runtime.RawExtension{Raw: []byte("invalid json")},
+				},
+			},
+			wantAllow:  false,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Allowed",
+			req: admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					Object: runtime.RawExtension{
+						Raw: mustMarshal(&apps.App{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "myapp",
+								Labels: map[string]string{
+									labelAppName: "myapp",
+								},
+							},
+						}),
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "Denied_ValidationFailure",
+			req: admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					Object: runtime.RawExtension{
+						Raw: mustMarshal(&apps.App{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "myapp-invalid-name",
+								Labels: map[string]string{
+									labelAppName: "myapp",
+								},
+							},
+						}),
+					},
+				},
+			},
+			wantAllow: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := v.Handle(t.Context(), tc.req)
+			if resp.Allowed != tc.wantAllow {
+				t.Errorf("Handle() allowed = %v, want %v. Message: %s", resp.Allowed, tc.wantAllow, resp.Result.Message)
+			}
+			if tc.wantStatus != 0 && resp.Result.Code != tc.wantStatus {
+				t.Errorf("Handle() status code = %d, want %d", resp.Result.Code, tc.wantStatus)
+			}
+		})
+	}
+}
+
+func TestAppRolloutValidator_Handle(t *testing.T) {
+	scheme := runtime.NewScheme()
+	apps.AddToScheme(scheme)
+
+	decoder := serializer.NewCodecFactory(scheme).UniversalDeserializer()
+	v := &appRolloutValidator{decoder: decoder}
+
+	tests := []struct {
+		name      string
+		req       admission.Request
+		wantAllow bool
+	}{
+		{
+			name: "DecodeError",
+			req: admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					Object: runtime.RawExtension{Raw: []byte("invalid json")},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "Allowed",
+			req: admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					Object: runtime.RawExtension{
+						Raw: mustMarshal(&apps.AppRollout{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "my-rollout",
+							},
+							Spec: apps.AppRolloutSpec{
+								AppName: "my-app",
+							},
+						}),
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "Denied_ValidationFailure",
+			req: admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					Object: runtime.RawExtension{
+						Raw: mustMarshal(&apps.AppRollout{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "my-rollout",
+							},
+							Spec: apps.AppRolloutSpec{
+								AppName: "", // Missing app name
+							},
+						}),
+					},
+				},
+			},
+			wantAllow: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := v.Handle(t.Context(), tc.req)
+			if resp.Allowed != tc.wantAllow {
+				t.Errorf("Handle() allowed = %v, want %v. Message: %s", resp.Allowed, tc.wantAllow, resp.Result.Message)
+			}
+		})
+	}
+}
+
+func TestReconciler_EnqueueHelpers(t *testing.T) {
+	scheme := runtime.NewScheme()
+	apps.AddToScheme(scheme)
+
+	ar := &apps.AppRollout{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "my-rollout",
+		},
+		Spec: apps.AppRolloutSpec{
+			AppName: "my-app",
+		},
+	}
+
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithIndex(&apps.AppRollout{}, fieldIndexAppName, indexAppName).
+		WithObjects(ar).
+		Build()
+
+	r := &Reconciler{
+		kube: client,
+	}
+
+	// 1. Test enqueueForApp
+	q := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+	appObj := &apps.App{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "my-app",
+		},
+	}
+	r.enqueueForApp(t.Context(), appObj, q)
+
+	if q.Len() != 1 {
+		t.Errorf("Expected 1 item in queue, got %d", q.Len())
+	}
+	req, _ := q.Get()
+	if req.Name != "my-rollout" {
+		t.Errorf("Expected enqueued rollout 'my-rollout', got %q", req.Name)
+	}
+	q.Done(req)
+
+	// 2. Test enqueueForOwner
+	q2 := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+	ca := &apps.ChartAssignment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "my-ca",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "apps.cloudrobotics.com/v1alpha1",
+					Kind:       "AppRollout",
+					Name:       "owner-rollout",
+					UID:        "owner-uid",
+					Controller: new(true),
+				},
+			},
+		},
+	}
+	r.enqueueForOwner(ca, q2)
+
+	if q2.Len() != 1 {
+		t.Errorf("Expected 1 item in queue, got %d", q2.Len())
+	}
+	req2, _ := q2.Get()
+	if req2.Name != "owner-rollout" {
+		t.Errorf("Expected enqueued rollout 'owner-rollout', got %q", req2.Name)
+	}
+	q2.Done(req2)
+}
+
+func mustMarshal(v interface{}) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

@@ -375,13 +375,12 @@ data:
 		return
 	}
 
-	_true := true
 	ownerRef := metav1.OwnerReference{
 		APIVersion:         "apps.cloudrobotics.com/v1alpha1",
 		Kind:               "ResourceSet",
 		Name:               set.Name,
 		UID:                set.UID,
-		BlockOwnerDeletion: &_true,
+		BlockOwnerDeletion: new(true),
 	}
 	cm.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 
@@ -418,13 +417,12 @@ func TestSynk_applyAllIsCreatingResources(t *testing.T) {
 		return
 	}
 
-	_true := true
 	ownerRef := metav1.OwnerReference{
 		APIVersion:         "apps.cloudrobotics.com/v1alpha1",
 		Kind:               "ResourceSet",
 		Name:               set.Name,
 		UID:                set.UID,
-		BlockOwnerDeletion: &_true,
+		BlockOwnerDeletion: new(true),
 	}
 	rollout.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 	deploy.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
@@ -447,13 +445,12 @@ func TestSynk_applyAllRetriesResourceExpired(t *testing.T) {
 	set := &apps.ResourceSet{}
 	set.Name = "test.v1"
 	set.UID = "deadbeef"
-	_true := true
 	ownerRef := metav1.OwnerReference{
 		APIVersion:         "apps.cloudrobotics.com/v1alpha1",
 		Kind:               "ResourceSet",
 		Name:               set.Name,
 		UID:                set.UID,
-		BlockOwnerDeletion: &_true,
+		BlockOwnerDeletion: new(true),
 	}
 	annotatedDeploy.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 	setAppliedAnnotation(annotatedDeploy)

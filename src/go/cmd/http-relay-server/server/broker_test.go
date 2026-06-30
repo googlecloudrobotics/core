@@ -22,6 +22,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
@@ -270,98 +271,100 @@ func TestTimeout(t *testing.T) {
 }
 
 func TestReapWhileSendingResponse(t *testing.T) {
-	b := newBroker()
-	b.req["foo"] = make(chan *pb.HttpRequest)
+	synctest.Test(t, func(t *testing.T) {
+		b := newBroker()
+		b.req["foo"] = make(chan *pb.HttpRequest)
 
-	// create a broker connection between the user client and backend side, but don't
-	// start sending data. "req" is backend side and "resp" is user client side.
-	var req *pb.HttpRequest
-	var reqErr error
-	// var resp <-chan *pb.HttpResponse
-	var respErr error
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		req, reqErr = b.GetRequest(t.Context(), "foo", "/")
-		if reqErr != nil {
-			t.Errorf("GetRequest error: %v", reqErr)
+		// create a broker connection between the user client and backend side, but don't
+		// start sending data. "req" is backend side and "resp" is user client side.
+		var req *pb.HttpRequest
+		var reqErr error
+		// var resp <-chan *pb.HttpResponse
+		var respErr error
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			req, reqErr = b.GetRequest(t.Context(), "foo", "/")
+			if reqErr != nil {
+				t.Errorf("GetRequest error: %v", reqErr)
+			}
+			wg.Done()
+		}()
+		go func() {
+			_, respErr = b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
+			if respErr != nil {
+				t.Errorf("RelayRequest error: %v", respErr)
+			}
+			wg.Done()
+		}()
+		wg.Wait()
+		if reqErr != nil || respErr != nil {
+			t.Errorf("Error making broker connection")
 		}
-		wg.Done()
-	}()
-	go func() {
-		_, respErr = b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
-		if respErr != nil {
-			t.Errorf("RelayRequest error: %v", respErr)
-		}
-		wg.Done()
-	}()
-	wg.Wait()
-	if reqErr != nil || respErr != nil {
-		t.Errorf("Error making broker connection")
-	}
 
-	// start sending response to user client, BUT do not start consuming the response.
-	wg.Add(1)
-	go func() {
-		reqErr = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(false)})
-		if !errors.Is(reqErr, ErrClosedInactivity) {
-			t.Errorf("Wrong SendResponse error: %v; want %v", reqErr, ErrClosedInactivity)
-		}
-		wg.Done()
-	}()
-	// FIXME(koonpeng): we need to wait for the goroutinue to be blocked on writing the response, currently
-	// there is no way to confirm that so we use a sleep.
-	time.Sleep(100 * time.Millisecond)
-	// reap the request
-	b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
-	wg.Wait()
+		// start sending response to user client, BUT do not start consuming the response.
+		wg.Add(1)
+		go func() {
+			reqErr = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(false)})
+			if !errors.Is(reqErr, ErrClosedInactivity) {
+				t.Errorf("Wrong SendResponse error: %v; want %v", reqErr, ErrClosedInactivity)
+			}
+			wg.Done()
+		}()
+		// Wait for the goroutine to be blocked on writing the response.
+		synctest.Wait()
+		// reap the request
+		b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
+		wg.Wait()
+	})
 }
 
 func TestReapWhileSendingRequest(t *testing.T) {
-	b := newBroker()
-	b.req["foo"] = make(chan *pb.HttpRequest)
+	synctest.Test(t, func(t *testing.T) {
+		b := newBroker()
+		b.req["foo"] = make(chan *pb.HttpRequest)
 
-	// create a broker connection between the user client and backend side, but don't
-	// start sending data. "req" is backend side and "resp" is user client side.
-	var req *pb.HttpRequest
-	var reqErr error
-	// var resp <-chan *pb.HttpResponse
-	var respErr error
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		req, reqErr = b.GetRequest(t.Context(), "foo", "/")
-		if reqErr != nil {
-			t.Errorf("GetRequest error: %v", reqErr)
+		// create a broker connection between the user client and backend side, but don't
+		// start sending data. "req" is backend side and "resp" is user client side.
+		var req *pb.HttpRequest
+		var reqErr error
+		// var resp <-chan *pb.HttpResponse
+		var respErr error
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			req, reqErr = b.GetRequest(t.Context(), "foo", "/")
+			if reqErr != nil {
+				t.Errorf("GetRequest error: %v", reqErr)
+			}
+			wg.Done()
+		}()
+		go func() {
+			_, respErr = b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
+			if respErr != nil {
+				t.Errorf("RelayRequest error: %v", respErr)
+			}
+			wg.Done()
+		}()
+		wg.Wait()
+		if reqErr != nil || respErr != nil {
+			t.Errorf("Error making broker connection")
 		}
-		wg.Done()
-	}()
-	go func() {
-		_, respErr = b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
-		if respErr != nil {
-			t.Errorf("RelayRequest error: %v", respErr)
-		}
-		wg.Done()
-	}()
-	wg.Wait()
-	if reqErr != nil || respErr != nil {
-		t.Errorf("Error making broker connection")
-	}
 
-	// start sending request stream to backend, BUT do not start consuming on the backend side
-	wg.Add(1)
-	go func() {
-		if ok := b.PutRequestStream(*req.Id, []byte(*req.Id)); !ok {
-			t.Errorf("Error putting request stream")
-		}
-		wg.Done()
-	}()
-	// FIXME(koonpeng): we need to wait for the goroutinue to be blocked on writing the request, currently
-	// there is no way to confirm that so we use a sleep.
-	time.Sleep(100 * time.Millisecond)
-	// reap the request
-	b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
-	wg.Wait()
+		// start sending request stream to backend, BUT do not start consuming on the backend side
+		wg.Add(1)
+		go func() {
+			if ok := b.PutRequestStream(*req.Id, []byte(*req.Id)); !ok {
+				t.Errorf("Error putting request stream")
+			}
+			wg.Done()
+		}()
+		// Wait for the goroutine to be blocked on writing the request.
+		synctest.Wait()
+		// reap the request
+		b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
+		wg.Wait()
+	})
 }
 
 func TestRelayRequestUrlParseError(t *testing.T) {

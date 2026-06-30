@@ -553,10 +553,10 @@ func newCloudChartAssignment(
 	ca.Spec.ClusterName = "cloud"
 
 	// Generate robot values list that's injected into the cloud chart.
-	var robotValuesList []robotValues
+	var robotValuesList []interface{}
 	for _, r := range robots {
-		robotValuesList = append(robotValuesList, robotValues{
-			Name: r.Name,
+		robotValuesList = append(robotValuesList, map[string]interface{}{
+			"name": r.Name,
 		})
 	}
 	vals := chartutil.Values{}
@@ -591,7 +591,7 @@ func newRobotChartAssignment(
 	vals := chartutil.Values{}
 	vals.MergeInto(values)
 	vals.MergeInto(chartutil.Values(spec.Values))
-	vals.MergeInto(chartutil.Values{"robot": robotValues{Name: robot.Name}})
+	vals.MergeInto(chartutil.Values{"robot": map[string]interface{}{"name": robot.Name}})
 
 	ca.Spec.Chart.Values = apps.ConfigValues(vals)
 
@@ -667,11 +667,9 @@ func chartAssignmentName(rollout string, typ componentType, robot string) string
 	return fmt.Sprintf("%s-%s", rollout, typ)
 }
 
-// robotValues is the struct that is passed into the cloud chart configuration
-// for each robot matched by a rollout.
-type robotValues struct {
-	Name string `json:"name"`
-}
+
+
+
 
 func setLabel(o *metav1.ObjectMeta, k, v string) {
 	if o.Labels == nil {

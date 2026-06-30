@@ -158,10 +158,17 @@ func (rs *releases) ensureDeleted(as *apps.ChartAssignment) bool {
 	return r.start(func() { r.delete(asCopy) })
 }
 
-// run all functions sent on the actor channel in sequence.
 func (r *release) run() {
-	for f := range r.actorc {
-		f()
+	for {
+		select {
+		case f, ok := <-r.actorc:
+			if !ok {
+				return
+			}
+			f()
+		case <-r.ctx.Done():
+			return
+		}
 	}
 }
 
