@@ -65,7 +65,6 @@ use_repo(
     "com_github_jaypipes_ghw",
     "com_github_jaypipes_pcidb",
     "com_github_motemen_go_loghttp",
-    "com_github_onsi_gomega",
     "com_github_prometheus_client_golang",
     "com_github_spf13_cobra",
     "com_github_spf13_pflag",

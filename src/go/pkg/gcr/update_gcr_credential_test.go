@@ -15,13 +15,12 @@
 package gcr
 
 import (
+	"encoding/json"
+	"reflect"
 	"testing"
-
-	. "github.com/onsi/gomega"
 )
 
 func TestDockercfgJSON(t *testing.T) {
-	g := NewGomegaWithT(t)
 	expectedJSON := `{
   "https://gcr.io":{"username":"oauth2accesstoken","password":"ya29.yaddayadda","email":"not@val.id","auth":"b2F1dGgyYWNjZXNzdG9rZW46eWEyOS55YWRkYXlhZGRh"},
   "https://asia.gcr.io":{"username":"oauth2accesstoken","password":"ya29.yaddayadda","email":"not@val.id","auth":"b2F1dGgyYWNjZXNzdG9rZW46eWEyOS55YWRkYXlhZGRh"},
@@ -31,5 +30,15 @@ func TestDockercfgJSON(t *testing.T) {
 
 	gotJSON := DockerCfgJSON("ya29.yaddayadda")
 
-	g.Expect(gotJSON).To(MatchJSON(expectedJSON))
+	var expected, got map[string]interface{}
+	if err := json.Unmarshal([]byte(expectedJSON), &expected); err != nil {
+		t.Fatalf("failed to unmarshal expected JSON: %v", err)
+	}
+	if err := json.Unmarshal(gotJSON, &got); err != nil {
+		t.Fatalf("failed to unmarshal got JSON: %v", err)
+	}
+
+	if !reflect.DeepEqual(expected, got) {
+		t.Errorf("JSONs do not match.\nExpected: %s\nGot: %s", expectedJSON, string(gotJSON))
+	}
 }

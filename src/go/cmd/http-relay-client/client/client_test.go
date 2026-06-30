@@ -22,7 +22,6 @@ import (
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
-	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/h2non/gock.v1"
 )
@@ -213,7 +212,6 @@ func TestServerTimeout(t *testing.T) {
 }
 
 func TestBuildResponsesTimesOut(t *testing.T) {
-	g := NewGomegaWithT(t)
 	bodyChannel := make(chan []byte)
 	responseChannel := make(chan *pb.HttpResponse)
 	resp := &pb.HttpResponse{
@@ -226,20 +224,44 @@ func TestBuildResponsesTimesOut(t *testing.T) {
 	go client.buildResponses(bodyChannel, resp, responseChannel)
 	bodyChannel <- []byte("foo")
 	resp = <-responseChannel
-	g.Expect(*resp.Id).To(Equal("20"))
-	g.Expect(*resp.StatusCode).To(Equal(int32(200)))
-	g.Expect(string(resp.Body)).To(Equal("foo"))
-	g.Expect(resp.Eof).To(BeNil())
+	if got, want := resp.GetId(), "20"; got != want {
+		t.Errorf("resp.Id = %q; want %q", got, want)
+	}
+	if got, want := resp.GetStatusCode(), int32(200); got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+	}
+	if got, want := string(resp.Body), "foo"; got != want {
+		t.Errorf("resp.Body = %q; want %q", got, want)
+	}
+	if resp.Eof != nil {
+		t.Errorf("resp.Eof = %v; want nil", *resp.Eof)
+	}
 	bodyChannel <- []byte("bar")
 	resp = <-responseChannel
-	g.Expect(*resp.Id).To(Equal("20"))
-	g.Expect(resp.StatusCode).To(BeNil())
-	g.Expect(string(resp.Body)).To(Equal("bar"))
-	g.Expect(resp.Eof).To(BeNil())
+	if got, want := resp.GetId(), "20"; got != want {
+		t.Errorf("resp.Id = %q; want %q", got, want)
+	}
+	if resp.StatusCode != nil {
+		t.Errorf("resp.StatusCode = %d; want nil", *resp.StatusCode)
+	}
+	if got, want := string(resp.Body), "bar"; got != want {
+		t.Errorf("resp.Body = %q; want %q", got, want)
+	}
+	if resp.Eof != nil {
+		t.Errorf("resp.Eof = %v; want nil", *resp.Eof)
+	}
 	close(bodyChannel)
 	resp = <-responseChannel
-	g.Expect(*resp.Id).To(Equal("20"))
-	g.Expect(resp.StatusCode).To(BeNil())
-	g.Expect(string(resp.Body)).To(Equal(""))
-	g.Expect(*resp.Eof).To(Equal(true))
+	if got, want := resp.GetId(), "20"; got != want {
+		t.Errorf("resp.Id = %q; want %q", got, want)
+	}
+	if resp.StatusCode != nil {
+		t.Errorf("resp.StatusCode = %d; want nil", *resp.StatusCode)
+	}
+	if got, want := string(resp.Body), ""; got != want {
+		t.Errorf("resp.Body = %q; want %q", got, want)
+	}
+	if resp.Eof == nil || !*resp.Eof {
+		t.Errorf("resp.Eof = %v; want true", resp.Eof)
+	}
 }
