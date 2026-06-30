@@ -167,6 +167,33 @@ function set_default_vars {
   # Use dataplane_v2 for all new projects
   GKE_DATAPATH_PROVIDER="ADVANCED_DATAPATH"
 
+  # Ask for gcp vm type
+  GCP_NODE_VM_TYPE=${GCP_NODE_VM_TYPE:-"e2-standard-4"}
+  read_variable GCP_NODE_VM_TYPE "Which GCP VM type should be used for the GKE nodes?" "${GCP_NODE_VM_TYPE}"
+
+  # Ask for GKE min/max nodes
+  GKE_MIN_NODES=${GKE_MIN_NODES:-2}
+  while :; do
+    read_variable GKE_MIN_NODES "What is the minimum number of nodes for the GKE cluster?" "${GKE_MIN_NODES}"
+    if [[ "${GKE_MIN_NODES}" =~ ^[0-9]+$ ]]; then
+      break
+    fi
+    echo "Value must be an integer"
+  done
+
+  GKE_MAX_NODES=${GKE_MAX_NODES:-16}
+  while :; do
+    read_variable GKE_MAX_NODES "What is the maximum number of nodes for the GKE cluster?" "${GKE_MAX_NODES}"
+    if [[ "${GKE_MAX_NODES}" =~ ^[0-9]+$ ]]; then
+      if [ "${GKE_MAX_NODES}" -ge "${GKE_MIN_NODES}" ]; then
+        break
+      fi
+      echo "Maximum nodes must be greater than or equal to minimum nodes (${GKE_MIN_NODES})"
+    else
+      echo "Value must be an integer"
+    fi
+  done
+
   # Ask for Terraform bucket and location.
   OLD_TERRAFORM_GCS_BUCKET="${TERRAFORM_GCS_BUCKET}"
   OLD_TERRAFORM_GCS_PREFIX="${TERRAFORM_GCS_PREFIX}"
@@ -266,6 +293,9 @@ print_variable "GCP project ID" "${GCP_PROJECT_ID}"
 print_variable "GCP region" "${GCP_REGION}"
 print_variable "GCP zone" "${GCP_ZONE}"
 print_variable "GKE cluster type" "${GKE_CLUSTER_TYPE}"
+print_variable "GCP node VM type" "${GCP_NODE_VM_TYPE}"
+print_variable "GKE min nodes" "${GKE_MIN_NODES}"
+print_variable "GKE max nodes" "${GKE_MAX_NODES}"
 print_variable "GKE datapath provider" "${GKE_DATAPATH_PROVIDER}"
 print_variable "Terraform state bucket" "${TERRAFORM_GCS_BUCKET}"
 print_variable "Terraform state directory" "${TERRAFORM_GCS_PREFIX}"
@@ -304,6 +334,9 @@ else
   save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CTX "gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
 fi
 save_variable "${CONFIG_FILE}" GKE_CLUSTER_TYPE "${GKE_CLUSTER_TYPE}"
+save_variable "${CONFIG_FILE}" GCP_NODE_VM_TYPE "${GCP_NODE_VM_TYPE}"
+save_variable "${CONFIG_FILE}" GKE_MIN_NODES "${GKE_MIN_NODES}"
+save_variable "${CONFIG_FILE}" GKE_MAX_NODES "${GKE_MAX_NODES}"
 save_variable "${CONFIG_FILE}" GKE_DATAPATH_PROVIDER "${GKE_DATAPATH_PROVIDER}"
 save_variable "${CONFIG_FILE}" TERRAFORM_GCS_BUCKET "${TERRAFORM_GCS_BUCKET}"
 save_variable "${CONFIG_FILE}" TERRAFORM_GCS_PREFIX "${TERRAFORM_GCS_PREFIX}"

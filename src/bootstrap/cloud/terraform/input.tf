@@ -96,3 +96,27 @@ variable "secret_manager_plugin" {
   type        = bool
   default     = false
 }
+
+variable "node_machine_type" {
+  description = "GCP VM type for GKE nodes"
+  type        = string
+  default     = "e2-standard-4"
+}
+
+variable "node_disk_type" {
+  description = "Disk type for GKE nodes. If null, it will be automatically chosen based on machine type."
+  type        = string
+  default     = null
+}
+
+variable "min_node_count" {
+  description = "Minimum number of nodes in the GKE node pool"
+  type        = number
+  default     = 2
+}
+
+variable "max_node_count" {
+  description = "Maximum number of nodes in the GKE node pool"
+  type        = number
+  default     = 16
+}

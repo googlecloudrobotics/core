@@ -4,6 +4,10 @@
 # service account for the nodes. This service account cannot be used by the
 # workloads: see workload-identity.tf for those service accounts.
 
+locals {
+  node_disk_type = var.node_disk_type != null ? var.node_disk_type : (startswith(var.node_machine_type, "n4") ? "hyperdisk-balanced" : "pd-balanced")
+}
+
 resource "google_container_cluster" "cloud-robotics" {
   project               = data.google_project.project.project_id
   name                  = "cloud-robotics"
@@ -130,12 +134,13 @@ resource "google_container_node_pool" "cloud_robotics_base_pool" {
   initial_node_count = 2
 
   autoscaling {
-    min_node_count = 1
-    max_node_count = 16
+    min_node_count = var.min_node_count
+    max_node_count = var.max_node_count
   }
 
   node_config {
-    machine_type = "e2-standard-4"
+    machine_type = var.node_machine_type
+    disk_type    = local.node_disk_type
     # The GKE Metadata Server enables Workload Identity.
     workload_metadata_config {
       mode = "GKE_METADATA"
@@ -158,12 +163,13 @@ resource "google_container_node_pool" "cloud_robotics_base_pool_ar" {
   initial_node_count = 2
 
   autoscaling {
-    min_node_count = 1
-    max_node_count = 10
+    min_node_count = var.min_node_count
+    max_node_count = var.max_node_count
   }
 
   node_config {
-    machine_type = "e2-standard-4"
+    machine_type = var.node_machine_type
+    disk_type    = local.node_disk_type
     # The GKE Metadata Server enables Workload Identity.
     workload_metadata_config {
       mode = "GKE_METADATA"
