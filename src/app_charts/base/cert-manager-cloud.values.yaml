@@ -11,3 +11,9 @@ installCRDs: true
 serviceAccount:
   annotations:
     iam.gke.io/gcp-service-account: cert-manager@PROJECT-ID.iam.gserviceaccount.com
+
+# Enable Prometheus metrics endpoints and ServiceMonitor resource creation
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: true
