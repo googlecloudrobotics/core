@@ -282,8 +282,8 @@ github.com/googleapis/gax-go/v2 v2.0.4/go.mod h1:0Wqv26UfaUD9n4G6kQubkQ+KchISgw+
 github.com/googleapis/gax-go/v2 v2.0.5/go.mod h1:DWXyrwAJ9X0FpwwEdw+IPEYBICEFu5mhpdKc/us6bOk=
 github.com/googleapis/gax-go/v2 v2.22.0 h1:PjIWBpgGIVKGoCXuiCoP64altEJCj3/Ei+kSU5vlZD4=
 github.com/googleapis/gax-go/v2 v2.22.0/go.mod h1:irWBbALSr0Sk3qlqb9SyJ1h68WjgeFuiOzI4Rqw5+aY=
-github.com/googlecloudrobotics/ilog v0.0.0-20240112131211-2efd642f756e h1:lfnmC6SUHV/5QrqXElmZ0WgojfIccKVNtxDry4T3AS8=
-github.com/googlecloudrobotics/ilog v0.0.0-20240112131211-2efd642f756e/go.mod h1:t9Up/i5bPfkBc7lEE+p0+lcD0NDw2zTTr19x19D7720=
+github.com/googlecloudrobotics/ilog v0.2.0 h1:U4KGtAubWHqCN9qIt2OXhUFxNVWB+OoIuq1JrSdBnEQ=
+github.com/googlecloudrobotics/ilog v0.2.0/go.mod h1:t9Up/i5bPfkBc7lEE+p0+lcD0NDw2zTTr19x19D7720=
 github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 h1:2VTzZjLZBgl62/EtslCrtky5vbi9dd7HrQPQIx6wqiw=
 github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542/go.mod h1:Ow0tF8D4Kplbc8s8sSb3V2oUCygFHVp8gC3Dn6U4MNI=
 github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
