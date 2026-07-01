@@ -16,3 +16,6 @@ buildprofile.out.html
 
 # terraform
 src/bootstrap/cloud/terraform/.terraform.lock.hcl
+
+# Local configuration file
+config.sh

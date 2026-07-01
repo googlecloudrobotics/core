@@ -117,15 +117,19 @@ CLOUD_BUCKET="gs://${GCP_PROJECT_ID}-cloud-robotics-config"
 CONFIG_FILE="$(mktemp)"
 trap '{ rm -f ${CONFIG_FILE}; }' EXIT
 
-if gcloud storage cp "${CLOUD_BUCKET}/config.sh" "${CONFIG_FILE}" 2>/dev/null; then
+if [[ -f "${DIR}/config.sh" ]]; then
   if [[ -n "${FLAG_ENSURE_CONFIG}" ]]; then
     echo "Found Cloud Robotics config."
     exit 0
   fi
-  source ${CONFIG_FILE}
-  if [[ "${PROVISIONED_BY_DEPLOY_SCRIPT}" == "false" ]]; then
-    die "ERROR: This project is managed by Terraform. Please modify your Terraform configuration instead of running set-config.sh."
+  cp "${DIR}/config.sh" "${CONFIG_FILE}"
+  source "${CONFIG_FILE}"
+elif gcloud storage cp "${CLOUD_BUCKET}/config.sh" "${CONFIG_FILE}" 2>/dev/null; then
+  if [[ -n "${FLAG_ENSURE_CONFIG}" ]]; then
+    echo "Found Cloud Robotics config."
+    exit 0
   fi
+  source "${CONFIG_FILE}"
 else
   if [[ -n "${FLAG_EDIT_OAUTH}" ]]; then
     die "You have to create a config before you can enable OAuth."
@@ -331,11 +335,7 @@ echo "Saving configuration..."
 save_variable "${CONFIG_FILE}" GCP_PROJECT_ID "${GCP_PROJECT_ID}"
 save_variable "${CONFIG_FILE}" GCP_REGION "${GCP_REGION}"
 save_variable "${CONFIG_FILE}" GCP_ZONE "${GCP_ZONE}"
-if [[ "${GKE_CLUSTER_TYPE}" == "regional" ]]; then
-  save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CTX "gke_${GCP_PROJECT_ID}_${GCP_REGION}_cloud-robotics"
-else
-  save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CTX "gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
-fi
+
 save_variable "${CONFIG_FILE}" GKE_CLUSTER_TYPE "${GKE_CLUSTER_TYPE}"
 save_variable "${CONFIG_FILE}" GCP_NODE_VM_TYPE "${GCP_NODE_VM_TYPE}"
 save_variable "${CONFIG_FILE}" GKE_MIN_NODES "${GKE_MIN_NODES}"
@@ -353,8 +353,7 @@ save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION "
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME}"
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}"
 
-# Upload config to the cloud.
-if ! gcloud -q storage buckets describe --project ${GCP_PROJECT_ID} "${CLOUD_BUCKET}" >/dev/null 2>&1; then
-  gcloud storage buckets create --project ${GCP_PROJECT_ID} ${CLOUD_BUCKET}
-fi
-gcloud storage mv "${CONFIG_FILE}" "${CLOUD_BUCKET}/config.sh"
+# Save config locally.
+cp "${CONFIG_FILE}" "${DIR}/config.sh"
+echo "Configuration saved to ${DIR}/config.sh."
+echo "Please run ./deploy.sh to apply the changes to the cloud."

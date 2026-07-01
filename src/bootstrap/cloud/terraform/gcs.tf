@@ -50,33 +50,35 @@ resource "google_storage_bucket_object" "config_store_crc_version" {
 resource "random_id" "cloud_robotics_cookie_secret" {
   byte_length = 16
 
-  count = var.provisioned_by_deploy_script ? 0 : 1
+  count = var.cookie_secret == null ? 1 : 0
 }
 
 resource "google_storage_bucket_object" "crc_config" {
   name = "config.sh"
-  content = templatefile("${path.module}/config.sh.tmpl", {
-    project_id                   = data.google_project.project.project_id
-    region                       = var.region
-    zone                         = var.zone
-    private_image_repositories   = var.private_image_repositories
-    shared_owner_group           = var.shared_owner_group
-    domain                       = var.domain
-    cloud_robotics_cookie_secret = random_id.cloud_robotics_cookie_secret[0].b64_url
-    oauth2_client_id             = var.oauth2_client != null ? var.oauth2_client.client_id : ""
-    oauth2_client_secret         = var.oauth2_client != null ? var.oauth2_client.secret : ""
-    onprem_federation            = var.onprem_federation
-    secret_manager_plugin        = var.secret_manager_plugin
-    node_machine_type            = var.node_machine_type
-    min_node_count               = var.min_node_count
-    max_node_count               = var.max_node_count
-    ingress_ip                   = google_compute_address.cloud_robotics.address
-    ingress_ip_ar_bash = join("\n", [
-      for address in google_compute_address.cloud_robotics_ar : "CLOUD_ROBOTICS_INGRESS_IP_AR[\"${address.name}\"]=\"${address.address}\""
-    ])
-  })
+  content = <<EOF
+#!/usr/bin/env bash
+GCP_PROJECT_ID='${data.google_project.project.project_id}'
+GCP_REGION='${var.region}'
+GCP_ZONE='${var.zone}'
+CLOUD_ROBOTICS_CONTAINER_REGISTRY='gcr.io/${data.google_project.project.project_id}'
+PRIVATE_DOCKER_PROJECTS='${join(" ", var.private_image_repositories)}'
+CLOUD_ROBOTICS_SHARED_OWNER_GROUP='${var.shared_owner_group}'
+CLOUD_ROBOTICS_COOKIE_SECRET='${var.cookie_secret != null ? var.cookie_secret : random_id.cloud_robotics_cookie_secret[0].b64_url}'
+CLOUD_ROBOTICS_OAUTH2_CLIENT_ID='${var.oauth2_client != null ? var.oauth2_client.client_id : ""}'
+CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET='${var.oauth2_client != null ? var.oauth2_client.secret : ""}'
+CLOUD_ROBOTICS_DOMAIN='${var.domain}'
+GCP_NODE_VM_TYPE='${var.node_machine_type}'
+GKE_MIN_NODES='${var.min_node_count}'
+GKE_MAX_NODES='${var.max_node_count}'
+CLOUD_ROBOTICS_INGRESS_IP='${google_compute_address.cloud_robotics.address}'
+declare -A CLOUD_ROBOTICS_INGRESS_IP_AR
+${join("\n", [
+  for address in google_compute_address.cloud_robotics_ar : "CLOUD_ROBOTICS_INGRESS_IP_AR[\"${address.name}\"]=\"${address.address}\""
+])}
+APP_MANAGEMENT=true
+ONPREM_FEDERATION="${var.onprem_federation}"
+GKE_SECRET_MANAGER_PLUGIN='${var.secret_manager_plugin}'
+EOF
   bucket        = google_storage_bucket.config_store.name
   cache_control = "private, max-age=0, no-transform"
-
-  count = var.provisioned_by_deploy_script ? 0 : 1
 }

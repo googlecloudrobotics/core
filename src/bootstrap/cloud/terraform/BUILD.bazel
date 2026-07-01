@@ -1,7 +1,6 @@
 filegroup(
     name = "terraform",
     srcs = [
-        "config.sh.tmpl",
         "www.yaml",
     ] + glob(
         include = ["*.tf"],

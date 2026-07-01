@@ -61,18 +61,7 @@ function include_config_and_defaults {
   CLOUD_ROBOTICS_CTX=${CLOUD_ROBOTICS_CTX:-"gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"}
 }
 
-function update_config_var {
-  cloud_bucket="gs://${1}-cloud-robotics-config"
-  name="${2}"
-  value="${3}"
 
-  config_file="$(mktemp)"
-  gcloud storage cp "${cloud_bucket}/config.sh" "${config_file}" 2>/dev/null || return
-
-  save_variable "${config_file}" "${name}" "${value}"
-
-  gcloud storage mv "${config_file}" "${cloud_bucket}/config.sh"
-}
 
 function prepare_source_install {
   # For whatever reasons different combinations of bazel environemnt seem to
@@ -170,21 +159,26 @@ min_node_count = ${GKE_MIN_NODES}
 max_node_count = ${GKE_MAX_NODES}
 onprem_federation = ${ONPREM_FEDERATION}
 secret_manager_plugin = ${GKE_SECRET_MANAGER_PLUGIN}
-provisioned_by_deploy_script = true
-EOF
-
-# Add certificate information if the configured provider requires it
-  if [[ ! "none self-signed" =~ (" "|^)"${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"(" "|$) ]]; then
-    cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
 certificate_subject_common_name = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME}"
 certificate_subject_organization = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION}"
 EOF
 
   if [[ -n "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}" ]]; then
-      cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
-certificate_subject_organizational_unit = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}"
-EOF
-    fi
+    echo "certificate_subject_organizational_unit = \"${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}\"" >> "${TERRAFORM_DIR}/terraform.tfvars"
+  else
+    echo "certificate_subject_organizational_unit = null" >> "${TERRAFORM_DIR}/terraform.tfvars"
+  fi
+
+  if [[ -n "${GCP_NODE_DISK_TYPE:-}" ]]; then
+    echo "node_disk_type = \"${GCP_NODE_DISK_TYPE}\"" >> "${TERRAFORM_DIR}/terraform.tfvars"
+  else
+    echo "node_disk_type = null" >> "${TERRAFORM_DIR}/terraform.tfvars"
+  fi
+
+  if [[ -n "${CLOUD_ROBOTICS_COOKIE_SECRET:-}" ]]; then
+    echo "cookie_secret = \"${CLOUD_ROBOTICS_COOKIE_SECRET}\"" >> "${TERRAFORM_DIR}/terraform.tfvars"
+  else
+    echo "cookie_secret = null" >> "${TERRAFORM_DIR}/terraform.tfvars"
   fi
 
   echo 'additional_regions = {' >> "${TERRAFORM_DIR}/terraform.tfvars"
@@ -204,12 +198,21 @@ EOF
   done
   echo '}' >> "${TERRAFORM_DIR}/terraform.tfvars"
 
-# Docker private projects
-
   if [[ -n "${PRIVATE_DOCKER_PROJECTS:-}" ]]; then
+    echo "private_image_repositories = [\"${PRIVATE_DOCKER_PROJECTS// /\", \"}\"]" >> "${TERRAFORM_DIR}/terraform.tfvars"
+  else
+    echo "private_image_repositories = []" >> "${TERRAFORM_DIR}/terraform.tfvars"
+  fi
+
+  if [[ -n "${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}" && -n "${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}" ]]; then
     cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
-private_image_repositories = ["${PRIVATE_DOCKER_PROJECTS// /\", \"}"]
+oauth2_client = {
+  client_id = "${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
+  secret = "${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
+}
 EOF
+  else
+    echo "oauth2_client = null" >> "${TERRAFORM_DIR}/terraform.tfvars"
   fi
 
 # Terraform bucket
@@ -252,20 +255,6 @@ function terraform_apply {
 
   terraform_exec apply ${TERRAFORM_APPLY_FLAGS} \
     || die "terraform apply failed"
-  terraform_post
-}
-
-function terraform_post {
-  local OLD_CLOUD_ROBOTICS_CTX
-  local location
-
-  OLD_CLOUD_ROBOTICS_CTX="${CLOUD_ROBOTICS_CTX}"
-  CLOUD_ROBOTICS_CTX=$(gke_context_name "${GCP_PROJECT_ID}" "cloud-robotics" "${GCP_REGION}" "${GCP_ZONE}")
-  [[ -z "${CLOUD_ROBOTICS_CTX}" ]] && die "no cloud-robotics cluster found"
-  if [[ "${OLD_CLOUD_ROBOTICS_CTX}" != "${CLOUD_ROBOTICS_CTX}" ]]; then
-    echo "updating CLOUD_ROBOTICS_CTX from ${OLD_CLOUD_ROBOTICS_CTX} to ${CLOUD_ROBOTICS_CTX}"
-    update_config_var ${GCP_PROJECT_ID} "CLOUD_ROBOTICS_CTX" "${CLOUD_ROBOTICS_CTX}"
-  fi
 }
 
 function terraform_delete {

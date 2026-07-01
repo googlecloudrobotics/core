@@ -22,7 +22,6 @@ variable "additional_regions" {
 
 variable "shared_owner_group" {
   description = "Name of a group to be added as a owner. Leave empty to not use group sharing."
-  default     = ""
 }
 
 variable "robot_image_reference" {
@@ -36,7 +35,6 @@ variable "crc_version" {
 variable "private_image_repositories" {
   description = "Projects with private GCR image repositories where we need to add IAM access rules."
   type        = list(any)
-  default     = []
 }
 
 variable "certificate_provider" {
@@ -63,7 +61,6 @@ variable "certificate_subject_organizational_unit" {
 variable "cluster_type" {
   description = "GKE cluster type. Must be one of {zonal,regional}."
   type        = string
-  default     = "zonal"
 
   validation {
     condition     = contains(["zonal", "regional"], var.cluster_type)
@@ -74,7 +71,6 @@ variable "cluster_type" {
 variable "datapath_provider" {
   description = "Whether to use Dataplane v1 or v2 (DATAPATH_PROVIDER_UNSPECIFIED or ADVANCED_DATAPATH)."
   type        = string
-  default     = "DATAPATH_PROVIDER_UNSPECIFIED"
   validation {
     condition = contains(["DATAPATH_PROVIDER_UNSPECIFIED", "ADVANCED_DATAPATH"], var.datapath_provider)
     error_message = "Must be either \"DATAPATH_PROVIDER_UNSPECIFIED\" or \"ADVANCED_DATAPATH\"."
@@ -84,37 +80,31 @@ variable "datapath_provider" {
 variable "onprem_federation" {
   description = "Enable google cloud robotics layer 1"
   type        = bool
-  default     = true
 }
 
 variable "secret_manager_plugin" {
   description = "Enable GKE secret manager integration with GKE"
   type        = bool
-  default     = false
 }
 
 variable "node_machine_type" {
   description = "GCP VM type for GKE nodes"
   type        = string
-  default     = "e2-standard-4"
 }
 
 variable "node_disk_type" {
   description = "Disk type for GKE nodes. If null, it will be automatically chosen based on machine type."
   type        = string
-  default     = null
 }
 
 variable "min_node_count" {
   description = "Minimum number of nodes in the GKE node pool"
   type        = number
-  default     = 2
 }
 
 variable "max_node_count" {
   description = "Maximum number of nodes in the GKE node pool"
   type        = number
-  default     = 16
 }
 
 variable "oauth2_client" {
@@ -123,11 +113,9 @@ variable "oauth2_client" {
     client_id = string
     secret = string
   })
-  default = null
 }
 
-variable "provisioned_by_deploy_script" {
-  description = "True if CRC resources are provisioned by deploy script"
-  type = bool
-  default = false
+variable "cookie_secret" {
+  description = "Symmetric cookie encryption key for the oauth2-proxy. If null, it will be generated."
+  type        = string
 }

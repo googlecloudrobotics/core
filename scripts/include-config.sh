@@ -41,7 +41,14 @@ function check_var_is_one_of {
 function include_config {
   local project="$1"
 
-  source <(gcloud storage cat "gs://${project}-cloud-robotics-config/config.sh")
+  local root_dir
+  root_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+
+  if [[ -f "${root_dir}/config.sh" ]]; then
+    source "${root_dir}/config.sh"
+  else
+    source <(gcloud storage cat "gs://${project}-cloud-robotics-config/config.sh")
+  fi
 
   # Check that config defines the following set of configuration variables
   check_vars_not_empty GCP_PROJECT_ID GCP_REGION GCP_ZONE
@@ -66,4 +73,11 @@ function include_config {
   GCP_NODE_VM_TYPE=${GCP_NODE_VM_TYPE:-${GCP_VM_TYPE:-e2-standard-4}}
   GKE_MIN_NODES=${GKE_MIN_NODES:-2}
   GKE_MAX_NODES=${GKE_MAX_NODES:-16}
+
+  if [[ "${GKE_CLUSTER_TYPE}" == "regional" ]]; then
+    CLOUD_ROBOTICS_CTX="gke_${GCP_PROJECT_ID}_${GCP_REGION}_cloud-robotics"
+  else
+    CLOUD_ROBOTICS_CTX="gke_${GCP_PROJECT_ID}_${GCP_ZONE}_cloud-robotics"
+  fi
+  export CLOUD_ROBOTICS_CTX
 }
