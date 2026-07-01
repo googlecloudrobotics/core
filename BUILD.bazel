@@ -8,6 +8,8 @@ package(default_visibility = ["//visibility:public"])
 exports_files([
     "config.sh.tmpl",
     "deploy.sh",
+    "go.mod",
+    "go.sum",
 ])
 
 # Gazelle uses this to build importpath attributes.
