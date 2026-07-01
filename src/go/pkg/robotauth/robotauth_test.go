@@ -10,11 +10,14 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/quick"
 	"time"
 
 	"golang.org/x/oauth2/jws"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -230,9 +233,8 @@ func TestServiceAccountEmail(t *testing.T) {
 	}
 }
 
-func TestFileLoadStoreRoundtrip(t *testing.T) {
+func TestLoadFromFile(t *testing.T) {
 	tmpDir := t.TempDir()
-	keyFile := filepath.Join(tmpDir, "robot-id.json")
 
 	r := &RobotAuth{
 		RobotName:           "my-robot",
@@ -241,19 +243,148 @@ func TestFileLoadStoreRoundtrip(t *testing.T) {
 		PrivateKey:          []byte("secret"),
 		Domain:              "example.com",
 	}
-
-	// Let's just test LoadFromFile with a specific path.
+	validFile := filepath.Join(tmpDir, "robot-id.json")
 	data, _ := json.Marshal(r)
-	if err := os.WriteFile(keyFile, data, 0600); err != nil {
+	if err := os.WriteFile(validFile, data, 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	got, err := LoadFromFile(keyFile)
-	if err != nil {
-		t.Fatalf("LoadFromFile() failed: %v", err)
+	invalidFile := filepath.Join(tmpDir, "invalid.json")
+	if err := os.WriteFile(invalidFile, []byte("invalid json"), 0600); err != nil {
+		t.Fatal(err)
 	}
 
-	if !reflect.DeepEqual(r, got) {
-		t.Errorf("LoadFromFile() = %v, want %v", got, r)
+	tests := []struct {
+		name      string
+		path      string
+		want      *RobotAuth
+		wantErr   bool
+		errSubstr string
+	}{
+		{
+			name: "Success",
+			path: validFile,
+			want: r,
+		},
+		{
+			name:      "FileNotFound",
+			path:      filepath.Join(tmpDir, "non-existent"),
+			wantErr:   true,
+			errSubstr: "failed to read",
+		},
+		{
+			name:      "InvalidJSON",
+			path:      invalidFile,
+			wantErr:   true,
+			errSubstr: "failed to parse",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := LoadFromFile(tc.path)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("LoadFromFile() error = %v, wantErr %v", err, tc.wantErr)
+			}
+			if tc.wantErr {
+				if !strings.Contains(err.Error(), tc.errSubstr) {
+					t.Errorf("Expected error to contain %q, got %q", tc.errSubstr, err.Error())
+				}
+			} else {
+				if !reflect.DeepEqual(tc.want, got) {
+					t.Errorf("LoadFromFile() = %v, want %v", got, tc.want)
+				}
+			}
+		})
+	}
+}
+
+func TestLoadFromK8sSecret(t *testing.T) {
+	r := &RobotAuth{
+		RobotName:           "my-robot",
+		ProjectId:           "my-project",
+		PublicKeyRegistryId: "my-registry",
+		PrivateKey:          []byte("secret"),
+		Domain:              "example.com",
+	}
+	validData, _ := json.Marshal(r)
+
+	tests := []struct {
+		name      string
+		secret    *corev1.Secret
+		wantErr   bool
+		errSubstr string
+		want      *RobotAuth
+	}{
+		{
+			name: "Success",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "robot-auth",
+					Namespace: "my-ns",
+				},
+				Data: map[string][]byte{
+					"json": validData,
+				},
+			},
+			want: r,
+		},
+		{
+			name:      "NotFound",
+			wantErr:   true,
+			errSubstr: `"robot-auth" not found`,
+		},
+		{
+			name: "MissingJsonKey",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "robot-auth",
+					Namespace: "my-ns",
+				},
+				Data: map[string][]byte{
+					"not-json": []byte("some-data"),
+				},
+			},
+			wantErr:   true,
+			errSubstr: "could not find 'json' key",
+		},
+		{
+			name: "InvalidJSON",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "robot-auth",
+					Namespace: "my-ns",
+				},
+				Data: map[string][]byte{
+					"json": []byte("invalid json"),
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var cs *fake.Clientset
+			if tc.secret != nil {
+				cs = fake.NewSimpleClientset(tc.secret)
+			} else {
+				cs = fake.NewSimpleClientset()
+			}
+
+			got, err := LoadFromK8sSecret(t.Context(), cs, "my-ns")
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("LoadFromK8sSecret() error = %v, wantErr %v", err, tc.wantErr)
+			}
+			if tc.wantErr {
+				if tc.errSubstr != "" && !strings.Contains(err.Error(), tc.errSubstr) {
+					t.Errorf("Expected error to contain %q, got %q", tc.errSubstr, err.Error())
+				}
+			} else {
+				if !reflect.DeepEqual(tc.want, got) {
+					t.Errorf("LoadFromK8sSecret() = %v, want %v", got, tc.want)
+				}
+			}
+		})
 	}
 }

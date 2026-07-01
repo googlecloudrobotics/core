@@ -28,8 +28,8 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
-	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	"github.com/googlecloudrobotics/ilog"
+	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,7 +67,7 @@ func DockerCfgJSON(token string) []byte {
 	return b
 }
 
-func patchServiceAccount(ctx context.Context, k8s *kubernetes.Clientset, name string, namespace string, patchData []byte) error {
+func patchServiceAccount(ctx context.Context, k8s kubernetes.Interface, name string, namespace string, patchData []byte) error {
 	sa := k8s.CoreV1().ServiceAccounts(namespace)
 	return backoff.Retry(
 		func() error {
@@ -89,8 +89,7 @@ func patchServiceAccount(ctx context.Context, k8s *kubernetes.Clientset, name st
 
 // UpdateGcrCredentials authenticates to the cloud cluster using the auth config given and updates
 // the credentials used to pull images from GCR.
-func UpdateGcrCredentials(ctx context.Context, k8s *kubernetes.Clientset, auth *robotauth.RobotAuth, gcpSaChain ...string) error {
-	tokenSource := auth.CreateRobotTokenSource(ctx, gcpSaChain...)
+func UpdateGcrCredentials(ctx context.Context, k8s kubernetes.Interface, tokenSource oauth2.TokenSource) error {
 	token, err := tokenSource.Token()
 	if err != nil {
 		return fmt.Errorf("failed to get token: %v", err)

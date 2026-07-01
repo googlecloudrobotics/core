@@ -134,7 +134,6 @@ func TestCheckRobotName_SucceedsWhenCRDNotFound(t *testing.T) {
 }
 
 func TestCheckRobotName(t *testing.T) {
-	ctx := t.Context()
 	sc := runtime.NewScheme()
 	registry.AddToScheme(sc)
 	*robotName = "robot_name"
@@ -185,7 +184,7 @@ func TestCheckRobotName(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			c := dynfake.NewSimpleDynamicClient(sc, tc.robots...)
-			err := checkRobotName(ctx, c)
+			err := checkRobotName(t.Context(), c)
 			if tc.wantError && err == nil {
 				t.Errorf("checkRobotName() succeeded unexpectedly")
 			}
@@ -197,7 +196,6 @@ func TestCheckRobotName(t *testing.T) {
 }
 
 func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
-	ctx := t.Context()
 	hostname, err := os.Hostname()
 	if err != nil {
 		t.Fatal("Could not determine hostname")
@@ -328,6 +326,7 @@ func TestCreateOrUpdateRobot_Succeeds(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := t.Context()
 			c := dynfake.NewSimpleDynamicClient(sc, tc.robot)
 			if err := createOrUpdateRobot(ctx, c, tc.labels, tc.annotations); err != nil {
 				t.Fatalf("createOrUpdateRobot() failed unexpectedly:  %v", err)

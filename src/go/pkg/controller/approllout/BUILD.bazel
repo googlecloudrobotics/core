@@ -38,9 +38,18 @@ go_test(
     deps = [
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
         "//src/go/pkg/apis/registry/v1alpha1:go_default_library",
+        "@io_k8s_api//admission/v1:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/serializer:go_default_library",
+        "@io_k8s_apimachinery//pkg/types:go_default_library",
+        "@io_k8s_client_go//util/workqueue:go_default_library",
         "@io_k8s_helm//pkg/chartutil:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/client:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/client/fake:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/reconcile:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/webhook/admission:go_default_library",
         "@io_k8s_sigs_yaml//:go_default_library",
     ],
 )

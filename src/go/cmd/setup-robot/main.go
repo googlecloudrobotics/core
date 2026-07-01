@@ -278,7 +278,7 @@ func main() {
 			slog.Error("Failed to write auth secret", ilog.Err(err))
 			os.Exit(1)
 		}
-		if err := gcr.UpdateGcrCredentials(ctx, k8sLocalClientSet, auth); err != nil {
+		if err := gcr.UpdateGcrCredentials(ctx, k8sLocalClientSet, auth.CreateRobotTokenSource(ctx)); err != nil {
 			slog.Error("Failed to update credentials", ilog.Err(err))
 			os.Exit(1)
 		}
