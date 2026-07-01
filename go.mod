@@ -1,4 +1,4 @@
-module github.com/googlecloudrobotics/core/src
+module github.com/googlecloudrobotics/core
 
 go 1.26.1
 
