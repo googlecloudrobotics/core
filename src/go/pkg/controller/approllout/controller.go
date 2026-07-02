@@ -310,14 +310,13 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	// Create or update ChartAssignments. Only update ChartAssignments if the rollout's
 	// spec or labels have been updated.
 	for _, ca := range wantCAs {
-		_true := true
 		setOwnerReference(&ca.ObjectMeta, metav1.OwnerReference{
 			APIVersion:         ar.APIVersion,
 			Kind:               ar.Kind,
 			Name:               ar.Name,
 			UID:                ar.UID,
-			BlockOwnerDeletion: &_true,
-			Controller:         &_true,
+			BlockOwnerDeletion: new(true),
+			Controller:         new(true),
 		})
 		prev, exists := dropCAs[ca.Name]
 		delete(dropCAs, ca.Name)

@@ -621,13 +621,12 @@ func setOwnerRef(r *unstructured.Unstructured, set *apps.ResourceSet) {
 			newRefs = append(newRefs, or)
 		}
 	}
-	_true := true
 	newRefs = append(newRefs, metav1.OwnerReference{
 		APIVersion:         "apps.cloudrobotics.com/v1alpha1",
 		Kind:               "ResourceSet",
 		Name:               set.Name,
 		UID:                set.UID,
-		BlockOwnerDeletion: &_true,
+		BlockOwnerDeletion: new(true),
 	})
 	r.SetOwnerReferences(newRefs)
 }
