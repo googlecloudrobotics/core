@@ -203,13 +203,12 @@ func (r *Reconciler) ensureNamespace(ctx context.Context, as *apps.ChartAssignme
 	ns.Labels = map[string]string{"app": as.Name}
 
 	// Add ourselves to the owners if we aren't already.
-	_true := true
 	added := setOwnerReference(&ns.ObjectMeta, meta.OwnerReference{
 		APIVersion:         as.APIVersion,
 		Kind:               as.Kind,
 		Name:               as.Name,
 		UID:                as.UID,
-		BlockOwnerDeletion: &_true,
+		BlockOwnerDeletion: new(true),
 	})
 	if !added {
 		return &ns, nil
