@@ -35,11 +35,13 @@ spec:
           port: "8080"
           includeRequestHeadersInCheck: 
           - "authorization"
+          - "cookie"
           - "x-forwarded-access-token"
           - "x-auth-url"
           headersToUpstreamOnAllow: 
           - "authorization"
-
+          - "x-forwarded-user"
+          - "x-forwarded-email"
   components:
     base:
       enabled: true

@@ -78,9 +78,16 @@ spec:
   provider:
     name: "crc-auth-gateway" # Must match name in meshConfig.extensionProviders exactly.
   rules:
+{{- if and (ne .Values.oauth2_proxy.client_id "") (ne .Values.oauth2_proxy.client_secret "") }}
+  # Exclude /oauth2/* so interactive login endpoints do not trigger extAuthz checks and preserve CSRF cookies
+  - to:
+    - operation:
+        notPaths: ["/oauth2/*", "/oauth2"]
+{{- else }}
   # targeting all paths.
   # it is also possible to specify the relevant paths here, so that not all requests will be daisy-chained
   - {}
+{{- end }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

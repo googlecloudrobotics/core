@@ -24,7 +24,9 @@ spec:
         - --http-address=0.0.0.0:8080
         - --pass-access-token
         - --pass-host-header
-        - "--scope=profile email https://www.googleapis.com/auth/iam"
+        - "--scope=profile email openid"
+        # redirect from accounts.google.com to .Values.domain
+        - --cookie-samesite=lax
         - --cookie-expire=168h
         - --cookie-refresh=1h
         env:
