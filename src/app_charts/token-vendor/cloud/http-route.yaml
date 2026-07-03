@@ -86,3 +86,16 @@ spec:
         type: PathPrefix
         value: /apis/core.token-vendor/v1/token.oauth2
 ---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: token-vendor-grant
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: app-k8s-relay
+  to:
+  - group: ""
+    kind: Service
+    name: token-vendor
