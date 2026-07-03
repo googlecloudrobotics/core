@@ -6,6 +6,7 @@ helm_template(
     name = "prometheus-operator-chart.cloud",
     chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-72.9.1.tgz",
     helm_version = 3,
+    kube_version = "1.29.0",
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
     # Pick a short release name as it will be used as a prefix for a lot of resources.
@@ -17,6 +18,7 @@ helm_template(
     name = "prometheus-operator-chart.robot",
     chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-72.9.1.tgz",
     helm_version = 3,
+    kube_version = "1.29.0",
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
     # Pick a short release name as it will be used as a prefix for a lot of resources.
