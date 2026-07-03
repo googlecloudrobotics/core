@@ -19,15 +19,23 @@ spec:
         type: PathPrefix
         value: /grafana
 {{- if eq . "-auth" }}
+{{- $authUrl := urlParse (tpl $.Values.gf_ingress_auth_url $) }}
+{{- $hostParts := splitList ":" $authUrl.host }}
+{{- $domainParts := splitList "." (first $hostParts) }}
+{{- $svcName := index $domainParts 0 }}
+{{- $svcNamespace := index $domainParts 1 }}
+{{- $svcPort := 80 }}{{ if eq $authUrl.scheme "https" }}{{ $svcPort = 443 }}{{ end }}
+{{- if gt (len $hostParts) 1 }}{{ $svcPort = index $hostParts 1 }}{{ end }}
     filters:
     - type: URLRewrite
       urlRewrite:
         path:
           type: ReplaceFullPath
-          replaceFullPath: {{ tpl $.Values.gf_ingress_auth_url $ }}
+          replaceFullPath: {{ $authUrl.path }}{{ if $authUrl.query }}?{{ $authUrl.query }}{{ end }}
     backendRefs:
-    - name: oauth2-proxy
-      port: 80
+    - name: {{ $svcName }}
+      namespace: {{ $svcNamespace }}
+      port: {{ $svcPort }}
 {{- else }}
     filters:
     - type: URLRewrite
