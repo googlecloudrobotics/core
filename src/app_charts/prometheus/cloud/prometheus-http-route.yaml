@@ -27,6 +27,11 @@ spec:
 {{- $svcPort := 80 }}{{ if eq $authUrl.scheme "https" }}{{ $svcPort = 443 }}{{ end }}
 {{- if gt (len $hostParts) 1 }}{{ $svcPort = index $hostParts 1 }}{{ end }}
     filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: X-Auth-Request-Redirect
+          value: /prometheus/
     - type: URLRewrite
       urlRewrite:
         path:

@@ -60,17 +60,19 @@ spec:
 {{- end }}
 ---
 {{- end }}
+{{- range list "" "-auth" }}
+{{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: token-vendor
+  name: token-vendor{{ . }}
 spec:
   hostnames:
-  - {{ .Values.domain }}
+  - {{ $.Values.domain }}
   parentRefs:
-  - name: crc-gateway
+  - name: crc{{.}}-gateway
     namespace: default
-    sectionName: https
+    sectionName: {{ $sectionName }}
   rules:
   - backendRefs:
     - name: token-vendor
@@ -86,6 +88,7 @@ spec:
         type: PathPrefix
         value: /apis/core.token-vendor/v1/token.oauth2
 ---
+{{- end }}
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
