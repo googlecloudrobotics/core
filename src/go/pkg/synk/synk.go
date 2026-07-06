@@ -57,6 +57,11 @@ import (
 // src/k8s.io/apimachinery/pkg/api/validation/objectmeta.go
 const totalAnnotationSizeLimitB int = 256 * (1 << 10) // 256 kB
 
+// Annotation to opt-out of resource synchronization. If set to "true" on a resource
+// in the cluster, Synk will not overwrite it with the chart version, but will still
+// update its owner references so it does not get pruned.
+const AnnotationIgnore = "synk.cloudrobotics.com/ignore"
+
 // Synk allows to synchronize sets of resources with a fixed cluster.
 type Synk struct {
 	discovery   discovery.CachedDiscoveryInterface
@@ -725,6 +730,24 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 	}
 	if err := validateOwnerRefs(current, set); err != nil {
 		return apps.ResourceActionNone, fmt.Errorf("owner conflict: %w", err)
+	}
+
+	if set != nil && !isCustomResourceDefinition(current) && current.GetAnnotations()[AnnotationIgnore] == "true" {
+		// We are ignoring the desired spec change, but we must still update
+		// the owner reference on the current cluster resource to point to the
+		// new ResourceSet, otherwise it will be pruned when the old ResourceSet
+		// is deleted. We call setOwnerRef on 'current' (not 'resource') because
+		// we are updating the current cluster state directly instead of applying
+		// the desired resource.
+		setOwnerRef(current, set)
+		_, updateSpan := trace.StartSpan(ctx, "Update owner refs "+resource.GetName())
+		res, err := client.Update(ctx, current, metav1.UpdateOptions{})
+		updateSpan.End()
+		if err != nil {
+			return apps.ResourceActionIgnored, fmt.Errorf("update owner refs: %w", err)
+		}
+		*resource = *res
+		return apps.ResourceActionIgnored, nil
 	}
 
 	// Get what is running, what was installed and what we want to run.

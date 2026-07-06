@@ -110,3 +110,36 @@ During rollout, the chart-assignment-controller checks for Pods in the rollout b
 In some cases, this check is not necessary or might need to be opted out of.
 In this case, add a label `cloudrobotics.com/opt-out-error-checking=true` to your pods. Adding this
 instructs the chart-assignment-controller to not block the status from reaching `Ready`.
+
+## Development workflows: overriding resources
+
+During development, you might want to temporarily modify a resource (e.g. edit a
+Deployment's arguments or environment variables) that is managed by an `AppRollout`
+and `ChartAssignment`. By default, the `chart-assignment-controller` will detect
+these manual changes as drift and overwrite them to match the chart definition.
+
+To temporarily bypass this and prevent the controller from overwriting your changes:
+
+1. Edit the resource in the cluster (e.g., using `kubectl edit`).
+2. Add the annotation `synk.cloudrobotics.com/ignore: "true"` to the resource's metadata.
+3. Make your desired changes and save.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deployment
+  annotations:
+    synk.cloudrobotics.com/ignore: "true"
+spec:
+  ...
+```
+
+When this annotation is present, the reconciliation library (`synk`) will skip
+updating the resource spec, but will still maintain its owner references so it
+does not get garbage collected. The resource will be reported with the `Ignored`
+action in the `ResourceSet` status.
+
+To revert to the state defined in the chart, simply remove the
+`synk.cloudrobotics.com/ignore` annotation (or set it to `"false"`). The next
+reconciliation will restore the original configuration.
