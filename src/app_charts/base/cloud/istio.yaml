@@ -133,14 +133,14 @@ spec:
             path: /readyz
             port: 8080
             scheme: HTTP
-          initialDelaySeconds: 2 
+          initialDelaySeconds: 2
           periodSeconds: 5
         livenessProbe:
-          httpGet: 
+          httpGet:
             path: /healthz
             port: 8080
             scheme: HTTP
-          initialDelaySeconds: 2 
+          initialDelaySeconds: 2
           periodSeconds: 5
         resources:
           requests:
@@ -204,4 +204,85 @@ spec:
     targetPort: 8080
   selector:
     app: crc-auth-gateway-catchall-svc
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: crc-auth-signin
+  namespace: istio-system
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: crc-gateway-auth
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.router
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.lua.crc_auth_signin
+        typed_config:
+          "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+          inlineCode: |
+            local STATUS_302 = "302"
+            local LOCATION_H = "location"
+            local X_AUTH_SIGNIN_H = "x-crc-auth-signin"
+
+            local DEFAULT_SIGNIN_URL = "{{ .Values.signin_url }}"
+            local DYNAMIC_METADATA_NAMESPACE = "envoy.filters.http.lua"
+
+            local function url_encode(str)
+              if not str or str == "" then
+                return str
+              end
+
+              str = string.gsub(str, "([^A-Za-z0-9_.-])", function(c)
+                return string.format("%%%02X", string.byte(c))
+              end)
+              return str
+            end
+
+            function envoy_on_request(request_handle)
+              local path = request_handle:headers():get(":path")
+              request_handle:streamInfo():dynamicMetadata():set(DYNAMIC_METADATA_NAMESPACE, "request_path", path)
+            end
+
+            function envoy_on_response(response_handle)
+              local status = response_handle:headers():get(":status")
+
+              if status ~= "403" and status ~= "401" then
+                -- Only redirect 401 (Unauthorized) and 403 (Forbidden) responses;
+                -- let all other statuses pass through.
+                return
+              end
+
+              -- Read and remove the internal redirect header so it doesn't leak to the client
+              local auth_signin_url = response_handle:headers():get(X_AUTH_SIGNIN_H)
+              if auth_signin_url then
+                response_handle:headers():remove(X_AUTH_SIGNIN_H)
+              end
+
+              if not auth_signin_url or auth_signin_url == "" then
+                auth_signin_url = DEFAULT_SIGNIN_URL
+              end
+
+              -- Substitute $escaped_request_uri in the redirect URL
+              local meta = response_handle:streamInfo():dynamicMetadata():get(DYNAMIC_METADATA_NAMESPACE)
+              local request_path = meta and meta["request_path"]
+              if request_path then
+                local escaped_path = url_encode(request_path)
+                auth_signin_url = string.gsub(auth_signin_url, "%$escaped_request_uri", function() return escaped_path end)
+              end
+
+              response_handle:headers():replace(":status", STATUS_302)
+              response_handle:headers():add(LOCATION_H, auth_signin_url)
+            end
 {{- end}}
