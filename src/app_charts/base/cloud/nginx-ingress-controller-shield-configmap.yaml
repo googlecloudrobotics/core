@@ -345,6 +345,9 @@ data:
           # Set the SNI hostname to match the incoming client host header.
           proxy_ssl_name $host;
 
+          # Disable verification of the backend certificates.
+          proxy_ssl_verify off;
+
           # Force the proxy protocol to use HTTP/1.1 to match standard backend communication.
           proxy_http_version 1.1;
 
@@ -394,6 +397,9 @@ data:
 
           # Set the SNI hostname to match the client host.
           grpc_ssl_name $host;
+
+          # Disable validation of certificate of upstream gRPC backend.
+          grpc_ssl_verify off;
 
           # Pass Host header to backend.
           grpc_set_header Host $host;
