@@ -132,6 +132,7 @@ spec:
           replaceFullPath: /apis/core.token-vendor/v1/token.verify?robots=true
     backendRefs:
     - name: token-vendor
+      namespace: app-token-vendor
       port: 80
 {{- else }}
     filters:
