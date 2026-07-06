@@ -214,7 +214,7 @@ spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: crc-gateway-auth
+      name: crc-auth-gateway
   configPatches:
   - applyTo: HTTP_FILTER
     match:
@@ -251,6 +251,9 @@ spec:
             end
 
             function envoy_on_request(request_handle)
+              -- Remove the internal redirect header so it doesn't leak to the client
+              request_handle:headers():remove(X_AUTH_SIGNIN_H)
+
               local path = request_handle:headers():get(":path")
               request_handle:streamInfo():dynamicMetadata():set(DYNAMIC_METADATA_NAMESPACE, "request_path", path)
             end
