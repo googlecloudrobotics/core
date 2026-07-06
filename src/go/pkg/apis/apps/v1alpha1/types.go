@@ -96,6 +96,7 @@ const (
 	ResourceActionCreate  ResourceAction = "Create"
 	ResourceActionUpdate  ResourceAction = "Update"
 	ResourceActionReplace ResourceAction = "Replace"
+	ResourceActionIgnored ResourceAction = "Ignored"
 )
 
 // +genclient
