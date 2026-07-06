@@ -96,6 +96,7 @@ app_chart(
         "//third_party/kube-prometheus-stack:01-crds.yaml",
         "//third_party/gateway-api:grpcroute-generated.yaml",
         "//third_party/istio:istio-generated.yaml",
+        "//third_party/istio:istio-dashboards.yaml",
     ],
     files = [
         "relay-dashboard.json",
@@ -103,6 +104,7 @@ app_chart(
         ":cert-manager-google-cas-issuer-chart.cloud",
         "//third_party/istio:istio-config.yaml",
         "//third_party/istio:istio-values.json",
+        "//third_party/istio:istio-dashboards",
         "@ingress-nginx//:ingress-nginx-dashboards",
     ],
     images = {
