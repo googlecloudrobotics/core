@@ -14,14 +14,14 @@ spec:
     type: IPAddress
   listeners:
   - name: http
-    hostname: {{ .Values.domain }}
+    # hostname: {{ .Values.domain }} # Uncomment to restrict this listener to the configured domain. Required if multiple Gateways share the same IP.
     protocol: HTTP
     port: 80
     allowedRoutes:
       namespaces:
         from: All
   - name: https
-    hostname: {{ .Values.domain }}
+    # hostname: {{ .Values.domain }} # Uncomment to restrict this listener to the configured domain. Required if multiple Gateways share the same IP (via SNI).
     protocol: HTTPS
     port: 443
     tls:
