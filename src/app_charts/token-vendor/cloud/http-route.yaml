@@ -86,6 +86,33 @@ spec:
         type: PathPrefix
         value: /apis/core.token-vendor/v1/token.oauth2
 ---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: token-vendor-auth-bypass
+spec:
+  hostnames:
+  - {{ .Values.domain }}
+  parentRefs:
+  - name: crc-auth-gateway
+    namespace: default
+    sectionName: http
+  rules:
+  - backendRefs:
+    - name: status-echo
+      namespace: default
+      port: 80
+    matches:
+    - path:
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/token.verify
+    - path:
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/jwt.verify
+    - path:
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/token.oauth2
+---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
