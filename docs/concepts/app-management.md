@@ -120,9 +120,17 @@ these manual changes as drift and overwrite them to match the chart definition.
 
 To temporarily bypass this and prevent the controller from overwriting your changes:
 
-1. Edit the resource in the cluster (e.g., using `kubectl edit`).
-2. Add the annotation `synk.cloudrobotics.com/ignore: "true"` to the resource's metadata.
-3. Make your desired changes and save.
+1. Annotate the resource in the cluster to ignore it (make sure to apply it to the resource's metadata, not the pod template):
+
+   ```shell
+   kubectl annotate <resource-type> <resource-name> synk.cloudrobotics.com/ignore=true
+   ```
+
+1. Edit the resource to make your desired changes:
+
+   ```shell
+   kubectl edit <resource-type> <resource-name>
+   ```
 
 ```yaml
 apiVersion: apps/v1
