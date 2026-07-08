@@ -36,6 +36,7 @@ import (
 )
 
 const (
+	headerRobots  = "x-crc-tv-robots"
 	paramDeviceID = "device-id"
 	contentType   = "content-type"
 	pemFile       = "application/x-pem-file"
@@ -359,7 +360,7 @@ func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request
 // URL Parameters:
 // - robots (optional): "true" to verify against `robot-service` role, else `humanacl`
 // - token (optional): access token, if not given via header
-// Headers (optional): X_FORWARDED_ACCESS_TOKEN or AUTHORIZATION
+// Headers (optional): X-CRC-TV-ROBOTS, X_FORWARDED_ACCESS_TOKEN or AUTHORIZATION
 // See function `tokenFromRequest` for details on how to supply the token.
 func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -367,7 +368,7 @@ func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Reque
 			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
 		return
 	}
-	robots := testForRobotACL(r.URL)
+	robots := testForRobotACL(r.URL, &r.Header)
 	token, err := tokenFromRequest(r.URL, &r.Header)
 	if err != nil {
 		api.ErrResponse(r.Context(), w, http.StatusBadRequest, err.Error())
@@ -381,8 +382,12 @@ func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Reque
 	w.Write([]byte("OK"))
 }
 
-// testForRobotACL determines if the "robots" parameter is set.
-func testForRobotACL(u *url.URL) bool {
+// testForRobotACL determines if the "robots" parameter or "X-CRC-TV-ROBOTS" header is set.
+// If both are present, the header takes higher priority over the query parameter.
+func testForRobotACL(u *url.URL, h *http.Header) bool {
+	if headerVal := h.Get(headerRobots); headerVal != "" {
+		return strings.ToLower(headerVal) == "true"
+	}
 	robots, err := getQueryParam(u, "robots")
 	if err != nil || robots != "true" {
 		return false

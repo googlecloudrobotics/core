@@ -40,10 +40,16 @@ gf_server_root_url: "https://${CLOUD_ROBOTICS_DOMAIN}/grafana"
 gf_csrf_trusted_origins: ""
 # Grafana Ingress configuration. Does not use the same replace as the values above.
 gf_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
+# Header modification for Istio/HTTPRoutes support.
+gf_ingress_auth_url_header: ""
+gf_ingress_auth_url_headervalue: ""
 gf_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
 gf_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
 # Prometheus
 prom_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
+# Header modification for Istio/HTTPRoutes support.
+prom_ingress_auth_url_header: ""
+prom_ingress_auth_url_headervalue: ""
 prom_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
 prom_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
 # Prometheus: Using ${} replacement
