@@ -122,21 +122,6 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
-  name: catchall-svc-grant-app-token-vendor
-  namespace: default
-spec:
-  from:
-  - group: gateway.networking.k8s.io
-    kind: HTTPRoute
-    namespace: app-token-vendor
-  to:
-  - group: ""
-    kind: Service
-    name: crc-auth-gateway-catchall-svc
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: ReferenceGrant
-metadata:
   name: token-vendor-grant
 spec:
   from:
