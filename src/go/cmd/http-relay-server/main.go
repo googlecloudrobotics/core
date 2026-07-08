@@ -49,6 +49,8 @@ var (
 		"the log message level required to be logged")
 	inactiveRequestTimeout = flag.Duration("inactive_request_timeout", server.DefaultInactiveRequestTimeout,
 		"Timeout for inactive requests. In particular, this sets a limit on how long the backend can wait before writing headers and the response status.")
+	inactiveBackendTimeout = flag.Duration("inactive_backend_timeout", server.DefaultInactiveBackendTimeout,
+		"Timeout for inactive backends. Backends (robots) that have not shown any activity for this duration will be cleaned up along with their metrics.")
 	pprofPort = flag.Int("pprof_port", 0, "If non-zero, serves pprof endpoints on this port.")
 )
 
@@ -84,6 +86,7 @@ func main() {
 		Port:                   *port,
 		BlockSize:              *blockSize,
 		InactiveRequestTimeout: *inactiveRequestTimeout,
+		InactiveBackendTimeout: *inactiveBackendTimeout,
 	})
 	server.Start(ctx)
 }
