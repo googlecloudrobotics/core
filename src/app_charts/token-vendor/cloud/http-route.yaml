@@ -131,6 +131,9 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     namespace: app-prometheus-relay
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: app-prometheus
   to:
   - group: ""
     kind: Service
