@@ -21,11 +21,16 @@ spec:
         value: /apis/core.token-vendor/v1/public-key.read
 {{- if eq . "-auth" }}
     filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: x-crc-tv-robots
+          value: "true"
     - type: URLRewrite
       urlRewrite:
         path:
           type: ReplaceFullPath
-          replaceFullPath: /apis/core.token-vendor/v1/token.verify?robots=true
+          replaceFullPath: /apis/core.token-vendor/v1/token.verify
 {{- end }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -52,11 +57,16 @@ spec:
         value: /apis/core.token-vendor/v1/public-key.publish
 {{- if eq . "-auth" }}
     filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: x-crc-tv-robots
+          value: "false"
     - type: URLRewrite
       urlRewrite:
         path:
           type: ReplaceFullPath
-          replaceFullPath: /apis/core.token-vendor/v1/token.verify?robots=false
+          replaceFullPath: /apis/core.token-vendor/v1/token.verify
 {{- end }}
 ---
 {{- end }}

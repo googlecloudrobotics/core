@@ -102,8 +102,10 @@ token vendor just checks that IAM authorizes the request.
 
 * URL: /apis/core.token-vendor/v1/token.verify
 * Method: GET
-* URL Params:
-  * robots: boolean to indicate if robot-service account tookens are allowed
+* Headers (optional):
+  * x-crc-tv-robots: "true" to verify against `robot-service` role, else `humanacl` (takes precedence over query parameter)
+* URL Params (optional during dual-support):
+  * robots: boolean to indicate if robot-service account tokens are allowed
 * Response: only http status code
 
 Results are backed by a cache with a 5 minute lifetime to ease the load on the
@@ -192,7 +194,7 @@ curl -D - --max-time 3 -H "Authorization: Bearer $(gcloud auth application-defau
 and
 
 ```shell
-curl -D - --max-time 3 -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/token.verify?robots=true
+curl -D - --max-time 3 -H "x-crc-tv-robots: true" -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/token.verify
 ```
 
 Request a cloud access token for the robot. First generate a valid JWT using the intstructions at [testdata/README.md](api/v1/testdata/README.md). Afterwards use it to request the cloud token:
@@ -212,7 +214,7 @@ e:jwt-bearer&assertion=${JWT}" https://www.endpoints.${PROJECT}.cloud.goog/apis/
 Verify if the token has access to the robots ACL (it should respond 200):
 
 ```shell
-curl -D - --max-time 3 -H "Authorization: Bearer ${TOKEN}" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/token.verify?robots=true
+curl -D - --max-time 3 -H "x-crc-tv-robots: true" -H "Authorization: Bearer ${TOKEN}" https://www.endpoints.${PROJECT}.cloud.goog/apis/core.token-vendor/v1/token.verify
 ```
 
 Verify if the token does *not* have access to the human ACL (it should respond 403):
