@@ -439,7 +439,7 @@ func TestServerRequestResponseHandler(t *testing.T) {
 	}()
 
 	// create the request channel to avoid 503 error for unknown clients.
-	server.b.req["b"] = make(chan *pb.HttpRequest)
+	server.b.req["b"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 	serverRespChan, err := server.b.RelayRequest("b", backendReq)
 	if err != nil {
 		t.Errorf("Got relay request error: %v", err)

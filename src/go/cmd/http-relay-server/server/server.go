@@ -62,6 +62,8 @@ const (
 	DefaultBlockSize = 10 * 1024
 	// DefaultInactiveRequestTimeout is the default timeout for inactive requests. In particular, this sets a limit on how long the backend can wait before writing headers and the response status.
 	DefaultInactiveRequestTimeout = 60 * time.Second
+	// DefaultInactiveBackendTimeout is the default timeout for inactive backends.
+	DefaultInactiveBackendTimeout = 30 * time.Minute
 )
 
 type Config struct {
@@ -71,6 +73,8 @@ type Config struct {
 	BlockSize int
 	// InactiveRequestTimeout is the timeout for inactive requests.
 	InactiveRequestTimeout time.Duration
+	// InactiveBackendTimeout is the timeout for inactive backends.
+	InactiveBackendTimeout time.Duration
 }
 
 type Server struct {
@@ -87,6 +91,9 @@ func NewServer(conf Config) *Server {
 	}
 	if conf.InactiveRequestTimeout == 0 {
 		conf.InactiveRequestTimeout = DefaultInactiveRequestTimeout
+	}
+	if conf.InactiveBackendTimeout == 0 {
+		conf.InactiveBackendTimeout = DefaultInactiveBackendTimeout
 	}
 	s := &Server{
 		conf: conf,
@@ -579,6 +586,8 @@ func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 				return nil
 			case t := <-ticker.C:
 				s.b.ReapInactiveRequests(t.Add(-1 * s.conf.InactiveRequestTimeout))
+				// Reap backends that have been inactive for InactiveBackendTimeout.
+				s.b.ReapInactiveBackends(t.Add(-1 * s.conf.InactiveBackendTimeout))
 			}
 		}
 	})

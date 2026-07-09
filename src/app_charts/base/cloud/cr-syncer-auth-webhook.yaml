@@ -32,6 +32,9 @@ spec:
           httpGet:
             path: /healthz
             port: 8080
+        resources:
+          requests:
+            memory: "30Mi"
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true

@@ -30,7 +30,7 @@ spec:
           containerPort: 8080
         resources:
           requests:
-            memory: "16Mi"
+            memory: "50Mi"
             cpu: "100m"
         securityContext:
           allowPrivilegeEscalation: false
@@ -125,11 +125,16 @@ spec:
         value: /apis/core.prometheus-relay/server
 {{- if eq . "-auth" }}
     filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: x-crc-tv-robots
+          value: "true"
     - type: URLRewrite
       urlRewrite:
         path:
           type: ReplaceFullPath
-          replaceFullPath: /apis/core.token-vendor/v1/token.verify?robots=true
+          replaceFullPath: /apis/core.token-vendor/v1/token.verify
     backendRefs:
     - name: token-vendor
       namespace: app-token-vendor
