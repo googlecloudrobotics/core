@@ -1,4 +1,5 @@
 token_vendor:
+  allow_any_method: true
   resources:
     requests:
       memory: "50Mi"

@@ -42,12 +42,28 @@ const (
 	pemFile       = "application/x-pem-file"
 )
 
-type HandlerContext struct {
-	tv *app.TokenVendor
+// Options configures the behavior of the API V1 handlers.
+type Options struct {
+	// AllowAnyMethod permits any HTTP method on read-only verification handlers when true.
+	AllowAnyMethod bool
 }
 
-func NewHandlerContext(tv *app.TokenVendor) *HandlerContext {
-	return &HandlerContext{tv}
+// HandlerContext holds dependencies and configuration for API V1 handlers.
+type HandlerContext struct {
+	tv             *app.TokenVendor
+	allowAnyMethod bool
+}
+
+// NewHandlerContext creates a HandlerContext initialized with the given TokenVendor and optional API options.
+func NewHandlerContext(tv *app.TokenVendor, opts *Options) *HandlerContext {
+	allowAnyMethod := false
+	if opts != nil {
+		allowAnyMethod = opts.AllowAnyMethod
+	}
+	return &HandlerContext{
+		tv:             tv,
+		allowAnyMethod: allowAnyMethod,
+	}
 }
 
 // getQueryParam extracts a query parameter from the request URL.
@@ -319,11 +335,6 @@ func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Reque
 // - Authorization: JWT that allows authorization
 // Response: only http status code
 func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		api.ErrResponse(r.Context(), w, http.StatusMethodNotAllowed,
-			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
-		return
-	}
 
 	authHeader, ok := r.Header["Authorization"]
 	if !ok {
@@ -363,11 +374,6 @@ func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request
 // Headers (optional): X-CRC-TV-ROBOTS, X_FORWARDED_ACCESS_TOKEN or AUTHORIZATION
 // See function `tokenFromRequest` for details on how to supply the token.
 func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		api.ErrResponse(r.Context(), w, http.StatusBadRequest,
-			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
-		return
-	}
 	robots, err := testForRobotACL(r.URL, &r.Header)
 	if err != nil {
 		api.ErrResponse(r.Context(), w, http.StatusBadRequest, err.Error())
@@ -487,18 +493,23 @@ func isValidJWT(jwt string) (bool, error) {
 }
 
 // Register the API V1 API handler functions to the default http.DefaultServeMux
-func Register(tv *app.TokenVendor, prefix string) error {
+func Register(tv *app.TokenVendor, prefix string, opts *Options) error {
 
 	slog.Debug("mounting API V1", slog.String("Prefix", prefix))
 
-	h := NewHandlerContext(tv)
+	h := NewHandlerContext(tv, opts)
 
 	http.HandleFunc(path.Join(prefix, "public-key.configure"), h.publicKeyConfigureHandler)
 	http.HandleFunc(path.Join(prefix, "public-key.read"), h.publicKeyReadHandler)
 	http.HandleFunc(path.Join(prefix, "public-key.publish"), h.publicKeyPublishHandler)
 	http.HandleFunc(path.Join(prefix, "token.oauth2"), h.tokenOAuth2Handler)
-	http.HandleFunc(path.Join(prefix, "token.verify"), h.verifyTokenHandler)
-	http.HandleFunc(path.Join(prefix, "jwt.verify"), h.verifyJWTHandler)
+
+	verifyPrefix := ""
+	if !h.allowAnyMethod {
+		verifyPrefix = "GET "
+	}
+	http.HandleFunc(verifyPrefix+path.Join(prefix, "token.verify"), h.verifyTokenHandler)
+	http.HandleFunc(verifyPrefix+path.Join(prefix, "jwt.verify"), h.verifyJWTHandler)
 
 	return nil
 }
