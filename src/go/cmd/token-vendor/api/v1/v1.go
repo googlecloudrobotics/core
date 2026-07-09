@@ -43,11 +43,12 @@ const (
 )
 
 type HandlerContext struct {
-	tv *app.TokenVendor
+	tv             *app.TokenVendor
+	allowAnyMethod bool
 }
 
-func NewHandlerContext(tv *app.TokenVendor) *HandlerContext {
-	return &HandlerContext{tv}
+func NewHandlerContext(tv *app.TokenVendor, allowAnyMethod bool) *HandlerContext {
+	return &HandlerContext{tv, allowAnyMethod}
 }
 
 // getQueryParam extracts a query parameter from the request URL.
@@ -319,7 +320,7 @@ func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Reque
 // - Authorization: JWT that allows authorization
 // Response: only http status code
 func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	if !h.allowAnyMethod && r.Method != http.MethodGet {
 		api.ErrResponse(r.Context(), w, http.StatusMethodNotAllowed,
 			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
 		return
@@ -363,7 +364,7 @@ func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request
 // Headers (optional): X-CRC-TV-ROBOTS, X_FORWARDED_ACCESS_TOKEN or AUTHORIZATION
 // See function `tokenFromRequest` for details on how to supply the token.
 func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	if !h.allowAnyMethod && r.Method != http.MethodGet {
 		api.ErrResponse(r.Context(), w, http.StatusBadRequest,
 			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
 		return
@@ -476,11 +477,11 @@ func isValidJWT(jwt string) (bool, error) {
 }
 
 // Register the API V1 API handler functions to the default http.DefaultServeMux
-func Register(tv *app.TokenVendor, prefix string) error {
+func Register(tv *app.TokenVendor, prefix string, allowAnyMethod bool) error {
 
 	slog.Debug("mounting API V1", slog.String("Prefix", prefix))
 
-	h := NewHandlerContext(tv)
+	h := NewHandlerContext(tv, allowAnyMethod)
 
 	http.HandleFunc(path.Join(prefix, "public-key.configure"), h.publicKeyConfigureHandler)
 	http.HandleFunc(path.Join(prefix, "public-key.read"), h.publicKeyReadHandler)

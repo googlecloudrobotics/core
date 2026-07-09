@@ -25,6 +25,9 @@ spec:
         # This scope allows GKE RBAC policy bindings to refer to service accounts by email.
         # https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control#forbidden_error_for_service_accounts_on_vm_instances
         - --scope=https://www.googleapis.com/auth/userinfo.email
+{{- if .Values.use_istio }}
+        - --allow_any_method=true
+{{- end }}
 {{- if .Values.use_tv_verbose }}
         - --verbose
 {{- end }}
