@@ -368,7 +368,11 @@ func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Reque
 			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
 		return
 	}
-	robots := testForRobotACL(r.URL, &r.Header)
+	robots, err := testForRobotACL(r.URL, &r.Header)
+	if err != nil {
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, err.Error())
+		return
+	}
 	token, err := tokenFromRequest(r.URL, &r.Header)
 	if err != nil {
 		api.ErrResponse(r.Context(), w, http.StatusBadRequest, err.Error())
@@ -383,16 +387,23 @@ func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Reque
 }
 
 // testForRobotACL determines if the "robots" parameter or "X-CRC-TV-ROBOTS" header is set.
-// If both are present, the header takes higher priority over the query parameter.
-func testForRobotACL(u *url.URL, h *http.Header) bool {
-	if headerVal := h.Get(headerRobots); headerVal != "" {
-		return strings.ToLower(headerVal) == "true"
+// If both are present, an error is returned because setting both is not allowed.
+func testForRobotACL(u *url.URL, h *http.Header) (bool, error) {
+	headerVal := h.Get(headerRobots)
+	hasHeader := headerVal != ""
+	robotsQuery, errQuery := getQueryParam(u, "robots")
+	hasQuery := errQuery == nil
+
+	if hasHeader && hasQuery {
+		return false, fmt.Errorf("request cannot set both %s header and robots query parameter", headerRobots)
 	}
-	robots, err := getQueryParam(u, "robots")
-	if err != nil || robots != "true" {
-		return false
+	if hasHeader {
+		return strings.ToLower(headerVal) == "true", nil
 	}
-	return true
+	if hasQuery {
+		return robotsQuery == "true", nil
+	}
+	return false, nil
 }
 
 // tokenFromRequest extracts the access token from the request.
