@@ -42,13 +42,24 @@ const (
 	pemFile       = "application/x-pem-file"
 )
 
+// Options configures the behavior of the API V1 handlers.
+type Options struct {
+	// AllowAnyMethod permits any HTTP method on read-only verification handlers when true.
+	AllowAnyMethod bool
+}
+
+// HandlerContext holds dependencies and configuration for API V1 handlers.
 type HandlerContext struct {
 	tv             *app.TokenVendor
 	allowAnyMethod bool
 }
 
-func NewHandlerContext(tv *app.TokenVendor, allowAnyMethod bool) *HandlerContext {
-	return &HandlerContext{tv, allowAnyMethod}
+// NewHandlerContext creates a HandlerContext initialized with the given TokenVendor and API options.
+func NewHandlerContext(tv *app.TokenVendor, opts Options) *HandlerContext {
+	return &HandlerContext{
+		tv:             tv,
+		allowAnyMethod: opts.AllowAnyMethod,
+	}
 }
 
 // getQueryParam extracts a query parameter from the request URL.
@@ -488,11 +499,11 @@ func isValidJWT(jwt string) (bool, error) {
 }
 
 // Register the API V1 API handler functions to the default http.DefaultServeMux
-func Register(tv *app.TokenVendor, prefix string, allowAnyMethod bool) error {
+func Register(tv *app.TokenVendor, prefix string, opts Options) error {
 
 	slog.Debug("mounting API V1", slog.String("Prefix", prefix))
 
-	h := NewHandlerContext(tv, allowAnyMethod)
+	h := NewHandlerContext(tv, opts)
 
 	http.HandleFunc(path.Join(prefix, "public-key.configure"), h.publicKeyConfigureHandler)
 	http.HandleFunc(path.Join(prefix, "public-key.read"), h.publicKeyReadHandler)

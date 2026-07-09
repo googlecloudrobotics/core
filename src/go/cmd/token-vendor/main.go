@@ -164,7 +164,7 @@ func main() {
 		slog.Error("Failed to register root endpoints", ilog.Err(err))
 		os.Exit(1)
 	}
-	if err := apiv1.Register(tv, path.Join(*basePath, "v1"), *allowAnyMethod); err != nil {
+	if err := apiv1.Register(tv, path.Join(*basePath, "v1"), apiv1.Options{AllowAnyMethod: *allowAnyMethod}); err != nil {
 		slog.Error("Failed to register v1 endpoints", ilog.Err(err))
 		os.Exit(1)
 	}
