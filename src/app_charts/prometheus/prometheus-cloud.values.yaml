@@ -97,6 +97,10 @@ prometheus:
     # https://github.com/prometheus-operator/prometheus-operator/issues/3587
     containers:
     - name: prometheus
+      startupProbe:
+        failureThreshold: 100000
+        periodSeconds: 15
+        timeoutSeconds: 300
       readinessProbe:
         initialDelaySeconds: 300
         failureThreshold: 100000
