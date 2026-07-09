@@ -17,7 +17,7 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /grafana
+        value: /grafana/
 {{- if eq . "-auth" }}
 {{- $authUrl := urlParse (tpl $.Values.gf_ingress_auth_url $) }}
 {{- $authUrlHeader := $.Values.gf_ingress_auth_url_header }}
