@@ -602,8 +602,8 @@ func TestVerifyTokenHandler(t *testing.T) {
 		{"error from GCP IAM", true, "", "", isUrlRobotsACL, permHappy, http.StatusBadRequest, http.StatusForbidden},
 		{"robots via header happy path", true, "true", "", isUrlRobotsACL, permHappy, http.StatusOK, http.StatusOK},
 		{"human via header happy path", false, "false", "", isUrlHumanACL, permHappy, http.StatusOK, http.StatusOK},
-		{"header overrides query (true header, false query)", true, "true", "false", isUrlRobotsACL, permHappy, http.StatusOK, http.StatusOK},
-		{"header overrides query (false header, true query)", false, "false", "true", isUrlHumanACL, permHappy, http.StatusOK, http.StatusOK},
+		{"error both header and query set (true header, false query)", true, "true", "false", isUrlRobotsACL, permHappy, http.StatusOK, http.StatusBadRequest},
+		{"error both header and query set (false header, true query)", false, "false", "true", isUrlHumanACL, permHappy, http.StatusOK, http.StatusBadRequest},
 	}
 
 	for _, test := range cases {

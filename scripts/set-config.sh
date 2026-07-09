@@ -141,6 +141,20 @@ function set_default_vars {
     # TODO(skopecki) This can take a minute. Find a better solution to verify compute zones.
     echo "Enabling Compute Engine API..."
     gcloud services enable compute.googleapis.com --project ${GCP_PROJECT_ID}
+
+    echo "Waiting for Compute Engine API to be enabled..."
+    for i in {1..10}; do
+      if gcloud services list --enabled --project ${GCP_PROJECT_ID} \
+          | grep "^compute.googleapis.com \+" >/dev/null; then
+        echo "Compute Engine API is enabled."
+        break
+      fi
+      if [[ $i -eq 10 ]]; then
+        die "Timeout waiting for Compute Engine API to be enabled."
+      fi
+      echo "Still waiting... ($((i * 30))s)"
+      sleep 30
+    done
   fi
 
   # Ask for region and zone.
