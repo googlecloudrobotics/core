@@ -242,8 +242,6 @@ function set_default_vars {
     PRIVATE_DOCKER_PROJECTS=
   fi
 
-  # Certificate provider
-  set_certificate_provider_vars
 }
 
 function set_oauth_vars {
@@ -261,37 +259,6 @@ function set_oauth_vars {
   fi
 }
 
-function set_certificate_provider_vars {
-  CA_OPTIONS="lets-encrypt, google-cas"
-  CA_DEFAULT="lets-encrypt"
-
-  # Select provider
-  read_variable CLOUD_ROBOTICS_CERTIFICATE_PROVIDER \
-    "Select the certificate provider. Should be one of: ${CA_OPTIONS}." \
-    "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER:-${CA_DEFAULT}}"
-
-  # Request certificate configuration if the provider requires it
-  if [[ ! "lets-encrypt" =~ (" "|^)"${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"(" "|$) ]]; then
-    set_certificate_vars
-  fi
-}
-
-function set_certificate_vars {
-  echo "Configuring certificate information."
-  echo "Refer to RFC 4519 for explanations of the fields: https://datatracker.ietf.org/doc/html/rfc4519#section-2"
-
-  read_variable CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION \
-    "Organization (O)" \
-    "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION:-${GCP_PROJECT_ID}}"
-
-  read_variable CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME \
-    "Common Name (CN)" \
-    "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME:-${GCP_PROJECT_ID}}"
-
-  read_variable CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT \
-    "(Optional) Organizational Unit (OU)" \
-    "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}"
-}
 
 if [[ -n "${FLAG_EDIT_OAUTH}" ]]; then
   set_oauth_vars
@@ -318,10 +285,6 @@ print_variable "Projects for private Docker images" "${PRIVATE_DOCKER_PROJECTS}"
 print_variable "OAuth client id" "${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
 print_variable "OAuth client secret" "${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
 print_variable "OAuth cookie secret" "${CLOUD_ROBOTICS_COOKIE_SECRET}"
-print_variable "Certificate provider" "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
-print_variable "Certificate Subject Organization (O)" "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION}"
-print_variable "Certificate Subject Common Name (CN)" "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME}"
-print_variable "Certificate Subject Organizational Unit (OU)" "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}"
 
 if ! ask_yn "Would you like to save this configuration?"; then
   exit 0
@@ -359,10 +322,6 @@ save_variable "${CONFIG_FILE}" PRIVATE_DOCKER_PROJECTS "${PRIVATE_DOCKER_PROJECT
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_OAUTH2_CLIENT_ID "${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET "${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
 save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_COOKIE_SECRET "${CLOUD_ROBOTICS_COOKIE_SECRET}"
-save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CERTIFICATE_PROVIDER "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
-save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION}"
-save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME}"
-save_variable "${CONFIG_FILE}" CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}"
 
 # Upload config to the cloud.
 if ! gcloud -q storage buckets describe --project ${GCP_PROJECT_ID} "${CLOUD_BUCKET}" >/dev/null 2>&1; then
