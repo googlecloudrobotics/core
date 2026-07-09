@@ -363,9 +363,9 @@ func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request
 // Headers (optional): X-CRC-TV-ROBOTS, X_FORWARDED_ACCESS_TOKEN or AUTHORIZATION
 // See function `tokenFromRequest` for details on how to supply the token.
 func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+	if r.Method != http.MethodGet {
 		api.ErrResponse(r.Context(), w, http.StatusBadRequest,
-			fmt.Sprintf("method %s not allowed, only %s or %s", r.Method, http.MethodGet, http.MethodPost))
+			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
 		return
 	}
 	robots := testForRobotACL(r.URL, &r.Header)
