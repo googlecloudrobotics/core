@@ -63,8 +63,8 @@ spec:
     - name: kubernetes
       port: 443
 {{- end }}
-{{- end }}
 ---
+{{- end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
