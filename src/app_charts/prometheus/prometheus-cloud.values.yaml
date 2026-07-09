@@ -99,8 +99,6 @@ prometheus:
     - name: prometheus
       startupProbe:
         failureThreshold: 100000
-        periodSeconds: 15
-        timeoutSeconds: 300
       readinessProbe:
         initialDelaySeconds: 300
         failureThreshold: 100000
