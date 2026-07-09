@@ -73,6 +73,6 @@ spec:
   trafficPolicy:
     tls:
       mode: SIMPLE
-      insecureSkipVerify: true
+      caCertificates: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 {{- end }}
 {{- end }}
