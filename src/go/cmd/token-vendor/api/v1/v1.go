@@ -54,11 +54,15 @@ type HandlerContext struct {
 	allowAnyMethod bool
 }
 
-// NewHandlerContext creates a HandlerContext initialized with the given TokenVendor and API options.
-func NewHandlerContext(tv *app.TokenVendor, opts Options) *HandlerContext {
+// NewHandlerContext creates a HandlerContext initialized with the given TokenVendor and optional API options.
+func NewHandlerContext(tv *app.TokenVendor, opts *Options) *HandlerContext {
+	allowAnyMethod := false
+	if opts != nil {
+		allowAnyMethod = opts.AllowAnyMethod
+	}
 	return &HandlerContext{
 		tv:             tv,
-		allowAnyMethod: opts.AllowAnyMethod,
+		allowAnyMethod: allowAnyMethod,
 	}
 }
 
@@ -331,11 +335,6 @@ func (h *HandlerContext) tokenOAuth2Handler(w http.ResponseWriter, r *http.Reque
 // - Authorization: JWT that allows authorization
 // Response: only http status code
 func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request) {
-	if !h.allowAnyMethod && r.Method != http.MethodGet {
-		api.ErrResponse(r.Context(), w, http.StatusMethodNotAllowed,
-			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
-		return
-	}
 
 	authHeader, ok := r.Header["Authorization"]
 	if !ok {
@@ -375,11 +374,6 @@ func (h *HandlerContext) verifyJWTHandler(w http.ResponseWriter, r *http.Request
 // Headers (optional): X-CRC-TV-ROBOTS, X_FORWARDED_ACCESS_TOKEN or AUTHORIZATION
 // See function `tokenFromRequest` for details on how to supply the token.
 func (h *HandlerContext) verifyTokenHandler(w http.ResponseWriter, r *http.Request) {
-	if !h.allowAnyMethod && r.Method != http.MethodGet {
-		api.ErrResponse(r.Context(), w, http.StatusBadRequest,
-			fmt.Sprintf("method %s not allowed, only %s", r.Method, http.MethodGet))
-		return
-	}
 	robots, err := testForRobotACL(r.URL, &r.Header)
 	if err != nil {
 		api.ErrResponse(r.Context(), w, http.StatusBadRequest, err.Error())
@@ -499,7 +493,7 @@ func isValidJWT(jwt string) (bool, error) {
 }
 
 // Register the API V1 API handler functions to the default http.DefaultServeMux
-func Register(tv *app.TokenVendor, prefix string, opts Options) error {
+func Register(tv *app.TokenVendor, prefix string, opts *Options) error {
 
 	slog.Debug("mounting API V1", slog.String("Prefix", prefix))
 
@@ -509,8 +503,13 @@ func Register(tv *app.TokenVendor, prefix string, opts Options) error {
 	http.HandleFunc(path.Join(prefix, "public-key.read"), h.publicKeyReadHandler)
 	http.HandleFunc(path.Join(prefix, "public-key.publish"), h.publicKeyPublishHandler)
 	http.HandleFunc(path.Join(prefix, "token.oauth2"), h.tokenOAuth2Handler)
-	http.HandleFunc(path.Join(prefix, "token.verify"), h.verifyTokenHandler)
-	http.HandleFunc(path.Join(prefix, "jwt.verify"), h.verifyJWTHandler)
+
+	verifyPrefix := ""
+	if !h.allowAnyMethod {
+		verifyPrefix = "GET "
+	}
+	http.HandleFunc(verifyPrefix+path.Join(prefix, "token.verify"), h.verifyTokenHandler)
+	http.HandleFunc(verifyPrefix+path.Join(prefix, "jwt.verify"), h.verifyJWTHandler)
 
 	return nil
 }
