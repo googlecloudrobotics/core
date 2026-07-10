@@ -41,6 +41,9 @@ spec:
         ports:
         - name: webhook
           containerPort: 9876
+        resources:
+          requests:
+            memory: "100Mi"
         volumeMounts:
         - mountPath: /tls
           name: tls
@@ -165,6 +168,9 @@ spec:
         ports:
         - name: webhook
           containerPort: 9876
+        resources:
+          requests:
+            memory: "100Mi"
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true  

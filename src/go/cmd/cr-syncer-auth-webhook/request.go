@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 	"slices"
@@ -28,6 +29,16 @@ type incomingRequest struct {
 
 	// ResourceName, or empty if no resource is specified (eg for a List or Watch of a filtered resource)
 	ResourceName string
+}
+
+// extractOriginalURL returns the raw origin URL or path from proxy headers.
+// Any scheme/host in X-Original-Url is stripped when passed to url.Parse(u).Path,
+// normalizing it to match X-Envoy-Original-Path.
+func extractOriginalURL(r *http.Request) string {
+	if u := r.Header.Get("X-Original-Url"); u != "" {
+		return u
+	}
+	return r.Header.Get("X-Envoy-Original-Path")
 }
 
 // parseURL parses the URL that the cr-syncer is hitting to find the
