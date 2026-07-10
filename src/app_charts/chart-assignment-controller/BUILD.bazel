@@ -14,10 +14,14 @@ helm_chart(
     chart = "Chart.yaml",
     values = "values.yaml",
     images = [":push-image"],
+    # This can only be built with --stamp when BUILD_VERSION is set.
+    tags = ["manual"],
 )
 
 helm_push(
     name = "push-chart",
     package = ":chart-assignment-controller",
     registry_url = "oci://us-docker.pkg.dev/cloud-robotics-releases/charts",
+    # This can only be built with --stamp when BUILD_VERSION is set.
+    tags = ["manual"],
 )
