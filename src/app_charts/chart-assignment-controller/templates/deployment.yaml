@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chart-assignment-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chart-assignment-controller
+  template:
+    metadata:
+      labels:
+        app: chart-assignment-controller
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: chart-assignment-controller
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+      containers:
+        - name: chart-assignment-controller
+          image: "{{ .Values.image.repository }}{{ if .Values.image.digest }}@{{ .Values.image.digest }}{{ else }}:{{ .Values.image.tag | default .Chart.AppVersion }}{{ end }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ROBOT_NAME
+              value: {{ .Values.robotName | quote }}
+          args:
+            - --cloud-cluster={{ .Values.cloudCluster }}
+            - --webhook-enabled={{ .Values.webhook.enabled }}
+            - --webhook-port=9876
+            {{- if .Values.webhook.enabled }}
+            - --cert-dir=/tls
+            {{- end }}
+          ports:
+            - name: webhook
+              containerPort: 9876
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.webhook.enabled }}
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+        {{- if .Values.webhook.enabled }}
+        - name: tls
+          secret:
+            secretName: chart-assignment-controller-tls
+        {{- end }}

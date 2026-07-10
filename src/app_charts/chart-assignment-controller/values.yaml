@@ -1,0 +1,24 @@
+image:
+  repository: "{bazel.image.repository}"
+  tag: latest
+  digest: "{bazel.image.digest}"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+cloudCluster: false
+robotName: "test-robot"
+
+# Enable the validation webhook. Requires cert-manager to be installed in the
+# cluster to generate TLS certificates. Disable this if you do not have
+# cert-manager installed.
+webhook:
+  enabled: true
+
+# The CRD is required for the controller to function.
+installCRDs: true
+
+rbac:
+  create: true
+  
+  clusterAdmin: true # If true, binds the SA to cluster-admin
