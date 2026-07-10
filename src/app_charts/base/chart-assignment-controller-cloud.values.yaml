@@ -8,3 +8,7 @@ webhook:
 rbac:
   create: true
   clusterAdmin: true
+
+resources:
+  requests:
+    memory: "100Mi"
