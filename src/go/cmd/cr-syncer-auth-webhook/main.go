@@ -109,10 +109,11 @@ func (h *handlers) resourceIsFiltered(groupKind string) bool {
 // validateRequest checks that the request is expected for the cr-syncer and
 // only accesses allowed resources.
 func (h *handlers) validateRequest(r *http.Request, robotName string) error {
-	urlString := r.Header.Get("X-Original-Url")
+	urlString := extractOriginalURL(r)
 	incomingReq, err := parseURL(urlString)
 	if err != nil {
-		slog.Error("unexpected value of X-Original-Url", slog.String("URL", urlString), ilog.Err(err))
+		slog.Error("unexpected value of origin URL header",
+			slog.String("URL", urlString), ilog.Err(err))
 		return err
 	}
 

@@ -85,7 +85,7 @@ func (bt *brokerConn) bakeRequest(b *broker, s string) {
 	// ensure that the request is created before the user client connects
 	b.m.Lock()
 	if _, found := b.req[s]; !found {
-		b.req[s] = make(chan *pb.HttpRequest)
+		b.req[s] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 	}
 	b.m.Unlock()
 	close(bt.ready)
@@ -245,7 +245,7 @@ func TestTimeout(t *testing.T) {
 	b := newBroker()
 	// create the request channel manually to avoid race condition between the 2
 	// goroutines below
-	b.req["foo"] = make(chan *pb.HttpRequest)
+	b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -273,7 +273,7 @@ func TestTimeout(t *testing.T) {
 func TestReapWhileSendingResponse(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		b := newBroker()
-		b.req["foo"] = make(chan *pb.HttpRequest)
+		b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 
 		// create a broker connection between the user client and backend side, but don't
 		// start sending data. "req" is backend side and "resp" is user client side.
@@ -322,7 +322,7 @@ func TestReapWhileSendingResponse(t *testing.T) {
 func TestReapWhileSendingRequest(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		b := newBroker()
-		b.req["foo"] = make(chan *pb.HttpRequest)
+		b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 
 		// create a broker connection between the user client and backend side, but don't
 		// start sending data. "req" is backend side and "resp" is user client side.
@@ -381,7 +381,7 @@ func TestRelayRequestUrlParseError(t *testing.T) {
 
 func TestRelayRequestMultipleClients(t *testing.T) {
 	b := newBroker()
-	b.req["foo"] = make(chan *pb.HttpRequest, 1)
+	b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest, 1), lastActivity: time.Now()}
 	req1 := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
 	_, err := b.RelayRequest("foo", req1)
 	if err != nil {
@@ -412,7 +412,7 @@ func TestRelayRequestRelayTimeout(t *testing.T) {
 	}
 	b := newBroker()
 	// Create an unbuffered channel and don't read from it to trigger timeout.
-	b.req["foo"] = make(chan *pb.HttpRequest)
+	b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 	req := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
 
 	_, err := b.RelayRequest("foo", req)
@@ -426,7 +426,7 @@ func TestGetRequestStreamTimeout(t *testing.T) {
 		t.Skip("Skipping slow timeout test")
 	}
 	b := newBroker()
-	b.req["foo"] = make(chan *pb.HttpRequest, 1) // make it block
+	b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest, 1), lastActivity: time.Now()} // make it block
 	req := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
 	b.RelayRequest("foo", req)
 
@@ -441,7 +441,7 @@ func TestGetRequestStreamTimeout(t *testing.T) {
 
 func TestStopRelayRequestCleanup(t *testing.T) {
 	b := newBroker()
-	b.req["foo"] = make(chan *pb.HttpRequest, 1)
+	b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest, 1), lastActivity: time.Now()}
 	req := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
 
 	respChan, err := b.RelayRequest("foo", req)
@@ -476,5 +476,38 @@ func TestStopRelayRequestCleanup(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Error("Timed out waiting for respChan to close")
+	}
+}
+
+func TestReapInactiveBackends(t *testing.T) {
+	b := newBroker()
+	
+	// Create an active backend
+	b.req["active"] = &backendState{
+		reqChan:      make(chan *pb.HttpRequest),
+		lastActivity: time.Now(),
+	}
+	
+	// Create an inactive backend
+	b.req["inactive"] = &backendState{
+		reqChan:      make(chan *pb.HttpRequest),
+		lastActivity: time.Now().Add(-15 * time.Minute),
+	}
+
+	// Record some metrics for both to ensure deletion doesn't panic
+	brokerRequests.WithLabelValues("client", "active").Inc()
+	brokerRequests.WithLabelValues("client", "inactive").Inc()
+
+	// Reap backends inactive for more than 10 minutes
+	b.ReapInactiveBackends(time.Now().Add(-10 * time.Minute))
+
+	b.m.Lock()
+	defer b.m.Unlock()
+
+	if _, ok := b.req["active"]; !ok {
+		t.Error("Active backend was incorrectly reaped")
+	}
+	if _, ok := b.req["inactive"]; ok {
+		t.Error("Inactive backend was not reaped")
 	}
 }
