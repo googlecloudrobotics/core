@@ -1,0 +1,50 @@
+{{- if and .Values.rbac.create (not .Values.rbac.clusterAdmin) -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "chart-assignment-controller.fullname" . }}
+  labels:
+    {{- include "chart-assignment-controller.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - apps.cloudrobotics.com
+  resources:
+  - chartassignments
+  - chartassignments/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps.cloudrobotics.com
+  resources:
+  - chartassignments/status
+  verbs:
+  - update
+  - patch
+- apiGroups:
+  - apps.cloudrobotics.com
+  resources:
+  - resourcesets
+  - resourcesets/status
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+{{- end }}

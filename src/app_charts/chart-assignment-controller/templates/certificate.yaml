@@ -1,0 +1,17 @@
+{{- if .Values.webhook.enabled -}}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "chart-assignment-controller.fullname" . }}
+  labels:
+    {{- include "chart-assignment-controller.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "chart-assignment-controller.fullname" . }}-tls
+  commonName: {{ include "chart-assignment-controller.fullname" . }}.{{ .Release.Namespace }}.svc
+  dnsNames:
+    - {{ include "chart-assignment-controller.fullname" . }}.{{ .Release.Namespace }}.svc
+    - {{ include "chart-assignment-controller.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    kind: ClusterIssuer
+    name: cluster-authority
+{{- end }}

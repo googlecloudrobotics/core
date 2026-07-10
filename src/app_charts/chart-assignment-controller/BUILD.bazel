@@ -1,0 +1,23 @@
+load("@rules_helm//helm:defs.bzl", "helm_chart", "helm_push")
+load("@rules_oci//oci:defs.bzl", "oci_push")
+
+package(default_visibility = ["//visibility:public"])
+
+oci_push(
+    name = "push-image",
+    image = "//src/go/cmd/chart-assignment-controller:chart-assignment-controller-image",
+    repository = "gcr.io/cloud-robotics-releases/chart-assignment-controller",
+)
+
+helm_chart(
+    name = "chart-assignment-controller",
+    chart = "Chart.yaml",
+    values = "values.yaml",
+    images = [":push-image"],
+)
+
+helm_push(
+    name = "push-chart",
+    package = ":chart-assignment-controller",
+    registry_url = "oci://us-docker.pkg.dev/cloud-robotics-releases/charts",
+)
