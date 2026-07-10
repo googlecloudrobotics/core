@@ -2,9 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "chart-assignment-controller.fullname" . }}
-  labels:
-    {{- include "chart-assignment-controller.labels" . | nindent 4 }}
+  name: chart-assignment-controller
 rules:
 - apiGroups:
   - apps.cloudrobotics.com

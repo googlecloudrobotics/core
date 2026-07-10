@@ -2,15 +2,13 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ include "chart-assignment-controller.fullname" . }}
-  labels:
-    {{- include "chart-assignment-controller.labels" . | nindent 4 }}
+  name: chart-assignment-controller
 spec:
-  secretName: {{ include "chart-assignment-controller.fullname" . }}-tls
-  commonName: {{ include "chart-assignment-controller.fullname" . }}.{{ .Release.Namespace }}.svc
+  secretName: chart-assignment-controller-tls
+  commonName: chart-assignment-controller.{{ .Release.Namespace }}.svc
   dnsNames:
-    - {{ include "chart-assignment-controller.fullname" . }}.{{ .Release.Namespace }}.svc
-    - {{ include "chart-assignment-controller.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+    - chart-assignment-controller.{{ .Release.Namespace }}.svc
+    - chart-assignment-controller.{{ .Release.Namespace }}.svc.cluster.local
   issuerRef:
     kind: ClusterIssuer
     name: cluster-authority
