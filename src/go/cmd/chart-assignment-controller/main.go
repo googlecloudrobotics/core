@@ -107,19 +107,15 @@ func runController(ctx context.Context, cfg *rest.Config, cluster string) error 
 	scheme.AddToScheme(sc)
 	apps.AddToScheme(sc)
 
-	webhookOptions := webhook.Options{
-		Port: *webhookPort,
-	}
-	if *certDir != "" {
-		webhookOptions.CertDir = *certDir
-	}
-
-	mgr, err := manager.New(cfg, manager.Options{
+	opts := manager.Options{
 		Scheme:                 sc,
-		WebhookServer:          webhook.NewServer(webhookOptions),
 		Metrics:                metricsserver.Options{BindAddress: "0"}, // disabled
 		HealthProbeBindAddress: fmt.Sprintf(":%d", *healthzPort),
-	})
+	}
+	if *webhookEnabled {
+		opts.WebhookServer = webhook.NewServer(webhook.Options{CertDir: *certDir, Port: *webhookPort})
+	}
+	mgr, err := manager.New(cfg, opts)
 	if err != nil {
 		return fmt.Errorf("create controller manager: %w", err)
 	}
