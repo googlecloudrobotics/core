@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -97,6 +98,46 @@ func TestParseURLErrors(t *testing.T) {
 			_, err := parseURL(tc.url)
 			if err == nil {
 				t.Fatalf("parseURL(%q) succeeded unexpected", tc.url)
+			}
+		})
+	}
+}
+
+func TestExtractOriginalURL(t *testing.T) {
+	tests := []struct {
+		desc        string
+		originalURL string
+		envoyPath   string
+		want        string
+	}{
+		{
+			desc:        "prefers X-Original-Url when present",
+			originalURL: "http://host/apis/core.kubernetes/apis/apps/v1/deployments",
+			envoyPath:   "/apis/core.kubernetes/apis/apps/v1/deployments",
+			want:        "http://host/apis/core.kubernetes/apis/apps/v1/deployments",
+		},
+		{
+			desc:        "falls back to X-Envoy-Original-Path when X-Original-Url is empty",
+			originalURL: "",
+			envoyPath:   "/apis/core.kubernetes/apis/apps/v1/deployments",
+			want:        "/apis/core.kubernetes/apis/apps/v1/deployments",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodGet, "/webhook", nil)
+			if err != nil {
+				t.Fatalf("http.NewRequest failed: %v", err)
+			}
+			if tc.originalURL != "" {
+				req.Header.Set("X-Original-Url", tc.originalURL)
+			}
+			if tc.envoyPath != "" {
+				req.Header.Set("X-Envoy-Original-Path", tc.envoyPath)
+			}
+			if got := extractOriginalURL(req); got != tc.want {
+				t.Errorf("extractOriginalURL() = %q, want %q", got, tc.want)
 			}
 		})
 	}

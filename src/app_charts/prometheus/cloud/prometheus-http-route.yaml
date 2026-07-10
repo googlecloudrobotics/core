@@ -17,9 +17,11 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /prometheus
+        value: /prometheus/
 {{- if eq . "-auth" }}
 {{- $authUrl := urlParse (tpl $.Values.prom_ingress_auth_url $) }}
+{{- $authUrlHeader := $.Values.prom_ingress_auth_url_header }}
+{{- $authUrlHeaderValue := $.Values.prom_ingress_auth_url_headervalue }}
 {{- $hostParts := splitList ":" $authUrl.host }}
 {{- $domainParts := splitList "." (first $hostParts) }}
 {{- $svcName := index $domainParts 0 }}
@@ -27,6 +29,13 @@ spec:
 {{- $svcPort := 80 }}{{ if eq $authUrl.scheme "https" }}{{ $svcPort = 443 }}{{ end }}
 {{- if gt (len $hostParts) 1 }}{{ $svcPort = index $hostParts 1 }}{{ end }}
     filters:
+{{- if $authUrlHeader }}
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: {{ $authUrlHeader }}
+          value: {{ $authUrlHeaderValue | quote }}
+{{- end }}
     - type: URLRewrite
       urlRewrite:
         path:

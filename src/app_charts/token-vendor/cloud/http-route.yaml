@@ -21,11 +21,16 @@ spec:
         value: /apis/core.token-vendor/v1/public-key.read
 {{- if eq . "-auth" }}
     filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: x-crc-tv-robots
+          value: "true"
     - type: URLRewrite
       urlRewrite:
         path:
           type: ReplaceFullPath
-          replaceFullPath: /apis/core.token-vendor/v1/token.verify?robots=true
+          replaceFullPath: /apis/core.token-vendor/v1/token.verify
 {{- end }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -52,11 +57,16 @@ spec:
         value: /apis/core.token-vendor/v1/public-key.publish
 {{- if eq . "-auth" }}
     filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: x-crc-tv-robots
+          value: "false"
     - type: URLRewrite
       urlRewrite:
         path:
           type: ReplaceFullPath
-          replaceFullPath: /apis/core.token-vendor/v1/token.verify?robots=false
+          replaceFullPath: /apis/core.token-vendor/v1/token.verify
 {{- end }}
 ---
 {{- end }}
@@ -86,6 +96,39 @@ spec:
         type: PathPrefix
         value: /apis/core.token-vendor/v1/token.oauth2
 ---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: token-vendor-auth-bypass
+spec:
+  hostnames:
+  - {{ .Values.domain }}
+  parentRefs:
+  - name: crc-auth-gateway
+    namespace: default
+    sectionName: http
+  rules:
+  - backendRefs:
+    - name: crc-auth-gateway-catchall-svc
+      namespace: default
+      port: 8080
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          replaceFullPath: /status/200
+          type: ReplaceFullPath
+    matches:
+    - path:
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/token.verify
+    - path:
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/jwt.verify
+    - path:
+        type: PathPrefix
+        value: /apis/core.token-vendor/v1/token.oauth2
+---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
@@ -95,6 +138,9 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     namespace: app-k8s-relay
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: app-prometheus
   to:
   - group: ""
     kind: Service

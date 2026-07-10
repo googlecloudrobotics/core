@@ -51,10 +51,6 @@ function include_config_and_defaults {
   USE_ISTIO=${USE_ISTIO:-false}
   USE_NGINX_SHIELD=${USE_NGINX_SHIELD:-false}
 
-  # lets-encrypt is used as the default certificate provider for backwards compatibility purposes
-  CLOUD_ROBOTICS_CERTIFICATE_PROVIDER=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER:-lets-encrypt}
-  CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME=${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME:-GCP_PROJECT_ID}
-  CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION=${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION:-GCP_PROJECT_ID}
 
   CLOUD_ROBOTICS_OWNER_EMAIL=${CLOUD_ROBOTICS_OWNER_EMAIL:-$(gcloud config get-value account)}
   CLOUD_ROBOTICS_CTX=${CLOUD_ROBOTICS_CTX:-"gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"}
@@ -158,7 +154,6 @@ region = "${GCP_REGION}"
 shared_owner_group = "${CLOUD_ROBOTICS_SHARED_OWNER_GROUP}"
 robot_image_reference = "${SOURCE_CONTAINER_REGISTRY}/setup-robot@${ROBOT_IMAGE_DIGEST}"
 crc_version = "${CRC_VERSION}"
-certificate_provider = "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
 cluster_type = "${GKE_CLUSTER_TYPE}"
 datapath_provider = "${GKE_DATAPATH_PROVIDER}"
 node_machine_type = "${GCP_NODE_VM_TYPE}"
@@ -167,20 +162,6 @@ max_node_count = ${GKE_MAX_NODES}
 onprem_federation = ${ONPREM_FEDERATION}
 secret_manager_plugin = ${GKE_SECRET_MANAGER_PLUGIN}
 EOF
-
-# Add certificate information if the configured provider requires it
-  if [[ ! "none self-signed" =~ (" "|^)"${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"(" "|$) ]]; then
-    cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
-certificate_subject_common_name = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME}"
-certificate_subject_organization = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION}"
-EOF
-
-  if [[ -n "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}" ]]; then
-      cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
-certificate_subject_organizational_unit = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}"
-EOF
-    fi
-  fi
 
   echo 'additional_regions = {' >> "${TERRAFORM_DIR}/terraform.tfvars"
   local AR
@@ -307,7 +288,6 @@ function helm_region_shared {
     --set-string "owner_email=${CLOUD_ROBOTICS_OWNER_EMAIL}"
     --set-string "app_management=${APP_MANAGEMENT}"
     --set-string "onprem_federation=${ONPREM_FEDERATION}"
-    --set-string "certificate_provider=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
     --set-string "deploy_environment=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT}"
     --set-string "oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
     --set-string "oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"

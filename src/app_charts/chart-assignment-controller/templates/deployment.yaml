@@ -45,6 +45,8 @@ spec:
               port: 8080
             initialDelaySeconds: 15
             periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

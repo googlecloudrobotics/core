@@ -92,14 +92,7 @@ helm_template(
     values = "cert-manager-cloud.values.yaml",
 )
 
-helm_template(
-    name = "cert-manager-google-cas-issuer-chart.cloud",
-    chart = "//third_party/cert-manager-google-cas-issuer:cert-manager-google-cas-issuer-v0.6.2.tgz",
-    # The namespace will later be replaced with the actual one.
-    namespace = "HELM-NAMESPACE",
-    release_name = "cert-manager-google-cas-issuer",
-    values = "cert-manager-google-cas-issuer-cloud.values.yaml",
-)
+
 helm_template(
     name = "chart-assignment-controller-chart.cloud",
     chart = "//src/app_charts/chart-assignment-controller",
@@ -109,7 +102,6 @@ helm_template(
     release_name = "chart-assignment-controller",
     values = "chart-assignment-controller-cloud.values.yaml",
 )
-
 app_chart(
     name = "base-cloud",
     extra_templates = [
@@ -117,13 +109,14 @@ app_chart(
         "//third_party/kube-prometheus-stack:01-crds.yaml",
         "//third_party/gateway-api:grpcroute-generated.yaml",
         "//third_party/istio:istio-generated.yaml",
+        "//third_party/istio:istio-dashboards.yaml",
     ],
     files = [
         "relay-dashboard.json",
         ":cert-manager-chart.cloud",
-        ":cert-manager-google-cas-issuer-chart.cloud",
         ":chart-assignment-controller-chart.cloud",
         "//third_party/istio:istio-config.yaml",
+        "//third_party/istio:istio-dashboards",
         "//third_party/istio:istio-values.json",
         "@ingress-nginx//:ingress-nginx-dashboards",
     ],

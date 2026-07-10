@@ -41,7 +41,7 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /apis/core.kubernetes
+        value: /apis/core.kubernetes/
 {{- if eq . "-auth" }}
     filters:
     - type: URLRewrite
@@ -65,4 +65,19 @@ spec:
 {{- end }}
 ---
 {{- end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: kubernetes-tls-policy
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: kubernetes
+  validation:
+    caCertificateRefs:
+    - group: ""
+      kind: ConfigMap
+      name: kube-root-ca.crt
+    hostname: kubernetes.default.svc
 {{- end }}
