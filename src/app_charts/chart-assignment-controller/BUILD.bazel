@@ -9,19 +9,19 @@ oci_push(
     repository = "gcr.io/cloud-robotics-releases/chart-assignment-controller",
 )
 
+# stamp = 1 is required to ensure that `{STABLE_BUILD_VERSION}` in Chart.yaml
+# is replaced with a valid SemVer version even during local builds (falling back
+# to 0.1.0-dev). Otherwise, the build fails because Helm requires valid SemVer.
 helm_chart(
     name = "chart-assignment-controller",
     chart = "Chart.yaml",
     values = "values.yaml",
     images = [":push-image"],
-    # This can only be built with --stamp when BUILD_VERSION is set.
-    tags = ["manual"],
+    stamp = 1,
 )
 
 helm_push(
     name = "push-chart",
     package = ":chart-assignment-controller",
     registry_url = "oci://us-docker.pkg.dev/cloud-robotics-releases/charts",
-    # This can only be built with --stamp when BUILD_VERSION is set.
-    tags = ["manual"],
 )

@@ -46,7 +46,7 @@ echo "Pushing Helm chart to GAR..."
 export BUILD_VERSION="${VERSION}-${SHA}"
 export HELM_REGISTRY_USERNAME="oauth2accesstoken"
 export HELM_REGISTRY_PASSWORD=$(gcloud auth print-access-token)
-bazel_ci run --stamp //src/app_charts/chart-assignment-controller:push-chart
+bazel_ci run //src/app_charts/chart-assignment-controller:push-chart
 
 # Generate release notes comparing against the previous release.
 output=$(curl --fail-with-body -sS \
