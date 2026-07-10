@@ -20,4 +20,5 @@ installCRDs: true
 
 rbac:
   create: true
+  
   clusterAdmin: true # If true, binds the SA to cluster-admin

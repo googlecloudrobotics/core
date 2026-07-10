@@ -2,11 +2,9 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: {{ include "chart-assignment-controller.fullname" . }}
-  labels:
-    {{- include "chart-assignment-controller.labels" . | nindent 4 }}
+  name: chart-assignment-controller
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "chart-assignment-controller.fullname" . }}
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/chart-assignment-controller
 webhooks:
   - name: chartassignments.apps.cloudrobotics.com
     admissionReviewVersions: ["v1"]
@@ -14,7 +12,7 @@ webhooks:
     clientConfig:
       service:
         namespace: {{ .Release.Namespace }}
-        name: {{ include "chart-assignment-controller.fullname" . }}
+        name: chart-assignment-controller
         path: /chartassignment/validate
     rules:
       - apiGroups:
