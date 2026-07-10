@@ -4,6 +4,16 @@ load("//bazel:build_rules/helm_template.bzl", "helm_template")
 
 # Tests
 
+helm_template(
+    name = "chart-assignment-controller-chart.robot",
+    chart = "//src/app_charts/chart-assignment-controller",
+    helm_version = 3,
+    # The namespace will later be replaced with the actual one.
+    namespace = "HELM-NAMESPACE",
+    release_name = "chart-assignment-controller",
+    values = "chart-assignment-controller-robot.values.yaml",
+)
+
 app_chart(
     name = "base-test",
     extra_templates = [
@@ -16,6 +26,7 @@ app_chart(
     ],
     files = [
         ":cert-manager-chart.robot",
+        ":chart-assignment-controller-chart.robot",
     ],
     images = {
         "chart-assignment-controller": "//src/go/cmd/chart-assignment-controller:chart-assignment-controller-image",
@@ -57,6 +68,7 @@ app_chart(
     extra_values = ["values-robot.yaml"],
     files = [
         ":cert-manager-chart.robot",
+        ":chart-assignment-controller-chart.robot",
         "//third_party/fluentd_gcp_addon",
     ],
     images = {
@@ -88,6 +100,15 @@ helm_template(
     release_name = "cert-manager-google-cas-issuer",
     values = "cert-manager-google-cas-issuer-cloud.values.yaml",
 )
+helm_template(
+    name = "chart-assignment-controller-chart.cloud",
+    chart = "//src/app_charts/chart-assignment-controller",
+    helm_version = 3,
+    # The namespace will later be replaced with the actual one.
+    namespace = "HELM-NAMESPACE",
+    release_name = "chart-assignment-controller",
+    values = "chart-assignment-controller-cloud.values.yaml",
+)
 
 app_chart(
     name = "base-cloud",
@@ -101,6 +122,7 @@ app_chart(
         "relay-dashboard.json",
         ":cert-manager-chart.cloud",
         ":cert-manager-google-cas-issuer-chart.cloud",
+        ":chart-assignment-controller-chart.cloud",
         "//third_party/istio:istio-config.yaml",
         "//third_party/istio:istio-values.json",
         "@ingress-nginx//:ingress-nginx-dashboards",

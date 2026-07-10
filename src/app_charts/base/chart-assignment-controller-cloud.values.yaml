@@ -1,0 +1,10 @@
+image:
+  repository: '{{ .Values.registry }}{{ splitList `@` .Values.images.chart_assignment_controller | first }}'
+  digest: '{{ splitList `@` .Values.images.chart_assignment_controller | last }}'
+cloudCluster: true
+robotName: ""
+webhook:
+  enabled: true
+rbac:
+  create: true
+  clusterAdmin: true

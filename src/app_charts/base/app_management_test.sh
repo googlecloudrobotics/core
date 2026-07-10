@@ -41,7 +41,7 @@ function expect_app_installed() {
   if ! template=$(${command}); then
     test_failed "\"${command}\" failed"
   fi
-  if [[ "${template}" != *"app: ${application}"* ]]; then
+  if [[ "${template}" != *"app: ${application}"* && "${template}" != *"app.kubernetes.io/name: ${application}"* ]]; then
     echo "TEMPLATE: ${template}"
     test_failed "expected \"${application}\" to be installed in template created by \"${command}\""
   fi
@@ -56,7 +56,7 @@ function expect_app_not_installed() {
     echo "TEMPLATE: ${template}"
     test_failed "\"${command}\" failed"
   fi
-  if [[ "${template}" == *"app: ${application}"* ]]; then
+  if [[ "${template}" == *"app: ${application}"* || "${template}" == *"app.kubernetes.io/name: ${application}"* ]]; then
     test_failed "did not expected \"${application}\" to be installed in template created by \"${command}\""
   fi
   test_passed "application \"${application}\" is not included in template created by \"${command}\""
