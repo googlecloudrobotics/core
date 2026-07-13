@@ -159,6 +159,10 @@ spec:
         env:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}
+        {{- if .Values.chart_assignment_controller.extra_allowed_namespaces }}
+        - name: SYNK_EXTRA_ALLOWED_NAMESPACES
+          value: "{{ .Values.chart_assignment_controller.extra_allowed_namespaces }}"
+        {{- end }}
         livenessProbe:
           initialDelaySeconds: 15
           periodSeconds: 10

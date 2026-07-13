@@ -112,6 +112,9 @@ type ApplyOptions struct {
 	// EnforceNamespace causes apply to fail if a resource has a namespace set
 	// that's different from Namespace.
 	EnforceNamespace bool
+	// AllowedNamespaces is an optional list of additional namespaces that
+	// resources are permitted to be deployed into when EnforceNamespace is true.
+	AllowedNamespaces []string
 
 	// Log functions to report progress and failures while applying resources.
 	Log func(r *unstructured.Unstructured, a apps.ResourceAction, status, msg string)
@@ -417,9 +420,9 @@ func (s *Synk) applyAll(
 	return results, err
 }
 
-func validateNamespace(r *unstructured.Unstructured, optsNs string) error {
+func validateNamespace(r *unstructured.Unstructured, opts *ApplyOptions) error {
 	ns := r.GetNamespace()
-	allowed := []string{"", "kube-system", "default", optsNs}
+	allowed := append([]string{"", "kube-system", "default", opts.Namespace}, opts.AllowedNamespaces...)
 	if slices.Contains(allowed, ns) {
 		return nil
 	}
@@ -448,7 +451,7 @@ func (s *Synk) initialize(
 	// so we can give validation errors in batch in the ResourceSet status.
 	if opts.EnforceNamespace {
 		for _, r := range regulars {
-			if err := validateNamespace(r, opts.Namespace); err != nil {
+			if err := validateNamespace(r, opts); err != nil {
 				return nil, nil, err
 			}
 		}

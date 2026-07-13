@@ -15,6 +15,7 @@
 package chartassignment
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"testing/synctest"
@@ -22,8 +23,10 @@ import (
 	"github.com/golang/mock/gomock"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubetest"
+	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/helm/pkg/chartutil"
@@ -373,4 +376,127 @@ func TestReleases_EnsureUpdated_PermanentErrorNoRetry(t *testing.T) {
 		// 2. Second attempt with same generation should be skipped.
 		ensureUpdatedWithRetry(t, rs, as)
 	})
+}
+
+func TestRelease_ExtraAllowedNamespaces_FailsWithoutEnv(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Setenv("SYNK_EXTRA_ALLOWED_NAMESPACES", "")
+
+	var as apps.ChartAssignment
+	unmarshalYAML(t, &as, `
+metadata:
+  name: workload-app
+spec:
+  namespaceName: app-workload
+  chart:
+    values:
+`)
+	as.Spec.Chart.Inline = kubetest.BuildInlineChart(t, "workload-app", `
+apiVersion: v1
+kind: Service
+metadata:
+  name: companion-svc
+  namespace: extra-companion-ns
+spec:
+  ports:
+  - port: 80
+`, "")
+
+	mockSynk := NewMockInterface(ctrl)
+	r := &release{
+		ctx:      t.Context(),
+		synk:     mockSynk,
+		recorder: &record.FakeRecorder{Events: make(chan string, 10)},
+	}
+
+	wantErr := `invalid namespace "extra-companion-ns" on "/v1/Service/extra-companion-ns/companion-svc", expected one of [ kube-system default app-workload]`
+
+	mockSynk.EXPECT().Apply(gomock.Any(), "workload-app", gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, name string, opts *synk.ApplyOptions, resources ...*unstructured.Unstructured) (*apps.ResourceSet, error) {
+			if opts.Namespace != "app-workload" {
+				t.Errorf("expected opts.Namespace to be 'app-workload', got %q", opts.Namespace)
+			}
+			if !opts.EnforceNamespace {
+				t.Errorf("expected opts.EnforceNamespace to be true")
+			}
+			if len(opts.AllowedNamespaces) != 0 {
+				t.Errorf("expected opts.AllowedNamespaces to be empty without SYNK_EXTRA_ALLOWED_NAMESPACES, got %v", opts.AllowedNamespaces)
+			}
+			if len(resources) != 1 || resources[0].GetNamespace() != "extra-companion-ns" {
+				t.Errorf("expected resource in 'extra-companion-ns' namespace, got %v", resources)
+			}
+			return nil, fmt.Errorf(wantErr)
+		},
+	).Times(1)
+
+	r.update(&as)
+
+	r.mtx.Lock()
+	statusErr := r.status.err
+	r.mtx.Unlock()
+
+	if statusErr == nil || statusErr.Error() != wantErr {
+		t.Errorf("r.status.err:\ngot  %v\nwant %s", statusErr, wantErr)
+	}
+}
+
+func TestRelease_ExtraAllowedNamespaces_SucceedsWithEnv(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Setenv("SYNK_EXTRA_ALLOWED_NAMESPACES", "extra-companion-ns,other-allowed-ns")
+
+	var as apps.ChartAssignment
+	unmarshalYAML(t, &as, `
+metadata:
+  name: workload-app
+spec:
+  namespaceName: app-workload
+  chart:
+    values:
+`)
+	as.Spec.Chart.Inline = kubetest.BuildInlineChart(t, "workload-app", `
+apiVersion: v1
+kind: Service
+metadata:
+  name: companion-svc
+  namespace: extra-companion-ns
+spec:
+  ports:
+  - port: 80
+`, "")
+
+	mockSynk := NewMockInterface(ctrl)
+	r := &release{
+		ctx:      t.Context(),
+		synk:     mockSynk,
+		recorder: &record.FakeRecorder{Events: make(chan string, 10)},
+	}
+
+	mockSynk.EXPECT().Apply(gomock.Any(), "workload-app", gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, name string, opts *synk.ApplyOptions, resources ...*unstructured.Unstructured) (*apps.ResourceSet, error) {
+			if opts.Namespace != "app-workload" {
+				t.Errorf("expected opts.Namespace to be 'app-workload', got %q", opts.Namespace)
+			}
+			if !opts.EnforceNamespace {
+				t.Errorf("expected opts.EnforceNamespace to be true")
+			}
+			if len(opts.AllowedNamespaces) != 2 || opts.AllowedNamespaces[0] != "extra-companion-ns" {
+				t.Errorf("expected opts.AllowedNamespaces to contain 'extra-companion-ns', got %v", opts.AllowedNamespaces)
+			}
+			return &apps.ResourceSet{}, nil
+		},
+	).Times(1)
+
+	r.update(&as)
+
+	r.mtx.Lock()
+	statusErr := r.status.err
+	r.mtx.Unlock()
+
+	if statusErr != nil {
+		t.Errorf("expected no error when SYNK_EXTRA_ALLOWED_NAMESPACES allows extra-companion-ns, got %v", statusErr)
+	}
 }

@@ -255,9 +255,19 @@ func (r *release) update(as *apps.ChartAssignment) {
 	r.setPhase(apps.ChartAssignmentPhaseUpdating)
 	r.recorder.Event(as, core.EventTypeNormal, "UpdateChart", "update chart")
 
+	var allowedNamespaces []string
+	if env := os.Getenv("SYNK_EXTRA_ALLOWED_NAMESPACES"); env != "" {
+		for _, ns := range strings.Split(env, ",") {
+			if trimmed := strings.TrimSpace(ns); trimmed != "" {
+				allowedNamespaces = append(allowedNamespaces, trimmed)
+			}
+		}
+	}
+
 	opts := &synk.ApplyOptions{
-		Namespace:        as.Spec.NamespaceName,
-		EnforceNamespace: true,
+		Namespace:         as.Spec.NamespaceName,
+		EnforceNamespace:  true,
+		AllowedNamespaces: allowedNamespaces,
 		Log: func(r *unstructured.Unstructured, action apps.ResourceAction, status, msg string) {
 			if status == synk.StatusSuccess {
 				return

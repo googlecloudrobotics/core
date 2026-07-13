@@ -32,3 +32,6 @@ robot:
 
 webhook:
   enabled: "true"
+
+chart_assignment_controller:
+  extra_allowed_namespaces: ""

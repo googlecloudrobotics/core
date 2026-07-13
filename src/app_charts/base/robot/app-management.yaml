@@ -27,6 +27,10 @@ spec:
           value: {{ .Values.project }}
         - name: ROBOT_NAME
           value: "{{ .Values.robot.name }}"
+        {{- if .Values.chart_assignment_controller.extra_allowed_namespaces }}
+        - name: SYNK_EXTRA_ALLOWED_NAMESPACES
+          value: "{{ .Values.chart_assignment_controller.extra_allowed_namespaces }}"
+        {{- end }}
         livenessProbe:
           initialDelaySeconds: 15
           periodSeconds: 10

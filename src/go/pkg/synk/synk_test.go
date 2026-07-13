@@ -762,10 +762,11 @@ data:
 
 func TestSynk_validateNamespace(t *testing.T) {
 	tests := []struct {
-		desc      string
-		namespace string
-		optsNs    string
-		wantErr   bool
+		desc         string
+		namespace    string
+		optsNs       string
+		extraAllowed []string
+		wantErr      bool
 	}{
 		{
 			desc:      "empty namespace is allowed",
@@ -803,16 +804,57 @@ func TestSynk_validateNamespace(t *testing.T) {
 			optsNs:    "",
 			wantErr:   true,
 		},
+		{
+			desc:         "extra allowed namespace is permitted",
+			namespace:    "extra-ns",
+			optsNs:       "my-ns",
+			extraAllowed: []string{"extra-ns", "other-ns"},
+			wantErr:      false,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			r := newUnstructured("v1", "Pod", tc.namespace, "pod1")
-			err := validateNamespace(r, tc.optsNs)
+			opts := &ApplyOptions{
+				Namespace:         tc.optsNs,
+				AllowedNamespaces: tc.extraAllowed,
+			}
+			err := validateNamespace(r, opts)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("validateNamespace() error = %v, wantErr %v", err, tc.wantErr)
 			}
 		})
+	}
+}
+
+func TestSynk_ExtraAllowedNamespaces(t *testing.T) {
+	ctx := t.Context()
+	s := newFixture(t).newSynk()
+
+	opts := &ApplyOptions{
+		Namespace:        "app-workload",
+		EnforceNamespace: true,
+	}
+	r := newUnstructured("v1", "Service", "extra-ns", "companion-svc")
+
+	wantErr := `invalid namespace "extra-ns" on "/v1/Service/extra-ns/companion-svc", expected one of [ kube-system default app-workload]`
+
+	// 1. Direct validation check without AllowedNamespaces
+	if err := validateNamespace(r, opts); err == nil || err.Error() != wantErr {
+		t.Errorf("validateNamespace() error:\ngot  %v\nwant %s", err, wantErr)
+	}
+
+	// 2. Full initialize / Apply check without AllowedNamespaces
+	_, applyErr := s.Apply(ctx, "test-release", opts, r)
+	if applyErr == nil || applyErr.Error() != wantErr {
+		t.Errorf("s.Apply() error:\ngot  %v\nwant %s", applyErr, wantErr)
+	}
+
+	// 3. Check that populating AllowedNamespaces makes validation succeed
+	opts.AllowedNamespaces = []string{"extra-ns"}
+	if err := validateNamespace(r, opts); err != nil {
+		t.Errorf("expected validateNamespace() to succeed with extra-ns allowed, got %v", err)
 	}
 }
 

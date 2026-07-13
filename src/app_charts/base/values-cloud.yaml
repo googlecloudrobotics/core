@@ -23,3 +23,6 @@ oauth2_proxy:
 certificate_authority:
   key: ""
   crt: ""
+
+chart_assignment_controller:
+  extra_allowed_namespaces: ""
