@@ -151,6 +151,10 @@ resource "google_container_node_pool" "cloud_robotics_base_pool" {
       "https://www.googleapis.com/auth/userinfo.email",
     ]
   }
+
+  timeouts {
+    update = "${var.max_node_count * 10}m"
+  }
 }
 
 resource "google_container_node_pool" "cloud_robotics_base_pool_ar" {
@@ -179,6 +183,10 @@ resource "google_container_node_pool" "cloud_robotics_base_pool_ar" {
       "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/userinfo.email",
     ]
+  }
+
+  timeouts {
+    update = "${var.max_node_count * 10}m"
   }
 }
 
