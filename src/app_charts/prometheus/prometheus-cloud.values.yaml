@@ -169,6 +169,8 @@ nodeExporter:
       targetLabel: instance
 
 grafana:
+  # default password used by old releases, deployed behind auth-proxy anyway
+  adminPassword: "prom-operator"
   testFramework:
     enabled: false
   env:
