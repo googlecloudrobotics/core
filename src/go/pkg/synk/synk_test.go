@@ -462,7 +462,7 @@ data:
 	if res.action != apps.ResourceActionIgnored {
 		t.Errorf("expected action Ignored, got %s", res.action)
 	}
-	
+
 	// Check that the returned resource has the old data
 	val, _, _ := unstructured.NestedString(res.resource.Object, "data", "foo1")
 	if val != "bar1" {

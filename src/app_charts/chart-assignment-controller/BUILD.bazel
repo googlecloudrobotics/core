@@ -1,0 +1,27 @@
+load("@rules_helm//helm:defs.bzl", "helm_chart", "helm_push")
+load("@rules_oci//oci:defs.bzl", "oci_push")
+
+package(default_visibility = ["//visibility:public"])
+
+oci_push(
+    name = "push-image",
+    image = "//src/go/cmd/chart-assignment-controller:chart-assignment-controller-image",
+    repository = "gcr.io/cloud-robotics-releases/chart-assignment-controller",
+)
+
+# stamp = 1 is required to ensure that `{STABLE_BUILD_VERSION}` in Chart.yaml
+# is replaced with a valid SemVer version even during local builds (falling back
+# to 0.1.0-dev). Otherwise, the build fails because Helm requires valid SemVer.
+helm_chart(
+    name = "chart-assignment-controller",
+    chart = "Chart.yaml",
+    values = "values.yaml",
+    images = [":push-image"],
+    stamp = 1,
+)
+
+helm_push(
+    name = "push-chart",
+    package = ":chart-assignment-controller",
+    registry_url = "oci://us-docker.pkg.dev/cloud-robotics-releases/charts",
+)

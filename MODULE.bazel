@@ -5,6 +5,7 @@ bazel_dep(name = "protobuf", version = "29.0", repo_name = "com_google_protobuf"
 bazel_dep(name = "rules_oci", version = "2.0.1")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "rules_shell", version = "0.4.1")
+bazel_dep(name = "rules_helm", version = "0.29.0")
 # -- bazel_dep definitions -- #
 
 non_module_deps = use_extension("//:non_module_deps.bzl", "non_module_deps")
