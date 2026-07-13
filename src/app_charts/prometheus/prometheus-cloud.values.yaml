@@ -169,7 +169,10 @@ nodeExporter:
       targetLabel: instance
 
 grafana:
-  # default password used by old releases, deployed behind auth-proxy anyway
+  # default password used by old releases, deployed behind auth-proxy so this
+  # is not a secret.
+  # we could also use "auth proxy authentication" but the second login defends
+  # against unintentional edits to dashboards.
   adminPassword: "prom-operator"
   testFramework:
     enabled: false
