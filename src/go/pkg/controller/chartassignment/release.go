@@ -306,7 +306,7 @@ func loadAndExpandChart(as *apps.ChartAssignment) ([]*unstructured.Unstructured,
 	if err != nil {
 		return nil, false, fmt.Errorf("render chart: %w", err)
 	}
-	// TODO: consider giving the synk package first-class support for raw manifests
+	// TODO(ensonic): consider giving the synk package first-class support for raw manifests
 	// so that their decoding errors are fully surfaced in the ResourceSet. Otherwise,
 	// common YAML errors will only be surfaced one-by-one, which is tedious to handle.
 	res, err := decodeManifests(manifests)
@@ -342,7 +342,7 @@ func loadChart(cspec *apps.AssignedChart) (*chart.Chart, string, error) {
 		return nil, "", fmt.Errorf("load chart requirements: %w", err)
 	}
 
-	// TODO: handle empty c.Values, cspec.Values
+	// TODO(ensonic): handle empty c.Values, cspec.Values
 	// Build the full set of values including the default ones. Even though
 	// they are part of the chart, they are ignored if we don't provide
 	// them explicitly.

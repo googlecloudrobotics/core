@@ -6,7 +6,7 @@ locals {
     google_service_account.human-acl.member,
     var.onprem_federation ? [google_service_account.robot-service[0].member] : [],
   ])
-  # TODO: use the regional repos depending on settings in the future
+  # TODO(ensonic): use the regional repos depending on settings in the future
   private_repo_access = flatten([
     for sa in local.service_acounts : [
       for prj in var.private_image_repositories : {

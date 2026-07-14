@@ -87,7 +87,7 @@ func Add(ctx context.Context, mgr manager.Manager, baseValues chartutil.Values) 
 		source.Kind(mgr.GetCache(), kclient.Object(&apps.ChartAssignment{}),
 			// We manually enqueue for the owner reference since handler.EnqueueRequestForOwner
 			// does not work.
-			// TODO: There is an associated bug in the controller-runtime but upgrading to include
+			// TODO(ensonic): There is an associated bug in the controller-runtime but upgrading to include
 			// https://github.com/kubernetes-sigs/controller-runtime/pull/274 did not resolve the issue.
 			&handler.Funcs{
 				DeleteFunc: func(ctx context.Context, evt event.DeleteEvent, q workQueue) {
