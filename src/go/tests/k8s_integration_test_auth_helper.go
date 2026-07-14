@@ -35,18 +35,21 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+	"os"
+
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/util/jsonpath"
-	"k8s.io/klog/v2"
 )
 
 func init() {
 	if err := restclient.RegisterAuthProviderPlugin("gcp", newGCPAuthProvider); err != nil {
-		klog.Fatalf("Failed to register gcp auth plugin: %v", err)
+		slog.Error("Failed to register gcp auth plugin", slog.Any("error", err))
+		os.Exit(1)
 	}
 }
 
@@ -124,7 +127,7 @@ var warnOnce sync.Once
 
 func newGCPAuthProvider(_ string, gcpConfig map[string]string, persister restclient.AuthProviderConfigPersister) (restclient.AuthProvider, error) {
 	warnOnce.Do(func() {
-		klog.Warningf(`WARNING: the gcp auth plugin is deprecated in v1.22+, unavailable in v1.26+; use gcloud instead.
+		slog.Warn(`WARNING: the gcp auth plugin is deprecated in v1.22+, unavailable in v1.26+; use gcloud instead.
 To learn more, consult https://cloud.google.com/blog/products/containers-kubernetes/kubectl-auth-changes-in-gke`)
 	})
 
@@ -237,7 +240,7 @@ func (t *cachedTokenSource) Token() (*oauth2.Token, error) {
 	cache := t.update(tok)
 	if t.persister != nil {
 		if err := t.persister.Persist(cache); err != nil {
-			klog.V(4).Infof("Failed to persist token: %v", err)
+			slog.Debug("Failed to persist token", slog.Any("error", err))
 		}
 	}
 	return tok, nil
@@ -343,7 +346,7 @@ func (c *commandTokenSource) parseTokenCmdOutput(output []byte) (*oauth2.Token, 
 	}
 	var expiry time.Time
 	if t, err := time.Parse(c.timeFmt, expiryStr); err != nil {
-		klog.V(4).Infof("Failed to parse token expiry from %s (fmt=%s): %v", expiryStr, c.timeFmt, err)
+		slog.Debug("Failed to parse token expiry", slog.String("expiry", expiryStr), slog.String("format", c.timeFmt), slog.Any("error", err))
 	} else {
 		expiry = t
 	}
@@ -387,7 +390,7 @@ func (t *conditionalTransport) RoundTrip(req *http.Request) (*http.Response, err
 	}
 
 	if res.StatusCode == 401 {
-		klog.V(4).Infof("The credentials that were supplied are invalid for the target cluster")
+		slog.Debug("The credentials that were supplied are invalid for the target cluster")
 		t.persister.Persist(t.resetCache)
 	}
 

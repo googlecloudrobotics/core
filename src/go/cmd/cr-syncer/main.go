@@ -74,7 +74,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -238,6 +238,7 @@ func streamCrds(done <-chan struct{}, clientset crdclientset.Interface, crds cha
 }
 
 func main() {
+	// Initialize klog flags (e.g. -v) to allow configuring client-go's internal logging verbosity.
 	klog.InitFlags(nil)
 	flag.Parse()
 
