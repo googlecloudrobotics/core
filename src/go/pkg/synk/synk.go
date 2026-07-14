@@ -100,7 +100,7 @@ func NewForConfig(cfg *rest.Config) (*Synk, error) {
 	return New(client, cachedDiscovery), nil
 }
 
-// TODO: determine options that allow us to be semantically compatible with
+// TODO(freinartz): determine options that allow us to be semantically compatible with
 // vanilla kubectl apply.
 type ApplyOptions struct {
 	name    string
@@ -444,7 +444,7 @@ func (s *Synk) initialize(
 	if err := s.populateNamespaces(ctx, opts.Namespace, crds, regulars...); err != nil {
 		return nil, nil, fmt.Errorf("set default namespaces: %w", err)
 	}
-	// TODO: consider putting this and other validation as a step after initialize
+	// TODO(freinartz): consider putting this and other validation as a step after initialize
 	// so we can give validation errors in batch in the ResourceSet status.
 	if opts.EnforceNamespace {
 		for _, r := range regulars {
@@ -684,7 +684,7 @@ func replace(ctx context.Context, client dynamic.ResourceInterface, resource *un
 
 func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured, set *apps.ResourceSet) (apps.ResourceAction, error) {
 	// If name is unset, we'd retrieve a list below and panic.
-	// TODO: This may be valid if generateName is set instead. In this case we
+	// TODO(freinartz): This may be valid if generateName is set instead. In this case we
 	// want to create the resource in any case.
 	if resource.GetName() == "" {
 		return apps.ResourceActionNone, fmt.Errorf("missing resource name for %s", resource.GroupVersionKind().String())
@@ -773,13 +773,13 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		)
 		obj, err := scheme.Scheme.New(mapping.GroupVersionKind)
 		if err == nil {
-			// TODO: add option to dynamically load patch meta from discovery API
+			// TODO(ensonic): add option to dynamically load patch meta from discovery API
 			// for full kubectl compatibility.
 			patchMeta, err := strategicpatch.NewPatchMetaFromStruct(obj)
 			if err != nil {
 				return apps.ResourceActionNone, fmt.Errorf("lookup patch meta: %w", err)
 			}
-			// TODO: Make overwrite boolean configurable for full kubectl compatibility.
+			// TODO(ensonic): Make overwrite boolean configurable for full kubectl compatibility.
 			patch, err = strategicpatch.CreateThreeWayMergePatch(
 				originalRaw, resourceRaw, currentRaw,
 				patchMeta, true,
@@ -1033,7 +1033,7 @@ func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, versio
 		if !ok || n != name || v >= version {
 			continue
 		}
-		// TODO: should we possibly opt for foreground deletion here so
+		// TODO(freinartz): should we possibly opt for foreground deletion here so
 		// we only return after all dependents have been deleted as well?
 		// kubectl doesn't allow to opt into foreground deletion in general but
 		// here it would likely bring us closer to the apply --prune semantics.
@@ -1060,7 +1060,7 @@ func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int3
 		if !ok || n != name || v >= version {
 			continue
 		}
-		// TODO: should we possibly opt for foreground deletion here so
+		// TODO(freinartz): should we possibly opt for foreground deletion here so
 		// we only return after all dependents have been deleted as well?
 		// kubectl doesn't allow to opt into foreground deletion in general but
 		// here it would likely bring us closer to the apply --prune semantics.
