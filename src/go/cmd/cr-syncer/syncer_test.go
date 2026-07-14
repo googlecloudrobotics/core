@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -428,128 +429,131 @@ func TestSyncDownstream_statusSubtree(t *testing.T) {
 }
 
 func TestSyncDownstream_downstreamNotFound(t *testing.T) {
-	crd := testCRD(crdtypes.NamespaceScoped)
-	f := newFixture(t)
+	synctest.Test(t, func(t *testing.T) {
+		crd := testCRD(crdtypes.NamespaceScoped)
+		f := newFixture(t)
 
-	// If the downstream resource is not present when synced, the upstream
-	// resource should be added to the upstream queue, so that syncUpstream
-	// can recreate the downstream resource.  This tests the case where the
-	// upstream resource was deleted and immediately recreated.
-	var (
-		tcrRemote = newTestCR("resource1", "spec1", "status1")
-	)
+		// If the downstream resource is not present when synced, the upstream
+		// resource should be added to the upstream queue, so that syncUpstream
+		// can recreate the downstream resource.  This tests the case where the
+		// upstream resource was deleted and immediately recreated.
+		var (
+			tcrRemote = newTestCR("resource1", "spec1", "status1")
+		)
 
-	f.addRemoteObjects(tcrRemote)
+		f.addRemoteObjects(tcrRemote)
 
-	crs, _ := f.newCRSyncer(crd, "cluster1")
-	defer crs.stop()
+		crs, _ := f.newCRSyncer(crd, "cluster1")
+		defer crs.stop()
 
-	crs.startInformers()
-	// startInformers adds the initial state to the upstream queue.  Ignore
-	// it, so that we can check that the same resource is requeued.
-	upstreamChannel := channelFromQueue(t, crs.upstreamQueue, crs.upstreamInf)
-	select {
-	case <-upstreamChannel:
-		// Ignore.
-	case <-time.After(5 * time.Second):
-		t.Errorf("upstream resource was not queued by informer; want %v", tcrRemote)
-	}
-
-	if err := crs.syncDownstream("default/resource1"); err != nil {
-		t.Fatal(err)
-	}
-
-	// syncDownstream should have requeued the upstream resource.
-	select {
-	case got := <-upstreamChannel:
-		if !reflect.DeepEqual(got, tcrRemote) {
-			t.Errorf("upstream queue got %v; want %v", got, tcrRemote)
+		crs.startInformers()
+		// startInformers adds the initial state to the upstream queue.  Ignore
+		// it, so that we can check that the same resource is requeued.
+		upstreamChannel := channelFromQueue(t, crs.upstreamQueue, crs.upstreamInf)
+		select {
+		case <-upstreamChannel:
+			// Ignore.
+		case <-time.After(5 * time.Second):
+			t.Errorf("upstream resource was not queued by informer; want %v", tcrRemote)
 		}
-	case <-time.After(5 * time.Second):
-		t.Errorf("upstream resource was not requeued to %p; want %v", crs.upstreamQueue, tcrRemote)
-	}
 
-	// We don't need to call syncUpstream here, as this is tested by
-	// TestSyncUpstream_createSpec.
+		if err := crs.syncDownstream("default/resource1"); err != nil {
+			t.Fatal(err)
+		}
+
+		// syncDownstream should have requeued the upstream resource.
+		select {
+		case got := <-upstreamChannel:
+			if !reflect.DeepEqual(got, tcrRemote) {
+				t.Errorf("upstream queue got %v; want %v", got, tcrRemote)
+			}
+		case <-time.After(5 * time.Second):
+			t.Errorf("upstream resource was not requeued to %p; want %v", crs.upstreamQueue, tcrRemote)
+		}
+	})
 }
 
 func TestCRSyncer_populateWorkqueue(t *testing.T) {
-	crd := testCRD(crdtypes.NamespaceScoped)
-	f := newFixture(t)
+	synctest.Test(t, func(t *testing.T) {
+		crd := testCRD(crdtypes.NamespaceScoped)
+		f := newFixture(t)
 
-	cr1 := newTestCR("cr1", "spec1", "status1")
-	f.addRemoteObjects(cr1)
+		cr1 := newTestCR("cr1", "spec1", "status1")
+		f.addRemoteObjects(cr1)
 
-	crs, _ := f.newCRSyncer(crd, "")
-	defer crs.stop()
-	crs.startInformers()
+		crs, _ := f.newCRSyncer(crd, "")
+		defer crs.stop()
+		crs.startInformers()
 
-	// Workqueue exposes no interface to select{} over, so we call Get()
-	// in a goroutine to surface deadlocks properly.
-	channel := make(chan interface{}, 1)
-	go func() {
-		key, quit := crs.upstreamQueue.Get()
-		if quit {
-			t.Errorf("unexpected quit")
-			return
-		}
-		item, exists, err := crs.upstreamInf.GetIndexer().GetByKey(key.(string))
-		if err != nil {
-			t.Errorf("unexpected lookup error for key %s: %s", key, err)
-		}
-		if !exists {
-			t.Errorf("item for key %s does not exist", key)
-		} else {
-			channel <- item
-		}
-	}()
+		// Workqueue exposes no interface to select{} over, so we call Get()
+		// in a goroutine to surface deadlocks properly.
+		channel := make(chan interface{}, 1)
+		go func() {
+			key, quit := crs.upstreamQueue.Get()
+			if quit {
+				t.Errorf("unexpected quit")
+				return
+			}
+			item, exists, err := crs.upstreamInf.GetIndexer().GetByKey(key.(string))
+			if err != nil {
+				t.Errorf("unexpected lookup error for key %s: %s", key, err)
+			}
+			if !exists {
+				t.Errorf("item for key %s does not exist", key)
+			} else {
+				channel <- item
+			}
+		}()
 
-	select {
-	case obj := <-channel:
-		if got := obj.(*unstructured.Unstructured); !reflect.DeepEqual(got, cr1) {
-			t.Errorf("unexpected object; want %v; got %v", cr1, got)
+		select {
+		case obj := <-channel:
+			if got := obj.(*unstructured.Unstructured); !reflect.DeepEqual(got, cr1) {
+				t.Errorf("unexpected object; want %v; got %v", cr1, got)
+			}
+		case <-time.After(5 * time.Second):
+			t.Errorf("Received no watch event; wanted %v", cr1)
 		}
-	case <-time.After(5 * time.Second):
-		t.Errorf("Received no watch event; wanted %v", cr1)
-	}
+	})
 }
 
 func TestCRSyncer_populateWorkqueueWithFilter(t *testing.T) {
-	crd := testCRD(crdtypes.NamespaceScoped)
-	crd.ObjectMeta.Annotations[annotationFilterByRobotName] = "true"
+	synctest.Test(t, func(t *testing.T) {
+		crd := testCRD(crdtypes.NamespaceScoped)
+		crd.ObjectMeta.Annotations[annotationFilterByRobotName] = "true"
 
-	f := newFixture(t)
+		f := newFixture(t)
 
-	// Create three CRs of which only one matches the robot the CR syncer
-	// is running on.
-	crCorrectRobot := newTestCR("cr1", "spec1", "status1")
-	crWrongRobot := newTestCR("cr2", "spec2", "status2")
-	crNoRobot := newTestCR("cr3", "spec3", "status3")
+		// Create three CRs of which only one matches the robot the CR syncer
+		// is running on.
+		crCorrectRobot := newTestCR("cr1", "spec1", "status1")
+		crWrongRobot := newTestCR("cr2", "spec2", "status2")
+		crNoRobot := newTestCR("cr3", "spec3", "status3")
 
-	crCorrectRobot.SetLabels(map[string]string{labelRobotName: "robot-1"})
-	crWrongRobot.SetLabels(map[string]string{labelRobotName: "robot-2"})
+		crCorrectRobot.SetLabels(map[string]string{labelRobotName: "robot-1"})
+		crWrongRobot.SetLabels(map[string]string{labelRobotName: "robot-2"})
 
-	f.addRemoteObjects(crCorrectRobot, crWrongRobot, crNoRobot)
+		f.addRemoteObjects(crCorrectRobot, crWrongRobot, crNoRobot)
 
-	crs, _ := f.newCRSyncer(crd, "robot-1")
-	defer crs.stop()
-	crs.startInformers()
+		crs, _ := f.newCRSyncer(crd, "robot-1")
+		defer crs.stop()
+		crs.startInformers()
 
-	channel := channelFromQueue(t, crs.upstreamQueue, crs.upstreamInf)
-	select {
-	case got := <-channel:
-		if !reflect.DeepEqual(got, crCorrectRobot) {
-			t.Errorf("unexpected object; want %v; got %v", crCorrectRobot, got)
+		channel := channelFromQueue(t, crs.upstreamQueue, crs.upstreamInf)
+		select {
+		case got := <-channel:
+			if !reflect.DeepEqual(got, crCorrectRobot) {
+				t.Errorf("unexpected object; want %v; got %v", crCorrectRobot, got)
+			}
+		case <-time.After(5 * time.Second):
+			t.Errorf("Received no watch event; wanted %v", crCorrectRobot)
 		}
-	case <-time.After(5 * time.Second):
-		t.Errorf("Received no watch event; wanted %v", crCorrectRobot)
-	}
-	// No other items should come through.
-	select {
-	case item := <-channel:
-		t.Errorf("Unexpected update: %v", item)
-	case <-time.After(3 * time.Second):
-	}
+		// No other items should come through.
+		select {
+		case item := <-channel:
+			t.Errorf("Unexpected update: %v", item)
+		case <-time.After(3 * time.Second):
+		}
+	})
 }
 
 func channelFromQueue(t *testing.T, queue workqueue.Interface, inf cache.SharedIndexInformer) <-chan *unstructured.Unstructured {
@@ -560,7 +564,6 @@ func channelFromQueue(t *testing.T, queue workqueue.Interface, inf cache.SharedI
 		for {
 			key, quit := queue.Get()
 			if quit {
-				t.Errorf("unexpected quit")
 				return
 			}
 			item, exists, err := inf.GetIndexer().GetByKey(key.(string))
