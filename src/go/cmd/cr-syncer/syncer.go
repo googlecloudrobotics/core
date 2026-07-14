@@ -407,6 +407,9 @@ func (s *crSyncer) run() {
 func (s *crSyncer) stop() {
 	slog.Info("Stopping syncer", slog.String("CRD", s.crd.GetName()))
 	close(s.done)
+	s.stopInformers()
+	s.upstreamQueue.ShutDown()
+	s.downstreamQueue.ShutDown()
 }
 
 // syncDownstream reconciles state after receiving change events from the

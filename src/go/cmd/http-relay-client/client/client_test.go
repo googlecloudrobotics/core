@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"net/http"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
@@ -40,175 +41,185 @@ func assertMocksDoneWithin(t *testing.T, d time.Duration) {
 }
 
 func TestAssertMocksDoneWithin_SucceedsWhenMocksAreDone(t *testing.T) {
-	assertMocksDoneWithin(t, time.Millisecond)
+	synctest.Test(t, func(t *testing.T) {
+		assertMocksDoneWithin(t, time.Millisecond)
+	})
 }
 
 func TestAssertMocksDoneWithin_FailsWhenMocksNotDone(t *testing.T) {
-	defer gock.Off()
-	gock.New("https://localhost:8081")
-	faket := &testing.T{}
-	assertMocksDoneWithin(faket, time.Millisecond)
-	if !faket.Failed() {
-		t.Errorf("assertMocksDoneWithin didn't trigger an error despite outstanding mocks")
-	}
+	synctest.Test(t, func(t *testing.T) {
+		defer gock.Off()
+		gock.New("https://localhost:8081")
+		faket := &testing.T{}
+		assertMocksDoneWithin(faket, time.Millisecond)
+		if !faket.Failed() {
+			t.Errorf("assertMocksDoneWithin didn't trigger an error despite outstanding mocks")
+		}
+	})
 }
 
 func TestLocalProxy(t *testing.T) {
-	// Hot patch: gock refuses to match bodies with unknown content-types by default.
-	gock.BodyTypes = append(gock.BodyTypes, "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse")
-	defer gock.Off()
+	synctest.Test(t, func(t *testing.T) {
+		// Hot patch: gock refuses to match bodies with unknown content-types by default.
+		gock.BodyTypes = append(gock.BodyTypes, "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse")
+		defer gock.Off()
 
-	// We expect the response below to always contain 0 milliseconds.
-	timeSince = func(t time.Time) time.Duration { return 0 * time.Millisecond }
+		// We expect the response below to always contain 0 milliseconds.
+		timeSince = func(t time.Time) time.Duration { return 0 * time.Millisecond }
 
-	req, _ := proto.Marshal(&pb.HttpRequest{
-		Id:     proto.String("15"),
-		Method: proto.String("GET"),
-		Url:    proto.String("http://invalid/foo/bar?a=b"),
-		Header: []*pb.HttpHeader{{
-			Name:  proto.String("X-GFE"),
-			Value: proto.String("google.com")}},
-		Body: []byte("thebody"),
-	})
-	resp, _ := proto.Marshal(&pb.HttpResponse{
-		Id:         proto.String("15"),
-		StatusCode: proto.Int32(201),
-		Header: []*pb.HttpHeader{
-			{
-				Name:  proto.String("Priority"),
-				Value: proto.String("High"),
+		req, _ := proto.Marshal(&pb.HttpRequest{
+			Id:     proto.String("15"),
+			Method: proto.String("GET"),
+			Url:    proto.String("http://invalid/foo/bar?a=b"),
+			Header: []*pb.HttpHeader{{
+				Name:  proto.String("X-GFE"),
+				Value: proto.String("google.com")}},
+			Body: []byte("thebody"),
+		})
+		resp, _ := proto.Marshal(&pb.HttpResponse{
+			Id:         proto.String("15"),
+			StatusCode: proto.Int32(201),
+			Header: []*pb.HttpHeader{
+				{
+					Name:  proto.String("Priority"),
+					Value: proto.String("High"),
+				},
 			},
-		},
-		Body:              []byte("theresponsebody"),
-		Eof:               proto.Bool(true),
-		BackendDurationMs: proto.Int64(0),
-	})
-	gock.New("https://localhost:8081").
-		Get("/server/request").
-		MatchParam("server", "foo").
-		Reply(200).
-		BodyString(string(req))
-	gock.New("https://localhost:8080").
-		Get("/foo/bar").
-		MatchParam("a", "b").
-		MatchHeader("X-GFE", "google.com").
-		BodyString("thebody").
-		Reply(201).
-		SetHeader("Priority", "High").
-		BodyString("theresponsebody")
-	gock.New("https://localhost:8081").
-		Post("/server/response").
-		Body(bytes.NewReader(resp)).
-		Reply(200)
+			Body:              []byte("theresponsebody"),
+			Eof:               proto.Bool(true),
+			BackendDurationMs: proto.Int64(0),
+		})
+		gock.New("https://localhost:8081").
+			Get("/server/request").
+			MatchParam("server", "foo").
+			Reply(200).
+			BodyString(string(req))
+		gock.New("https://localhost:8080").
+			Get("/foo/bar").
+			MatchParam("a", "b").
+			MatchHeader("X-GFE", "google.com").
+			BodyString("thebody").
+			Reply(201).
+			SetHeader("Priority", "High").
+			BodyString("theresponsebody")
+		gock.New("https://localhost:8081").
+			Post("/server/response").
+			Body(bytes.NewReader(resp)).
+			Reply(200)
 
-	config := DefaultClientConfig()
-	config.ServerName = "foo"
-	client := NewClient(config)
-	err := client.localProxy(t.Context(), &http.Client{}, &http.Client{})
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	assertMocksDoneWithin(t, 10*time.Second)
+		config := DefaultClientConfig()
+		config.ServerName = "foo"
+		client := NewClient(config)
+		err := client.localProxy(t.Context(), &http.Client{}, &http.Client{})
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		assertMocksDoneWithin(t, 10*time.Second)
+	})
 }
 
 func TestBackendError(t *testing.T) {
-	// Hot patch: gock refuses to match bodies with unknown content-types by default.
-	gock.BodyTypes = append(gock.BodyTypes, "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse")
-	defer gock.Off()
+	synctest.Test(t, func(t *testing.T) {
+		// Hot patch: gock refuses to match bodies with unknown content-types by default.
+		gock.BodyTypes = append(gock.BodyTypes, "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse")
+		defer gock.Off()
 
-	// We expect the response below to always contain 0 milliseconds.
-	timeSince = func(t time.Time) time.Duration { return 0 * time.Millisecond }
+		// We expect the response below to always contain 0 milliseconds.
+		timeSince = func(t time.Time) time.Duration { return 0 * time.Millisecond }
 
-	// The pending request on the relay-server side.
-	req, _ := proto.Marshal(&pb.HttpRequest{
-		Id:     proto.String("15"),
-		Method: proto.String("GET"),
-		Url:    proto.String("http://invalid/foo/bar?a=b"),
-		Header: []*pb.HttpHeader{{
-			Name:  proto.String("X-GFE"),
-			Value: proto.String("google.com")}},
-		Body: []byte("thebody"),
+		// The pending request on the relay-server side.
+		req, _ := proto.Marshal(&pb.HttpRequest{
+			Id:     proto.String("15"),
+			Method: proto.String("GET"),
+			Url:    proto.String("http://invalid/foo/bar?a=b"),
+			Header: []*pb.HttpHeader{{
+				Name:  proto.String("X-GFE"),
+				Value: proto.String("google.com")}},
+			Body: []byte("thebody"),
+		})
+
+		resp, _ := proto.Marshal(&pb.HttpResponse{
+			Id:                proto.String("15"),
+			StatusCode:        proto.Int32(400),
+			Body:              []byte("theresponsebody"),
+			Eof:               proto.Bool(true),
+			BackendDurationMs: proto.Int64(0),
+		})
+
+		relayServerAddress := "https://localhost:8081"
+		backendServerAddress := "https://localhost:8080"
+
+		// Mocks the response from the relay server from which we are getting
+		// the initial data.
+		gock.New(relayServerAddress).
+			Get("/server/request").
+			MatchParam("server", "foo").
+			Reply(200).
+			BodyString(string(req))
+
+		// Mocks the response from the backend server to which we relayed data.
+		gock.New(backendServerAddress).
+			Get("/foo/bar").
+			MatchParam("a", "b").
+			MatchHeader("X-GFE", "google.com").
+			BodyString("thebody").
+			Reply(400).
+			BodyString("theresponsebody")
+
+		// Mocks the response from the realy-server after having received the
+		// actual backend response.
+		gock.New(relayServerAddress).
+			Post("/server/response").
+			Body(bytes.NewReader(resp)).
+			Reply(200)
+
+		config := DefaultClientConfig()
+		config.ServerName = "foo"
+		client := NewClient(config)
+
+		// localProxy ...
+		// 1. pulls a request from the realy-server (/server/request)
+		// 2. send that request to the backend server (here localhost:8080/foo/bar?a=b)
+		// 3. retrieves the response from the backend and sends it to the relay-server
+		err := client.localProxy(t.Context(), &http.Client{}, &http.Client{})
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		assertMocksDoneWithin(t, 10*time.Second)
 	})
-
-	resp, _ := proto.Marshal(&pb.HttpResponse{
-		Id:                proto.String("15"),
-		StatusCode:        proto.Int32(400),
-		Body:              []byte("theresponsebody"),
-		Eof:               proto.Bool(true),
-		BackendDurationMs: proto.Int64(0),
-	})
-
-	relayServerAddress := "https://localhost:8081"
-	backendServerAddress := "https://localhost:8080"
-
-	// Mocks the response from the relay server from which we are getting
-	// the initial data.
-	gock.New(relayServerAddress).
-		Get("/server/request").
-		MatchParam("server", "foo").
-		Reply(200).
-		BodyString(string(req))
-
-	// Mocks the response from the backend server to which we relayed data.
-	gock.New(backendServerAddress).
-		Get("/foo/bar").
-		MatchParam("a", "b").
-		MatchHeader("X-GFE", "google.com").
-		BodyString("thebody").
-		Reply(400).
-		BodyString("theresponsebody")
-
-	// Mocks the response from the realy-server after having received the
-	// actual backend response.
-	gock.New(relayServerAddress).
-		Post("/server/response").
-		Body(bytes.NewReader(resp)).
-		Reply(200)
-
-	config := DefaultClientConfig()
-	config.ServerName = "foo"
-	client := NewClient(config)
-
-	// localProxy ...
-	// 1. pulls a request from the realy-server (/server/request)
-	// 2. send that request to the backend server (here localhost:8080/foo/bar?a=b)
-	// 3. retrieves the response from the backend and sends it to the relay-server
-	err := client.localProxy(t.Context(), &http.Client{}, &http.Client{})
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	assertMocksDoneWithin(t, 10*time.Second)
 }
 
 func TestServerTimeout(t *testing.T) {
-	// Hot patch: gock refuses to match bodies with application/octet-data
-	// by default.
-	gock.BodyTypes = append(gock.BodyTypes, "application/octet-data")
-	defer gock.Off()
+	synctest.Test(t, func(t *testing.T) {
+		// Hot patch: gock refuses to match bodies with application/octet-data
+		// by default.
+		gock.BodyTypes = append(gock.BodyTypes, "application/octet-data")
+		defer gock.Off()
 
-	req, _ := proto.Marshal(&pb.HttpRequest{
-		Id:     proto.String("15"),
-		Method: proto.String("GET"),
-		Url:    proto.String("http://invalid/foo/bar?a=b"),
-		Header: []*pb.HttpHeader{{
-			Name:  proto.String("X-GFE"),
-			Value: proto.String("google.com")}},
-		Body: []byte("thebody"),
+		req, _ := proto.Marshal(&pb.HttpRequest{
+			Id:     proto.String("15"),
+			Method: proto.String("GET"),
+			Url:    proto.String("http://invalid/foo/bar?a=b"),
+			Header: []*pb.HttpHeader{{
+				Name:  proto.String("X-GFE"),
+				Value: proto.String("google.com")}},
+			Body: []byte("thebody"),
+		})
+		gock.New("https://localhost:8081").
+			Get("/server/request").
+			MatchParam("server", "foo").
+			Reply(408).
+			BodyString(string(req))
+
+		config := DefaultClientConfig()
+		config.ServerName = "foo"
+		client := NewClient(config)
+		err := client.localProxy(t.Context(), &http.Client{}, &http.Client{})
+		if err != ErrTimeout {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		assertMocksDoneWithin(t, 10*time.Second)
 	})
-	gock.New("https://localhost:8081").
-		Get("/server/request").
-		MatchParam("server", "foo").
-		Reply(408).
-		BodyString(string(req))
-
-	config := DefaultClientConfig()
-	config.ServerName = "foo"
-	client := NewClient(config)
-	err := client.localProxy(t.Context(), &http.Client{}, &http.Client{})
-	if err != ErrTimeout {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	assertMocksDoneWithin(t, 10*time.Second)
 }
 
 func TestBuildResponsesTimesOut(t *testing.T) {
