@@ -35,7 +35,6 @@ require (
 	google.golang.org/api v0.286.0
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
-	gopkg.in/h2non/gock.v1 v1.1.2
 	// WatchList feature in client-go 0.35+ causes timeouts with fake clients.
 	// See https://github.com/kubernetes/kubernetes/issues/125501
 	// Keep at 0.34.4 until fakes support bookmark events for initial events stream.
@@ -140,7 +139,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.16 // indirect
 	github.com/googleapis/gax-go/v2 v2.22.0 // indirect
-	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
 	// TODO: remove this indirect dependency once sigs.k8s.io/controller-runtime is updated to v0.24.1 or higher
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
