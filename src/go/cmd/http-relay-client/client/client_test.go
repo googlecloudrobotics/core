@@ -16,7 +16,10 @@ package client
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -24,50 +27,22 @@ import (
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	"google.golang.org/protobuf/proto"
-	"gopkg.in/h2non/gock.v1"
 )
 
-func assertMocksDoneWithin(t *testing.T, d time.Duration) {
-	t.Helper()
-	for start := time.Now(); time.Since(start) < d; {
-		if gock.IsDone() {
-			return
-		}
-		time.Sleep(time.Millisecond)
-	}
-	for _, m := range gock.Pending() {
-		t.Errorf("mock still pending after %s: %v", d, m.Request().URLStruct)
-	}
+type mockTransport struct {
+	roundTrip func(*http.Request) (*http.Response, error)
 }
 
-func TestAssertMocksDoneWithin_SucceedsWhenMocksAreDone(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		assertMocksDoneWithin(t, time.Millisecond)
-	})
-}
-
-func TestAssertMocksDoneWithin_FailsWhenMocksNotDone(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		defer gock.Off()
-		gock.New("https://localhost:8081")
-		faket := &testing.T{}
-		assertMocksDoneWithin(faket, time.Millisecond)
-		if !faket.Failed() {
-			t.Errorf("assertMocksDoneWithin didn't trigger an error despite outstanding mocks")
-		}
-	})
+func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return m.roundTrip(req)
 }
 
 func TestLocalProxy(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		// Hot patch: gock refuses to match bodies with unknown content-types by default.
-		gock.BodyTypes = append(gock.BodyTypes, "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse")
-		defer gock.Off()
-
 		// We expect the response below to always contain 0 milliseconds.
 		timeSince = func(t time.Time) time.Duration { return 0 * time.Millisecond }
 
-		req, _ := proto.Marshal(&pb.HttpRequest{
+		reqPayload, _ := proto.Marshal(&pb.HttpRequest{
 			Id:     proto.String("15"),
 			Method: proto.String("GET"),
 			Url:    proto.String("http://invalid/foo/bar?a=b"),
@@ -76,7 +51,7 @@ func TestLocalProxy(t *testing.T) {
 				Value: proto.String("google.com")}},
 			Body: []byte("thebody"),
 		})
-		resp, _ := proto.Marshal(&pb.HttpResponse{
+		respPayload, _ := proto.Marshal(&pb.HttpResponse{
 			Id:         proto.String("15"),
 			StatusCode: proto.Int32(201),
 			Header: []*pb.HttpHeader{
@@ -89,46 +64,96 @@ func TestLocalProxy(t *testing.T) {
 			Eof:               proto.Bool(true),
 			BackendDurationMs: proto.Int64(0),
 		})
-		gock.New("https://localhost:8081").
-			Get("/server/request").
-			MatchParam("server", "foo").
-			Reply(200).
-			BodyString(string(req))
-		gock.New("https://localhost:8080").
-			Get("/foo/bar").
-			MatchParam("a", "b").
-			MatchHeader("X-GFE", "google.com").
-			BodyString("thebody").
-			Reply(201).
-			SetHeader("Priority", "High").
-			BodyString("theresponsebody")
-		gock.New("https://localhost:8081").
-			Post("/server/response").
-			Body(bytes.NewReader(resp)).
-			Reply(200)
+
+		relayRequests := 0
+		relayTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				relayRequests++
+				switch relayRequests {
+				case 1:
+					if req.Method != "GET" || req.URL.Path != "/server/request" {
+						t.Errorf("Relay Req 1: expected GET /server/request, got %s %s", req.Method, req.URL.Path)
+					}
+					if req.URL.Query().Get("server") != "foo" {
+						t.Errorf("Relay Req 1: expected query server=foo, got %q", req.URL.RawQuery)
+					}
+					return &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(bytes.NewReader(reqPayload)),
+					}, nil
+				case 2:
+					if req.Method != "POST" || req.URL.Path != "/server/response" {
+						t.Errorf("Relay Req 2: expected POST /server/response, got %s %s", req.Method, req.URL.Path)
+					}
+					body, _ := io.ReadAll(req.Body)
+					if !bytes.Equal(body, respPayload) {
+						t.Errorf("Relay Req 2: body mismatch")
+					}
+					return &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(strings.NewReader("")),
+					}, nil
+				default:
+					t.Errorf("Unexpected extra request to relay: %s %s", req.Method, req.URL.Path)
+					return nil, fmt.Errorf("unexpected request")
+				}
+			},
+		}
+
+		backendRequests := 0
+		backendTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				backendRequests++
+				if req.Method != "GET" || req.URL.Path != "/foo/bar" {
+					t.Errorf("Backend Req: expected GET /foo/bar, got %s %s", req.Method, req.URL.Path)
+				}
+				if req.URL.Query().Get("a") != "b" {
+					t.Errorf("Backend Req: expected query a=b, got %q", req.URL.RawQuery)
+				}
+				if req.Header.Get("X-GFE") != "google.com" {
+					t.Errorf("Backend Req: expected header X-GFE=google.com, got %q", req.Header.Get("X-GFE"))
+				}
+				body, _ := io.ReadAll(req.Body)
+				if !bytes.Equal(body, []byte("thebody")) {
+					t.Errorf("Backend Req: body mismatch, got %q", body)
+				}
+				return &http.Response{
+					StatusCode: 201,
+					Header:     http.Header{"Priority": []string{"High"}},
+					Body:       io.NopCloser(bytes.NewReader([]byte("theresponsebody"))),
+				}, nil
+			},
+		}
 
 		config := DefaultClientConfig()
 		config.ServerName = "foo"
 		client := NewClient(config)
-		err := client.localProxy(t.Context(), &http.Client{}, &http.Client{})
+
+		relayClient := &http.Client{Transport: relayTransport}
+		backendClient := &http.Client{Transport: backendTransport}
+
+		err := client.localProxy(t.Context(), relayClient, backendClient)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
-		assertMocksDoneWithin(t, 10*time.Second)
+
+		synctest.Wait()
+
+		if relayRequests != 2 {
+			t.Errorf("Expected 2 requests to relay, got %d", relayRequests)
+		}
+		if backendRequests != 1 {
+			t.Errorf("Expected 1 request to backend, got %d", backendRequests)
+		}
 	})
 }
 
 func TestBackendError(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		// Hot patch: gock refuses to match bodies with unknown content-types by default.
-		gock.BodyTypes = append(gock.BodyTypes, "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse")
-		defer gock.Off()
-
 		// We expect the response below to always contain 0 milliseconds.
 		timeSince = func(t time.Time) time.Duration { return 0 * time.Millisecond }
 
-		// The pending request on the relay-server side.
-		req, _ := proto.Marshal(&pb.HttpRequest{
+		reqPayload, _ := proto.Marshal(&pb.HttpRequest{
 			Id:     proto.String("15"),
 			Method: proto.String("GET"),
 			Url:    proto.String("http://invalid/foo/bar?a=b"),
@@ -138,7 +163,7 @@ func TestBackendError(t *testing.T) {
 			Body: []byte("thebody"),
 		})
 
-		resp, _ := proto.Marshal(&pb.HttpResponse{
+		respPayload, _ := proto.Marshal(&pb.HttpResponse{
 			Id:                proto.String("15"),
 			StatusCode:        proto.Int32(400),
 			Body:              []byte("theresponsebody"),
@@ -146,79 +171,108 @@ func TestBackendError(t *testing.T) {
 			BackendDurationMs: proto.Int64(0),
 		})
 
-		relayServerAddress := "https://localhost:8081"
-		backendServerAddress := "https://localhost:8080"
+		relayRequests := 0
+		relayTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				relayRequests++
+				switch relayRequests {
+				case 1:
+					if req.Method != "GET" || req.URL.Path != "/server/request" {
+						t.Errorf("Relay Req 1: expected GET /server/request, got %s %s", req.Method, req.URL.Path)
+					}
+					return &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(bytes.NewReader(reqPayload)),
+					}, nil
+				case 2:
+					if req.Method != "POST" || req.URL.Path != "/server/response" {
+						t.Errorf("Relay Req 2: expected POST /server/response, got %s %s", req.Method, req.URL.Path)
+					}
+					body, _ := io.ReadAll(req.Body)
+					if !bytes.Equal(body, respPayload) {
+						t.Errorf("Relay Req 2: body mismatch")
+					}
+					return &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(strings.NewReader("")),
+					}, nil
+				default:
+					t.Errorf("Unexpected extra request to relay: %s %s", req.Method, req.URL.Path)
+					return nil, fmt.Errorf("unexpected request")
+				}
+			},
+		}
 
-		// Mocks the response from the relay server from which we are getting
-		// the initial data.
-		gock.New(relayServerAddress).
-			Get("/server/request").
-			MatchParam("server", "foo").
-			Reply(200).
-			BodyString(string(req))
-
-		// Mocks the response from the backend server to which we relayed data.
-		gock.New(backendServerAddress).
-			Get("/foo/bar").
-			MatchParam("a", "b").
-			MatchHeader("X-GFE", "google.com").
-			BodyString("thebody").
-			Reply(400).
-			BodyString("theresponsebody")
-
-		// Mocks the response from the realy-server after having received the
-		// actual backend response.
-		gock.New(relayServerAddress).
-			Post("/server/response").
-			Body(bytes.NewReader(resp)).
-			Reply(200)
+		backendRequests := 0
+		backendTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				backendRequests++
+				if req.Method != "GET" || req.URL.Path != "/foo/bar" {
+					t.Errorf("Backend Req: expected GET /foo/bar, got %s %s", req.Method, req.URL.Path)
+				}
+				return &http.Response{
+					StatusCode: 400,
+					Body:       io.NopCloser(bytes.NewReader([]byte("theresponsebody"))),
+				}, nil
+			},
+		}
 
 		config := DefaultClientConfig()
 		config.ServerName = "foo"
 		client := NewClient(config)
 
-		// localProxy ...
-		// 1. pulls a request from the realy-server (/server/request)
-		// 2. send that request to the backend server (here localhost:8080/foo/bar?a=b)
-		// 3. retrieves the response from the backend and sends it to the relay-server
-		err := client.localProxy(t.Context(), &http.Client{}, &http.Client{})
+		relayClient := &http.Client{Transport: relayTransport}
+		backendClient := &http.Client{Transport: backendTransport}
+
+		err := client.localProxy(t.Context(), relayClient, backendClient)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
-		assertMocksDoneWithin(t, 10*time.Second)
+
+		synctest.Wait()
+
+		if relayRequests != 2 {
+			t.Errorf("Expected 2 requests to relay, got %d", relayRequests)
+		}
+		if backendRequests != 1 {
+			t.Errorf("Expected 1 request to backend, got %d", backendRequests)
+		}
 	})
 }
 
 func TestServerTimeout(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		// Hot patch: gock refuses to match bodies with application/octet-data
-		// by default.
-		gock.BodyTypes = append(gock.BodyTypes, "application/octet-data")
-		defer gock.Off()
-
-		req, _ := proto.Marshal(&pb.HttpRequest{
-			Id:     proto.String("15"),
-			Method: proto.String("GET"),
-			Url:    proto.String("http://invalid/foo/bar?a=b"),
-			Header: []*pb.HttpHeader{{
-				Name:  proto.String("X-GFE"),
-				Value: proto.String("google.com")}},
-			Body: []byte("thebody"),
-		})
-		gock.New("https://localhost:8081").
-			Get("/server/request").
-			MatchParam("server", "foo").
-			Reply(408).
-			BodyString(string(req))
+		relayRequests := 0
+		relayTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				relayRequests++
+				if req.Method != "GET" || req.URL.Path != "/server/request" {
+					t.Errorf("Relay Req: expected GET /server/request, got %s %s", req.Method, req.URL.Path)
+				}
+				return &http.Response{
+					StatusCode: 408,
+					Body:       io.NopCloser(strings.NewReader("")),
+				}, nil
+			},
+		}
 
 		config := DefaultClientConfig()
 		config.ServerName = "foo"
 		client := NewClient(config)
-		err := client.localProxy(t.Context(), &http.Client{}, &http.Client{})
+
+		relayClient := &http.Client{Transport: relayTransport}
+		backendClient := &http.Client{} // not used
+
+		err := client.localProxy(t.Context(), relayClient, backendClient)
 		if err != ErrTimeout {
 			t.Errorf("Unexpected error: %v", err)
 		}
-		assertMocksDoneWithin(t, 10*time.Second)
+
+		synctest.Wait()
+
+		if relayRequests != 1 {
+			t.Errorf("Expected 1 request to relay, got %d", relayRequests)
+		}
 	})
 }
 
