@@ -92,7 +92,6 @@ helm_template(
     values = "cert-manager-cloud.values.yaml",
 )
 
-
 helm_template(
     name = "chart-assignment-controller-chart.cloud",
     chart = "//src/app_charts/chart-assignment-controller",
@@ -102,6 +101,7 @@ helm_template(
     release_name = "chart-assignment-controller",
     values = "chart-assignment-controller-cloud.values.yaml",
 )
+
 app_chart(
     name = "base-cloud",
     extra_templates = [

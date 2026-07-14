@@ -15,9 +15,9 @@ oci_push(
 helm_chart(
     name = "chart-assignment-controller",
     chart = "Chart.yaml",
-    values = "values.yaml",
     images = [":push-image"],
     stamp = 1,
+    values = "values.yaml",
 )
 
 helm_push(
