@@ -449,9 +449,18 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// TODO(ensonic): open questions:
-	// - can we do this less hacky? (see unmarshalHeader() above)
-	// - why do we not always get them as trailers?
+	// Standard gRPC servers use a "Trailers-Only" response for immediate errors,
+	// sending the gRPC status and message in the initial HTTP headers (no body).
+	// The http-relay-client forwards these to us as HTTP headers.
+	//
+	// However, when we write them back to the user-client, Go's net/http server
+	// does not send a true HTTP/2 Trailers-Only response (it sends a HEADERS
+	// frame, followed by an empty DATA frame). Because of the DATA frame,
+	// standard gRPC clients expect the gRPC status in the HTTP Trailers at the
+	// end of the stream, rather than in the initial Headers.
+	//
+	// To ensure clients receive the error correctly, we duplicate all "Grpc-"
+	// prefixed headers into the HTTP Trailers.
 	for _, h := range header {
 		if strings.HasPrefix(*h.Name, "Grpc-") {
 			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
@@ -610,7 +619,7 @@ func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 		if errors.Is(err, context.Canceled) {
 			return
 		}
-		// A non-nil error indicates either an abnormal shutdown or a failed 
+		// A non-nil error indicates either an abnormal shutdown or a failed
 		// liveness check (eg broker deadlock).
 		slog.Error("Server terminated abnormally", ilog.Err(err))
 		panic("Server terminated abnormally")
