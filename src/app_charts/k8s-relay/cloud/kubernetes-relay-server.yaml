@@ -28,6 +28,12 @@ spec:
             port: 8080
           initialDelaySeconds: 15
           timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          periodSeconds: 5
+          failureThreshold: 2
         ports:
         - name: http
           containerPort: 8080

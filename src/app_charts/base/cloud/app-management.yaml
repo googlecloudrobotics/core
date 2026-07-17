@@ -33,11 +33,17 @@ spec:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}
         livenessProbe:
-          initialDelaySeconds: 15
-          periodSeconds: 10
           httpGet:
             port: 8080
             path: /healthz
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          periodSeconds: 5
+          failureThreshold: 2
         ports:
         - name: webhook
           containerPort: 9876

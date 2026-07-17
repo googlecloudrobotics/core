@@ -47,6 +47,12 @@ spec:
             path: /healthz
             port: 9090
           initialDelaySeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 9090
+          periodSeconds: 5
+          failureThreshold: 2
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
