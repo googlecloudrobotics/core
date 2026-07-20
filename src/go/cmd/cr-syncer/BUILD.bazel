@@ -30,7 +30,7 @@ go_library(
         "@io_k8s_client_go//rest:go_default_library",
         "@io_k8s_client_go//tools/cache:go_default_library",
         "@io_k8s_client_go//util/workqueue:go_default_library",
-        "@io_k8s_klog//:go_default_library",
+        "@io_k8s_klog_v2//:go_default_library",
         "@io_opencensus_go//plugin/ochttp:go_default_library",
         "@io_opencensus_go//stats:go_default_library",
         "@io_opencensus_go//stats/view:go_default_library",

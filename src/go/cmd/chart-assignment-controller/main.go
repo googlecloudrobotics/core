@@ -27,6 +27,7 @@ import (
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment"
+	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	"github.com/googlecloudrobotics/ilog"
 	"go.opencensus.io/trace"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -103,23 +104,28 @@ func main() {
 func runController(ctx context.Context, cfg *rest.Config, cluster string) error {
 	ctrllog.SetLogger(zap.New())
 
+	// Initialize Synk to ensure ResourceSet CRD is installed.
+	synkClient, err := synk.NewForConfig(cfg)
+	if err != nil {
+		return fmt.Errorf("create synk client: %w", err)
+	}
+	if err := synkClient.Init(ctx); err != nil {
+		return fmt.Errorf("initialize synk (install ResourceSet CRD): %w", err)
+	}
+
 	sc := runtime.NewScheme()
 	scheme.AddToScheme(sc)
 	apps.AddToScheme(sc)
 
-	webhookOptions := webhook.Options{
-		Port: *webhookPort,
-	}
-	if *certDir != "" {
-		webhookOptions.CertDir = *certDir
-	}
-
-	mgr, err := manager.New(cfg, manager.Options{
+	opts := manager.Options{
 		Scheme:                 sc,
-		WebhookServer:          webhook.NewServer(webhookOptions),
 		Metrics:                metricsserver.Options{BindAddress: "0"}, // disabled
 		HealthProbeBindAddress: fmt.Sprintf(":%d", *healthzPort),
-	})
+	}
+	if *webhookEnabled {
+		opts.WebhookServer = webhook.NewServer(webhook.Options{CertDir: *certDir, Port: *webhookPort})
+	}
+	mgr, err := manager.New(cfg, opts)
 	if err != nil {
 		return fmt.Errorf("create controller manager: %w", err)
 	}

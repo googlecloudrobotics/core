@@ -5,6 +5,7 @@ bazel_dep(name = "protobuf", version = "29.0", repo_name = "com_google_protobuf"
 bazel_dep(name = "rules_oci", version = "2.0.1")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "rules_shell", version = "0.4.1")
+bazel_dep(name = "rules_helm", version = "0.29.0")
 # -- bazel_dep definitions -- #
 
 non_module_deps = use_extension("//:non_module_deps.bzl", "non_module_deps")
@@ -68,14 +69,12 @@ use_repo(
     "com_github_spf13_pflag",
     "com_google_cloud_go_compute_metadata",
     "com_google_cloud_go_storage",
-    "in_gopkg_h2non_gock_v1",
     "io_k8s_api",
     "io_k8s_apiextensions_apiserver",
     "io_k8s_apimachinery",
     "io_k8s_cli_runtime",
     "io_k8s_client_go",
     "io_k8s_helm",
-    "io_k8s_klog",
     "io_k8s_klog_v2",
     "io_k8s_sigs_controller_runtime",
     "io_k8s_sigs_kind",
@@ -86,10 +85,10 @@ use_repo(
     "org_golang_google_api",
     "org_golang_google_grpc",
     "org_golang_google_protobuf",
-    "org_golang_x_crypto",
     "org_golang_x_net",
     "org_golang_x_oauth2",
     "org_golang_x_sync",
+    "org_golang_x_term",
 )
 
 #######

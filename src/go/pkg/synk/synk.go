@@ -57,6 +57,11 @@ import (
 // src/k8s.io/apimachinery/pkg/api/validation/objectmeta.go
 const totalAnnotationSizeLimitB int = 256 * (1 << 10) // 256 kB
 
+// Annotation to opt-out of resource synchronization. If set to "true" on a resource
+// in the cluster, Synk will not overwrite it with the chart version, but will still
+// update its owner references so it does not get pruned.
+const AnnotationIgnore = "synk.cloudrobotics.com/ignore"
+
 // Synk allows to synchronize sets of resources with a fixed cluster.
 type Synk struct {
 	discovery   discovery.CachedDiscoveryInterface
@@ -95,7 +100,7 @@ func NewForConfig(cfg *rest.Config) (*Synk, error) {
 	return New(client, cachedDiscovery), nil
 }
 
-// TODO: determine options that allow us to be semantically compatible with
+// TODO(freinartz): determine options that allow us to be semantically compatible with
 // vanilla kubectl apply.
 type ApplyOptions struct {
 	name    string
@@ -439,7 +444,7 @@ func (s *Synk) initialize(
 	if err := s.populateNamespaces(ctx, opts.Namespace, crds, regulars...); err != nil {
 		return nil, nil, fmt.Errorf("set default namespaces: %w", err)
 	}
-	// TODO: consider putting this and other validation as a step after initialize
+	// TODO(freinartz): consider putting this and other validation as a step after initialize
 	// so we can give validation errors in batch in the ResourceSet status.
 	if opts.EnforceNamespace {
 		for _, r := range regulars {
@@ -679,7 +684,7 @@ func replace(ctx context.Context, client dynamic.ResourceInterface, resource *un
 
 func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured, set *apps.ResourceSet) (apps.ResourceAction, error) {
 	// If name is unset, we'd retrieve a list below and panic.
-	// TODO: This may be valid if generateName is set instead. In this case we
+	// TODO(freinartz): This may be valid if generateName is set instead. In this case we
 	// want to create the resource in any case.
 	if resource.GetName() == "" {
 		return apps.ResourceActionNone, fmt.Errorf("missing resource name for %s", resource.GroupVersionKind().String())
@@ -727,6 +732,24 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		return apps.ResourceActionNone, fmt.Errorf("owner conflict: %w", err)
 	}
 
+	if set != nil && !isCustomResourceDefinition(current) && current.GetAnnotations()[AnnotationIgnore] == "true" {
+		// We are ignoring the desired spec change, but we must still update
+		// the owner reference on the current cluster resource to point to the
+		// new ResourceSet, otherwise it will be pruned when the old ResourceSet
+		// is deleted. We call setOwnerRef on 'current' (not 'resource') because
+		// we are updating the current cluster state directly instead of applying
+		// the desired resource.
+		setOwnerRef(current, set)
+		_, updateSpan := trace.StartSpan(ctx, "Update owner refs "+resource.GetName())
+		res, err := client.Update(ctx, current, metav1.UpdateOptions{})
+		updateSpan.End()
+		if err != nil {
+			return apps.ResourceActionIgnored, fmt.Errorf("update owner refs: %w", err)
+		}
+		*resource = *res
+		return apps.ResourceActionIgnored, nil
+	}
+
 	// Get what is running, what was installed and what we want to run.
 	currentRaw, err := current.MarshalJSON()
 	if err != nil {
@@ -750,13 +773,13 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		)
 		obj, err := scheme.Scheme.New(mapping.GroupVersionKind)
 		if err == nil {
-			// TODO: add option to dynamically load patch meta from discovery API
+			// TODO(ensonic): add option to dynamically load patch meta from discovery API
 			// for full kubectl compatibility.
 			patchMeta, err := strategicpatch.NewPatchMetaFromStruct(obj)
 			if err != nil {
 				return apps.ResourceActionNone, fmt.Errorf("lookup patch meta: %w", err)
 			}
-			// TODO: Make overwrite boolean configurable for full kubectl compatibility.
+			// TODO(ensonic): Make overwrite boolean configurable for full kubectl compatibility.
 			patch, err = strategicpatch.CreateThreeWayMergePatch(
 				originalRaw, resourceRaw, currentRaw,
 				patchMeta, true,
@@ -1010,7 +1033,7 @@ func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, versio
 		if !ok || n != name || v >= version {
 			continue
 		}
-		// TODO: should we possibly opt for foreground deletion here so
+		// TODO(freinartz): should we possibly opt for foreground deletion here so
 		// we only return after all dependents have been deleted as well?
 		// kubectl doesn't allow to opt into foreground deletion in general but
 		// here it would likely bring us closer to the apply --prune semantics.
@@ -1037,7 +1060,7 @@ func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int3
 		if !ok || n != name || v >= version {
 			continue
 		}
-		// TODO: should we possibly opt for foreground deletion here so
+		// TODO(freinartz): should we possibly opt for foreground deletion here so
 		// we only return after all dependents have been deleted as well?
 		// kubectl doesn't allow to opt into foreground deletion in general but
 		// here it would likely bring us closer to the apply --prune semantics.

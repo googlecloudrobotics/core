@@ -62,6 +62,8 @@ const (
 	DefaultBlockSize = 10 * 1024
 	// DefaultInactiveRequestTimeout is the default timeout for inactive requests. In particular, this sets a limit on how long the backend can wait before writing headers and the response status.
 	DefaultInactiveRequestTimeout = 60 * time.Second
+	// DefaultInactiveBackendTimeout is the default timeout for inactive backends.
+	DefaultInactiveBackendTimeout = 30 * time.Minute
 )
 
 type Config struct {
@@ -71,6 +73,8 @@ type Config struct {
 	BlockSize int
 	// InactiveRequestTimeout is the timeout for inactive requests.
 	InactiveRequestTimeout time.Duration
+	// InactiveBackendTimeout is the timeout for inactive backends.
+	InactiveBackendTimeout time.Duration
 }
 
 type Server struct {
@@ -87,6 +91,9 @@ func NewServer(conf Config) *Server {
 	}
 	if conf.InactiveRequestTimeout == 0 {
 		conf.InactiveRequestTimeout = DefaultInactiveRequestTimeout
+	}
+	if conf.InactiveBackendTimeout == 0 {
+		conf.InactiveBackendTimeout = DefaultInactiveBackendTimeout
 	}
 	s := &Server{
 		conf: conf,
@@ -442,9 +449,18 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// TODO(ensonic): open questions:
-	// - can we do this less hacky? (see unmarshalHeader() above)
-	// - why do we not always get them as trailers?
+	// Standard gRPC servers use a "Trailers-Only" response for immediate errors,
+	// sending the gRPC status and message in the initial HTTP headers (no body).
+	// The http-relay-client forwards these to us as HTTP headers.
+	//
+	// However, when we write them back to the user-client, Go's net/http server
+	// does not send a true HTTP/2 Trailers-Only response (it sends a HEADERS
+	// frame, followed by an empty DATA frame). Because of the DATA frame,
+	// standard gRPC clients expect the gRPC status in the HTTP Trailers at the
+	// end of the stream, rather than in the initial Headers.
+	//
+	// To ensure clients receive the error correctly, we duplicate all "Grpc-"
+	// prefixed headers into the HTTP Trailers.
 	for _, h := range header {
 		if strings.HasPrefix(*h.Name, "Grpc-") {
 			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
@@ -579,6 +595,8 @@ func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 				return nil
 			case t := <-ticker.C:
 				s.b.ReapInactiveRequests(t.Add(-1 * s.conf.InactiveRequestTimeout))
+				// Reap backends that have been inactive for InactiveBackendTimeout.
+				s.b.ReapInactiveBackends(t.Add(-1 * s.conf.InactiveBackendTimeout))
 			}
 		}
 	})
@@ -601,7 +619,7 @@ func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 		if errors.Is(err, context.Canceled) {
 			return
 		}
-		// A non-nil error indicates either an abnormal shutdown or a failed 
+		// A non-nil error indicates either an abnormal shutdown or a failed
 		// liveness check (eg broker deadlock).
 		slog.Error("Server terminated abnormally", ilog.Err(err))
 		panic("Server terminated abnormally")

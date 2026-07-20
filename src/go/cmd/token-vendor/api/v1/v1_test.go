@@ -578,6 +578,8 @@ type VerifyTokenHandlerTest struct {
 	desc string
 	// handler request variables (test -> handler)
 	reqIsRobots bool
+	reqHeader   string
+	reqQuery    string
 	// IAM request variables (token verifier -> GCP IAM)
 	iamReqIsUrl string
 	// fake IAM response variables (GCP IAM -> token verifier)
@@ -594,10 +596,14 @@ func TestVerifyTokenHandler(t *testing.T) {
 	const isUrlHumanACL = "https://iam.googleapis.com/v1/projects/testproject/serviceAccounts/human-acl@testproject.iam.gserviceaccount.com:testIamPermissions?alt=json&prettyPrint=false"
 
 	var cases = []VerifyTokenHandlerTest{
-		{"human-acl happy path", false, isUrlHumanACL, permHappy, http.StatusOK, http.StatusOK},
-		{"human-acl missing permission", false, isUrlHumanACL, permBad, http.StatusOK, http.StatusForbidden},
-		{"robots-service happy path", true, isUrlRobotsACL, permHappy, http.StatusOK, http.StatusOK},
-		{"error from GCP IAM", true, isUrlRobotsACL, permHappy, http.StatusBadRequest, http.StatusForbidden},
+		{"human-acl happy path", false, "", "", isUrlHumanACL, permHappy, http.StatusOK, http.StatusOK},
+		{"human-acl missing permission", false, "", "", isUrlHumanACL, permBad, http.StatusOK, http.StatusForbidden},
+		{"robots-service happy path", true, "", "", isUrlRobotsACL, permHappy, http.StatusOK, http.StatusOK},
+		{"error from GCP IAM", true, "", "", isUrlRobotsACL, permHappy, http.StatusBadRequest, http.StatusForbidden},
+		{"robots via header happy path", true, "true", "", isUrlRobotsACL, permHappy, http.StatusOK, http.StatusOK},
+		{"human via header happy path", false, "false", "", isUrlHumanACL, permHappy, http.StatusOK, http.StatusOK},
+		{"error both header and query set (true header, false query)", true, "true", "false", isUrlRobotsACL, permHappy, http.StatusOK, http.StatusBadRequest},
+		{"error both header and query set (false header, true query)", false, "false", "true", isUrlHumanACL, permHappy, http.StatusOK, http.StatusBadRequest},
 	}
 
 	for _, test := range cases {
@@ -659,8 +665,15 @@ func runVerifyTokenHandlerTest(t *testing.T, test *VerifyTokenHandlerTest) {
 	rr := httptest.NewRecorder()
 	req := mustNewRequest(t, "GET", "/anything", nil)
 	req.Header.Add("Authorization", "Bearer "+isToken)
+	if test.reqHeader != "" {
+		req.Header.Add(headerRobots, test.reqHeader)
+	}
 	q := req.URL.Query()
-	q.Add("robots", strconv.FormatBool(test.reqIsRobots))
+	if test.reqHeader == "" && test.reqQuery == "" {
+		q.Add("robots", strconv.FormatBool(test.reqIsRobots))
+	} else if test.reqQuery != "" {
+		q.Add("robots", test.reqQuery)
+	}
 	req.URL.RawQuery = q.Encode()
 	h.verifyTokenHandler(rr, req)
 

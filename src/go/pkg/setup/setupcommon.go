@@ -33,7 +33,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -71,7 +71,7 @@ func GetRobotName(ctx context.Context, r io.Reader, client dynamic.ResourceInter
 // exitIfNotRunningInTerminal checks if stdin is connected to a terminal. If
 // not, it prints the given message and exits.
 func exitIfNotRunningInTerminal(message ...interface{}) {
-	if !terminal.IsTerminal(int(os.Stdin.Fd())) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		fmt.Fprintln(os.Stderr, message...)
 		os.Exit(1)
 	}

@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["controller.go"],
+    srcs = [
+        "controller.go",
+        "validator.go",
+    ],
     importpath = "github.com/googlecloudrobotics/core/src/go/pkg/controller/approllout",
     visibility = ["//visibility:public"],
     deps = [
@@ -33,7 +36,10 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["controller_test.go"],
+    srcs = [
+        "controller_test.go",
+        "validator_test.go",
+    ],
     embed = [":go_default_library"],
     deps = [
         "//src/go/pkg/apis/apps/v1alpha1:go_default_library",

@@ -392,6 +392,84 @@ data:
 	f.verifyWriteActions()
 }
 
+func TestSynk_applyAllSkipsIgnoredResources(t *testing.T) {
+	var cmBefore corev1.ConfigMap
+	unmarshalYAML(t, &cmBefore, `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: foo1
+  name: cm1
+  annotations:
+    synk.cloudrobotics.com/ignore: "true"
+data:
+  foo1: bar1`)
+	f := newFixture(t)
+	f.addObjects(&cmBefore)
+
+	// The updated resource we want to apply (from chart)
+	var cmUpdate corev1.ConfigMap
+	unmarshalYAML(t, &cmUpdate, `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: foo1
+  name: cm1
+data:
+  foo1: baz1`) // Chart wants baz1, but we should ignore this and keep bar1
+	cm := toUnstructured(t, &cmUpdate)
+
+	set := &apps.ResourceSet{}
+	set.Name = "test.v1"
+	set.UID = "deadbeef"
+
+	results, err := f.newSynk().applyAll(t.Context(), set, &ApplyOptions{name: "test"},
+		cm.DeepCopy(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// We expect an update action on the fake client.
+	// The object in the update action should be `cmBefore` (with data: foo1: bar1)
+	// but with owner references updated to point to `set`.
+	expectedCm := toUnstructured(t, &cmBefore)
+	ownerRef := metav1.OwnerReference{
+		APIVersion:         "apps.cloudrobotics.com/v1alpha1",
+		Kind:               "ResourceSet",
+		Name:               set.Name,
+		UID:                set.UID,
+		BlockOwnerDeletion: new(true),
+	}
+	expectedCm.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+
+	f.expectActions(
+		k8stest.NewUpdateAction(gvrs["configmaps"], "foo1", expectedCm),
+	)
+	f.verifyWriteActions()
+
+	// Verify that the result returned by applyAll also reflects the ignored state
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	res, ok := results["/v1/ConfigMap/foo1/cm1"]
+	if !ok {
+		t.Fatalf("result for cm1 not found")
+	}
+	if res.err != nil {
+		t.Errorf("expected no error, got %s", res.err)
+	}
+	if res.action != apps.ResourceActionIgnored {
+		t.Errorf("expected action Ignored, got %s", res.action)
+	}
+	
+	// Check that the returned resource has the old data
+	val, _, _ := unstructured.NestedString(res.resource.Object, "data", "foo1")
+	if val != "bar1" {
+		t.Errorf("expected data.foo1 to be 'bar1' (ignored), but got %q", val)
+	}
+}
+
 func TestSynk_applyAllIsCreatingResources(t *testing.T) {
 	f := newFixture(t)
 

@@ -101,7 +101,7 @@ func (h *handlers) verifyJWT(encodedJWT string) error {
 }
 
 func (h *handlers) resourceIsFiltered(groupKind string) bool {
-	// TODO: limit to CRDs with filter-by-robot-name label in case someone adds
+	// TODO(rodrigoq): limit to CRDs with filter-by-robot-name label in case someone adds
 	// new unfiltered resources in future.
 	return groupKind != "registry.cloudrobotics.com/robottypes"
 }
@@ -109,10 +109,11 @@ func (h *handlers) resourceIsFiltered(groupKind string) bool {
 // validateRequest checks that the request is expected for the cr-syncer and
 // only accesses allowed resources.
 func (h *handlers) validateRequest(r *http.Request, robotName string) error {
-	urlString := r.Header.Get("X-Original-Url")
+	urlString := extractOriginalURL(r)
 	incomingReq, err := parseURL(urlString)
 	if err != nil {
-		slog.Error("unexpected value of X-Original-Url", slog.String("URL", urlString), ilog.Err(err))
+		slog.Error("unexpected value of origin URL header",
+			slog.String("URL", urlString), ilog.Err(err))
 		return err
 	}
 
@@ -125,7 +126,7 @@ func (h *handlers) validateRequest(r *http.Request, robotName string) error {
 		return nil
 	}
 
-	// TODO: check against label of upstream resource instead of assuming that
+	// TODO(rodrigoq): check against label of upstream resource instead of assuming that
 	// robot xyz can access all syncable resources matching *xyz.
 	if incomingReq.RobotName != robotName && !strings.HasSuffix(incomingReq.ResourceName, robotName) {
 		slog.Error("robot impersonation rejected",

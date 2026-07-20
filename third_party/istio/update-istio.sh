@@ -4,6 +4,19 @@ VERSION=1.29.4
 
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+YQ="${YQ:-yq}"
+# Ensure we are using python-yq (v2 or v3), or fall back to 'python3 -m yq'
+if ! "${YQ}" --version 2>&1 | grep -q -E "^yq [23]\."; then
+  if python3 -m yq --version 2>&1 | grep -q -E "^yq [23]\."; then
+    YQ="python3 -m yq"
+  else
+    echo "Error: python-yq (v2 or v3) is required for update-istio.sh, but '${YQ}' is not python-yq." >&2
+    echo "Please specify python-yq via the YQ environment variable, e.g.: YQ='python3 -m yq' $0" >&2
+    exit 1
+  fi
+fi
+
 tmpdir="$(mktemp -d)"
 trap "rm -rf '${tmpdir}'" EXIT
 echo "Downloading istioctl ${PV}..."
@@ -39,20 +52,20 @@ echo "Updating to istio $("${istioctl}" version --remote=false)..."
   "$@" > ${tmpdir}/istio_full.yaml
 
 # Step 2: Extract golang template (need python yq)
-yq -r 'select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector") | .data.config' \
+${YQ} -r 'select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector") | .data.config' \
   "${tmpdir}/istio_full.yaml" > "${SCRIPT_DIR}/istio-config.yaml"
-yq -r 'select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector") | .data.values' \
+${YQ} -r 'select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector") | .data.values' \
   "${tmpdir}/istio_full.yaml" > "${SCRIPT_DIR}/istio-values.json"
 # the grep remove empty documents
 # the sed replaces `config: '{{ ... }}'` with `config: |-\n    {{ ... }}`)
 cat ${tmpdir}/istio_full.yaml \
-  | yq -y '(. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.config) = "{{ .Files.Get \"files/istio-config.yaml\" }}"' - \
-  | yq -y '(. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.values) = "{{ .Files.Get \"files/istio-values.json\" }}"' - \
+  | ${YQ} -y '(. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.config) = "{{ .Files.Get \"files/istio-config.yaml\" }}"' - \
+  | ${YQ} -y '(. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.values) = "{{ .Files.Get \"files/istio-values.json\" }}"' - \
   | grep -Ev "^(null|--- null|\.\.\.)$" \
   | sed "s/: '{{ .Files.Get \"\(.*\)\" }}'/: |-\n{{ .Files.Get \"\1\" | nindent 4 }}/g" \
   > ${tmpdir}/istio.yaml
 
-# Step 3: Download and package Istio Grafana dashboards
+# Step 3: Download and save Istio Grafana dashboards
 echo "Downloading Istio Grafana dashboards..."
 DASHBOARDS=(
   "istio-mesh-dashboard.gen.json"
@@ -61,9 +74,6 @@ DASHBOARDS=(
   "istio-workload-dashboard.json"
   "pilot-dashboard.gen.json"
 )
-
-dashboard_yaml="${tmpdir}/dashboards.yaml"
-touch "${dashboard_yaml}"
 
 curl_args=()
 for dashboard in "${DASHBOARDS[@]}"; do
@@ -78,24 +88,14 @@ if ! curl -fsSL "${curl_args[@]}"; then
   exit 1
 fi
 
+DASHBOARD_DIR="${SCRIPT_DIR}/grafana-dashboards"
+mkdir -p "${DASHBOARD_DIR}"
+
 for dashboard in "${DASHBOARDS[@]}"; do
   json_file="${tmpdir}/${dashboard}"
   name=$(basename "${dashboard}" | sed -E 's/\.gen\.json$//' | sed -E 's/\.json$//')
   key="${name}.json"
-  
-  cat <<EOF >> "${dashboard_yaml}"
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio-dashboard-${name}
-  labels:
-    grafana: "1"
-data:
-  ${key}: |-
-EOF
-  sed 's/^/    /' "${json_file}" >> "${dashboard_yaml}"
-  echo "" >> "${dashboard_yaml}"
+  cp "${json_file}" "${DASHBOARD_DIR}/${key}"
 done
 
 # Step 4: make this a helm template itself
@@ -107,11 +107,6 @@ dst="${SCRIPT_DIR}/istio-generated.yaml"
   echo "# Istio System Manifests"
   echo "# ---------------------------------------------------------"
   cat ${tmpdir}/istio.yaml
-  echo "---"
-  echo "# ---------------------------------------------------------"
-  echo "# Istio Grafana Dashboards"
-  echo "# ---------------------------------------------------------"
-  cat "${dashboard_yaml}"
   echo '{{- end }}'
 } >${dst}
 

@@ -19,7 +19,7 @@ spec:
         - --provider=oidc
         - --oidc-issuer-url=https://accounts.google.com
         - --email-domain=*
-        - --upstream=http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/
+        - --upstream=http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/
         - --upstream=https://{{ .Values.domain }}/
         - --http-address=0.0.0.0:8080
         - --pass-access-token
@@ -100,17 +100,19 @@ spec:
             port:
               name: http
 ---
+{{- range list "" "-auth" }}
+{{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: oauth2-proxy
+  name: oauth2-proxy{{ . }}
 spec:
   hostnames:
-  - {{ .Values.domain }}
+  - {{ $.Values.domain }}
   parentRefs:
-  - name: crc-gateway
+  - name: crc{{ . }}-gateway
     namespace: default
-    sectionName: https
+    sectionName: {{ $sectionName }}
   rules:
   - matches:
     - path:
@@ -129,14 +131,14 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: oauth2-proxy-interactive
+  name: oauth2-proxy-interactive{{ . }}
 spec:
   hostnames:
-  - {{ .Values.domain }}
+  - {{ $.Values.domain }}
   parentRefs:
-  - name: crc-gateway
+  - name: crc{{ . }}-gateway
     namespace: default
-    sectionName: https
+    sectionName: {{ $sectionName }}
   rules:
   - matches:
     - path:
@@ -146,6 +148,7 @@ spec:
     - name: oauth2-proxy
       port: 80
 ---
+{{- end }}
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
