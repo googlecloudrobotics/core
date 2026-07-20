@@ -3,7 +3,7 @@ kind: Ingress
 metadata:
   name: kubernetes-relay-client
   annotations:
-    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
+    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
     nginx.ingress.kubernetes.io/client-body-buffer-size: "50m"
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     # proxy-read-timeout sets how long nginx will allow a request to be idle
@@ -33,7 +33,7 @@ metadata:
     nginx.ingress.kubernetes.io/client-body-buffer-size: "50m"
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     nginx.ingress.kubernetes.io/rewrite-target: /server/$2
-    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
+    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
 spec:
   ingressClassName: nginx
   rules:
