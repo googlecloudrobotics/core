@@ -50,6 +50,11 @@ GCP_ZONE=europe-west1-c
 # If unset, defaults to "e2-standard-4"
 #GCP_NODE_VM_TYPE=e2-standard-4
 
+# Disk type for GKE nodes.
+# If unset or "default", will use `hyperdisk-balanced` for 4th gen nodes (n4, c4 etc)
+# and the GCP terraform module's default for other nodes (`pd-balanced` as of v7.40.0).
+#GCP_NODE_DISK_TYPE=default
+
 # Minimum number of nodes for the GKE cluster.
 # If unset, defaults to 2
 #GKE_MIN_NODES=2

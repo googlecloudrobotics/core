@@ -185,6 +185,11 @@ function set_default_vars {
   GCP_NODE_VM_TYPE=${GCP_NODE_VM_TYPE:-"e2-standard-4"}
   read_variable GCP_NODE_VM_TYPE "Which GCP VM type should be used for the GKE nodes?" "${GCP_NODE_VM_TYPE}"
 
+  # Ask for gcp disk type
+  read_variable GCP_NODE_DISK_TYPE \
+    "Which GCP disk type should be used for the GKE nodes?" \
+    "${GCP_NODE_DISK_TYPE:-default}"
+
   # Ask for GKE min/max nodes
   GKE_MIN_NODES=${GKE_MIN_NODES:-2}
   while :; do
@@ -275,6 +280,7 @@ print_variable "GCP region" "${GCP_REGION}"
 print_variable "GCP zone" "${GCP_ZONE}"
 print_variable "GKE cluster type" "${GKE_CLUSTER_TYPE}"
 print_variable "GCP node VM type" "${GCP_NODE_VM_TYPE}"
+print_variable "GCP node disk type" "${GCP_NODE_DISK_TYPE}"
 print_variable "GKE min nodes" "${GKE_MIN_NODES}"
 print_variable "GKE max nodes" "${GKE_MAX_NODES}"
 print_variable "GKE datapath provider" "${GKE_DATAPATH_PROVIDER}"
@@ -312,6 +318,7 @@ else
 fi
 save_variable "${CONFIG_FILE}" GKE_CLUSTER_TYPE "${GKE_CLUSTER_TYPE}"
 save_variable "${CONFIG_FILE}" GCP_NODE_VM_TYPE "${GCP_NODE_VM_TYPE}"
+save_variable "${CONFIG_FILE}" GCP_NODE_DISK_TYPE "${GCP_NODE_DISK_TYPE}"
 save_variable "${CONFIG_FILE}" GKE_MIN_NODES "${GKE_MIN_NODES}"
 save_variable "${CONFIG_FILE}" GKE_MAX_NODES "${GKE_MAX_NODES}"
 save_variable "${CONFIG_FILE}" GKE_DATAPATH_PROVIDER "${GKE_DATAPATH_PROVIDER}"

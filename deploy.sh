@@ -189,6 +189,16 @@ private_image_repositories = ["${PRIVATE_DOCKER_PROJECTS// /\", \"}"]
 EOF
   fi
 
+  if [[ -n "${GCP_NODE_DISK_TYPE:-}" && "${GCP_NODE_DISK_TYPE}" != "default" ]]; then
+    cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
+node_disk_type = "${GCP_NODE_DISK_TYPE}"
+EOF
+  else
+    cat >> "${TERRAFORM_DIR}/terraform.tfvars" <<EOF
+node_disk_type = null
+EOF
+  fi
+
 # Terraform bucket
 
   if [[ -n "${TERRAFORM_GCS_BUCKET:-}" ]]; then
