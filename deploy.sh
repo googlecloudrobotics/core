@@ -39,6 +39,7 @@ fi
 
 TERRAFORM_DIR="${DIR}/src/bootstrap/cloud/terraform"
 TERRAFORM_APPLY_FLAGS=${TERRAFORM_APPLY_FLAGS:- -auto-approve}
+TERRAFORM_PLAN_FLAGS=${TERRAFORM_PLAN_FLAGS:-}
 # utility functions
 
 function include_config_and_defaults {
@@ -214,6 +215,13 @@ function terraform_apply {
   terraform_exec apply ${TERRAFORM_APPLY_FLAGS} \
     || die "terraform apply failed"
   terraform_post
+}
+
+function terraform_plan {
+  terraform_init
+
+  terraform_exec plan ${TERRAFORM_PLAN_FLAGS} \
+    || die "terraform plan failed"
 }
 
 function terraform_post {
@@ -409,9 +417,14 @@ function update_infra {
   terraform_apply
 }
 
+function plan {
+  include_config_and_defaults $1
+  terraform_plan
+}
+
 # main
-if [[ "$#" -lt 2 ]] || [[ ! "$1" =~ ^(set_config|create|delete|update|fast_push|update_infra)$ ]]; then
-  die "Usage: $0 {set_config|create|delete|update|fast_push|update_infra} <project id>"
+if [[ "$#" -lt 2 ]] || [[ ! "$1" =~ ^(set_config|create|delete|update|fast_push|update_infra|plan)$ ]]; then
+  die "Usage: $0 {set_config|create|delete|update|fast_push|update_infra|plan} <project id>"
 fi
 
 # log and call arguments verbatim:
