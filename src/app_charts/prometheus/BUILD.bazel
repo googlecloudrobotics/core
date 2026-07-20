@@ -50,7 +50,6 @@ app_chart(
     ],
     images = {
         "http-relay-client": "//src/go/cmd/http-relay-client:http-relay-client-image",
-        "hw-exporter": "//src/go/cmd/hw-exporter:hw-exporter-image",
     },
 )
 
