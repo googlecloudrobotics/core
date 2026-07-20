@@ -45,6 +45,12 @@ spec:
               port: 8080
             initialDelaySeconds: 15
             periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 2
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:
