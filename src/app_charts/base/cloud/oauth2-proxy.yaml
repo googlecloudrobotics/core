@@ -19,7 +19,7 @@ spec:
         - --provider=oidc
         - --oidc-issuer-url=https://accounts.google.com
         - --email-domain=*
-        - --upstream=http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/
+        - --upstream=http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/
         - --upstream=https://{{ .Values.domain }}/
         - --http-address=0.0.0.0:8080
         - --pass-access-token
