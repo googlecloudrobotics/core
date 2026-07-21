@@ -33,7 +33,7 @@ require (
 	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.47.0 // indirect
 	google.golang.org/api v0.287.1
-	google.golang.org/grpc v1.82.0
+	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	// WatchList feature in client-go 0.35+ causes timeouts with fake clients.
 	// See https://github.com/kubernetes/kubernetes/issues/125501
