@@ -279,8 +279,8 @@ github.com/googleapis/gax-go/v2 v2.0.4/go.mod h1:0Wqv26UfaUD9n4G6kQubkQ+KchISgw+
 github.com/googleapis/gax-go/v2 v2.0.5/go.mod h1:DWXyrwAJ9X0FpwwEdw+IPEYBICEFu5mhpdKc/us6bOk=
 github.com/googleapis/gax-go/v2 v2.23.0 h1:Tchl7qkvE7Ip3y+ztvNufYFvkfqTe7NfLTYGIdJRLuE=
 github.com/googleapis/gax-go/v2 v2.23.0/go.mod h1:rBQKOVJCdb8IFEzg+FCwlt1LP/xMDGuqUXhUG+XMXEg=
-github.com/googlecloudrobotics/ilog v0.0.0-20240112131211-2efd642f756e h1:lfnmC6SUHV/5QrqXElmZ0WgojfIccKVNtxDry4T3AS8=
-github.com/googlecloudrobotics/ilog v0.0.0-20240112131211-2efd642f756e/go.mod h1:t9Up/i5bPfkBc7lEE+p0+lcD0NDw2zTTr19x19D7720=
+github.com/googlecloudrobotics/ilog v0.2.0 h1:U4KGtAubWHqCN9qIt2OXhUFxNVWB+OoIuq1JrSdBnEQ=
+github.com/googlecloudrobotics/ilog v0.2.0/go.mod h1:t9Up/i5bPfkBc7lEE+p0+lcD0NDw2zTTr19x19D7720=
 github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/huandu/xstrings v1.3.3 h1:/Gcsuc1x8JVbJ9/rlye4xZnVAbEkGauT8lbebqcQws4=
