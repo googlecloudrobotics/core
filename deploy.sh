@@ -416,16 +416,17 @@ function delete {
 
 # Alias for create.
 function update {
-  create $1
+  create "$@"
 }
 
 # This is a shortcut for skipping Terraform config checks if you know the config has not changed.
 function fast_push {
   include_config_and_defaults $1
+  shift
   if is_source_install; then
     prepare_source_install
   fi
-  helm_charts
+  helm_charts "$@"
 }
 
 # This is a shortcut for skipping building and applying Terraform configs if you know the build has not changed.
