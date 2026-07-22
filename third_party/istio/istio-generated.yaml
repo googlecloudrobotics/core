@@ -18755,31 +18755,33 @@ webhooks:
 ---
 apiVersion: v1
 data:
-  mesh: "accessLogFile: \"\"\naccessLogFormat: |\n  {\"authority\": \"%REQ(:AUTHORITY)%\"\
-    , \"start_time\": \"%START_TIME%\", \"bytes_received\": \"%BYTES_RECEIVED%\",\
-    \ \"bytes_sent\": \"%BYTES_SENT%\", \"downstream_local_address\": \"%DOWNSTREAM_LOCAL_ADDRESS%\"\
-    , \"downstream_remote_address\": \"%DOWNSTREAM_REMOTE_ADDRESS%\", \"duration\"\
-    : \"%DURATION%\", \"istio_policy_status\": \"%DYNAMIC_METADATA(istio.mixer:status)%\"\
-    , \"method\": \"%REQ(:METHOD)%\", \"path\": \"%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%\"\
-    , \"protocol\": \"%PROTOCOL%\", \"request_id\": \"%REQ(X-REQUEST-ID)%\", \"requested_server_name\"\
-    : \"%REQUESTED_SERVER_NAME%\", \"response_code\": \"%RESPONSE_CODE%\", \"response_flags\"\
-    : \"%RESPONSE_FLAGS%\", \"route_name\": \"%ROUTE_NAME%\", \"start_time\": \"%START_TIME%\"\
-    , \"upstream_cluster\": \"%UPSTREAM_CLUSTER%\", \"upstream_host\": \"%UPSTREAM_HOST%\"\
-    , \"upstream_local_address\": \"%UPSTREAM_LOCAL_ADDRESS%\", \"upstream_service_time\"\
-    : \"%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%\", \"upstream_transport_failure_reason\"\
-    : \"%UPSTREAM_TRANSPORT_FAILURE_REASON%\", \"user_agent\": \"%REQ(USER-AGENT)%\"\
-    , \"x_forwarded_for\": \"%REQ(X-FORWARDED-FOR)%\", \"x_icon_instance_name\": \"\
-    %REQ(x-icon-instance-name)%\", \"x_resource_instance_name\": \"%REQ(x-resource-instance-name)%\"\
-    }\ndefaultConfig:\n  discoveryAddress: istiod.default.svc:15012\n  proxyMetadata:\
-    \ {}\ndefaultProviders:\n  metrics:\n  - prometheus\nenablePrometheusMerge: true\n\
-    extensionProviders:\n\
-      {{- if .Values.istio.additionalExtensionProviders }}\n\
-      {{- toYaml .Values.istio.additionalExtensionProviders | nindent 6 }}\n\
-      {{- end }}\n- envoyExtAuthzHttp:\n    headersToUpstreamOnAllow:\n   \
-    \ - authorization\n    includeRequestHeadersInCheck:\n    - authorization\n  \
-    \  - x-forwarded-access-token\n    - x-auth-url\n    port: \"8080\"\n    service:\
-    \ crc-auth-gateway-istio.default.svc.cluster.local\n  name: crc-auth-gateway\n\
-    rootNamespace: default\ntrustDomain: cluster.local"
+  mesh: |-
+    accessLogFile: ""
+    accessLogFormat: |
+      {"authority": "%REQ(:AUTHORITY)%", "start_time": "%START_TIME%", "bytes_received": "%BYTES_RECEIVED%", "bytes_sent": "%BYTES_SENT%", "downstream_local_address": "%DOWNSTREAM_LOCAL_ADDRESS%", "downstream_remote_address": "%DOWNSTREAM_REMOTE_ADDRESS%", "duration": "%DURATION%", "istio_policy_status": "%DYNAMIC_METADATA(istio.mixer:status)%", "method": "%REQ(:METHOD)%", "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%", "protocol": "%PROTOCOL%", "request_id": "%REQ(X-REQUEST-ID)%", "requested_server_name": "%REQUESTED_SERVER_NAME%", "response_code": "%RESPONSE_CODE%", "response_flags": "%RESPONSE_FLAGS%", "route_name": "%ROUTE_NAME%", "start_time": "%START_TIME%", "upstream_cluster": "%UPSTREAM_CLUSTER%", "upstream_host": "%UPSTREAM_HOST%", "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%", "upstream_service_time": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%", "upstream_transport_failure_reason": "%UPSTREAM_TRANSPORT_FAILURE_REASON%", "user_agent": "%REQ(USER-AGENT)%", "x_forwarded_for": "%REQ(X-FORWARDED-FOR)%", "x_icon_instance_name": "%REQ(x-icon-instance-name)%", "x_resource_instance_name": "%REQ(x-resource-instance-name)%"}
+    defaultConfig:
+      discoveryAddress: istiod.default.svc:15012
+      proxyMetadata: {}
+    defaultProviders:
+      metrics:
+      - prometheus
+    enablePrometheusMerge: true
+    extensionProviders:
+      {{- if .Values.istio.additionalExtensionProviders }}
+      {{- toYaml .Values.istio.additionalExtensionProviders | nindent 6 }}
+      {{- end }}
+      - name: crc-auth-gateway
+        envoyExtAuthzHttp:
+          service: crc-auth-gateway-istio.default.svc.cluster.local
+          port: "8080"
+          includeRequestHeadersInCheck:
+          - authorization
+          - x-forwarded-access-token
+          - x-auth-url
+          headersToUpstreamOnAllow:
+          - authorization
+    rootNamespace: default
+    trustDomain: cluster.local
   meshNetworks: 'networks: {}'
 kind: ConfigMap
 metadata:

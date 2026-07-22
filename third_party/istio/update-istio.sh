@@ -107,20 +107,30 @@ dst="${SCRIPT_DIR}/istio-generated.yaml"
   echo "# Istio System Manifests"
   echo "# ---------------------------------------------------------"
   python3 -c '
-import sys
+import sys, yaml
+
+class MultilineDumper(yaml.SafeDumper):
+    def represent_scalar(self, tag, value, style=None):
+        if "\n" in value and tag == "tag:yaml.org,2002:str":
+            style = "|"
+        return super().represent_scalar(tag, value, style)
 
 with open(sys.argv[1], "r") as f:
-    content = f.read()
+    docs = list(yaml.safe_load_all(f))
 
 snippet = """
       {{- if .Values.istio.additionalExtensionProviders }}
       {{- toYaml .Values.istio.additionalExtensionProviders | nindent 6 }}
       {{- end }}"""
 
-if "extensionProviders:" in content and "additionalExtensionProviders" not in content:
-    content = content.replace("extensionProviders:", "extensionProviders:" + snippet, 1)
+for doc in docs:
+    if doc and doc.get("kind") == "ConfigMap" and doc.get("metadata", {}).get("name") == "istio":
+        mesh_yaml = doc.get("data", {}).get("mesh", "")
+        if "extensionProviders:" in mesh_yaml and "additionalExtensionProviders" not in mesh_yaml:
+            mesh_yaml = mesh_yaml.replace("extensionProviders:", "extensionProviders:" + snippet, 1)
+        doc["data"]["mesh"] = mesh_yaml
 
-sys.stdout.write(content)
+yaml.dump_all(docs, sys.stdout, Dumper=MultilineDumper, default_flow_style=False)
 ' "${tmpdir}/istio.yaml"
   echo '{{- end }}'
 } >${dst}
