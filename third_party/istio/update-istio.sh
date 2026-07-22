@@ -2,8 +2,16 @@
 
 VERSION=1.29.4
 
-
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+YQ="${YQ:-yq}"
+if ! command -v "${YQ}" &>/dev/null && [[ -x "/usr/local/google/home/tpeslalz/go/bin/yq" ]]; then
+  YQ="/usr/local/google/home/tpeslalz/go/bin/yq"
+fi
+if ! "${YQ}" --version 2>&1 | grep -q "yq"; then
+  echo "Error: yq is required for update-istio.sh." >&2
+  exit 1
+fi
 
 tmpdir="$(mktemp -d)"
 trap "rm -rf '${tmpdir}'" EXIT
@@ -17,9 +25,6 @@ if [[ ! -x "${istioctl}" ]] ; then
   exit 1
 fi
 
-# Istio needs to be able to check the Kubernetes version, otherwise it targets
-# 1.20 which is very old. It doesn't need to be identical to the target system,
-# just not too far off that we have compatibility issues.
 if ! kubectl version --output=yaml "$@" >/dev/null; then
   echo "Failed to check kubernetes version." >&2
   echo "Try using --context=minikube or another valid context." >&2
@@ -28,50 +33,23 @@ fi
 
 echo "Updating to istio $("${istioctl}" version --remote=false)..."
 
-# Step 1: Generate Istio YAML.  See istio_operator.yaml for our tweaks to the
-# default profile.
-# https://istio.io/latest/docs/setup/additional-setup/customize-installation/
-
 "${istioctl}" manifest generate \
   -f "${SCRIPT_DIR}/istio_operator.yaml" \
   --cluster-specific \
   "$@" > ${tmpdir}/istio_full.yaml
 
-# Step 2: Extract golang template
-python3 -c '
-import sys, yaml
+# Step 2: Extract golang template (using yq v4+)
+"${YQ}" '. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.config' \
+  "${tmpdir}/istio_full.yaml" > "${SCRIPT_DIR}/istio-config.yaml"
+"${YQ}" '. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.values' \
+  "${tmpdir}/istio_full.yaml" > "${SCRIPT_DIR}/istio-values.json"
 
-full_file = sys.argv[1]
-config_file = sys.argv[2]
-values_file = sys.argv[3]
-out_file = sys.argv[4]
-
-with open(full_file, "r") as f:
-    docs = list(yaml.safe_load_all(f))
-
-docs = [d for d in docs if d is not None]
-
-for doc in docs:
-    if doc.get("kind") == "ConfigMap" and doc.get("metadata", {}).get("name") == "istio-sidecar-injector":
-        data = doc.setdefault("data", {})
-        if "config" in data:
-            with open(config_file, "w") as f:
-                f.write(data["config"])
-            data["config"] = "{{ .Files.Get \"files/istio-config.yaml\" }}"
-        if "values" in data:
-            with open(values_file, "w") as f:
-                f.write(data["values"])
-            data["values"] = "{{ .Files.Get \"files/istio-values.json\" }}"
-
-class MultilineDumper(yaml.SafeDumper):
-    def represent_scalar(self, tag, value, style=None):
-        if "\n" in value and tag == "tag:yaml.org,2002:str":
-            style = "|"
-        return super().represent_scalar(tag, value, style)
-
-with open(out_file, "w") as f:
-    yaml.dump_all(docs, f, Dumper=MultilineDumper, default_flow_style=False)
-' "${tmpdir}/istio_full.yaml" "${SCRIPT_DIR}/istio-config.yaml" "${SCRIPT_DIR}/istio-values.json" "${tmpdir}/istio.yaml"
+cat "${tmpdir}/istio_full.yaml" \
+  | "${YQ}" '(. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.config) = "{{ .Files.Get \"files/istio-config.yaml\" }}"' - \
+  | "${YQ}" '(. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.values) = "{{ .Files.Get \"files/istio-values.json\" }}"' - \
+  | grep -Ev "^(null|--- null|\.\.\.)$" \
+  | sed 's/: '\''{{ .Files.Get "\(.*\)" }}'\''/: |-\n{{ .Files.Get "\1" | nindent 4 }}/g' \
+  > "${tmpdir}/istio.yaml"
 
 # Step 3: Download and save Istio Grafana dashboards
 echo "Downloading Istio Grafana dashboards..."
@@ -115,30 +93,20 @@ dst="${SCRIPT_DIR}/istio-generated.yaml"
   echo "# Istio System Manifests"
   echo "# ---------------------------------------------------------"
   python3 -c '
-import sys, yaml
-
-class MultilineDumper(yaml.SafeDumper):
-    def represent_scalar(self, tag, value, style=None):
-        if "\n" in value and tag == "tag:yaml.org,2002:str":
-            style = "|"
-        return super().represent_scalar(tag, value, style)
+import sys
 
 with open(sys.argv[1], "r") as f:
-    docs = list(yaml.safe_load_all(f))
+    content = f.read()
 
 snippet = """
       {{- if .Values.istio.additionalExtensionProviders }}
       {{- toYaml .Values.istio.additionalExtensionProviders | nindent 6 }}
       {{- end }}"""
 
-for doc in docs:
-    if doc and doc.get("kind") == "ConfigMap" and doc.get("metadata", {}).get("name") == "istio":
-        mesh_yaml = doc.get("data", {}).get("mesh", "")
-        if "extensionProviders:" in mesh_yaml and "additionalExtensionProviders" not in mesh_yaml:
-            mesh_yaml = mesh_yaml.replace("extensionProviders:", "extensionProviders:" + snippet, 1)
-        doc["data"]["mesh"] = mesh_yaml
+if "extensionProviders:" in content and "additionalExtensionProviders" not in content:
+    content = content.replace("extensionProviders:", "extensionProviders:" + snippet, 1)
 
-yaml.dump_all(docs, sys.stdout, Dumper=MultilineDumper, default_flow_style=False)
+sys.stdout.write(content)
 ' "${tmpdir}/istio.yaml"
   echo '{{- end }}'
 } >${dst}
