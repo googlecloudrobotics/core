@@ -38,18 +38,42 @@ echo "Updating to istio $("${istioctl}" version --remote=false)..."
   --cluster-specific \
   "$@" > ${tmpdir}/istio_full.yaml
 
-# Step 2: Extract golang template (using yq v4+)
-"${YQ}" '. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.config' \
-  "${tmpdir}/istio_full.yaml" > "${SCRIPT_DIR}/istio-config.yaml"
-"${YQ}" '. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.values' \
-  "${tmpdir}/istio_full.yaml" > "${SCRIPT_DIR}/istio-values.json"
+# Step 2: Extract golang template using non-destructive regex substitution
+python3 -c '
+import re, sys, yaml
 
-cat "${tmpdir}/istio_full.yaml" \
-  | "${YQ}" '(. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.config) = "{{ .Files.Get \"files/istio-config.yaml\" }}"' - \
-  | "${YQ}" '(. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.values) = "{{ .Files.Get \"files/istio-values.json\" }}"' - \
-  | grep -Ev "^(null|--- null|\.\.\.)$" \
-  | sed 's/: '\''{{ .Files.Get "\(.*\)" }}'\''/: |-\n{{ .Files.Get "\1" | nindent 4 }}/g' \
-  > "${tmpdir}/istio.yaml"
+full_file = sys.argv[1]
+config_file = sys.argv[2]
+values_file = sys.argv[3]
+out_file = sys.argv[4]
+
+with open(full_file, "r") as f:
+    content = f.read()
+
+# Load YAML docs to extract config & values strings
+docs = list(yaml.safe_load_all(content))
+for doc in docs:
+    if doc and doc.get("kind") == "ConfigMap" and doc.get("metadata", {}).get("name") == "istio-sidecar-injector":
+        data = doc.get("data", {})
+        if "config" in data:
+            with open(config_file, "w") as f:
+                f.write(data["config"])
+        if "values" in data:
+            with open(values_file, "w") as f:
+                f.write(data["values"])
+
+# Targeted regex string substitution to preserve 100% of original file formatting
+def replace_sidecar_data(match):
+    prefix = match.group(1)
+    suffix = match.group(2)
+    return prefix + "  config: |-\n{{ .Files.Get \"files/istio-config.yaml\" | nindent 4 }}\n  values: |-\n{{ .Files.Get \"files/istio-values.json\" | nindent 4 }}\n" + suffix
+
+pattern = r"(name:\s*istio-sidecar-injector\n\s*namespace:\s*default\n\s*data:\n)[\s\S]*?(\nkind:|\Z)"
+new_content = re.sub(pattern, replace_sidecar_data, content)
+
+with open(out_file, "w") as f:
+    f.write(new_content)
+' "${tmpdir}/istio_full.yaml" "${SCRIPT_DIR}/istio-config.yaml" "${SCRIPT_DIR}/istio-values.json" "${tmpdir}/istio.yaml"
 
 # Step 3: Download and save Istio Grafana dashboards
 echo "Downloading Istio Grafana dashboards..."
@@ -106,9 +130,27 @@ snippet = """
 if "extensionProviders:" in content and "additionalExtensionProviders" not in content:
     content = content.replace("extensionProviders:", "extensionProviders:" + snippet, 1)
 
+if "Template_Version_And_Istio_Version_Mismatched_Check_Installation" in content:
+    content = content.replace("Template_Version_And_Istio_Version_Mismatched_Check_Installation", ".Values.sidecarInjectorWebhook.templates.sidecar")
+
 sys.stdout.write(content)
 ' "${tmpdir}/istio.yaml"
   echo '{{- end }}'
 } >${dst}
 
 echo "Updated ${dst}"
+
+# Step 5: Verify generated YAML syntax
+echo "Verifying generated YAML syntax..."
+if ! python3 -c '
+import sys, yaml
+with open(sys.argv[1], "r") as f:
+    text = f.read()
+clean_text = "\n".join(l for l in text.splitlines() if not l.strip().startswith("{{") and not l.strip().startswith("}}"))
+docs = list(yaml.safe_load_all(clean_text))
+print(f"YAML Verification Passed: {len(docs)} valid Kubernetes documents.")
+' "${dst}"; then
+  echo "Error: ${dst} failed YAML validation!" >&2
+  exit 1
+fi
+
