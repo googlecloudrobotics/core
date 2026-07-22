@@ -5,26 +5,12 @@ VERSION=1.29.4
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-YQ="${YQ:-yq}"
-# Ensure we are using python-yq (v2 or v3), or fall back to 'python3 -m yq'
-if ! "${YQ}" --version 2>&1 | grep -q -E "^yq [23]\."; then
-  if python3 -m yq --version 2>&1 | grep -q -E "^yq [23]\."; then
-    YQ="python3 -m yq"
-  else
-    echo "Error: python-yq (v2 or v3) is required for update-istio.sh, but '${YQ}' is not python-yq." >&2
-    echo "Please specify python-yq via the YQ environment variable, e.g.: YQ='python3 -m yq' $0" >&2
-    exit 1
-  fi
-fi
-
 tmpdir="$(mktemp -d)"
 trap "rm -rf '${tmpdir}'" EXIT
-echo "Downloading istioctl ${PV}..."
+echo "Downloading istioctl ${VERSION}..."
 curl -fsSl "https://storage.googleapis.com/istio-release/releases/${VERSION}/istioctl-${VERSION}-linux-amd64.tar.gz" \
   | tar -C "${tmpdir}" -zx istioctl
 istioctl="${tmpdir}/istioctl"
-# for faster testing
-#istioctl="${HOME}/bin/istioctl"
 
 if [[ ! -x "${istioctl}" ]] ; then
   echo "Failed to extract istioctl from tarball." >&2
@@ -51,19 +37,41 @@ echo "Updating to istio $("${istioctl}" version --remote=false)..."
   --cluster-specific \
   "$@" > ${tmpdir}/istio_full.yaml
 
-# Step 2: Extract golang template (need python yq)
-${YQ} -r 'select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector") | .data.config' \
-  "${tmpdir}/istio_full.yaml" > "${SCRIPT_DIR}/istio-config.yaml"
-${YQ} -r 'select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector") | .data.values' \
-  "${tmpdir}/istio_full.yaml" > "${SCRIPT_DIR}/istio-values.json"
-# the grep remove empty documents
-# the sed replaces `config: '{{ ... }}'` with `config: |-\n    {{ ... }}`)
-cat ${tmpdir}/istio_full.yaml \
-  | ${YQ} -y '(. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.config) = "{{ .Files.Get \"files/istio-config.yaml\" }}"' - \
-  | ${YQ} -y '(. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.values) = "{{ .Files.Get \"files/istio-values.json\" }}"' - \
-  | grep -Ev "^(null|--- null|\.\.\.)$" \
-  | sed "s/: '{{ .Files.Get \"\(.*\)\" }}'/: |-\n{{ .Files.Get \"\1\" | nindent 4 }}/g" \
-  > ${tmpdir}/istio.yaml
+# Step 2: Extract golang template
+python3 -c '
+import sys, yaml
+
+full_file = sys.argv[1]
+config_file = sys.argv[2]
+values_file = sys.argv[3]
+out_file = sys.argv[4]
+
+with open(full_file, "r") as f:
+    docs = list(yaml.safe_load_all(f))
+
+docs = [d for d in docs if d is not None]
+
+for doc in docs:
+    if doc.get("kind") == "ConfigMap" and doc.get("metadata", {}).get("name") == "istio-sidecar-injector":
+        data = doc.setdefault("data", {})
+        if "config" in data:
+            with open(config_file, "w") as f:
+                f.write(data["config"])
+            data["config"] = "{{ .Files.Get \"files/istio-config.yaml\" }}"
+        if "values" in data:
+            with open(values_file, "w") as f:
+                f.write(data["values"])
+            data["values"] = "{{ .Files.Get \"files/istio-values.json\" }}"
+
+class MultilineDumper(yaml.SafeDumper):
+    def represent_scalar(self, tag, value, style=None):
+        if "\n" in value and tag == "tag:yaml.org,2002:str":
+            style = "|"
+        return super().represent_scalar(tag, value, style)
+
+with open(out_file, "w") as f:
+    yaml.dump_all(docs, f, Dumper=MultilineDumper, default_flow_style=False)
+' "${tmpdir}/istio_full.yaml" "${SCRIPT_DIR}/istio-config.yaml" "${SCRIPT_DIR}/istio-values.json" "${tmpdir}/istio.yaml"
 
 # Step 3: Download and save Istio Grafana dashboards
 echo "Downloading Istio Grafana dashboards..."
