@@ -106,7 +106,22 @@ dst="${SCRIPT_DIR}/istio-generated.yaml"
   echo "# ---------------------------------------------------------"
   echo "# Istio System Manifests"
   echo "# ---------------------------------------------------------"
-  cat ${tmpdir}/istio.yaml
+  python3 -c '
+import sys
+
+with open(sys.argv[1], "r") as f:
+    content = f.read()
+
+snippet = """
+      {{- if .Values.istio.additionalExtensionProviders }}
+      {{- toYaml .Values.istio.additionalExtensionProviders | nindent 6 }}
+      {{- end }}"""
+
+if "extensionProviders:" in content and "additionalExtensionProviders" not in content:
+    content = content.replace("extensionProviders:", "extensionProviders:" + snippet, 1)
+
+sys.stdout.write(content)
+' "${tmpdir}/istio.yaml"
   echo '{{- end }}'
 } >${dst}
 
