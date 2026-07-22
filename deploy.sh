@@ -305,6 +305,19 @@ function helm_region_shared {
     --set "use_tv_verbose=${CRC_USE_TV_VERBOSE}"
   )
 
+  shift 6
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -f|--values)
+        values+=(-f "$2")
+        shift 2
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+
   ${SYNK_COMMAND} --context "${CLUSTER_CONTEXT}" init
   echo "synk init done"
 
@@ -334,12 +347,14 @@ function helm_main_region {
     "${INGRESS_IP}" \
     "${GCP_REGION}" \
     "${GCP_ZONE}" \
-    "${PROJECT_NAME}"
+    "${PROJECT_NAME}" \
+    "$@"
 }
 
 function helm_additional_region {
   local ar_description
   ar_description="${1}"
+  shift
 
   local AR_NAME
   local AR_REGION
@@ -361,15 +376,16 @@ function helm_additional_region {
     "${INGRESS_IP}" \
     "${AR_REGION}" \
     "${AR_ZONE}" \
-    "${CLUSTER_NAME}"
+    "${CLUSTER_NAME}" \
+    "$@"
 }
 
 function helm_charts {
-  helm_main_region
+  helm_main_region "$@"
 
   local AR
   for AR in "${ADDITIONAL_REGIONS[@]}"; do
-    helm_additional_region "${AR}"
+    helm_additional_region "${AR}" "$@"
   done
 }
 
@@ -382,11 +398,12 @@ function set_config {
 
 function create {
   include_config_and_defaults $1
+  shift
   if is_source_install; then
     prepare_source_install
   fi
   terraform_apply
-  helm_charts
+  helm_charts "$@"
 }
 
 function delete {
@@ -399,16 +416,17 @@ function delete {
 
 # Alias for create.
 function update {
-  create $1
+  create "$@"
 }
 
 # This is a shortcut for skipping Terraform config checks if you know the config has not changed.
 function fast_push {
   include_config_and_defaults $1
+  shift
   if is_source_install; then
     prepare_source_install
   fi
-  helm_charts
+  helm_charts "$@"
 }
 
 # This is a shortcut for skipping building and applying Terraform configs if you know the build has not changed.

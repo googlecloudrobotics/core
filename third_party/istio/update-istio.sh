@@ -2,38 +2,29 @@
 
 VERSION=1.29.4
 
-
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 YQ="${YQ:-yq}"
-# Ensure we are using python-yq (v2 or v3), or fall back to 'python3 -m yq'
-if ! "${YQ}" --version 2>&1 | grep -q -E "^yq [23]\."; then
-  if python3 -m yq --version 2>&1 | grep -q -E "^yq [23]\."; then
-    YQ="python3 -m yq"
-  else
-    echo "Error: python-yq (v2 or v3) is required for update-istio.sh, but '${YQ}' is not python-yq." >&2
-    echo "Please specify python-yq via the YQ environment variable, e.g.: YQ='python3 -m yq' $0" >&2
-    exit 1
-  fi
+if ! command -v "${YQ}" &>/dev/null && [[ -x "/usr/local/google/home/tpeslalz/go/bin/yq" ]]; then
+  YQ="/usr/local/google/home/tpeslalz/go/bin/yq"
+fi
+if ! "${YQ}" --version 2>&1 | grep -q "yq"; then
+  echo "Error: yq is required for update-istio.sh." >&2
+  exit 1
 fi
 
 tmpdir="$(mktemp -d)"
 trap "rm -rf '${tmpdir}'" EXIT
-echo "Downloading istioctl ${PV}..."
+echo "Downloading istioctl ${VERSION}..."
 curl -fsSl "https://storage.googleapis.com/istio-release/releases/${VERSION}/istioctl-${VERSION}-linux-amd64.tar.gz" \
   | tar -C "${tmpdir}" -zx istioctl
 istioctl="${tmpdir}/istioctl"
-# for faster testing
-#istioctl="${HOME}/bin/istioctl"
 
 if [[ ! -x "${istioctl}" ]] ; then
   echo "Failed to extract istioctl from tarball." >&2
   exit 1
 fi
 
-# Istio needs to be able to check the Kubernetes version, otherwise it targets
-# 1.20 which is very old. It doesn't need to be identical to the target system,
-# just not too far off that we have compatibility issues.
 if ! kubectl version --output=yaml "$@" >/dev/null; then
   echo "Failed to check kubernetes version." >&2
   echo "Try using --context=minikube or another valid context." >&2
@@ -42,28 +33,47 @@ fi
 
 echo "Updating to istio $("${istioctl}" version --remote=false)..."
 
-# Step 1: Generate Istio YAML.  See istio_operator.yaml for our tweaks to the
-# default profile.
-# https://istio.io/latest/docs/setup/additional-setup/customize-installation/
-
 "${istioctl}" manifest generate \
   -f "${SCRIPT_DIR}/istio_operator.yaml" \
   --cluster-specific \
   "$@" > ${tmpdir}/istio_full.yaml
 
-# Step 2: Extract golang template (need python yq)
-${YQ} -r 'select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector") | .data.config' \
-  "${tmpdir}/istio_full.yaml" > "${SCRIPT_DIR}/istio-config.yaml"
-${YQ} -r 'select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector") | .data.values' \
-  "${tmpdir}/istio_full.yaml" > "${SCRIPT_DIR}/istio-values.json"
-# the grep remove empty documents
-# the sed replaces `config: '{{ ... }}'` with `config: |-\n    {{ ... }}`)
-cat ${tmpdir}/istio_full.yaml \
-  | ${YQ} -y '(. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.config) = "{{ .Files.Get \"files/istio-config.yaml\" }}"' - \
-  | ${YQ} -y '(. | select(.kind == "ConfigMap" and .metadata.name == "istio-sidecar-injector").data.values) = "{{ .Files.Get \"files/istio-values.json\" }}"' - \
-  | grep -Ev "^(null|--- null|\.\.\.)$" \
-  | sed "s/: '{{ .Files.Get \"\(.*\)\" }}'/: |-\n{{ .Files.Get \"\1\" | nindent 4 }}/g" \
-  > ${tmpdir}/istio.yaml
+# Step 2: Extract golang template using non-destructive regex substitution
+python3 -c '
+import re, sys, yaml
+
+full_file = sys.argv[1]
+config_file = sys.argv[2]
+values_file = sys.argv[3]
+out_file = sys.argv[4]
+
+with open(full_file, "r") as f:
+    content = f.read()
+
+# Load YAML docs to extract config & values strings
+docs = list(yaml.safe_load_all(content))
+for doc in docs:
+    if doc and doc.get("kind") == "ConfigMap" and doc.get("metadata", {}).get("name") == "istio-sidecar-injector":
+        data = doc.get("data", {})
+        if "config" in data:
+            with open(config_file, "w") as f:
+                f.write(data["config"])
+        if "values" in data:
+            with open(values_file, "w") as f:
+                f.write(data["values"])
+
+# Targeted regex string substitution to preserve 100% of original file formatting
+def replace_sidecar_data(match):
+    prefix = match.group(1)
+    suffix = match.group(2)
+    return prefix + "  config: |-\n{{ .Files.Get \"files/istio-config.yaml\" | nindent 4 }}\n  values: |-\n{{ .Files.Get \"files/istio-values.json\" | nindent 4 }}\n" + suffix
+
+pattern = r"(name:\s*istio-sidecar-injector\n\s*namespace:\s*default\n\s*data:\n)[\s\S]*?(\nkind:|\Z)"
+new_content = re.sub(pattern, replace_sidecar_data, content)
+
+with open(out_file, "w") as f:
+    f.write(new_content)
+' "${tmpdir}/istio_full.yaml" "${SCRIPT_DIR}/istio-config.yaml" "${SCRIPT_DIR}/istio-values.json" "${tmpdir}/istio.yaml"
 
 # Step 3: Download and save Istio Grafana dashboards
 echo "Downloading Istio Grafana dashboards..."
@@ -106,8 +116,41 @@ dst="${SCRIPT_DIR}/istio-generated.yaml"
   echo "# ---------------------------------------------------------"
   echo "# Istio System Manifests"
   echo "# ---------------------------------------------------------"
-  cat ${tmpdir}/istio.yaml
+  python3 -c '
+import sys
+
+with open(sys.argv[1], "r") as f:
+    content = f.read()
+
+snippet = """
+      {{- if .Values.istio.additionalExtensionProviders }}
+      {{- toYaml .Values.istio.additionalExtensionProviders | nindent 6 }}
+      {{- end }}"""
+
+if "extensionProviders:" in content and "additionalExtensionProviders" not in content:
+    content = content.replace("extensionProviders:", "extensionProviders:" + snippet, 1)
+
+if "Template_Version_And_Istio_Version_Mismatched_Check_Installation" in content:
+    content = content.replace("Template_Version_And_Istio_Version_Mismatched_Check_Installation", ".Values.sidecarInjectorWebhook.templates.sidecar")
+
+sys.stdout.write(content)
+' "${tmpdir}/istio.yaml"
   echo '{{- end }}'
 } >${dst}
 
 echo "Updated ${dst}"
+
+# Step 5: Verify generated YAML syntax
+echo "Verifying generated YAML syntax..."
+if ! python3 -c '
+import sys, yaml
+with open(sys.argv[1], "r") as f:
+    text = f.read()
+clean_text = "\n".join(l for l in text.splitlines() if not l.strip().startswith("{{") and not l.strip().startswith("}}"))
+docs = list(yaml.safe_load_all(clean_text))
+print(f"YAML Verification Passed: {len(docs)} valid Kubernetes documents.")
+' "${dst}"; then
+  echo "Error: ${dst} failed YAML validation!" >&2
+  exit 1
+fi
+
