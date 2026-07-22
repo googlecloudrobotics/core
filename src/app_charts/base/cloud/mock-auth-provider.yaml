@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mock-auth-provider-script
+  namespace: default
+data:
+  main.go: |
+    package main
+
+    import (
+    	"fmt"
+    	"log"
+    	"net/http"
+    )
+
+    func authzHandler(w http.ResponseWriter, r *http.Request) {
+    	// ExtAuthz sets HTTP method, URL, and includes configured headers
+    	// from the original client request.
+    	scopes := r.Header.Get("X-Intrinsic-Auth-Scopes")
+
+    	role := "default"
+    	if scopes != "" {
+    		role = scopes
+    	}
+
+    	// Add upstream injected headers required by ExtAuthz.
+    	// Istio extensionProvider should configure headersToUpstreamOnAllow 
+    	// to include this header so Envoy propagates it to the backend pod.
+    	w.Header().Set("X-Authenticated-Role", role)
+
+    	// Envoy expects 200 OK to allow the request to proceed upstream.
+    	// Any status other than 200 (e.g., 401, 403) will deny the request 
+    	// and return directly to the downstream client.
+    	w.WriteHeader(http.StatusOK)
+
+    	// For 200 OK, Envoy ignores the response body but we provide it here
+    	// in case the auth provider is queried directly during tests.
+    	fmt.Fprintf(w, "authenticated as %s\n", role)
+    	log.Printf("Allowed request, responded with role: %s", role)
+    }
+
+    func main() {
+    	http.HandleFunc("/", authzHandler)
+
+    	log.Println("Starting Mock ExtAuthz Golang Server on port 8080...")
+    	if err := http.ListenAndServe(":8080", nil); err != nil {
+    		log.Fatalf("Server failed: %v", err)
+    	}
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-auth-provider
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-auth-provider
+  template:
+    metadata:
+      labels:
+        app: mock-auth-provider
+    spec:
+      containers:
+      - name: auth-provider
+        image: golang:1.20-bullseye
+        command: ["go", "run", "/opt/mock/main.go"]
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: script-vol
+          mountPath: /opt/mock
+      volumes:
+      - name: script-vol
+        configMap:
+          name: mock-auth-provider-script
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-proxy
+  namespace: default
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  selector:
+    app: mock-auth-provider

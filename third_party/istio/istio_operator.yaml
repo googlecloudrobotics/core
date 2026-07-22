@@ -1,49 +1,60 @@
-# Used to generate the app-ingress-generated.yaml file.
-# After making changes, regenerate with
-#
-# sys-cluster/ingress-istio/files/update_istio_yaml.sh
-#
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  # The "default" profile includes the ingress gateway.
   profile: default
-
   values:
     global:
       logging:
         level: all:warn
-      # Override the default namespace (istio-system) because we will wrap this YAML in a
-      # ChartAssignment, and the controller will install to the default namespace.
       istioNamespace: default
 
   meshConfig:
-    # from default
     defaultConfig:
       proxyMetadata: {}
     enablePrometheusMerge: true
 
-    # Set this to "/dev/stdout" to enable access logging.
     accessLogFile: ""
     accessLogFormat: |
       {"authority": "%REQ(:AUTHORITY)%", "start_time": "%START_TIME%", "bytes_received": "%BYTES_RECEIVED%", "bytes_sent": "%BYTES_SENT%", "downstream_local_address": "%DOWNSTREAM_LOCAL_ADDRESS%", "downstream_remote_address": "%DOWNSTREAM_REMOTE_ADDRESS%", "duration": "%DURATION%", "istio_policy_status": "%DYNAMIC_METADATA(istio.mixer:status)%", "method": "%REQ(:METHOD)%", "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%", "protocol": "%PROTOCOL%", "request_id": "%REQ(X-REQUEST-ID)%", "requested_server_name": "%REQUESTED_SERVER_NAME%", "response_code": "%RESPONSE_CODE%", "response_flags": "%RESPONSE_FLAGS%", "route_name": "%ROUTE_NAME%", "start_time": "%START_TIME%", "upstream_cluster": "%UPSTREAM_CLUSTER%", "upstream_host": "%UPSTREAM_HOST%", "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%", "upstream_service_time": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%", "upstream_transport_failure_reason": "%UPSTREAM_TRANSPORT_FAILURE_REASON%", "user_agent": "%REQ(USER-AGENT)%", "x_forwarded_for": "%REQ(X-FORWARDED-FOR)%", "x_icon_instance_name": "%REQ(x-icon-instance-name)%", "x_resource_instance_name": "%REQ(x-resource-instance-name)%"}
 
     extensionProviders:
-      - name: "crc-auth-gateway"
+      - name: "auth-provider-clusterheader"
         envoyExtAuthzHttp:
-          service: "crc-auth-gateway-istio.default.svc.cluster.local" # crc-auth-gateway-istio k8s svc in default namespace
-          port: "8080"
-          includeRequestHeadersInCheck: 
-          - "authorization"
-          - "x-forwarded-access-token"
-          - "x-auth-url"
-          headersToUpstreamOnAllow: 
-          - "authorization"
+          service: "auth-proxy.default.svc.cluster.local"
+          port: 8080
+          pathPrefix: "/authorize"
+          includeAdditionalHeadersInCheck:
+            x-intrinsic-auth-scopes: "clusterheader"
+          includeRequestHeadersInCheck: ["authorization", "cookie", "x-forwarded-access-token", "x-forwarded-proto", "x-server-name"]
+          headersToUpstreamOnAllow: ["apikey-token", "x-intrinsic-user", "x-user-id", "x-authenticated-role"]
+          headersToDownstreamOnDeny: ["content-type", "set-cookie", "location", "www-authenticate"]
+
+      - name: "auth-provider-default"
+        envoyExtAuthzHttp:
+          service: "auth-proxy.default.svc.cluster.local"
+          port: 8080
+          pathPrefix: "/authorize"
+          includeRequestHeadersInCheck: ["authorization", "cookie", "x-forwarded-access-token"]
+          headersToUpstreamOnAllow: ["apikey-token", "x-intrinsic-user", "x-authenticated-role"]
+          headersToDownstreamOnDeny: ["content-type", "set-cookie", "location", "www-authenticate"]
+
+      - name: "auth-provider-internal"
+        envoyExtAuthzHttp:
+          service: "auth-proxy.default.svc.cluster.local"
+          port: 8080
+          pathPrefix: "/authorize"
+          includeAdditionalHeadersInCheck:
+            x-intrinsic-auth-scopes: "internal"
+          includeRequestHeadersInCheck: ["authorization", "cookie"]
+          headersToUpstreamOnAllow: ["apikey-token", "x-intrinsic-user", "x-authenticated-role"]
+          headersToDownstreamOnDeny: ["content-type", "set-cookie", "location", "www-authenticate"]
 
   components:
     base:
       enabled: true
     cni:
+      enabled: false
+    ztunnel:
       enabled: false
     pilot:
       enabled: true

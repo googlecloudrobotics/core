@@ -19,6 +19,7 @@ app_chart(
     extra_templates = [
         ":cloud/namespace.yaml",
         ":cloud/apps-crd.yaml",
+        ":cloud/mock-auth-provider.yaml",
         ":robot/app-management.yaml",
         ":robot/cert-manager.yaml",
         ":robot/cert-manager-certificates.yaml",
@@ -63,6 +64,7 @@ app_chart(
         ":cloud/namespace.yaml",
         ":cloud/registry-crd.yaml",
         ":cloud/apps-crd.yaml",
+        ":cloud/mock-auth-provider.yaml",
         "//third_party/kube-prometheus-stack:01-crds.yaml",
     ],
     extra_values = ["values-robot.yaml"],

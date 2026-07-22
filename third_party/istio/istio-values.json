@@ -18,7 +18,7 @@
       }
     },
     "externalIstiod": false,
-    "hub": "docker.io/istio",
+    "hub": "registry.istio.io/release",
     "imagePullPolicy": "",
     "imagePullSecrets": [],
     "istioNamespace": "default",
@@ -43,7 +43,6 @@
     "omitSidecarInjectorConfigMap": false,
     "operatorManageWebhooks": false,
     "pilotCertProvider": "istiod",
-    "platform": "gke",
     "priorityClassName": "",
     "proxy": {
       "autoInject": "enabled",
@@ -94,7 +93,7 @@
     "sts": {
       "servicePort": 0
     },
-    "tag": "1.29.4",
+    "tag": "1.30.3",
     "variant": "",
     "waypoint": {
       "affinity": {},
@@ -115,12 +114,8 @@
   },
   "pilot": {
     "cni": {
-      "cniBinDir": "",
       "enabled": false,
-      "provider": "default",
-      "resourceQuotas": {
-        "enabled": false
-      }
+      "provider": "default"
     },
     "env": {}
   },

@@ -11,7 +11,7 @@ app_management: "true"
 # Setting onprem_federation to "false" will remove cloud policy for the cr-syncer (part of layer 1).
 onprem_federation: "true"
 # Temporary setting to guard the migration from nginx-ingress-controller to istio
-use_istio: "false"
+use_istio: "true"
 use_nginx_shield: "false"
 
 oauth2_proxy:
