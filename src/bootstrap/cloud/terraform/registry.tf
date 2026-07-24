@@ -60,6 +60,7 @@ resource "google_artifact_registry_repository" "gcrio_repositories" {
   }
 
   count         = length(local.std_repositories)
+  depends_on    = [google_project_service.project-services["artifactregistry.googleapis.com"]]
 }
 
 resource "google_artifact_registry_repository_iam_member" "gcrio_gar_reader" {
