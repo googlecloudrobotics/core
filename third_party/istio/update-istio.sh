@@ -25,6 +25,9 @@ if [[ ! -x "${istioctl}" ]] ; then
   exit 1
 fi
 
+# Istio needs to be able to check the Kubernetes version, otherwise it targets
+# 1.20 which is very old. It doesn't need to be identical to the target system,
+# just not too far off that we have compatibility issues.
 if ! kubectl version --output=yaml "$@" >/dev/null; then
   echo "Failed to check kubernetes version." >&2
   echo "Try using --context=minikube or another valid context." >&2
@@ -32,6 +35,10 @@ if ! kubectl version --output=yaml "$@" >/dev/null; then
 fi
 
 echo "Updating to istio $("${istioctl}" version --remote=false)..."
+
+# Step 1: Generate Istio YAML.  See istio_operator.yaml for our tweaks to the
+# default profile.
+# https://istio.io/latest/docs/setup/additional-setup/customize-installation/
 
 "${istioctl}" manifest generate \
   -f "${SCRIPT_DIR}/istio_operator.yaml" \
@@ -130,8 +137,10 @@ snippet = """
 if "extensionProviders:" in content and "additionalExtensionProviders" not in content:
     content = content.replace("extensionProviders:", "extensionProviders:" + snippet, 1)
 
-if "Template_Version_And_Istio_Version_Mismatched_Check_Installation" in content:
-    content = content.replace("Template_Version_And_Istio_Version_Mismatched_Check_Installation", ".Values.sidecarInjectorWebhook.templates.sidecar")
+old_str = 'template: "{{ Template_Version_And_Istio_Version_Mismatched_Check_Installation }}"'
+new_str = 'template: "Template_Version_And_Istio_Version_Mismatched_Check_Installation"'
+if old_str in content:
+    content = content.replace(old_str, new_str)
 
 sys.stdout.write(content)
 ' "${tmpdir}/istio.yaml"
@@ -140,7 +149,7 @@ sys.stdout.write(content)
 
 echo "Updated ${dst}"
 
-# Step 5: Verify generated YAML syntax
+# Step 5: Verify generated YAML syntax & test build base-cloud chart
 echo "Verifying generated YAML syntax..."
 if ! python3 -c '
 import sys, yaml
@@ -151,6 +160,12 @@ docs = list(yaml.safe_load_all(clean_text))
 print(f"YAML Verification Passed: {len(docs)} valid Kubernetes documents.")
 ' "${dst}"; then
   echo "Error: ${dst} failed YAML validation!" >&2
+  exit 1
+fi
+
+echo "Verifying base-cloud chart build (helm lint)..."
+if ! bazel build //src/app_charts/base:base-cloud; then
+  echo "Error: base-cloud chart failed helm lint / bazel build validation!" >&2
   exit 1
 fi
 
