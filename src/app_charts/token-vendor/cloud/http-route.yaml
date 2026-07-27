@@ -1,16 +1,14 @@
-{{- range list "" "-auth" }}
-{{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: public-key-access{{.}}
+  name: public-key-access
 spec:
   hostnames:
-  - {{ $.Values.domain }}
+  - {{ .Values.domain }}
   parentRefs:
-  - name: crc{{.}}-gateway
+  - name: crc-gateway
     namespace: default
-    sectionName: {{ $sectionName }}
+    sectionName: https
   rules:
   - backendRefs:
     - name: token-vendor
@@ -19,31 +17,18 @@ spec:
     - path:
         type: PathPrefix
         value: /apis/core.token-vendor/v1/public-key.read
-{{- if eq . "-auth" }}
-    filters:
-    - type: RequestHeaderModifier
-      requestHeaderModifier:
-        set:
-        - name: x-crc-tv-robots
-          value: "true"
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplaceFullPath
-          replaceFullPath: /apis/core.token-vendor/v1/token.verify
-{{- end }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: public-key-manager{{.}}
+  name: public-key-manager
 spec:
   hostnames:
-  - {{ $.Values.domain }}
+  - {{ .Values.domain }}
   parentRefs:
-  - name: crc{{.}}-gateway
+  - name: crc-gateway
     namespace: default
-    sectionName: {{ $sectionName }}
+    sectionName: https
   rules:
   - backendRefs:
     - name: token-vendor
@@ -55,21 +40,7 @@ spec:
     - path:
         type: PathPrefix
         value: /apis/core.token-vendor/v1/public-key.publish
-{{- if eq . "-auth" }}
-    filters:
-    - type: RequestHeaderModifier
-      requestHeaderModifier:
-        set:
-        - name: x-crc-tv-robots
-          value: "false"
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplaceFullPath
-          replaceFullPath: /apis/core.token-vendor/v1/token.verify
-{{- end }}
 ---
-{{- end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -96,52 +67,41 @@ spec:
         type: PathPrefix
         value: /apis/core.token-vendor/v1/token.oauth2
 ---
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
 metadata:
-  name: token-vendor-auth-bypass
+  name: public-key-access-auth
 spec:
-  hostnames:
-  - {{ .Values.domain }}
-  parentRefs:
-  - name: crc-auth-gateway
-    namespace: default
-    sectionName: http
-  rules:
-  - backendRefs:
-    - name: crc-auth-gateway-catchall-svc
-      namespace: default
-      port: 8080
-    filters:
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          replaceFullPath: /status/200
-          type: ReplaceFullPath
-    matches:
-    - path:
-        type: PathPrefix
-        value: /apis/core.token-vendor/v1/token.verify
-    - path:
-        type: PathPrefix
-        value: /apis/core.token-vendor/v1/jwt.verify
-    - path:
-        type: PathPrefix
-        value: /apis/core.token-vendor/v1/token.oauth2
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: public-key-access
+  action: CUSTOM
+  provider:
+    name: auth-provider-tv-robots-true
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: ReferenceGrant
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
 metadata:
-  name: token-vendor-grant
+  name: public-key-manager-auth
 spec:
-  from:
-  - group: gateway.networking.k8s.io
-    kind: HTTPRoute
-    namespace: app-k8s-relay
-  - group: gateway.networking.k8s.io
-    kind: HTTPRoute
-    namespace: app-prometheus
-  to:
-  - group: ""
-    kind: Service
-    name: token-vendor
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: public-key-manager
+  action: CUSTOM
+  provider:
+    name: auth-provider-tv-robots-false
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: token-vendor-allow
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: token-vendor
+  action: ALLOW
+  rules:
+    - {}

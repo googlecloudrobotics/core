@@ -1,51 +1,21 @@
-{{- range list "" "-auth" }}
-{{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: prometheus{{ . }}
+  name: prometheus
   labels:
-    app.kubernetes.io/name: {{ $.Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
 spec:
   hostnames:
-  - {{ $.Values.domain }}
+  - {{ .Values.domain }}
   parentRefs:
-  - name: crc{{ . }}-gateway
+  - name: crc-gateway
     namespace: default
-    sectionName: {{ $sectionName }}
+    sectionName: https
   rules:
   - matches:
     - path:
         type: PathPrefix
         value: /prometheus/
-{{- if eq . "-auth" }}
-{{- $authUrl := urlParse (tpl $.Values.prom_ingress_auth_url $) }}
-{{- $authUrlHeader := $.Values.prom_ingress_auth_url_header }}
-{{- $authUrlHeaderValue := $.Values.prom_ingress_auth_url_headervalue }}
-{{- $hostParts := splitList ":" $authUrl.host }}
-{{- $domainParts := splitList "." (first $hostParts) }}
-{{- $svcName := index $domainParts 0 }}
-{{- $svcNamespace := index $domainParts 1 }}
-{{- $svcPort := 80 }}{{ if eq $authUrl.scheme "https" }}{{ $svcPort = 443 }}{{ end }}
-{{- if gt (len $hostParts) 1 }}{{ $svcPort = index $hostParts 1 }}{{ end }}
-    filters:
-{{- if $authUrlHeader }}
-    - type: RequestHeaderModifier
-      requestHeaderModifier:
-        set:
-        - name: {{ $authUrlHeader }}
-          value: {{ $authUrlHeaderValue | quote }}
-{{- end }}
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplaceFullPath
-          replaceFullPath: {{ $authUrl.path }}{{ if $authUrl.query }}?{{ $authUrl.query }}{{ end }}
-    backendRefs:
-    - name: {{ $svcName }}
-      namespace: {{ $svcNamespace }}
-      port: {{ $svcPort }}
-{{- else }}
     filters:
     - type: URLRewrite
       urlRewrite:
@@ -55,6 +25,31 @@ spec:
     backendRefs:
     - name: kube-prometheus
       port: 9090
-{{- end }}
+  - matches:
+    - path:
+        type: Exact
+        value: /prometheus
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /
+    backendRefs:
+    - name: kube-prometheus
+      port: 9090
 ---
-{{- end }}
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: prometheus-auth
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: prometheus
+  action: CUSTOM
+  provider:
+    name: auth-provider-oauth

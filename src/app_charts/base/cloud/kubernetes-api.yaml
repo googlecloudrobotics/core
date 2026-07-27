@@ -24,47 +24,34 @@ spec:
             port:
               number: 443
 ---
-{{- range list "" "-auth" }}
-{{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: kubernetes-api{{ . }}
+  name: kubernetes-api
 spec:
   hostnames:
-  - {{ $.Values.domain }}
+  - {{ .Values.domain }}
   parentRefs:
-  - name: crc{{ . }}-gateway
+  - name: crc-gateway
     namespace: default
-    sectionName: {{ $sectionName }}
+    sectionName: https
   rules:
   - matches:
     - path:
         type: PathPrefix
         value: /apis/core.kubernetes/
-{{- if eq . "-auth" }}
-    filters:
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplaceFullPath
-          replaceFullPath: /auth
-    backendRefs:
-    - name: cr-syncer-auth-webhook
-      port: 80
-{{- else }}
     filters:
     - type: URLRewrite
       urlRewrite:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /
+    timeouts:
+      backendRequest: 600s
     backendRefs:
     - name: kubernetes
       port: 443
-{{- end }}
 ---
-{{- end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
@@ -80,4 +67,17 @@ spec:
       kind: ConfigMap
       name: kube-root-ca.crt
     hostname: kubernetes.default.svc
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: kubernetes-api-auth
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: kubernetes-api
+  action: CUSTOM
+  provider:
+    name: auth-provider-cr-syncer
 {{- end }}
