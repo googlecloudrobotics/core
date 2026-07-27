@@ -9,6 +9,8 @@ removed {
 
 data "google_project" "project" {
   project_id = var.id
+
+  depends_on = [google_project_service.project-services]
 }
 
 resource "google_project_iam_member" "owner_group" {
@@ -21,7 +23,7 @@ resource "google_project_iam_member" "owner_group" {
 # We can't use google_project_services because Endpoints adds services
 # dynamically.
 resource "google_project_service" "project-services" {
-  project            = data.google_project.project.project_id
+  project            = var.id
   disable_on_destroy = false
   for_each = toset(concat([
     "artifactregistry.googleapis.com",
