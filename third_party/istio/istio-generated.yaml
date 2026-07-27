@@ -18472,6 +18472,43 @@ data:
       {{- if .Values.istio.additionalExtensionProviders }}
       {{- tpl (toYaml .Values.istio.additionalExtensionProviders | replace "\n      (" " (" | replace "\n      \"" " \"" | replace "\n      '" " '") . | nindent 4 }}
       {{- end }}
+    - envoyExtAuthzHttp:
+        headersToUpstreamOnAllow:
+        - x-authenticated-robot
+        includeAdditionalHeadersInCheck:
+          x-crc-tv-robots: "true"
+        includeRequestHeadersInCheck:
+        - authorization
+        pathPrefix: /apis/core.token-vendor/v1/token.verify
+        port: 8080
+        service: token-vendor.default.svc.cluster.local
+      name: auth-provider-tv-robots-true
+    - envoyExtAuthzHttp:
+        headersToUpstreamOnAllow:
+        - x-authenticated-user
+        includeAdditionalHeadersInCheck:
+          x-crc-tv-robots: "false"
+        includeRequestHeadersInCheck:
+        - authorization
+        pathPrefix: /apis/core.token-vendor/v1/token.verify
+        port: 8080
+        service: token-vendor.default.svc.cluster.local
+      name: auth-provider-tv-robots-false
+    - envoyExtAuthzHttp:
+        includeRequestHeadersInCheck:
+        - authorization
+        pathPrefix: /auth
+        port: 8080
+        service: cr-syncer-auth-webhook.default.svc.cluster.local
+      name: auth-provider-cr-syncer
+    - envoyExtAuthzHttp:
+        includeRequestHeadersInCheck:
+        - authorization
+        - cookie
+        pathPrefix: /oauth2/auth
+        port: 8080
+        service: oauth-proxy.default.svc.cluster.local
+      name: auth-provider-oauth
     rootNamespace: default
     trustDomain: cluster.local
   meshNetworks: 'networks: {}'
@@ -18688,7 +18725,65 @@ data:
           "proxyMetadata": {}
         },
         "enablePrometheusMerge": true,
-        "extensionProviders": []
+        "extensionProviders": [
+          {
+            "envoyExtAuthzHttp": {
+              "headersToUpstreamOnAllow": [
+                "x-authenticated-robot"
+              ],
+              "includeAdditionalHeadersInCheck": {
+                "x-crc-tv-robots": "true"
+              },
+              "includeRequestHeadersInCheck": [
+                "authorization"
+              ],
+              "pathPrefix": "/apis/core.token-vendor/v1/token.verify",
+              "port": 8080,
+              "service": "token-vendor.default.svc.cluster.local"
+            },
+            "name": "auth-provider-tv-robots-true"
+          },
+          {
+            "envoyExtAuthzHttp": {
+              "headersToUpstreamOnAllow": [
+                "x-authenticated-user"
+              ],
+              "includeAdditionalHeadersInCheck": {
+                "x-crc-tv-robots": "false"
+              },
+              "includeRequestHeadersInCheck": [
+                "authorization"
+              ],
+              "pathPrefix": "/apis/core.token-vendor/v1/token.verify",
+              "port": 8080,
+              "service": "token-vendor.default.svc.cluster.local"
+            },
+            "name": "auth-provider-tv-robots-false"
+          },
+          {
+            "envoyExtAuthzHttp": {
+              "includeRequestHeadersInCheck": [
+                "authorization"
+              ],
+              "pathPrefix": "/auth",
+              "port": 8080,
+              "service": "cr-syncer-auth-webhook.default.svc.cluster.local"
+            },
+            "name": "auth-provider-cr-syncer"
+          },
+          {
+            "envoyExtAuthzHttp": {
+              "includeRequestHeadersInCheck": [
+                "authorization",
+                "cookie"
+              ],
+              "pathPrefix": "/oauth2/auth",
+              "port": 8080,
+              "service": "oauth-proxy.default.svc.cluster.local"
+            },
+            "name": "auth-provider-oauth"
+          }
+        ]
       },
       "nodeSelector": {},
       "ownerName": "",
@@ -18790,7 +18885,65 @@ data:
           "proxyMetadata": {}
         },
         "enablePrometheusMerge": true,
-        "extensionProviders": []
+        "extensionProviders": [
+          {
+            "envoyExtAuthzHttp": {
+              "headersToUpstreamOnAllow": [
+                "x-authenticated-robot"
+              ],
+              "includeAdditionalHeadersInCheck": {
+                "x-crc-tv-robots": "true"
+              },
+              "includeRequestHeadersInCheck": [
+                "authorization"
+              ],
+              "pathPrefix": "/apis/core.token-vendor/v1/token.verify",
+              "port": 8080,
+              "service": "token-vendor.default.svc.cluster.local"
+            },
+            "name": "auth-provider-tv-robots-true"
+          },
+          {
+            "envoyExtAuthzHttp": {
+              "headersToUpstreamOnAllow": [
+                "x-authenticated-user"
+              ],
+              "includeAdditionalHeadersInCheck": {
+                "x-crc-tv-robots": "false"
+              },
+              "includeRequestHeadersInCheck": [
+                "authorization"
+              ],
+              "pathPrefix": "/apis/core.token-vendor/v1/token.verify",
+              "port": 8080,
+              "service": "token-vendor.default.svc.cluster.local"
+            },
+            "name": "auth-provider-tv-robots-false"
+          },
+          {
+            "envoyExtAuthzHttp": {
+              "includeRequestHeadersInCheck": [
+                "authorization"
+              ],
+              "pathPrefix": "/auth",
+              "port": 8080,
+              "service": "cr-syncer-auth-webhook.default.svc.cluster.local"
+            },
+            "name": "auth-provider-cr-syncer"
+          },
+          {
+            "envoyExtAuthzHttp": {
+              "includeRequestHeadersInCheck": [
+                "authorization",
+                "cookie"
+              ],
+              "pathPrefix": "/oauth2/auth",
+              "port": 8080,
+              "service": "oauth-proxy.default.svc.cluster.local"
+            },
+            "name": "auth-provider-oauth"
+          }
+        ]
       },
       "pilot": {
         "cni": {
