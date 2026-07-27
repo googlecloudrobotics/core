@@ -18772,7 +18772,10 @@ data:
     %REQ(x-icon-instance-name)%\", \"x_resource_instance_name\": \"%REQ(x-resource-instance-name)%\"\
     }\ndefaultConfig:\n  discoveryAddress: istiod.default.svc:15012\n  proxyMetadata:\
     \ {}\ndefaultProviders:\n  metrics:\n  - prometheus\nenablePrometheusMerge: true\n\
-    extensionProviders:\n- envoyExtAuthzHttp:\n    headersToUpstreamOnAllow:\n   \
+    extensionProviders:\n\
+      {{- if .Values.istio.additionalExtensionProviders }}\n\
+      {{- toYaml .Values.istio.additionalExtensionProviders | nindent 6 }}\n\
+      {{- end }}\n- envoyExtAuthzHttp:\n    headersToUpstreamOnAllow:\n   \
     \ - authorization\n    includeRequestHeadersInCheck:\n    - authorization\n  \
     \  - x-forwarded-access-token\n    - x-auth-url\n    port: \"8080\"\n    service:\
     \ crc-auth-gateway-istio.default.svc.cluster.local\n  name: crc-auth-gateway\n\
