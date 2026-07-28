@@ -22,10 +22,9 @@ func TestExtAuthz_CRSyncer_HeaderFallback(t *testing.T) {
 			wantURLStr: "/apis/core.cloudrobotics.com/v1alpha1/namespaces/default/robots",
 		},
 		{
-			name: "LegacyOriginalUrlHeaderPriority",
+			name: "LegacyOriginalUrlHeader",
 			headers: map[string]string{
-				"X-Original-Url":        "/apis/legacy/path",
-				"X-Envoy-Original-Path": "/apis/envoy/path",
+				"X-Original-Url": "/apis/legacy/path",
 			},
 			wantURLStr: "/apis/legacy/path",
 		},
@@ -38,9 +37,12 @@ func TestExtAuthz_CRSyncer_HeaderFallback(t *testing.T) {
 				req.Header.Set(k, v)
 			}
 
-			got := extractOriginalURL(req)
+			got, err := extractSubrequestURL(req)
+			if err != nil {
+				t.Fatalf("extractSubrequestURL() unexpected error: %v", err)
+			}
 			if got != tc.wantURLStr {
-				t.Errorf("extractOriginalURL() = %q, want %q", got, tc.wantURLStr)
+				t.Errorf("extractSubrequestURL() = %q, want %q", got, tc.wantURLStr)
 			}
 		})
 	}

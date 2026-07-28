@@ -18495,10 +18495,16 @@ data:
         service: token-vendor.default.svc.cluster.local
       name: auth-provider-tv-robots-false
     - envoyExtAuthzHttp:
+        headersToUpstreamOnAllow:
+        - authorization
         includeRequestHeadersInCheck:
         - authorization
+        - x-envoy-original-path
+        - x-original-url
+        - :authority
+        - x-forwarded-host
         pathPrefix: /auth
-        port: 8080
+        port: 80
         service: cr-syncer-auth-webhook.default.svc.cluster.local
       name: auth-provider-cr-syncer
     - envoyExtAuthzHttp:
@@ -18762,11 +18768,18 @@ data:
           },
           {
             "envoyExtAuthzHttp": {
-              "includeRequestHeadersInCheck": [
+              "headersToUpstreamOnAllow": [
                 "authorization"
               ],
+              "includeRequestHeadersInCheck": [
+                "authorization",
+                "x-envoy-original-path",
+                "x-original-url",
+                ":authority",
+                "x-forwarded-host"
+              ],
               "pathPrefix": "/auth",
-              "port": 8080,
+              "port": 80,
               "service": "cr-syncer-auth-webhook.default.svc.cluster.local"
             },
             "name": "auth-provider-cr-syncer"
@@ -18922,11 +18935,18 @@ data:
           },
           {
             "envoyExtAuthzHttp": {
-              "includeRequestHeadersInCheck": [
+              "headersToUpstreamOnAllow": [
                 "authorization"
               ],
+              "includeRequestHeadersInCheck": [
+                "authorization",
+                "x-envoy-original-path",
+                "x-original-url",
+                ":authority",
+                "x-forwarded-host"
+              ],
               "pathPrefix": "/auth",
-              "port": 8080,
+              "port": 80,
               "service": "cr-syncer-auth-webhook.default.svc.cluster.local"
             },
             "name": "auth-provider-cr-syncer"

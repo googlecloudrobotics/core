@@ -3,6 +3,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -31,21 +32,31 @@ type incomingRequest struct {
 	ResourceName string
 }
 
-// extractOriginalURL returns the raw origin URL or path from proxy headers.
-// Any scheme/host in X-Original-Url is stripped when passed to url.Parse(u).Path,
-// normalizing it to match X-Envoy-Original-Path.
-func extractOriginalURL(r *http.Request) string {
-	if u := r.Header.Get("X-Original-Url"); u != "" {
-		return u
+// extractSubrequestURL returns the target URL or path from subrequest proxy headers.
+// Why: Legacy NGINX Ingress sets X-Original-Url, while Istio Envoy ExtAuthz subrequests
+// set X-Envoy-Original-Path. If both headers are supplied simultaneously, it returns an error
+// to prevent header ambiguity.
+func extractSubrequestURL(r *http.Request) (string, error) {
+	origURL := r.Header.Get("X-Original-Url")
+	envoyPath := r.Header.Get("X-Envoy-Original-Path")
+
+	if origURL != "" && envoyPath != "" {
+		return "", errors.New("ambiguous proxy headers: both X-Original-Url and X-Envoy-Original-Path present")
 	}
-	return r.Header.Get("X-Envoy-Original-Path")
+	if origURL != "" {
+		return origURL, nil
+	}
+	if envoyPath != "" {
+		return envoyPath, nil
+	}
+	return "", errors.New("missing subrequest proxy header (X-Original-Url or X-Envoy-Original-Path)")
 }
 
 // parseURL parses the URL that the cr-syncer is hitting to find the
 // authz-relevant properties.
 func parseURL(urlString string) (*incomingRequest, error) {
 	result := incomingRequest{}
-	url, err := url.Parse(urlString)
+	parsedURL, err := url.Parse(urlString)
 	if err != nil {
 		return nil, err
 	}
@@ -56,9 +67,9 @@ func parseURL(urlString string) (*incomingRequest, error) {
 	//  /apis/core.kubernetes/apis/<group>/<version>/namespaces/<namespace>/<kind>/<resourceName>
 	//  /apis/core.kubernetes/apis/<group>/<version>/namespaces/<namespace>/<kind>/<resourceName>/status
 	//                             parts[0] parts[1] parts[2]   parts[3]   parts[4] parts[5]
-	parts := strings.Split(strings.TrimPrefix(url.Path, "/apis/core.kubernetes/apis/"), "/")
+	parts := strings.Split(strings.TrimPrefix(parsedURL.Path, "/apis/core.kubernetes/apis/"), "/")
 	if len(parts) < 3 || len(parts) > 7 {
-		return nil, fmt.Errorf("unexpected URL path %q (split into %d path segments, expeced betwen 3 and 7)", url.Path, len(parts))
+		return nil, fmt.Errorf("unexpected URL path %q (split into %d path segments, expected between 3 and 7)", parsedURL.Path, len(parts))
 	}
 	if parts[2] != "namespaces" {
 		// Add in "/namespaces/default" so remaining code can use fixed indices.
@@ -76,7 +87,7 @@ func parseURL(urlString string) (*incomingRequest, error) {
 
 	// If we have no resourceName, this is a list/watch request, so check for a
 	// labelSelector.
-	params := url.Query()
+	params := parsedURL.Query()
 	labelSelectors := params["labelSelector"]
 	if len(labelSelectors) == 0 {
 		// This is an unfiltered List or Watch request (eg for robottypes).

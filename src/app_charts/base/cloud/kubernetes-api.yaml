@@ -1,4 +1,6 @@
 {{- if eq .Values.onprem_federation "true" }}
+# Legacy NGINX Ingress: Uses subrequest authentication via /auth.
+# NGINX replaces the Authorization header with the subrequest response header.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -24,6 +26,10 @@ spec:
             port:
               number: 443
 ---
+# Gateway API (Istio Single Gateway): Routes /apis/core.kubernetes/ directly to cr-syncer-auth-webhook:80.
+# Why: Envoy's ExtAuthz filter appends headers by default, causing duplicate Bearer token collisions.
+# Routing directly to cr-syncer-auth-webhook as an inline reverse proxy allows Go code to perform
+# in-memory token replacement and stream requests to https://kubernetes.default.svc:443 cleanly.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -40,44 +46,9 @@ spec:
     - path:
         type: PathPrefix
         value: /apis/core.kubernetes/
-    filters:
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplacePrefixMatch
-          replacePrefixMatch: /
     timeouts:
       backendRequest: 600s
     backendRefs:
-    - name: kubernetes
-      port: 443
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: BackendTLSPolicy
-metadata:
-  name: kubernetes-tls-policy
-spec:
-  targetRefs:
-  - group: ""
-    kind: Service
-    name: kubernetes
-  validation:
-    caCertificateRefs:
-    - group: ""
-      kind: ConfigMap
-      name: kube-root-ca.crt
-    hostname: kubernetes.default.svc
----
-apiVersion: security.istio.io/v1
-kind: AuthorizationPolicy
-metadata:
-  name: kubernetes-api-auth
-spec:
-  targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: kubernetes-api
-  action: CUSTOM
-  provider:
-    name: auth-provider-cr-syncer
+    - name: cr-syncer-auth-webhook
+      port: 80
 {{- end }}
