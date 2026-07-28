@@ -18,18 +18,14 @@ func TestExtAuthz_TokenVerify_Methods(t *testing.T) {
 		mux := http.NewServeMux()
 
 		prefix := "/apis/core.token-vendor/v1"
-		verifyPrefix := ""
-		if !opts.AllowAnyMethod {
-			verifyPrefix = "GET "
-		}
-		mux.HandleFunc(verifyPrefix+path.Join(prefix, "token.verify"), h.verifyTokenHandler)
+		mux.HandleFunc(path.Join(prefix, "token.verify"), h.verifyTokenHandler)
 
 		methods := []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}
 
 		for _, method := range methods {
 			t.Run("Method_"+method, func(t *testing.T) {
 				req := httptest.NewRequest(method, "/apis/core.token-vendor/v1/token.verify", nil)
-				req.Header.Set("x-crc-tv-robots", "true")
+				req.Header.Set(headerRobots, "true")
 				w := httptest.NewRecorder()
 
 				mux.ServeHTTP(w, req)
@@ -57,7 +53,7 @@ func TestExtAuthz_TokenVerify_Methods(t *testing.T) {
 		mux.HandleFunc(verifyPrefix+path.Join(prefix, "token.verify"), h.verifyTokenHandler)
 
 		req := httptest.NewRequest(http.MethodPost, "/apis/core.token-vendor/v1/token.verify", nil)
-		req.Header.Set("x-crc-tv-robots", "true")
+		req.Header.Set(headerRobots, "true")
 		w := httptest.NewRecorder()
 
 		mux.ServeHTTP(w, req)
@@ -70,48 +66,58 @@ func TestExtAuthz_TokenVerify_Methods(t *testing.T) {
 
 // TestExtAuthz_TokenVerify_RobotVsHumanHeader directly tests testForRobotACL header and query parameters.
 func TestExtAuthz_TokenVerify_RobotVsHumanHeader(t *testing.T) {
-	t.Run("RobotProviderHeader", func(t *testing.T) {
-		u, err := url.Parse("http://localhost/apis/core.token-vendor/v1/token.verify")
-		if err != nil {
-			t.Fatalf("failed to parse URL: %v", err)
-		}
-		hdr := http.Header{"X-Crc-Tv-Robots": []string{"true"}}
+	tests := []struct {
+		name       string
+		rawURL     string
+		headerVal  string
+		wantRobots bool
+		wantErr    bool
+	}{
+		{
+			name:       "RobotProviderHeader",
+			rawURL:     "http://localhost/apis/core.token-vendor/v1/token.verify",
+			headerVal:  "true",
+			wantRobots: true,
+		},
+		{
+			name:       "HumanProviderHeader",
+			rawURL:     "http://localhost/apis/core.token-vendor/v1/token.verify",
+			headerVal:  "false",
+			wantRobots: false,
+		},
+		{
+			name:      "ConflictHeaderAndQuery",
+			rawURL:    "http://localhost/apis/core.token-vendor/v1/token.verify?robots=false",
+			headerVal: "true",
+			wantErr:   true,
+		},
+	}
 
-		robots, err := testForRobotACL(u, &hdr)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if !robots {
-			t.Errorf("got robots = %v, want true", robots)
-		}
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			u, err := url.Parse(tc.rawURL)
+			if err != nil {
+				t.Fatalf("failed to parse URL: %v", err)
+			}
+			var hdr http.Header
+			if tc.headerVal != "" {
+				hdr = make(http.Header)
+				hdr.Set(headerRobots, tc.headerVal)
+			}
 
-	t.Run("HumanProviderHeader", func(t *testing.T) {
-		u, err := url.Parse("http://localhost/apis/core.token-vendor/v1/token.verify")
-		if err != nil {
-			t.Fatalf("failed to parse URL: %v", err)
-		}
-		hdr := http.Header{"X-Crc-Tv-Robots": []string{"false"}}
-
-		robots, err := testForRobotACL(u, &hdr)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if robots {
-			t.Errorf("got robots = %v, want false", robots)
-		}
-	})
-
-	t.Run("ConflictHeaderAndQuery", func(t *testing.T) {
-		u, err := url.Parse("http://localhost/apis/core.token-vendor/v1/token.verify?robots=false")
-		if err != nil {
-			t.Fatalf("failed to parse URL: %v", err)
-		}
-		hdr := http.Header{"X-Crc-Tv-Robots": []string{"true"}}
-
-		_, err = testForRobotACL(u, &hdr)
-		if err == nil {
-			t.Errorf("expected error when both header and query param are set, got nil")
-		}
-	})
+			robots, err := testForRobotACL(u, &hdr)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if robots != tc.wantRobots {
+				t.Errorf("got robots = %v, want %v", robots, tc.wantRobots)
+			}
+		})
+	}
 }

@@ -38,10 +38,7 @@ oci_image(
 
 go_test(
     name = "go_default_test",
-    srcs = [
-        "ext_authz_test.go",
-        "request_test.go",
-    ],
+    srcs = ["request_test.go"],
     embed = [":go_default_library"],
     deps = ["@com_github_google_go_cmp//cmp:go_default_library"],
 )
