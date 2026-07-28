@@ -23,7 +23,7 @@ require (
 	github.com/motemen/go-loghttp v0.0.0-20170804080138-974ac5ceac27
 	github.com/motemen/go-nuts v0.0.0-20220604134737-2658d0104f31 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.24.0
+	github.com/prometheus/client_golang v1.24.1
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -149,7 +149,7 @@ require (
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.70.0 // indirect
+	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/prometheus v0.48.0 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
