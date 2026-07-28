@@ -18515,6 +18515,16 @@ data:
         port: 8080
         service: oauth-proxy.default.svc.cluster.local
       name: auth-provider-oauth
+    - envoyExtAuthzHttp:
+        headersToUpstreamOnAllow:
+        - authorization
+        includeRequestHeadersInCheck:
+        - authorization
+        - x-forwarded-access-token
+        - x-auth-url
+        port: 8080
+        service: crc-auth-gateway-istio.default.svc.cluster.local
+      name: crc-auth-gateway
     rootNamespace: default
     trustDomain: cluster.local
   meshNetworks: 'networks: {}'
@@ -18795,6 +18805,21 @@ data:
               "service": "oauth-proxy.default.svc.cluster.local"
             },
             "name": "auth-provider-oauth"
+          },
+          {
+            "envoyExtAuthzHttp": {
+              "headersToUpstreamOnAllow": [
+                "authorization"
+              ],
+              "includeRequestHeadersInCheck": [
+                "authorization",
+                "x-forwarded-access-token",
+                "x-auth-url"
+              ],
+              "port": 8080,
+              "service": "crc-auth-gateway-istio.default.svc.cluster.local"
+            },
+            "name": "crc-auth-gateway"
           }
         ]
       },
@@ -18962,6 +18987,21 @@ data:
               "service": "oauth-proxy.default.svc.cluster.local"
             },
             "name": "auth-provider-oauth"
+          },
+          {
+            "envoyExtAuthzHttp": {
+              "headersToUpstreamOnAllow": [
+                "authorization"
+              ],
+              "includeRequestHeadersInCheck": [
+                "authorization",
+                "x-forwarded-access-token",
+                "x-auth-url"
+              ],
+              "port": 8080,
+              "service": "crc-auth-gateway-istio.default.svc.cluster.local"
+            },
+            "name": "crc-auth-gateway"
           }
         ]
       },
