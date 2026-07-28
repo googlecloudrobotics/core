@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"log/slog"
@@ -30,7 +29,8 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	"github.com/googlecloudrobotics/ilog"
-	"go.opencensus.io/trace"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/resource"
@@ -44,6 +44,8 @@ import (
 	"k8s.io/helm/pkg/renderutil"
 	"k8s.io/helm/pkg/repo"
 )
+
+var tracer = otel.Tracer("github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment")
 
 // releases is a cache of releases currently handled.
 type releases struct {
@@ -274,11 +276,14 @@ func (r *release) update(as *apps.ChartAssignment) {
 	}
 	spanContext := trace.SpanContext{}
 	if tid, found := as.GetAnnotations()["cloudrobotics.com/trace-id"]; found {
-		if _, err := hex.Decode(spanContext.TraceID[:], []byte(tid)); err != nil {
+		traceID, err := trace.TraceIDFromHex(tid)
+		if err != nil {
 			slog.Error("decoding TraceID", slog.String("TraceID", tid), ilog.Err(err))
+		} else {
+			spanContext = spanContext.WithTraceID(traceID).WithRemote(true)
 		}
 	}
-	ctx, span := trace.StartSpanWithRemoteParent(r.ctx, "Apply "+as.Name, spanContext)
+	ctx, span := tracer.Start(trace.ContextWithRemoteSpanContext(r.ctx, spanContext), "Apply "+as.Name)
 	_, err = r.synk.Apply(ctx, as.Name, opts, resources...)
 	span.End()
 	if err != nil {
