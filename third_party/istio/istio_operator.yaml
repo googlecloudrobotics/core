@@ -55,9 +55,10 @@ spec:
       - name: "auth-provider-cr-syncer"
         envoyExtAuthzHttp:
           service: "cr-syncer-auth-webhook.default.svc.cluster.local"
-          port: 8080
+          port: 80
           pathPrefix: "/auth"
-          includeRequestHeadersInCheck: ["authorization"]
+          includeRequestHeadersInCheck: ["authorization", "x-envoy-original-path", "x-original-url", ":authority", "x-forwarded-host"]
+          headersToUpstreamOnAllow: ["authorization"]
 
       # OAuth Proxy (Mandatory in open-source core CRC)
       - name: "auth-provider-oauth"
