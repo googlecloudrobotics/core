@@ -59,7 +59,7 @@ require (
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible
 	github.com/google/go-cmp v0.7.0
 	github.com/google/nftables v0.3.0
-	github.com/googlecloudrobotics/ilog v0.0.0-20240112131211-2efd642f756e
+	github.com/googlecloudrobotics/ilog v0.2.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.68.0
 	go.opentelemetry.io/contrib/propagators/b3 v1.44.0
 	go.opentelemetry.io/contrib/propagators/opencensus v0.69.0
