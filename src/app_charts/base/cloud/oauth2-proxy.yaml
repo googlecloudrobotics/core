@@ -154,12 +154,12 @@ metadata:
   name: oauth2-proxy-allow
 spec:
   targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: oauth2-proxy
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: oauth2-proxy
   action: ALLOW
   rules:
-    - {}
+  - {}
 ---
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
@@ -167,10 +167,10 @@ metadata:
   name: oauth2-proxy-interactive-allow
 spec:
   targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: oauth2-proxy-interactive
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: oauth2-proxy-interactive
   action: ALLOW
   rules:
-    - {}
+  - {}
 {{- end }}

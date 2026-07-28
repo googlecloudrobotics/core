@@ -31,6 +31,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -72,6 +73,9 @@ type handlers struct {
 	client       *http.Client
 	k8sTransport http.RoundTripper
 	k8sTargetURL *url.URL
+
+	mu       sync.Mutex
+	k8sToken string
 }
 
 func newHandlers() *handlers {
@@ -98,6 +102,20 @@ func newHandlers() *handlers {
 		k8sTransport: transport,
 		k8sTargetURL: targetURL,
 	}
+}
+
+func (h *handlers) getK8sToken() (string, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.k8sToken != "" {
+		return h.k8sToken, nil
+	}
+	tokenBytes, err := os.ReadFile(*k8sTokenPath)
+	if err != nil {
+		return "", err
+	}
+	h.k8sToken = strings.TrimSpace(string(tokenBytes))
+	return h.k8sToken, nil
 }
 
 func (h *handlers) health(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +147,7 @@ func (h *handlers) verifyJWT(encodedJWT string) error {
 	if resp.StatusCode == http.StatusForbidden {
 		return errors.New("invalid JWT")
 	} else if resp.StatusCode != http.StatusOK {
-		slog.Warn("unexpected status code from /jwt.verify", slog.Int("status", resp.StatusCode))
+		slog.Warn("unexpected status code from /jwt.verify", slog.Int("Status", resp.StatusCode))
 		return errors.New("unexpected status code")
 	}
 	return nil
@@ -147,7 +165,7 @@ func (h *handlers) validateRequestPath(urlString string, robotName string) error
 	incomingReq, err := parseURL(urlString)
 	if err != nil {
 		slog.Error("unexpected value of target URL path",
-			slog.String("url", urlString), ilog.Err(err))
+			slog.String("URL", urlString), ilog.Err(err))
 		return err
 	}
 
@@ -164,10 +182,10 @@ func (h *handlers) validateRequestPath(urlString string, robotName string) error
 	// robot xyz can access all syncable resources matching *xyz.
 	if incomingReq.RobotName != robotName && !strings.HasSuffix(incomingReq.ResourceName, robotName) {
 		slog.Error("robot impersonation rejected",
-			slog.String("sourceName", robotName),
-			slog.String("targetName", incomingReq.RobotName+incomingReq.ResourceName),
-			slog.String("kind", incomingReq.GroupKind),
-			slog.String("url", urlString),
+			slog.String("SourceName", robotName),
+			slog.String("TargetName", incomingReq.RobotName+incomingReq.ResourceName),
+			slog.String("Kind", incomingReq.GroupKind),
+			slog.String("URL", urlString),
 		)
 		return errors.New("credentials rejected")
 	}
@@ -185,9 +203,7 @@ func (h *handlers) validateRequestPath(urlString string, robotName string) error
 func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 	encodedJWT := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if err := h.verifyJWT(encodedJWT); err != nil {
-		if *acceptLegacyCredentials && strings.HasPrefix(encodedJWT, legacyTokenPrefix) {
-			// Allow legacy credentials through if configured.
-		} else {
+		if !*acceptLegacyCredentials || !strings.HasPrefix(encodedJWT, legacyTokenPrefix) {
 			http.Error(w, "No valid credentials provided", http.StatusUnauthorized)
 			return
 		}
@@ -204,7 +220,7 @@ func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		robotName = claims.Sub
-		slog.Debug("JWT parsed", slog.String("id", robotName))
+		slog.Debug("JWT parsed", slog.String("ID", robotName))
 	}
 
 	// For reverse proxy requests, validate r.URL.String() directly to guarantee 100% path alignment.
@@ -213,7 +229,7 @@ func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	k8sToken, err := os.ReadFile(*k8sTokenPath)
+	k8sToken, err := h.getK8sToken()
 	if err != nil {
 		slog.Error("failed to read serviceaccount token", ilog.Err(err))
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -231,7 +247,7 @@ func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 			// Why: RawPath stores the original encoded path. Resetting RawPath = "" forces
 			// httputil.ReverseProxy to re-encode req.URL.Path without retaining the stripped prefix.
 			req.URL.RawPath = ""
-			req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(k8sToken)))
+			req.Header.Set("Authorization", "Bearer "+k8sToken)
 			req.Host = h.k8sTargetURL.Host
 		},
 		Transport:     h.k8sTransport,
@@ -265,7 +281,7 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Credentials could not be parsed", http.StatusInternalServerError)
 		return
 	}
-	slog.Debug("JWT parsed", slog.String("id", claims.Sub))
+	slog.Debug("JWT parsed", slog.String("ID", claims.Sub))
 
 	urlStr, err := extractSubrequestURL(r)
 	if err != nil {
@@ -282,13 +298,13 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 	// Provide a k8s token to nginx so that GKE accepts the request. Policy for
 	// the cr-syncer-auth-webhook ServiceAccount is defined in
 	// cr-syncer-policy.yaml.
-	k8sToken, err := os.ReadFile(*k8sTokenPath)
+	k8sToken, err := h.getK8sToken()
 	if err != nil {
 		slog.Error("failed to read serviceaccount token", ilog.Err(err))
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Add("Authorization", "Bearer "+string(k8sToken))
+	w.Header().Add("Authorization", "Bearer "+k8sToken)
 	w.WriteHeader(http.StatusOK)
 }
 

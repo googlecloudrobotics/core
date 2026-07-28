@@ -77,6 +77,9 @@ func parseURL(urlString string) (*incomingRequest, error) {
 		// "/apis/core.kubernetes/apis/([^/]*)/([^/]*)(/namespaces/[^/]*)?/([^/]*)/?([^/]*)(/status)?"
 		parts = slices.Insert(parts, 2, "namespaces", "default")
 	}
+	if len(parts) < 5 {
+		return nil, fmt.Errorf("unexpected URL path %q (expected at least 5 path segments after normalization, got %d)", parsedURL.Path, len(parts))
+	}
 
 	result.GroupKind = fmt.Sprintf("%s/%s", parts[0], parts[4])
 	if len(parts) > 5 {

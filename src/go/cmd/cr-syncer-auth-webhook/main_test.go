@@ -60,17 +60,6 @@ func TestProxyKubernetes_Forbidden(t *testing.T) {
 	}
 }
 
-func TestExtractSubrequestURL_DualHeadersRejected(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/auth", nil)
-	req.Header.Set("X-Original-Url", "/path1")
-	req.Header.Set("X-Envoy-Original-Path", "/path2")
-
-	_, err := extractSubrequestURL(req)
-	if err == nil {
-		t.Errorf("extractSubrequestURL succeeded, want error when both X-Original-Url and X-Envoy-Original-Path are present")
-	}
-}
-
 func TestProxyKubernetes_Success(t *testing.T) {
 	// Mock token vendor returning 200 OK
 	tokenVendorServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

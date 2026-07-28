@@ -58,9 +58,9 @@ metadata:
   name: kubernetes-relay-client-auth
 spec:
   targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: kubernetes-relay-client
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: kubernetes-relay-client
   action: CUSTOM
   provider:
     name: auth-provider-tv-robots-false
@@ -71,9 +71,9 @@ metadata:
   name: kubernetes-relay-server-auth
 spec:
   targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: kubernetes-relay-server
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: kubernetes-relay-server
   action: CUSTOM
   provider:
     name: auth-provider-tv-robots-true

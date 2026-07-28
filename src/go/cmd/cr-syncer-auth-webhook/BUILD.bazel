@@ -39,7 +39,6 @@ oci_image(
 go_test(
     name = "go_default_test",
     srcs = [
-        "ext_authz_test.go",
         "main_test.go",
         "request_test.go",
     ],

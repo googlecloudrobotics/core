@@ -91,6 +91,10 @@ func TestParseURLErrors(t *testing.T) {
 			desc: "core API (not a CR)",
 			url:  "http://host/apis/core.kubernetes/api/v1/namespaces/default/pods/cr-syncer-6676b4958d-p9hqw",
 		},
+		{
+			desc: "invalid short namespaced path",
+			url:  "http://host/apis/core.kubernetes/apis/apps.cloudrobotics.com/v1alpha1/namespaces",
+		},
 	}
 
 	for _, tc := range tests {

@@ -145,9 +145,9 @@ metadata:
     app.kubernetes.io/name: {{ .Chart.Name }}
 spec:
   targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: prometheus-relay-server
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: prometheus-relay-server
   action: CUSTOM
   provider:
     name: auth-provider-tv-robots-true

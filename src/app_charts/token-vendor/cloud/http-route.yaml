@@ -73,9 +73,9 @@ metadata:
   name: public-key-access-auth
 spec:
   targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: public-key-access
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: public-key-access
   action: CUSTOM
   provider:
     name: auth-provider-tv-robots-true
@@ -86,9 +86,9 @@ metadata:
   name: public-key-manager-auth
 spec:
   targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: public-key-manager
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: public-key-manager
   action: CUSTOM
   provider:
     name: auth-provider-tv-robots-false
@@ -99,9 +99,9 @@ metadata:
   name: token-vendor-allow
 spec:
   targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: token-vendor
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: token-vendor
   action: ALLOW
   rules:
-    - {}
+  - {}
