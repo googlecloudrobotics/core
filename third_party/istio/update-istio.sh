@@ -4,15 +4,6 @@ VERSION=1.29.4
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-YQ="${YQ:-yq}"
-if ! command -v "${YQ}" &>/dev/null && [[ -x "/usr/local/google/home/tpeslalz/go/bin/yq" ]]; then
-  YQ="/usr/local/google/home/tpeslalz/go/bin/yq"
-fi
-if ! "${YQ}" --version 2>&1 | grep -q "yq"; then
-  echo "Error: yq is required for update-istio.sh." >&2
-  exit 1
-fi
-
 tmpdir="$(mktemp -d)"
 trap "rm -rf '${tmpdir}'" EXIT
 echo "Downloading istioctl ${VERSION}..."
@@ -58,7 +49,40 @@ python3 "${SCRIPT_DIR}/process_istio_manifest.py" \
 
 echo "Updated ${dst}"
 
-# Step 3: Verify generated YAML syntax
+# Step 3: Download and save Istio Grafana dashboards
+echo "Downloading Istio Grafana dashboards..."
+DASHBOARDS=(
+  "istio-mesh-dashboard.gen.json"
+  "istio-performance-dashboard.json"
+  "istio-service-dashboard.json"
+  "istio-workload-dashboard.json"
+  "pilot-dashboard.gen.json"
+)
+
+curl_args=()
+for dashboard in "${DASHBOARDS[@]}"; do
+  curl_args+=(
+    -o "${tmpdir}/${dashboard}"
+    "https://raw.githubusercontent.com/istio/istio/${VERSION}/manifests/addons/dashboards/${dashboard}"
+  )
+done
+
+if ! curl -fsSL "${curl_args[@]}"; then
+  echo "Failed to download dashboards" >&2
+  exit 1
+fi
+
+DASHBOARD_DIR="${SCRIPT_DIR}/grafana-dashboards"
+mkdir -p "${DASHBOARD_DIR}"
+
+for dashboard in "${DASHBOARDS[@]}"; do
+  json_file="${tmpdir}/${dashboard}"
+  name=$(basename "${dashboard}" | sed -E 's/\.gen\.json$//' | sed -E 's/\.json$//')
+  key="${name}.json"
+  cp "${json_file}" "${DASHBOARD_DIR}/${key}"
+done
+
+# Step 4: Verify generated YAML syntax
 echo "Verifying generated YAML syntax..."
 if ! python3 -c '
 import sys, yaml

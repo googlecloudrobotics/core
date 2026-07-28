@@ -256,6 +256,7 @@ function helm_region_shared {
   CLUSTER_REGION="${4}"
   CLUSTER_ZONE="${5}"
   CLUSTER_NAME="${6}"
+  shift 6
 
   gke_get_credentials "${GCP_PROJECT_ID}" "${CLUSTER_NAME}" "${CLUSTER_REGION}" "${CLUSTER_ZONE}"
 
@@ -305,7 +306,6 @@ function helm_region_shared {
     --set "use_tv_verbose=${CRC_USE_TV_VERBOSE}"
   )
 
-  shift 6
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -f|--values)
