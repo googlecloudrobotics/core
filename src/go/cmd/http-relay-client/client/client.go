@@ -43,9 +43,10 @@ import (
 	"github.com/googlecloudrobotics/ilog"
 
 	"github.com/cenkalti/backoff/v4"
-	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/plugin/ochttp/propagation/tracecontext"
-	"go.opencensus.io/trace"
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"golang.org/x/net/http2"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -56,6 +57,7 @@ var (
 	ErrTimeout        = errors.New(http.StatusText(http.StatusRequestTimeout))
 	ErrForbidden      = errors.New(http.StatusText(http.StatusForbidden))
 	debugLogs    bool = false
+	tracer            = otel.Tracer("github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client")
 )
 
 // This is a package internal variable which we define to be able to overwrite
@@ -248,7 +250,13 @@ func (c *Client) Start(ctx context.Context) {
 			// Don't follow redirects: instead, pass them through the relay untouched.
 			return http.ErrUseLastResponse
 		},
-		Transport: &ochttp.Transport{Base: transport},
+		Transport: otelhttp.NewTransport(
+			transport,
+			otelhttp.WithPropagators(telemetry.HTTPPropagator),
+			otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+				return r.URL.Path
+			}),
+		),
 	}
 
 	wg := new(sync.WaitGroup)
@@ -262,11 +270,6 @@ func (c *Client) Start(ctx context.Context) {
 		<-ctx.Done()
 	})
 	wg.Wait()
-}
-
-func addServiceName(span *trace.Span) {
-	relayClientAttr := trace.StringAttribute("service.name", "http-relay-client")
-	span.AddAttributes(relayClientAttr)
 }
 
 func (c *Client) getRequest(ctx context.Context, remote *http.Client, relayURL string) (*pb.HttpRequest, error) {
@@ -369,19 +372,15 @@ func (c *Client) createBackendRequest(breq *pb.HttpRequest) (*http.Request, erro
 // that the caller can access e.g. http trailers once the response body has
 // been read.
 func makeBackendRequest(ctx context.Context, local *http.Client, req *http.Request, id string) (*pb.HttpResponse, *http.Response, error) {
-	_, backendSpan := trace.StartSpan(ctx, "Sent."+req.URL.Path)
-	addServiceName(backendSpan)
-	f := &tracecontext.HTTPFormat{}
-	f.SpanContextToRequest(backendSpan.SpanContext(), req)
-	resp, err := local.Do(req)
+	backendCtx, backendSpan := tracer.Start(ctx, "Sent."+req.URL.Path)
+	resp, err := local.Do(req.WithContext(backendCtx))
 	if err != nil {
 		backendSpan.End()
 		return nil, nil, err
 	}
 	backendSpan.End()
 
-	_, backendResp := trace.StartSpan(ctx, "Creating response (proto marshaling)")
-	addServiceName(backendResp)
+	_, backendResp := tracer.Start(ctx, "Creating response (proto marshaling)")
 	defer backendResp.End()
 
 	if debugLogs {
@@ -612,17 +611,12 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 	req, err := c.createBackendRequest(pbreq)
 	if err != nil {
 		c.postErrorResponse(remote, id, fmt.Sprintf("Failed to create request for backend: %v", err))
+		return
 	}
 	// Measure edge processing time.
-	f := &tracecontext.HTTPFormat{}
 	ctx := req.Context()
-	var span *trace.Span
-	if sctx, ok := f.SpanContextFromRequest(req); ok {
-		ctx, span = trace.StartSpanWithRemoteParent(ctx, "Recv."+req.URL.Path, sctx)
-	} else {
-		ctx, span = trace.StartSpan(ctx, "Recv."+req.URL.Path)
-	}
-	addServiceName(span)
+	extractedCtx := telemetry.HTTPPropagator.Extract(ctx, propagation.HeaderCarrier(req.Header))
+	ctx, span := tracer.Start(extractedCtx, "Recv."+req.URL.Path)
 	defer span.End()
 
 	resp, hresp, err := makeBackendRequest(ctx, local, req, id)
@@ -655,8 +649,7 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		defer hresp.Body.Close()
 	}
 
-	ctx, respChSpan := trace.StartSpan(ctx, "Building (chunked) response channel")
-	addServiceName(respChSpan)
+	ctx, respChSpan := tracer.Start(ctx, "Building (chunked) response channel")
 
 	bodyChannel := make(chan []byte)
 	responseChannel := make(chan *pb.HttpResponse)
@@ -678,9 +671,7 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 
 	// This call here blocks until all data from the bodyChannel has been read.
 	for resp := range responseChannel {
-		_, respCh := trace.StartSpan(ctx, "Sending response from channel")
-		addServiceName(respCh)
-		defer respCh.End()
+		_, respCh := tracer.Start(ctx, "Sending response from channel")
 
 		// Q(hauke): do we really need exponential backoff in the relay?
 		exponentialBackoff.Reset()
@@ -727,8 +718,10 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 			// Drain the response channel to avoid blocking buildResponses.
 			for range responseChannel {
 			}
+			respCh.End()
 			break
 		}
+		respCh.End()
 	}
 }
 
