@@ -50,7 +50,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/storage v1.63.1
+	cloud.google.com/go/storage v1.64.0
 	github.com/aws/aws-sdk-go v1.45.25 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/prometheus/statsd_exporter v0.22.8 // indirect
