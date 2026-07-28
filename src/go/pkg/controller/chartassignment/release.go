@@ -280,7 +280,7 @@ func (r *release) update(as *apps.ChartAssignment) {
 		if err != nil {
 			slog.Error("decoding TraceID", slog.String("TraceID", tid), ilog.Err(err))
 		} else {
-			spanContext = spanContext.WithTraceID(traceID).WithRemote(true)
+			spanContext = spanContext.WithTraceID(traceID)
 		}
 	}
 	ctx, span := tracer.Start(trace.ContextWithRemoteSpanContext(r.ctx, spanContext), "Apply "+as.Name)
