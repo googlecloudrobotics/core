@@ -6,6 +6,15 @@ import yaml
 
 
 def process_manifests(full_file, config_file, values_file, out_file, dst_file):
+  """Processes Istio manifests for Helm chart embedding.
+
+  Args:
+    full_file: Path to the source raw manifest file.
+    config_file: Output path for the sidecar injector config.
+    values_file: Output path for the sidecar injector values.
+    out_file: Output path for the intermediate processed manifest.
+    dst_file: Output path for the final Helm template manifest.
+  """
   with open(full_file, "r") as f:
     raw_content = f.read()
 
@@ -17,7 +26,7 @@ def process_manifests(full_file, config_file, values_file, out_file, dst_file):
       continue
     try:
       doc_obj = yaml.safe_load(doc_str)
-    except Exception:
+    except yaml.YAMLError:
       out_docs.append(doc_str)
       continue
 
