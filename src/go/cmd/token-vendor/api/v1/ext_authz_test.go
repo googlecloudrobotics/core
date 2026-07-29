@@ -8,10 +8,10 @@ import (
 	"testing"
 )
 
-// TestExtAuthz_TokenVerify_Methods verifies that token.verify handles subrequests
+// TestExtAuthzTokenVerifyMethods verifies that token.verify handles subrequests
 // with various HTTP verbs (GET, POST, PUT, DELETE) when AllowAnyMethod is enabled,
 // and enforces method restrictions when AllowAnyMethod is disabled.
-func TestExtAuthz_TokenVerify_Methods(t *testing.T) {
+func TestExtAuthzTokenVerifyMethods(t *testing.T) {
 	t.Run("AllowAnyMethod_True", func(t *testing.T) {
 		opts := &Options{AllowAnyMethod: true}
 		h := NewHandlerContext(nil, opts)
@@ -23,7 +23,7 @@ func TestExtAuthz_TokenVerify_Methods(t *testing.T) {
 		methods := []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}
 
 		for _, method := range methods {
-			t.Run("Method_"+method, func(t *testing.T) {
+			t.Run(method, func(t *testing.T) {
 				req := httptest.NewRequest(method, "/apis/core.token-vendor/v1/token.verify", nil)
 				req.Header.Set(headerRobots, "true")
 				w := httptest.NewRecorder()
@@ -46,10 +46,7 @@ func TestExtAuthz_TokenVerify_Methods(t *testing.T) {
 		mux := http.NewServeMux()
 
 		prefix := "/apis/core.token-vendor/v1"
-		verifyPrefix := ""
-		if !opts.AllowAnyMethod {
-			verifyPrefix = "GET "
-		}
+		verifyPrefix := "GET "
 		mux.HandleFunc(verifyPrefix+path.Join(prefix, "token.verify"), h.verifyTokenHandler)
 
 		req := httptest.NewRequest(http.MethodPost, "/apis/core.token-vendor/v1/token.verify", nil)
@@ -64,8 +61,8 @@ func TestExtAuthz_TokenVerify_Methods(t *testing.T) {
 	})
 }
 
-// TestExtAuthz_TokenVerify_RobotVsHumanHeader directly tests testForRobotACL header and query parameters.
-func TestExtAuthz_TokenVerify_RobotVsHumanHeader(t *testing.T) {
+// TestExtAuthzTokenVerifyRobotVsHumanHeader directly tests testForRobotACL header and query parameters.
+func TestExtAuthzTokenVerifyRobotVsHumanHeader(t *testing.T) {
 	tests := []struct {
 		name       string
 		rawURL     string
@@ -108,7 +105,7 @@ func TestExtAuthz_TokenVerify_RobotVsHumanHeader(t *testing.T) {
 			robots, err := testForRobotACL(u, &hdr)
 			if tc.wantErr {
 				if err == nil {
-					t.Errorf("expected error, got nil")
+					t.Errorf("got err == nil, want non-nil error")
 				}
 				return
 			}

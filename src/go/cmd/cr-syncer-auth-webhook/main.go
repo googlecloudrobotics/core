@@ -31,7 +31,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -73,9 +72,6 @@ type handlers struct {
 	client       *http.Client
 	k8sTransport http.RoundTripper
 	k8sTargetURL *url.URL
-
-	mu       sync.Mutex
-	k8sToken string
 }
 
 func newHandlers() *handlers {
@@ -105,17 +101,11 @@ func newHandlers() *handlers {
 }
 
 func (h *handlers) getK8sToken() (string, error) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.k8sToken != "" {
-		return h.k8sToken, nil
-	}
 	tokenBytes, err := os.ReadFile(*k8sTokenPath)
 	if err != nil {
 		return "", err
 	}
-	h.k8sToken = strings.TrimSpace(string(tokenBytes))
-	return h.k8sToken, nil
+	return strings.TrimSpace(string(tokenBytes)), nil
 }
 
 func (h *handlers) health(w http.ResponseWriter, r *http.Request) {
@@ -192,6 +182,19 @@ func (h *handlers) validateRequestPath(urlString string, robotName string) error
 	return nil
 }
 
+func (h *handlers) extractRobotName(encodedJWT string) (string, error) {
+	if strings.HasPrefix(encodedJWT, legacyTokenPrefix) {
+		return "", nil
+	}
+	claims, err := jws.Decode(encodedJWT)
+	if err != nil {
+		slog.Error("failed to parse JWT despite previous verification")
+		return "", err
+	}
+	slog.Debug("JWT parsed", slog.String("ID", claims.Sub))
+	return claims.Sub, nil
+}
+
 // proxyKubernetes reverse proxies requests under /apis/core.kubernetes/ to the
 // Kubernetes API server after validating the client's credentials.
 // Why: In Gateway API, Envoy's ExtAuthz filter appends response headers to client
@@ -209,18 +212,10 @@ func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var robotName string
-	if strings.HasPrefix(encodedJWT, legacyTokenPrefix) {
-		robotName = ""
-	} else {
-		claims, err := jws.Decode(encodedJWT)
-		if err != nil {
-			slog.Error("failed to parse JWT despite previous verification")
-			http.Error(w, "Credentials could not be parsed", http.StatusInternalServerError)
-			return
-		}
-		robotName = claims.Sub
-		slog.Debug("JWT parsed", slog.String("ID", robotName))
+	robotName, err := h.extractRobotName(encodedJWT)
+	if err != nil {
+		http.Error(w, "Credentials could not be parsed", http.StatusInternalServerError)
+		return
 	}
 
 	// For reverse proxy requests, validate r.URL.String() directly to guarantee 100% path alignment.
@@ -274,14 +269,11 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// verifyJWT() has already checked the signature so we don't need to.
-	claims, err := jws.Decode(encodedJWT)
+	robotName, err := h.extractRobotName(encodedJWT)
 	if err != nil {
-		slog.Error("Failed to parse JWT despite previous verification")
 		http.Error(w, "Credentials could not be parsed", http.StatusInternalServerError)
 		return
 	}
-	slog.Debug("JWT parsed", slog.String("ID", claims.Sub))
 
 	urlStr, err := extractSubrequestURL(r)
 	if err != nil {
@@ -290,7 +282,7 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.validateRequestPath(urlStr, claims.Sub); err != nil {
+	if err := h.validateRequestPath(urlStr, robotName); err != nil {
 		http.Error(w, "Request not allowed", http.StatusForbidden)
 		return
 	}
