@@ -10,6 +10,8 @@ removed {
 data "google_project" "project" {
   project_id = var.id
 
+  # Depending on `google_project_service.project-services` makes any resource that references
+  # this wait for services to be enabled.
   depends_on = [google_project_service.project-services]
 }
 
