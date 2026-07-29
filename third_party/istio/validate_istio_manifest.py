@@ -6,17 +6,22 @@ import yaml
 
 
 def validate_manifest(dst_file):
+  """Validates that the given file contains valid Kubernetes documents.
+
+  Args:
+    dst_file: Path to the destination YAML file to validate.
+  """
   with open(dst_file, "r") as f:
     text = f.read()
 
   clean_text = "\n".join(
-      l
-      for l in text.splitlines()
-      if not l.strip().startswith("{{") and not l.strip().startswith("}}")
+      line
+      for line in text.splitlines()
+      if not line.strip().startswith("{{") and not line.strip().startswith("}}")
   )
   docs = [d for d in yaml.safe_load_all(clean_text) if d]
 
-  if len(docs) == 0:
+  if not docs:
     print("Error: 0 Kubernetes documents generated!", file=sys.stderr)
     sys.exit(1)
 
