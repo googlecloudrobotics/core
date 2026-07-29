@@ -33,7 +33,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/ilog"
-	"go.opencensus.io/trace"
+	"go.opentelemetry.io/otel"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -61,6 +61,8 @@ const totalAnnotationSizeLimitB int = 256 * (1 << 10) // 256 kB
 // in the cluster, Synk will not overwrite it with the chart version, but will still
 // update its owner references so it does not get pruned.
 const AnnotationIgnore = "synk.cloudrobotics.com/ignore"
+
+var tracer = otel.Tracer("github.com/googlecloudrobotics/core/src/go/pkg/synk")
 
 // Synk allows to synchronize sets of resources with a fixed cluster.
 type Synk struct {
@@ -503,7 +505,7 @@ func (s *Synk) populateNamespaces(
 	crds []*unstructured.Unstructured,
 	resources ...*unstructured.Unstructured,
 ) error {
-	_, span := trace.StartSpan(ctx, "Discover server resources")
+	_, span := tracer.Start(ctx, "Discover server resources")
 	// Invalidate is cheap (no noticeable effect on the duration of
 	// ServerGroupsAndResources) and reduces the frequency of the "stale
 	// GroupVersion discovery" warning.
@@ -689,7 +691,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 	if resource.GetName() == "" {
 		return apps.ResourceActionNone, fmt.Errorf("missing resource name for %s", resource.GroupVersionKind().String())
 	}
-	ctx, span := trace.StartSpan(ctx, "Apply "+resource.GetName())
+	ctx, span := tracer.Start(ctx, "Apply "+resource.GetName())
 	defer span.End()
 	// GroupVersionKind is not sufficient to determine the REST API path to use
 	// for the resource. We need to get this information from the RESTMapper,
@@ -713,11 +715,11 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 	}
 
 	// Create the resource if it doesn't exist yet.
-	_, getSpan := trace.StartSpan(ctx, "Get "+resource.GetName())
+	_, getSpan := tracer.Start(ctx, "Get "+resource.GetName())
 	current, err := client.Get(ctx, resource.GetName(), metav1.GetOptions{})
 	getSpan.End()
 	if k8serrors.IsNotFound(err) {
-		_, createSpan := trace.StartSpan(ctx, "Create "+resource.GetName())
+		_, createSpan := tracer.Start(ctx, "Create "+resource.GetName())
 		res, err := client.Create(ctx, resource, metav1.CreateOptions{})
 		createSpan.End()
 		if err != nil {
@@ -740,7 +742,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		// we are updating the current cluster state directly instead of applying
 		// the desired resource.
 		setOwnerRef(current, set)
-		_, updateSpan := trace.StartSpan(ctx, "Update owner refs "+resource.GetName())
+		_, updateSpan := tracer.Start(ctx, "Update owner refs "+resource.GetName())
 		res, err := client.Update(ctx, current, metav1.UpdateOptions{})
 		updateSpan.End()
 		if err != nil {
@@ -811,7 +813,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		// However, it isn't used anywhere in kubectl apply itself. Thus we don't do it here either.
 		// Additionally the CL doesn't seem to implement valid behavior as the patch
 		// retries will not update to a new resourceVersion and the failure would persist.
-		_, patchSpan := trace.StartSpan(ctx, "Patch "+resource.GetName())
+		_, patchSpan := tracer.Start(ctx, "Patch "+resource.GetName())
 		res, err := client.Patch(ctx, resource.GetName(), patchType, patch, metav1.PatchOptions{})
 		patchSpan.End()
 		if err == nil {
@@ -827,7 +829,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 
 		resource.SetResourceVersion(current.GetResourceVersion())
 
-		_, updateSpan := trace.StartSpan(ctx, "Update "+resource.GetName())
+		_, updateSpan := tracer.Start(ctx, "Update "+resource.GetName())
 		res, err := client.Update(ctx, resource, metav1.UpdateOptions{})
 		updateSpan.End()
 		if err == nil {
@@ -842,9 +844,9 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 	if !canReplace(resource, patchErr) {
 		return apps.ResourceActionUpdate, fmt.Errorf("apply patch or update: %w", patchErr)
 	}
-	_, replace_span := trace.StartSpan(ctx, "Replace "+resource.GetName())
+	_, replaceSpan := tracer.Start(ctx, "Replace "+resource.GetName())
 	res, err := replace(ctx, client, resource)
-	replace_span.End()
+	replaceSpan.End()
 	if err != nil {
 		return apps.ResourceActionReplace, fmt.Errorf("replace: %w", err)
 	}
