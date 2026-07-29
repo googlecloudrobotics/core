@@ -38,7 +38,6 @@ spec:
           includeAdditionalHeadersInCheck:
             x-crc-tv-robots: "true"
           includeRequestHeadersInCheck: ["authorization"]
-          headersToUpstreamOnAllow: ["x-authenticated-robot"]
 
       # Token Vendor: Human Verification (x-crc-tv-robots: "false")
       - name: "auth-provider-tv-robots-false"
@@ -49,7 +48,6 @@ spec:
           includeAdditionalHeadersInCheck:
             x-crc-tv-robots: "false"
           includeRequestHeadersInCheck: ["authorization"]
-          headersToUpstreamOnAllow: ["x-authenticated-user"]
 
       # Control Plane SA Token Sync Webhook (cr-syncer)
       - name: "auth-provider-cr-syncer"
