@@ -14,6 +14,9 @@ onprem_federation: "true"
 use_istio: "false"
 use_nginx_shield: "false"
 
+istio:
+  additionalExtensionProviders: []
+
 oauth2_proxy:
   cookie_secret: ""
   client_id: ""
