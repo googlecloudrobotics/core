@@ -18473,8 +18473,6 @@ data:
       {{- tpl (toYaml .Values.istio.additionalExtensionProviders | replace "\n      (" " (" | replace "\n      \"" " \"" | replace "\n      '" " '") . | nindent 4 }}
       {{- end }}
     - envoyExtAuthzHttp:
-        headersToUpstreamOnAllow:
-        - x-authenticated-robot
         includeAdditionalHeadersInCheck:
           x-crc-tv-robots: "true"
         includeRequestHeadersInCheck:
@@ -18484,8 +18482,6 @@ data:
         service: token-vendor.default.svc.cluster.local
       name: auth-provider-tv-robots-true
     - envoyExtAuthzHttp:
-        headersToUpstreamOnAllow:
-        - x-authenticated-user
         includeAdditionalHeadersInCheck:
           x-crc-tv-robots: "false"
         includeRequestHeadersInCheck:
@@ -18734,9 +18730,6 @@ data:
         "extensionProviders": [
           {
             "envoyExtAuthzHttp": {
-              "headersToUpstreamOnAllow": [
-                "x-authenticated-robot"
-              ],
               "includeAdditionalHeadersInCheck": {
                 "x-crc-tv-robots": "true"
               },
@@ -18751,9 +18744,6 @@ data:
           },
           {
             "envoyExtAuthzHttp": {
-              "headersToUpstreamOnAllow": [
-                "x-authenticated-user"
-              ],
               "includeAdditionalHeadersInCheck": {
                 "x-crc-tv-robots": "false"
               },
@@ -18901,9 +18891,6 @@ data:
         "extensionProviders": [
           {
             "envoyExtAuthzHttp": {
-              "headersToUpstreamOnAllow": [
-                "x-authenticated-robot"
-              ],
               "includeAdditionalHeadersInCheck": {
                 "x-crc-tv-robots": "true"
               },
@@ -18918,9 +18905,6 @@ data:
           },
           {
             "envoyExtAuthzHttp": {
-              "headersToUpstreamOnAllow": [
-                "x-authenticated-user"
-              ],
               "includeAdditionalHeadersInCheck": {
                 "x-crc-tv-robots": "false"
               },
