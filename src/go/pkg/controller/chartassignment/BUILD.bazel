@@ -40,7 +40,8 @@ go_library(
         "@io_k8s_sigs_controller_runtime//pkg/reconcile:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/source:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/webhook/admission:go_default_library",
-        "@io_opencensus_go//trace:go_default_library",
+        "@io_opentelemetry_go_otel//:otel",
+        "@io_opentelemetry_go_otel_trace//:trace",
     ],
 )
 

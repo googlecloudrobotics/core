@@ -71,10 +71,10 @@ func TestClientHandler(t *testing.T) {
 		}},
 		Body: []byte("body"),
 	}
-	// Remove the Traceparent header entry since we cannot assert on its value.
+	// Remove trace headers entry since we cannot assert on their values.
 	tempHeader := relayRequest.Header[:0]
 	for _, header := range relayRequest.Header {
-		if *header.Name != "Traceparent" {
+		if *header.Name != "Traceparent" && !strings.HasPrefix(*header.Name, "X-B3-") {
 			tempHeader = append(tempHeader, header)
 		}
 	}
@@ -139,10 +139,10 @@ func TestClientHandlerWithChunkedResponse(t *testing.T) {
 		}},
 		Body: []byte("body"),
 	}
-	// Remove the Traceparent header entry since we cannot assert on its value.
+	// Remove trace headers entry since we cannot assert on their values.
 	tempHeader := relayRequest.Header[:0]
 	for _, header := range relayRequest.Header {
-		if *header.Name != "Traceparent" {
+		if *header.Name != "Traceparent" && !strings.HasPrefix(*header.Name, "X-B3-") {
 			tempHeader = append(tempHeader, header)
 		}
 	}

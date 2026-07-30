@@ -24,12 +24,12 @@ import (
 	"log/slog"
 	"os"
 
-	"contrib.go.opencensus.io/exporter/stackdriver"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment"
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"github.com/googlecloudrobotics/ilog"
-	"go.opencensus.io/trace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -60,16 +60,17 @@ func main() {
 
 	ctx := signals.SetupSignalHandler()
 	if *stackdriverProjectID != "" && !*cloudCluster {
-		sd, err := stackdriver.NewExporter(stackdriver.Options{
-			ProjectID: *stackdriverProjectID,
-		})
+		tp, err := telemetry.SetupCloudTracing(
+			ctx,
+			*stackdriverProjectID,
+			"chart-assignment-controller",
+			sdktrace.AlwaysSample(),
+		)
 		if err != nil {
-			slog.Error("Failed to create the Stackdriver exporter", ilog.Err(err))
+			slog.Error("Failed to setup Cloud Tracing", ilog.Err(err))
 			os.Exit(1)
 		}
-		trace.RegisterExporter(sd)
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-		defer sd.Flush()
+		defer tp.Shutdown(context.Background())
 	}
 
 	var clusterName string
