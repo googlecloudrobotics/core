@@ -33,10 +33,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server/server"
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"github.com/googlecloudrobotics/ilog"
-	"go.opencensus.io/trace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 var (
@@ -66,21 +66,24 @@ func main() {
 	logHandler := ilog.NewLogHandler(slog.Level(*logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
-	if *stackdriverProjectID != "" {
-		sd, err := stackdriver.NewExporter(stackdriver.Options{
-			ProjectID: *stackdriverProjectID,
-		})
-		if err != nil {
-			slog.Error("Failed to create the Stackdriver exporter", slog.String("Project", *stackdriverProjectID), ilog.Err(err))
-			os.Exit(1)
-		} else {
-			trace.RegisterExporter(sd)
-			defer sd.Flush()
-		}
-	}
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	if *stackdriverProjectID != "" {
+		tp, err := telemetry.SetupCloudTracing(
+			ctx,
+			*stackdriverProjectID,
+			"http-relay-server",
+			sdktrace.ParentBased(
+				sdktrace.TraceIDRatioBased(1e-4),
+			),
+		)
+		if err != nil {
+			slog.Error("Failed to setup Cloud Tracing", slog.String("Project", *stackdriverProjectID), ilog.Err(err))
+			os.Exit(1)
+		}
+		defer tp.Shutdown(context.Background())
+	}
 
 	server := server.NewServer(server.Config{
 		Port:                   *port,
