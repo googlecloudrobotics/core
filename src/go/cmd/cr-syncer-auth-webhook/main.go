@@ -74,12 +74,12 @@ type handlers struct {
 	k8sProxy *httputil.ReverseProxy
 }
 
-func newHandlers() *handlers {
+func newHandlers() (*handlers, error) {
 	// Why: Cloning http.DefaultTransport preserves tuned connection pool defaults
 	// (TCP keep-alives, ALPN negotiation, MaxIdleConnsPerHost) while allowing us
 	// to attach custom TLS Root CAs for the internal K8s API server target.
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	if caCert, err := os.ReadFile(*k8sCAPath); err == nil {
+	if caCert, err := os.ReadFile(*k8sCAPath); err == nil { // If no error loading optional CA cert
 		certPool := x509.NewCertPool()
 		certPool.AppendCertsFromPEM(caCert)
 		transport.TLSClientConfig = &tls.Config{
@@ -89,8 +89,7 @@ func newHandlers() *handlers {
 
 	targetURL, err := url.Parse(*k8sTarget)
 	if err != nil {
-		slog.Error("Failed to parse k8s target URL", ilog.Err(err))
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to parse k8s target URL: %w", err)
 	}
 
 	h := &handlers{
@@ -121,7 +120,7 @@ func newHandlers() *handlers {
 		FlushInterval: -1, // Why: Flush immediately to prevent buffering on long-lived K8s API Watch streams.
 	}
 
-	return h
+	return h, nil
 }
 
 func (h *handlers) getK8sToken() (string, error) {
@@ -308,7 +307,11 @@ func main() {
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%d", *port),
 	}
-	handlers := newHandlers()
+	handlers, err := newHandlers()
+	if err != nil {
+		slog.Error("Failed to initialize handlers", ilog.Err(err))
+		os.Exit(1)
+	}
 	http.HandleFunc("/healthz", handlers.health)
 	http.HandleFunc("/auth", handlers.auth)
 	http.HandleFunc("/apis/core.kubernetes/", handlers.proxyKubernetes)
