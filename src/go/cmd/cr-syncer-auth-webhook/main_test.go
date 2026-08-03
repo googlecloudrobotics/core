@@ -25,7 +25,10 @@ func TestProxyKubernetes(t *testing.T) {
 		*tokenVendor = tokenVendorServer.URL
 		defer func() { *tokenVendor = oldTokenVendor }()
 
-		h := newHandlers()
+		h, err := newHandlers()
+		if err != nil {
+			t.Fatalf("newHandlers() failed: %v", err)
+		}
 		req := httptest.NewRequest(http.MethodGet, "/apis/core.kubernetes/apis/registry.cloudrobotics.com/v1alpha1/namespaces/default/robots/robot-1", nil)
 		req.Header.Set("Authorization", "Bearer invalid-jwt")
 		rec := httptest.NewRecorder()
@@ -48,7 +51,10 @@ func TestProxyKubernetes(t *testing.T) {
 		*tokenVendor = tokenVendorServer.URL
 		defer func() { *tokenVendor = oldTokenVendor }()
 
-		h := newHandlers()
+		h, err := newHandlers()
+		if err != nil {
+			t.Fatalf("newHandlers() failed: %v", err)
+		}
 		// Request attempts to access robot-2 resource with robot-1 credentials
 		req := httptest.NewRequest(http.MethodGet, "/apis/core.kubernetes/apis/registry.cloudrobotics.com/v1alpha1/namespaces/default/robots/robot-2", nil)
 		req.Header.Set("Authorization", "Bearer "+testValidJWT)
@@ -98,7 +104,10 @@ func TestProxyKubernetes(t *testing.T) {
 			*k8sTokenPath = oldK8sTokenPath
 		}()
 
-		h := newHandlers()
+		h, err := newHandlers()
+		if err != nil {
+			t.Fatalf("newHandlers() failed: %v", err)
+		}
 		req := httptest.NewRequest(http.MethodGet, "/apis/core.kubernetes/apis/registry.cloudrobotics.com/v1alpha1/namespaces/default/robots/robot-1", nil)
 		req.Header.Set("Authorization", "Bearer "+testValidJWT)
 		rec := httptest.NewRecorder()

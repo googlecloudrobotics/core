@@ -74,12 +74,12 @@ type handlers struct {
 	k8sProxy *httputil.ReverseProxy
 }
 
-func newHandlers() *handlers {
+func newHandlers() (*handlers, error) {
 	// Why: Cloning http.DefaultTransport preserves tuned connection pool defaults
 	// (TCP keep-alives, ALPN negotiation, MaxIdleConnsPerHost) while allowing us
 	// to attach custom TLS Root CAs for the internal K8s API server target.
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	if caCert, err := os.ReadFile(*k8sCAPath); err == nil {
+	if caCert, err := os.ReadFile(*k8sCAPath); err == nil { // If no error loading optional CA cert
 		certPool := x509.NewCertPool()
 		certPool.AppendCertsFromPEM(caCert)
 		transport.TLSClientConfig = &tls.Config{
@@ -89,8 +89,7 @@ func newHandlers() *handlers {
 
 	targetURL, err := url.Parse(*k8sTarget)
 	if err != nil {
-		slog.Error("Failed to parse k8s target URL", ilog.Err(err))
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to parse k8s target URL: %w", err)
 	}
 
 	h := &handlers{
@@ -98,33 +97,31 @@ func newHandlers() *handlers {
 	}
 
 	h.k8sProxy = &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.URL.Scheme = targetURL.Scheme
-			req.URL.Host = targetURL.Host
-			req.URL.Path = strings.TrimPrefix(req.URL.Path, "/apis/core.kubernetes")
-			if req.URL.Path == "" {
-				req.URL.Path = "/"
+		Rewrite: func(r *httputil.ProxyRequest) {
+			r.SetURL(targetURL)
+			r.Out.URL.Path = strings.TrimPrefix(r.Out.URL.Path, "/apis/core.kubernetes")
+			if r.Out.URL.Path == "" {
+				r.Out.URL.Path = "/"
 			}
 			// Why: RawPath stores the original encoded path. Resetting RawPath = "" forces
 			// httputil.ReverseProxy to re-encode req.URL.Path without retaining the stripped prefix.
-			req.URL.RawPath = ""
+			r.Out.URL.RawPath = ""
 
-			k8sToken, err := h.getK8sToken()
+			k8sToken, err := h.k8sToken()
 			if err != nil {
 				slog.Error("Failed to read serviceaccount token", ilog.Err(err))
 			} else {
-				req.Header.Set("Authorization", bearerPrefix+k8sToken)
+				r.Out.Header.Set("Authorization", bearerPrefix+k8sToken)
 			}
-			req.Host = targetURL.Host
 		},
 		Transport:     transport,
 		FlushInterval: -1, // Why: Flush immediately to prevent buffering on long-lived K8s API Watch streams.
 	}
 
-	return h
+	return h, nil
 }
 
-func (h *handlers) getK8sToken() (string, error) {
+func (h *handlers) k8sToken() (string, error) {
 	tokenBytes, err := os.ReadFile(*k8sTokenPath)
 	if err != nil {
 		return "", err
@@ -290,7 +287,7 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 	// Provide a k8s token to nginx so that GKE accepts the request. Policy for
 	// the cr-syncer-auth-webhook ServiceAccount is defined in
 	// cr-syncer-policy.yaml.
-	k8sToken, err := h.getK8sToken()
+	k8sToken, err := h.k8sToken()
 	if err != nil {
 		slog.Error("Failed to read serviceaccount token", ilog.Err(err))
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -308,7 +305,11 @@ func main() {
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%d", *port),
 	}
-	handlers := newHandlers()
+	handlers, err := newHandlers()
+	if err != nil {
+		slog.Error("Failed to initialize handlers", ilog.Err(err))
+		os.Exit(1)
+	}
 	http.HandleFunc("/healthz", handlers.health)
 	http.HandleFunc("/auth", handlers.auth)
 	http.HandleFunc("/apis/core.kubernetes/", handlers.proxyKubernetes)
