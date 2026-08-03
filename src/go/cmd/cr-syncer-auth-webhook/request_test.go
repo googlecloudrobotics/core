@@ -91,6 +91,10 @@ func TestParseURLErrors(t *testing.T) {
 			desc: "core API (not a CR)",
 			url:  "http://host/apis/core.kubernetes/api/v1/namespaces/default/pods/cr-syncer-6676b4958d-p9hqw",
 		},
+		{
+			desc: "invalid short namespaced path",
+			url:  "http://host/apis/core.kubernetes/apis/apps.cloudrobotics.com/v1alpha1/namespaces",
+		},
 	}
 
 	for _, tc := range tests {
@@ -103,24 +107,37 @@ func TestParseURLErrors(t *testing.T) {
 	}
 }
 
-func TestExtractOriginalURL(t *testing.T) {
+func TestExtractSubrequestURL(t *testing.T) {
 	tests := []struct {
 		desc        string
 		originalURL string
 		envoyPath   string
 		want        string
+		wantErr     bool
 	}{
 		{
-			desc:        "prefers X-Original-Url when present",
+			desc:        "extracts X-Original-Url when present",
 			originalURL: "http://host/apis/core.kubernetes/apis/apps/v1/deployments",
-			envoyPath:   "/apis/core.kubernetes/apis/apps/v1/deployments",
+			envoyPath:   "",
 			want:        "http://host/apis/core.kubernetes/apis/apps/v1/deployments",
 		},
 		{
-			desc:        "falls back to X-Envoy-Original-Path when X-Original-Url is empty",
+			desc:        "extracts X-Envoy-Original-Path when present",
 			originalURL: "",
 			envoyPath:   "/apis/core.kubernetes/apis/apps/v1/deployments",
 			want:        "/apis/core.kubernetes/apis/apps/v1/deployments",
+		},
+		{
+			desc:        "rejects ambiguous dual headers",
+			originalURL: "http://host/apis/core.kubernetes/apis/apps/v1/deployments",
+			envoyPath:   "/apis/core.kubernetes/apis/apps/v1/deployments",
+			wantErr:     true,
+		},
+		{
+			desc:        "rejects missing subrequest headers",
+			originalURL: "",
+			envoyPath:   "",
+			wantErr:     true,
 		},
 	}
 
@@ -136,8 +153,18 @@ func TestExtractOriginalURL(t *testing.T) {
 			if tc.envoyPath != "" {
 				req.Header.Set("X-Envoy-Original-Path", tc.envoyPath)
 			}
-			if got := extractOriginalURL(req); got != tc.want {
-				t.Errorf("extractOriginalURL() = %q, want %q", got, tc.want)
+			got, err := extractSubrequestURL(req)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("extractSubrequestURL() succeeded, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("extractSubrequestURL() unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("extractSubrequestURL() = %q, want %q", got, tc.want)
 			}
 		})
 	}
