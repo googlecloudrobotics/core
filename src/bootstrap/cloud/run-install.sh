@@ -22,23 +22,29 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BUCKET_URI=${BUCKET_URI:-"https://storage.googleapis.com/cloud-robotics-releases"}
 GCP_PROJECT_ID="$1"
 
-if [[ -z "$2" || "$2" = --* ]]; then
-  TARGET="latest"
-  COMMAND="$2"
-else
-  TARGET="$2"
-  COMMAND="$3"
-fi
-
-if [[ -z "${GCP_PROJECT_ID}" || ! "${COMMAND}" =~ ^(|--set-config|--set-oauth|--delete|--terraform)$ ]]; then
-  echo "Usage: $0 <project id> [<version-file>|<tarball>] [<command>]"
+if [[ -z "${GCP_PROJECT_ID}" || "${GCP_PROJECT_ID}" == -* ]]; then
+  echo "Usage: $0 <project id> [<version-file>|<tarball>] [<command>] [deploy-args...]"
   echo "Supported commands:"
   echo "  --set-config    Updates the cloud config interactively."
   echo "  --set-oauth     Enables and configures OAuth interactively."
   echo "  --delete        Deletes Cloud Robotics from the cloud project."
   echo "  --terraform     Apply only terraform changes."
-  echo "  (default)       Install the specifies version."
+  echo "  (default)       Install the specified version."
   exit 1
+fi
+
+shift
+
+TARGET="latest"
+if [[ $# -gt 0 && -n "$1" && "$1" != -* ]]; then
+  TARGET="$1"
+  shift
+fi
+
+COMMAND=""
+if [[ $# -gt 0 && "$1" =~ ^(--set-config|--set-oauth|--delete|--terraform)$ ]]; then
+  COMMAND="$1"
+  shift
 fi
 
 if [[ ! "${TARGET}" = *.tar.gz ]]; then
@@ -58,20 +64,20 @@ if [[ $SHELLOPTS =~ xtrace ]] ; then
 fi
 
 if [[ "${COMMAND}" = "--set-config" ]]; then
-  $BASH scripts/set-config.sh "${GCP_PROJECT_ID}"
+  $BASH scripts/set-config.sh "${GCP_PROJECT_ID}" "$@"
 elif [[ "${COMMAND}" = "--set-oauth" ]]; then
-  $BASH scripts/set-config.sh "${GCP_PROJECT_ID}" --edit-oauth
+  $BASH scripts/set-config.sh "${GCP_PROJECT_ID}" --edit-oauth "$@"
 elif [[ "${COMMAND}" = "--delete" ]]; then
-  $BASH ./deploy.sh delete "${GCP_PROJECT_ID}"
+  $BASH ./deploy.sh delete "${GCP_PROJECT_ID}" "$@"
 else
   # We tag the setup-robot files with this information to be able to check if
   # cloud and robot-installations are in sync
   export TARGET
   $BASH scripts/set-config.sh "${GCP_PROJECT_ID}" --ensure-config
   if [[ "${COMMAND}" = "--terraform" ]]; then
-    $BASH ./deploy.sh update_infra "${GCP_PROJECT_ID}"
+    $BASH ./deploy.sh update_infra "${GCP_PROJECT_ID}" "$@"
   else
-    $BASH ./deploy.sh create "${GCP_PROJECT_ID}"
+    $BASH ./deploy.sh create "${GCP_PROJECT_ID}" "$@"
   fi
 fi
 
