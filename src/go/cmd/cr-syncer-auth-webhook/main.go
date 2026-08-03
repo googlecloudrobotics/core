@@ -212,7 +212,7 @@ func (h *handlers) extractRobotName(ctx context.Context, encodedJWT string) (str
 	}
 	claims, err := jws.Decode(encodedJWT)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to parse JWT despite previous verification")
+		slog.ErrorContext(ctx, "Failed to parse JWT despite previous verification", ilog.Err(err))
 		return "", err
 	}
 	slog.DebugContext(ctx, "JWT parsed", slog.String("ID", claims.Sub))
