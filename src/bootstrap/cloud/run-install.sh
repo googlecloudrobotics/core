@@ -20,7 +20,9 @@ set -o pipefail -o errexit
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BUCKET_URI=${BUCKET_URI:-"https://storage.googleapis.com/cloud-robotics-releases"}
-if [[ $# -lt 1 || -z "$1" || "$1" == -* ]]; then
+GCP_PROJECT_ID="$1"
+
+if [[ -z "${GCP_PROJECT_ID}" || "${GCP_PROJECT_ID}" == -* ]]; then
   echo "Usage: $0 <project id> [<version-file>|<tarball>] [<command>] [deploy-args...]"
   echo "Supported commands:"
   echo "  --set-config    Updates the cloud config interactively."
@@ -31,7 +33,6 @@ if [[ $# -lt 1 || -z "$1" || "$1" == -* ]]; then
   exit 1
 fi
 
-GCP_PROJECT_ID="$1"
 shift
 
 TARGET="latest"
