@@ -66,12 +66,12 @@ const (
 	verifyJWTEndpoint = "/apis/core.token-vendor/v1/jwt.verify"
 
 	legacyTokenPrefix = "ya29."
+	bearerPrefix      = "Bearer "
 )
 
 type handlers struct {
-	client       *http.Client
-	k8sTransport http.RoundTripper
-	k8sTargetURL *url.URL
+	client   *http.Client
+	k8sProxy *httputil.ReverseProxy
 }
 
 func newHandlers() *handlers {
@@ -89,15 +89,39 @@ func newHandlers() *handlers {
 
 	targetURL, err := url.Parse(*k8sTarget)
 	if err != nil {
-		slog.Error("failed to parse k8s target URL", ilog.Err(err))
+		slog.Error("Failed to parse k8s target URL", ilog.Err(err))
 		os.Exit(1)
 	}
 
-	return &handlers{
-		client:       &http.Client{},
-		k8sTransport: transport,
-		k8sTargetURL: targetURL,
+	h := &handlers{
+		client: &http.Client{},
 	}
+
+	h.k8sProxy = &httputil.ReverseProxy{
+		Director: func(req *http.Request) {
+			req.URL.Scheme = targetURL.Scheme
+			req.URL.Host = targetURL.Host
+			req.URL.Path = strings.TrimPrefix(req.URL.Path, "/apis/core.kubernetes")
+			if req.URL.Path == "" {
+				req.URL.Path = "/"
+			}
+			// Why: RawPath stores the original encoded path. Resetting RawPath = "" forces
+			// httputil.ReverseProxy to re-encode req.URL.Path without retaining the stripped prefix.
+			req.URL.RawPath = ""
+
+			k8sToken, err := h.getK8sToken()
+			if err != nil {
+				slog.Error("Failed to read serviceaccount token", ilog.Err(err))
+			} else {
+				req.Header.Set("Authorization", bearerPrefix+k8sToken)
+			}
+			req.Host = targetURL.Host
+		},
+		Transport:     transport,
+		FlushInterval: -1, // Why: Flush immediately to prevent buffering on long-lived K8s API Watch streams.
+	}
+
+	return h
 }
 
 func (h *handlers) getK8sToken() (string, error) {
@@ -125,7 +149,7 @@ func (h *handlers) verifyJWT(encodedJWT string) error {
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
-	req.Header.Add("Authorization", "Bearer "+encodedJWT)
+	req.Header.Add("Authorization", bearerPrefix+encodedJWT)
 	resp, err := h.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("do request: %w", err)
@@ -137,7 +161,7 @@ func (h *handlers) verifyJWT(encodedJWT string) error {
 	if resp.StatusCode == http.StatusForbidden {
 		return errors.New("invalid JWT")
 	} else if resp.StatusCode != http.StatusOK {
-		slog.Warn("unexpected status code from /jwt.verify", slog.Int("Status", resp.StatusCode))
+		slog.Warn("Unexpected status code from /jwt.verify", slog.Int("Status", resp.StatusCode))
 		return errors.New("unexpected status code")
 	}
 	return nil
@@ -154,7 +178,7 @@ func (h *handlers) resourceIsFiltered(groupKind string) bool {
 func (h *handlers) validateRequestPath(urlString string, robotName string) error {
 	incomingReq, err := parseURL(urlString)
 	if err != nil {
-		slog.Error("unexpected value of target URL path",
+		slog.Error("Unexpected value of target URL path",
 			slog.String("URL", urlString), ilog.Err(err))
 		return err
 	}
@@ -171,7 +195,7 @@ func (h *handlers) validateRequestPath(urlString string, robotName string) error
 	// TODO(rodrigoq): check against label of upstream resource instead of assuming that
 	// robot xyz can access all syncable resources matching *xyz.
 	if incomingReq.RobotName != robotName && !strings.HasSuffix(incomingReq.ResourceName, robotName) {
-		slog.Error("robot impersonation rejected",
+		slog.Error("Robot impersonation rejected",
 			slog.String("SourceName", robotName),
 			slog.String("TargetName", incomingReq.RobotName+incomingReq.ResourceName),
 			slog.String("Kind", incomingReq.GroupKind),
@@ -182,16 +206,16 @@ func (h *handlers) validateRequestPath(urlString string, robotName string) error
 	return nil
 }
 
-func (h *handlers) extractRobotName(encodedJWT string) (string, error) {
+func (h *handlers) extractRobotName(ctx context.Context, encodedJWT string) (string, error) {
 	if strings.HasPrefix(encodedJWT, legacyTokenPrefix) {
 		return "", nil
 	}
 	claims, err := jws.Decode(encodedJWT)
 	if err != nil {
-		slog.Error("failed to parse JWT despite previous verification")
+		slog.ErrorContext(ctx, "Failed to parse JWT despite previous verification")
 		return "", err
 	}
-	slog.Debug("JWT parsed", slog.String("ID", claims.Sub))
+	slog.DebugContext(ctx, "JWT parsed", slog.String("ID", claims.Sub))
 	return claims.Sub, nil
 }
 
@@ -204,7 +228,7 @@ func (h *handlers) extractRobotName(encodedJWT string) (string, error) {
 // in Go memory with the local ServiceAccount token, and stream requests directly to
 // https://kubernetes.default.svc:443 without header collisions or Istio listener constraints.
 func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
-	encodedJWT := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	encodedJWT := strings.TrimPrefix(r.Header.Get("Authorization"), bearerPrefix)
 	if err := h.verifyJWT(encodedJWT); err != nil {
 		if !*acceptLegacyCredentials || !strings.HasPrefix(encodedJWT, legacyTokenPrefix) {
 			http.Error(w, "No valid credentials provided", http.StatusUnauthorized)
@@ -212,7 +236,7 @@ func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	robotName, err := h.extractRobotName(encodedJWT)
+	robotName, err := h.extractRobotName(r.Context(), encodedJWT)
 	if err != nil {
 		http.Error(w, "Credentials could not be parsed", http.StatusInternalServerError)
 		return
@@ -224,31 +248,7 @@ func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	k8sToken, err := h.getK8sToken()
-	if err != nil {
-		slog.Error("failed to read serviceaccount token", ilog.Err(err))
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-
-	proxy := &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.URL.Scheme = h.k8sTargetURL.Scheme
-			req.URL.Host = h.k8sTargetURL.Host
-			req.URL.Path = strings.TrimPrefix(req.URL.Path, "/apis/core.kubernetes")
-			if req.URL.Path == "" {
-				req.URL.Path = "/"
-			}
-			// Why: RawPath stores the original encoded path. Resetting RawPath = "" forces
-			// httputil.ReverseProxy to re-encode req.URL.Path without retaining the stripped prefix.
-			req.URL.RawPath = ""
-			req.Header.Set("Authorization", "Bearer "+k8sToken)
-			req.Host = h.k8sTargetURL.Host
-		},
-		Transport:     h.k8sTransport,
-		FlushInterval: -1, // Why: Flush immediately to prevent buffering on long-lived K8s API Watch streams.
-	}
-	proxy.ServeHTTP(w, r)
+	h.k8sProxy.ServeHTTP(w, r)
 }
 
 // auth is a webhook to inspect incoming requests from the cr-syncer, check if
@@ -256,7 +256,7 @@ func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 // apiserver will serve them. This lets nginx handle the request & response
 // bodies itself.
 func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
-	encodedJWT := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	encodedJWT := strings.TrimPrefix(r.Header.Get("Authorization"), bearerPrefix)
 	if err := h.verifyJWT(encodedJWT); err != nil {
 		if *acceptLegacyCredentials {
 			// The request already has the necessary credentials, so preserve these.
@@ -269,7 +269,7 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	robotName, err := h.extractRobotName(encodedJWT)
+	robotName, err := h.extractRobotName(r.Context(), encodedJWT)
 	if err != nil {
 		http.Error(w, "Credentials could not be parsed", http.StatusInternalServerError)
 		return
@@ -277,7 +277,7 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 
 	urlStr, err := extractSubrequestURL(r)
 	if err != nil {
-		slog.Error("failed to extract subrequest URL", ilog.Err(err))
+		slog.Error("Failed to extract subrequest URL", ilog.Err(err))
 		http.Error(w, "Invalid subrequest headers", http.StatusBadRequest)
 		return
 	}
@@ -292,11 +292,11 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 	// cr-syncer-policy.yaml.
 	k8sToken, err := h.getK8sToken()
 	if err != nil {
-		slog.Error("failed to read serviceaccount token", ilog.Err(err))
+		slog.Error("Failed to read serviceaccount token", ilog.Err(err))
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Add("Authorization", "Bearer "+k8sToken)
+	w.Header().Add("Authorization", bearerPrefix+k8sToken)
 	w.WriteHeader(http.StatusOK)
 }
 
