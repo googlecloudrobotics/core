@@ -97,24 +97,22 @@ func newHandlers() (*handlers, error) {
 	}
 
 	h.k8sProxy = &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.URL.Scheme = targetURL.Scheme
-			req.URL.Host = targetURL.Host
-			req.URL.Path = strings.TrimPrefix(req.URL.Path, "/apis/core.kubernetes")
-			if req.URL.Path == "" {
-				req.URL.Path = "/"
+		Rewrite: func(r *httputil.ProxyRequest) {
+			r.SetURL(targetURL)
+			r.Out.URL.Path = strings.TrimPrefix(r.Out.URL.Path, "/apis/core.kubernetes")
+			if r.Out.URL.Path == "" {
+				r.Out.URL.Path = "/"
 			}
 			// Why: RawPath stores the original encoded path. Resetting RawPath = "" forces
 			// httputil.ReverseProxy to re-encode req.URL.Path without retaining the stripped prefix.
-			req.URL.RawPath = ""
+			r.Out.URL.RawPath = ""
 
-			k8sToken, err := h.getK8sToken()
+			k8sToken, err := h.k8sToken()
 			if err != nil {
 				slog.Error("Failed to read serviceaccount token", ilog.Err(err))
 			} else {
-				req.Header.Set("Authorization", bearerPrefix+k8sToken)
+				r.Out.Header.Set("Authorization", bearerPrefix+k8sToken)
 			}
-			req.Host = targetURL.Host
 		},
 		Transport:     transport,
 		FlushInterval: -1, // Why: Flush immediately to prevent buffering on long-lived K8s API Watch streams.
@@ -123,7 +121,7 @@ func newHandlers() (*handlers, error) {
 	return h, nil
 }
 
-func (h *handlers) getK8sToken() (string, error) {
+func (h *handlers) k8sToken() (string, error) {
 	tokenBytes, err := os.ReadFile(*k8sTokenPath)
 	if err != nil {
 		return "", err
@@ -289,7 +287,7 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 	// Provide a k8s token to nginx so that GKE accepts the request. Policy for
 	// the cr-syncer-auth-webhook ServiceAccount is defined in
 	// cr-syncer-policy.yaml.
-	k8sToken, err := h.getK8sToken()
+	k8sToken, err := h.k8sToken()
 	if err != nil {
 		slog.Error("Failed to read serviceaccount token", ilog.Err(err))
 		http.Error(w, "Internal error", http.StatusInternalServerError)
