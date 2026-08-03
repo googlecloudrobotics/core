@@ -100,19 +100,17 @@ spec:
             port:
               name: http
 ---
-{{- range list "" "-auth" }}
-{{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: oauth2-proxy{{ . }}
+  name: oauth2-proxy
 spec:
   hostnames:
-  - {{ $.Values.domain }}
+  - {{ .Values.domain }}
   parentRefs:
-  - name: crc{{ . }}-gateway
+  - name: crc-gateway
     namespace: default
-    sectionName: {{ $sectionName }}
+    sectionName: https
   rules:
   - matches:
     - path:
@@ -124,6 +122,8 @@ spec:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /apis
+    timeouts:
+      backendRequest: 600s
     backendRefs:
     - name: oauth2-proxy
       port: 80
@@ -131,14 +131,14 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: oauth2-proxy-interactive{{ . }}
+  name: oauth2-proxy-interactive
 spec:
   hostnames:
-  - {{ $.Values.domain }}
+  - {{ .Values.domain }}
   parentRefs:
-  - name: crc{{ . }}-gateway
+  - name: crc-gateway
     namespace: default
-    sectionName: {{ $sectionName }}
+    sectionName: https
   rules:
   - matches:
     - path:
@@ -148,18 +148,29 @@ spec:
     - name: oauth2-proxy
       port: 80
 ---
-{{- end }}
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: ReferenceGrant
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
 metadata:
-  name: oauth2-proxy-grant
+  name: oauth2-proxy-allow
 spec:
-  from:
+  targetRefs:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
-    namespace: app-prometheus
-  to:
-  - group: ""
-    kind: Service
     name: oauth2-proxy
-{{ end }}
+  action: ALLOW
+  rules:
+  - {}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: oauth2-proxy-interactive-allow
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: oauth2-proxy-interactive
+  action: ALLOW
+  rules:
+  - {}
+{{- end }}

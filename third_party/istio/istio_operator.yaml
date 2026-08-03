@@ -66,18 +66,6 @@ spec:
           pathPrefix: "/oauth2/auth"
           includeRequestHeadersInCheck: ["authorization", "cookie"]
 
-      # Legacy CRC Auth Gateway (Transition provider)
-      - name: "crc-auth-gateway"
-        envoyExtAuthzHttp:
-          service: "crc-auth-gateway-istio.default.svc.cluster.local"
-          port: 8080
-          includeRequestHeadersInCheck:
-          - "authorization"
-          - "x-forwarded-access-token"
-          - "x-auth-url"
-          headersToUpstreamOnAllow:
-          - "authorization"
-
   components:
     base:
       enabled: true
