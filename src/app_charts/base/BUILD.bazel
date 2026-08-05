@@ -108,6 +108,7 @@ app_chart(
         "@com_github_kubernetes_sigs_application//:app_crd",
         "//third_party/kube-prometheus-stack:01-crds.yaml",
         "//third_party/gateway-api:grpcroute-generated.yaml",
+        "//third_party/istio:istio-crds.yaml",
         "//third_party/istio:istio-generated.yaml",
         "//third_party/istio:istio-dashboards.yaml",
     ],
