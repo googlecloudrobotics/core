@@ -40,14 +40,16 @@ echo "Updating to istio $("${istioctl}" version --remote=false)..."
 
 # Step 2: Process Istio manifests with python helper
 dst="${SCRIPT_DIR}/istio-generated.yaml"
+crd_dst="${SCRIPT_DIR}/istio-crds.yaml"
 python3 "${SCRIPT_DIR}/process_istio_manifest.py" \
   "${tmpdir}/istio_full.yaml" \
   "${SCRIPT_DIR}/istio-config.yaml" \
   "${SCRIPT_DIR}/istio-values.json" \
   "${tmpdir}/istio.yaml" \
-  "${dst}"
+  "${dst}" \
+  "${crd_dst}"
 
-echo "Updated ${dst}"
+echo "Updated ${dst} and ${crd_dst}"
 
 # Step 3: Download and save Istio Grafana dashboards
 echo "Downloading Istio Grafana dashboards..."
