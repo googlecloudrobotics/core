@@ -63,7 +63,7 @@ spec:
     name: kubernetes-relay-client
   action: CUSTOM
   provider:
-    name: auth-provider-tv-robots-false
+    name: auth-provider-tv-robots-true
 ---
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
@@ -76,4 +76,4 @@ spec:
     name: kubernetes-relay-server
   action: CUSTOM
   provider:
-    name: auth-provider-tv-robots-true
+    name: auth-provider-tv-robots-false
