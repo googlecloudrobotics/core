@@ -157,6 +157,8 @@ func TestSynk_IsTransientErr(t *testing.T) {
 				k8serrors.NewTooManyRequests("", 0),
 				k8serrors.NewServiceUnavailable(""),
 				&discovery.ErrGroupDiscoveryFailed{Groups: map[schema.GroupVersion]error{}},
+				&meta.NoKindMatchError{GroupKind: schema.GroupKind{Group: "security.istio.io", Kind: "AuthorizationPolicy"}},
+				&meta.NoResourceMatchError{PartialResource: schema.GroupVersionResource{Group: "security.istio.io", Version: "v1", Resource: "authorizationpolicies"}},
 			},
 		},
 		{
