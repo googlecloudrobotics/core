@@ -13,7 +13,7 @@ go_library(
         "//src/go/cmd/http-relay-server/server:go_default_library",
         "//src/go/pkg/telemetry:go_default_library",
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
-        "@io_opentelemetry_go_otel_sdk//trace",
+        "@io_opentelemetry_go_otel_sdk//trace:go_default_library",
     ],
 )
 
