@@ -1,5 +1,5 @@
 # Project-wide kill switch for robot-side VictoriaMetrics (vmagent, node-exporter,
-# hw-exporter, smartctl-exporter). Distinct from the per-robot AppRollout selector
+# smartctl-exporter). Distinct from the per-robot AppRollout selector
 # (cloudrobotics.com/enable-victoriametrics label) - this gate applies AFTER a
 # robot is already selected, letting the whole robot-side VM stack be turned off
 # project-wide without touching the selector. Defaults true - matches existing

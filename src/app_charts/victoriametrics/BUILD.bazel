@@ -72,9 +72,6 @@ app_chart(
         ":node-exporter-chart.robot",
         ":vmagent-chart.robot",
     ],
-    images = {
-        "hw-exporter": "//src/go/cmd/hw-exporter:hw-exporter-image",
-    },
 )
 
 app(
