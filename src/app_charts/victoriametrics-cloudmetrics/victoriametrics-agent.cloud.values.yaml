@@ -1,0 +1,63 @@
+# Cloud-side vmagent, added July 20, 2026 per Brandon's confirmed
+# requirement that kube-state-metrics and cAdvisor container metrics
+# be in scope for the cloud migration. This instance scrapes things
+# running IN the cloud cluster itself (kube-state-metrics, kubelet)
+# - distinct from the robot-side vmagent, which scrapes robot
+# hardware exporters. Pinned to 0.6.0, same reasoning as the robot
+# instance (see victoriametrics-agent.robot.values.yaml).
+#
+# WARNING: If you edit this file, run the following command to generate
+# the output with `helm template`, and verify that your changes have
+# the expected effect.
+#
+#   bazel build src/app_charts/victoriametrics/vmagent-chart.cloud.yaml
+
+remoteWriteUrls:
+  # Same-cluster traffic - talks directly to the local vminsert
+  # service, no Aqualine tunnel or API-key auth needed since this
+  # never leaves the cluster (unlike robot-side vmagent's traffic,
+  # which crosses the on-prem/cloud boundary).
+  - "http://vmc-victoria-metrics-cluster-vminsert:${VMINSERT_PORT}/insert/0/prometheus/api/v1/write"
+
+rbac:
+  pspEnabled: false
+
+extraArgs:
+  envflag.enable: "true"
+  envflag.prefix: VM_
+  loggerFormat: json
+
+config:
+  global:
+    scrape_interval: 30s
+  scrape_configs:
+    - job_name: kube-state-metrics
+      kubernetes_sd_configs:
+        - role: endpoints
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+          regex: kube-state-metrics
+          action: keep
+        - source_labels: [__meta_kubernetes_endpoint_port_name]
+          regex: http
+          action: keep
+    - job_name: kubelet
+      kubernetes_sd_configs:
+        - role: node
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        insecure_skip_verify: true
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+        - action: labelmap
+          regex: __meta_kubernetes_node_label_(.+)
+    - job_name: kubelet-cadvisor
+      kubernetes_sd_configs:
+        - role: node
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        insecure_skip_verify: true
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      metrics_path: /metrics/cadvisor

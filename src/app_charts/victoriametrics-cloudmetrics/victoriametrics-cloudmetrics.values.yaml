@@ -1,0 +1,36 @@
+# Configuration for the second victoria-metrics-cluster chart that stores
+# cloud-cluster metrics.
+#
+# Placeholder replica counts pending a real sizing discussion. Cloud-cluster
+# metrics volume should be much smaller and more stable than robot metrics.
+
+vmstorage:
+  enabled: true
+  replicaCount: 2
+  retentionPeriod: "${RETENTION_TIME}"
+  resources:
+    requests:
+      cpu: "${LIMITS_CPU}"
+      memory: "${LIMITS_MEMORY}"
+    limits:
+      cpu: "${LIMITS_CPU}"
+      memory: "${LIMITS_MEMORY}"
+  persistentVolume:
+    storageClass: ssd
+    accessModes:
+      - ReadWriteOnce
+    size: "${REQUESTS_STORAGE}"
+
+vminsert:
+  enabled: true
+  replicaCount: 1
+  extraArgs:
+    replicationFactor: "2"
+  service:
+    servicePort: ${VMINSERT_PORT}
+
+vmselect:
+  enabled: true
+  replicaCount: 1
+  service:
+    servicePort: ${VMSELECT_PORT}

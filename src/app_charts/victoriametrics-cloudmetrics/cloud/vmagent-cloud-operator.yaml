@@ -1,0 +1,30 @@
+{{- if .Values.victoriametrics_enabled }}
+# This includes all resources expanded from the victoria-metrics-agent
+# chart using the values in ../victoriametrics-agent.cloud.values.yaml.
+# This is the CLOUD-side vmagent instance (scrapes kube-state-metrics
+# and kubelet/cAdvisor running in the cloud cluster itself) - distinct
+# from the ROBOT-side vmagent (../robot/vmagent-operator.yaml), which
+# scrapes robot hardware exporters.
+{{- $data := .Files.Get "files/vmagent-chart.cloud.yaml" -}}
+{{- $data = $data | replace "${VMINSERT_PORT}" (toString .Values.vminsert_port) | replace "release-name-placeholder" .Values.release_name | replace "HELM-NAMESPACE" .Release.Namespace -}}
+{{- if .Values.upstream_sidecar_volume_mounts -}}
+{{- $data = $data | replace "            - name: config\n              mountPath: /config" (printf "            - name: config\n              mountPath: /config%s" (.Values.upstream_sidecar_volume_mounts | nindent 12)) -}}
+{{- end -}}
+{{- if .Values.upstream_sidecar_containers -}}
+{{- $data = $data | replace "      volumes:" (printf "%s\n      volumes:" (.Values.upstream_sidecar_containers | nindent 8)) -}}
+{{- end -}}
+{{- if .Values.upstream_sidecar_volumes -}}
+{{- $data = $data | replace "            name: vmc-agent-victoria-metrics-agent-config" (printf "            name: vmc-agent-victoria-metrics-agent-config%s" (.Values.upstream_sidecar_volumes | nindent 8)) -}}
+{{- end -}}
+{{- if .Values.upstream_metrics_url -}}
+{{- $extra := printf "\n            - -remoteWrite.url=%s" .Values.upstream_metrics_url -}}
+{{- if .Values.upstream_metrics_relabel_config -}}
+{{- $extra = printf "\n            - -remoteWrite.urlRelabelConfig=\n            - -remoteWrite.urlRelabelConfig=/config/upstream-relabel.yml%s" $extra -}}
+{{- end -}}
+{{- $data = $data | replace "            - -loggerFormat=json" (printf "            - -loggerFormat=json%s" $extra) -}}
+{{- end -}}
+{{- if .Values.upstream_metrics_relabel_config -}}
+{{- $data = $data | replace "  scrape.yml: |" (printf "  upstream-relabel.yml: |%s\n  scrape.yml: |" (.Values.upstream_metrics_relabel_config | nindent 4)) -}}
+{{- end -}}
+{{ $data }}
+{{- end }}

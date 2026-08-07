@@ -1,0 +1,32 @@
+load("//bazel:app.bzl", "app")
+load("//bazel:app_chart.bzl", "app_chart")
+load("//bazel:build_rules/helm_template.bzl", "helm_template")
+
+# --- Cloud side ---
+
+helm_template(
+    name = "grafana-chart.cloud",
+    chart = "//third_party/grafana:grafana-10.5.15.tgz",
+    helm_version = 3,
+    kube_version = "1.29.0",
+    namespace = "HELM-NAMESPACE",
+    release_name = "vm",
+    values = "grafana.cloud.values.yaml",
+)
+
+app_chart(
+    name = "grafana-cloud",
+    extra_values = ["values-cloud.yaml"],
+    files = [
+        ":grafana-chart.cloud",
+    ],
+    images = {},
+)
+
+app(
+    name = "grafana",
+    charts = [
+        ":grafana-cloud",
+    ],
+    visibility = ["//visibility:public"],
+)

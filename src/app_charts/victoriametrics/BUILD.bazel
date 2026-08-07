@@ -1,0 +1,87 @@
+load("//bazel:app.bzl", "app")
+load("//bazel:app_chart.bzl", "app_chart")
+load("//bazel:build_rules/helm_template.bzl", "helm_template")
+
+# --- Cloud side ---
+
+helm_template(
+    name = "victoriametrics-chart.cloud",
+    # Pinned to 0.11.23 (not latest) - newer versions require Helm 3.14+
+    # via the shared victoria-metrics-common dependency, incompatible with
+    # CRC's hermetic Helm 3.9.0 binary used by this rule.
+    chart = "//third_party/victoria-metrics-cluster:victoria-metrics-cluster-0.11.23.tgz",
+    helm_version = 3,
+    kube_version = "1.29.0",
+    namespace = "HELM-NAMESPACE",
+    release_name = "vm",
+    values = "victoriametrics-cloud.values.yaml",
+)
+
+helm_template(
+    name = "vmalert-chart.cloud",
+    # Pinned to 0.6.0 - same reasoning as vmagent's pin: predates the
+    # victoria-metrics-common probe templating pattern incompatible
+    # with this rule's invocation of Helm.
+    chart = "//third_party/victoria-metrics-alert:victoria-metrics-alert-0.6.0.tgz",
+    helm_version = 3,
+    kube_version = "1.29.0",
+    namespace = "HELM-NAMESPACE",
+    release_name = "vm",
+    values = "vmalert.cloud.values.yaml",
+)
+
+app_chart(
+    name = "victoriametrics-cloud",
+    extra_values = ["values-cloud.yaml"],
+    files = [
+        ":victoriametrics-chart.cloud",
+        ":vmalert-chart.cloud",
+    ],
+    images = {},
+)
+
+# --- Robot side ---
+
+helm_template(
+    name = "vmagent-chart.robot",
+    # Pinned to 0.6.0 - later versions introduce a probe templating
+    # pattern using Helm's tpl function that requires Template.Basepath
+    # context unavailable under this rule's invocation of Helm.
+    chart = "//third_party/victoria-metrics-agent:victoria-metrics-agent-0.6.0.tgz",
+    helm_version = 3,
+    kube_version = "1.29.0",
+    namespace = "HELM-NAMESPACE",
+    release_name = "vmagent",
+    values = "victoriametrics-agent.robot.values.yaml",
+)
+
+helm_template(
+    name = "node-exporter-chart.robot",
+    chart = "//third_party/prometheus-node-exporter:prometheus-node-exporter-4.55.0.tgz",
+    helm_version = 3,
+    kube_version = "1.29.0",
+    namespace = "HELM-NAMESPACE",
+    release_name = "node-exporter",
+    values = "node-exporter.robot.values.yaml",
+)
+
+app_chart(
+    name = "victoriametrics-robot",
+    extra_values = ["values-robot.yaml"],
+    files = [
+        ":node-exporter-chart.robot",
+        ":vmagent-chart.robot",
+    ],
+    images = {
+        "hw-exporter": "//src/go/cmd/hw-exporter:hw-exporter-image",
+    },
+)
+
+app(
+    name = "victoriametrics",
+    charts = [
+        ":victoriametrics-cloud",
+        ":victoriametrics-robot",
+    ],
+    visibility = ["//visibility:public"],
+)

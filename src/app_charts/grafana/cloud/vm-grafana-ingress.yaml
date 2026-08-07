@@ -1,28 +1,26 @@
-{{- if .Values.prometheus_enabled }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: prometheus
+  name: vm-grafana
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
   annotations:
-    nginx.ingress.kubernetes.io/auth-url: "{{ tpl .Values.prom_ingress_auth_url . }}"
-    nginx.ingress.kubernetes.io/auth-signin: "{{ tpl .Values.prom_ingress_auth_signin . }}"
+    nginx.ingress.kubernetes.io/auth-url: "{{ tpl .Values.gf_ingress_auth_url . }}"
+    nginx.ingress.kubernetes.io/auth-signin: "{{ tpl .Values.gf_ingress_auth_signin . }}"
     nginx.ingress.kubernetes.io/backend-protocol: HTTP
     nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/configuration-snippet: |
-      error_page 403 = {{ tpl .Values.prom_ingress_error_page_403 . }};
+      error_page 403 = {{ tpl .Values.gf_ingress_error_page_403 . }};
 spec:
   ingressClassName: nginx
   rules:
   - host: {{ .Values.domain }}
     http:
       paths:
-      - path: /prometheus($|/)(.*)
+      - path: /vm-grafana($|/)(.*)
         pathType: Prefix
         backend:
           service:
-            name: kube-prometheus
+            name: vm-grafana
             port:
-              number: 9090
-{{- end }}
+              number: 80

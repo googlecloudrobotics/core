@@ -1,3 +1,4 @@
+{{- if .Values.prometheus_enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -146,4 +147,5 @@ spec:
       port: 80
 {{- end }}
 ---
+{{- end }}
 {{- end }}

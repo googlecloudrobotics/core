@@ -1,0 +1,9 @@
+{{- if .Values.victoriametrics_enabled }}
+# This includes all resources expanded from the victoria-metrics-agent
+# chart using the values in ../victoriametrics-agent.robot.values.yaml.
+# The pseudo-variable inserted there is replaced with the actual
+# runtime remote_write target at deploy time.
+{{- $data := .Files.Get "files/vmagent-chart.robot.yaml" -}}
+{{- $data = $data | replace "${VM_REMOTE_WRITE_URL}" .Values.vm_remote_write_url | replace "HELM-NAMESPACE" .Release.Namespace -}}
+{{ $data }}
+{{- end }}

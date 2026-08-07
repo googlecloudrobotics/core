@@ -1,10 +1,9 @@
-{{- if .Values.prometheus_enabled }}
 {{- range list "" "-auth" }}
 {{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: grafana{{ . }}
+  name: vm-grafana{{ . }}
   labels:
     app.kubernetes.io/name: {{ $.Chart.Name }}
 spec:
@@ -18,7 +17,7 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /grafana
+        value: /vm-grafana
 {{- if eq . "-auth" }}
 {{- $authUrl := urlParse (tpl $.Values.gf_ingress_auth_url $) }}
 {{- $hostParts := splitList ":" $authUrl.host }}
@@ -45,9 +44,8 @@ spec:
           type: ReplacePrefixMatch
           replacePrefixMatch: /
     backendRefs:
-    - name: prom-grafana
+    - name: vm-grafana
       port: 80
 {{- end }}
 ---
-{{- end }}
 {{- end }}

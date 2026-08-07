@@ -1,10 +1,10 @@
-{{- if .Values.prometheus_enabled }}
+{{- if .Values.victoriametrics_enabled }}
 {{- range list "" "-auth" }}
 {{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: grafana{{ . }}
+  name: victoriametrics{{ . }}
   labels:
     app.kubernetes.io/name: {{ $.Chart.Name }}
 spec:
@@ -18,9 +18,9 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /grafana
+        value: /victoriametrics
 {{- if eq . "-auth" }}
-{{- $authUrl := urlParse (tpl $.Values.gf_ingress_auth_url $) }}
+{{- $authUrl := urlParse (tpl $.Values.prom_ingress_auth_url $) }}
 {{- $hostParts := splitList ":" $authUrl.host }}
 {{- $domainParts := splitList "." (first $hostParts) }}
 {{- $svcName := index $domainParts 0 }}
@@ -45,8 +45,8 @@ spec:
           type: ReplacePrefixMatch
           replacePrefixMatch: /
     backendRefs:
-    - name: prom-grafana
-      port: 80
+    - name: vm-victoria-metrics-cluster-vmselect
+      port: {{ $.Values.vmselect_port }}
 {{- end }}
 ---
 {{- end }}

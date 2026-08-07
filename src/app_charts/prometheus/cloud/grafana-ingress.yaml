@@ -1,3 +1,4 @@
+{{- if .Values.prometheus_enabled }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -26,3 +27,4 @@ spec:
             name: prom-grafana
             port:
               number: 80
+{{- end }}

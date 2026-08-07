@@ -1,3 +1,4 @@
+{{- if .Values.prometheus_enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -20,3 +21,4 @@ spec:
           times within the last hour
         logs: "https://console.cloud.google.com/logs/viewer?project={{ .Values.project }}&resource=container&logName=projects%2F{{ .Values.project }}%2Flogs%2F{{`{{$labels.container}}`}}&interval=PT6H"
         summary: Pod is restarting frequently
+{{- end }}

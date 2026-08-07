@@ -1,3 +1,4 @@
+{{- if .Values.prometheus_enabled }}
 {{- range list "" "-auth" }}
 {{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
 apiVersion: gateway.networking.k8s.io/v1
@@ -48,4 +49,5 @@ spec:
       port: 9090
 {{- end }}
 ---
+{{- end }}
 {{- end }}

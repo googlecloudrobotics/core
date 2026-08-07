@@ -1,0 +1,31 @@
+{{- if .Values.victoriametrics_enabled }}
+# Machine-to-machine write path for vmagent's remote_write, separate
+# from vm-ingress.yaml (the human browser-facing query path). Uses
+# the apikey auth-proxy scope (Bearer ink_... header) rather than the
+# browser-oriented internal scope, since vmagent is a machine client
+# that cannot complete an interactive sign-in redirect.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: victoriametrics-write
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: "http://frontend.app-frontend.svc.cluster.local/auth-proxy/authorize?scopes=apikey"
+    nginx.ingress.kubernetes.io/auth-response-headers: apikey-token
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: {{ .Values.domain }}
+    http:
+      paths:
+      - path: /victoriametrics-write($|/)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: vm-victoria-metrics-cluster-vminsert
+            port:
+              number: {{ .Values.vminsert_port }}
+{{- end }}

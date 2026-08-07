@@ -1,8 +1,8 @@
-{{- if .Values.prometheus_enabled }}
+{{- if .Values.victoriametrics_enabled }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: prometheus
+  name: victoriametrics-cloud
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
   annotations:
@@ -18,11 +18,11 @@ spec:
   - host: {{ .Values.domain }}
     http:
       paths:
-      - path: /prometheus($|/)(.*)
+      - path: /victoriametrics-cloud($|/)(.*)
         pathType: Prefix
         backend:
           service:
-            name: kube-prometheus
+            name: vmc-victoria-metrics-cluster-vmselect
             port:
-              number: 9090
+              number: {{ .Values.vmselect_port }}
 {{- end }}

@@ -1,3 +1,4 @@
+{{- if .Values.prometheus_enabled }}
 {{ range .Values.robots }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -46,3 +47,4 @@ spec:
   type: ClusterIP
 ---
 {{ end }}
+{{- end }}

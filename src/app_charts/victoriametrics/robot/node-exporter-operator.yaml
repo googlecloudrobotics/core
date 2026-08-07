@@ -1,0 +1,10 @@
+{{- if .Values.victoriametrics_enabled }}
+# This includes all resources expanded from the prometheus-node-exporter
+# chart using the values in ../node-exporter.robot.values.yaml. No
+# pseudo-variables are currently used for this component - the
+# namespace substitution is kept for consistency with the rest of the
+# app's wrapper files.
+{{- $data := .Files.Get "files/node-exporter-chart.robot.yaml" -}}
+{{- $data = $data | replace "HELM-NAMESPACE" .Release.Namespace -}}
+{{ $data }}
+{{- end }}
