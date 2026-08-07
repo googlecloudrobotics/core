@@ -1,9 +1,8 @@
-# Configuration for the kube-state-metrics chart, added to satisfy
-# Brandon's confirmed requirement (July 20, 2026) that kube-state-metrics
-# and cAdvisor-equivalent container metrics be in scope as part of the
-# CLOUD migration, matching what Prometheus's own kube-prometheus-stack
-# bundles as a subchart. Pinned to 5.33.2 to exactly match the version
-# Prometheus's own chart currently uses.
+# Configuration for the kube-state-metrics chart used by the cloud-metrics
+# VictoriaMetrics stack. This provides Kubernetes object metrics for the
+# cloud cluster, matching the kube-state-metrics coverage provided by
+# Prometheus's kube-prometheus-stack subchart. Pinned to 5.33.2 to match
+# the version Prometheus's chart currently uses.
 #
 # WARNING: If you edit this file, run the following command to generate
 # the output with `helm template`, and verify that your changes have

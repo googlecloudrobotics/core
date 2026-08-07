@@ -1,10 +1,8 @@
-# Cloud-side vmagent, added July 20, 2026 per Brandon's confirmed
-# requirement that kube-state-metrics and cAdvisor container metrics
-# be in scope for the cloud migration. This instance scrapes things
-# running IN the cloud cluster itself (kube-state-metrics, kubelet)
-# - distinct from the robot-side vmagent, which scrapes robot
-# hardware exporters. Pinned to 0.6.0, same reasoning as the robot
-# instance (see victoriametrics-agent.robot.values.yaml).
+# Cloud-side vmagent for the cloud-metrics VictoriaMetrics stack. This
+# instance scrapes metrics from the cloud cluster itself (kube-state-metrics
+# and kubelet/cAdvisor targets), distinct from the robot-side vmagent that
+# scrapes robot-local exporters. Pinned to 0.6.0, same reasoning as the
+# robot instance (see victoriametrics-agent.robot.values.yaml).
 #
 # WARNING: If you edit this file, run the following command to generate
 # the output with `helm template`, and verify that your changes have
