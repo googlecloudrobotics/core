@@ -21,6 +21,10 @@ spec:
     kind: Ingress
   - group: apps
     kind: StatefulSet
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+  - group: gateway.envoyproxy.io
+    kind: SecurityPolicy
   descriptor:
     type: "prometheus"
     version: {{ .Chart.Version }}
@@ -31,5 +35,3 @@ spec:
     links:
     - description: Prometheus
       url: "https://{{ .Values.domain }}/prometheus/"
-    - description: Grafana Dashboard
-      url: "https://{{ .Values.domain }}/grafana/"
