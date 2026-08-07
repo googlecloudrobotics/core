@@ -60,6 +60,7 @@ prometheus:
         operator: "DoesNotExist"
 
     externalUrl: "${EXTERNAL_URL}"
+    externalLabels: "${PROMETHEUS_EXTERNAL_LABELS}"
     retention: "${RETENTION_TIME}"
     retentionSize: "${RETENTION_SIZE}"
     walCompression: true

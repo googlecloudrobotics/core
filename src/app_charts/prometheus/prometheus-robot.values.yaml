@@ -21,6 +21,7 @@ defaultRules:
 
 prometheus:
   prometheusSpec:
+    externalLabels: "${PROMETHEUS_EXTERNAL_LABELS}"
     # Pick up all service monitors across all namespaces.
     serviceMonitorNamespaceSelector:
       # Inverse selector selects everything
