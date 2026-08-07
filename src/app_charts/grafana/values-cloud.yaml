@@ -1,0 +1,28 @@
+# Enable toggle for the standalone app components
+grafana:
+  enabled: true
+
+# Grafana HTTP configuration
+gf_server_domain: "${CLOUD_ROBOTICS_DOMAIN}"
+gf_server_root_url: "https://${CLOUD_ROBOTICS_DOMAIN}/grafana"
+gf_csrf_trusted_origins: ""
+# Grafana Ingress configuration. Does not use the same replace as the values above.
+gf_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
+# Header modification for Istio/HTTPRoutes support.
+gf_ingress_auth_url_header: ""
+gf_ingress_auth_url_headervalue: ""
+gf_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+gf_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+
+# Grafana SMTP configuration
+# Notes: these need to be all string, since we apply them using the template funtion "replace"
+gf_smtp_enabled: "false"
+gf_smtp_host: "smtp-host"
+gf_smtp_user: "smtp-user"
+gf_smtp_password: "smtp-api-key"
+gf_smtp_from_address: "from-address@example.com"
+gf_smtp_from_name: "from-name"
+gf_smtp_skip_verify: "true"
+
+# Fallback prometheus datasource namespace
+prometheusNamespace: "app-prometheus"
