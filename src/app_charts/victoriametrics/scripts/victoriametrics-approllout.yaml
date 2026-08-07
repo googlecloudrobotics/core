@@ -25,12 +25,6 @@ spec:
         time: "90d"
       # prom-proxy / auth-proxy configuration, mirroring Prometheus's
       # pattern for consistency
-      gf_server_domain: "flowstate.intrinsic.ai"
-      gf_csrf_trusted_origins: "flowstate.intrinsic.ai"
-      gf_server_root_url: "https://flowstate.intrinsic.ai/_p/xfa-awesome-alpha/vm-grafana"
-      gf_ingress_auth_url: "http://frontend.app-frontend.svc.cluster.local/auth-proxy/authorize?scopes=internal"
-      gf_ingress_auth_signin: "https://flowstate.intrinsic.ai/signin?redirectUrl=https%3A%2F%2Fflowstate.intrinsic.ai%2F_p%2Fxfa-awesome-alpha$escaped_request_uri"
-      gf_ingress_error_page_403: "https://flowstate.intrinsic.ai/signin?redirectUrl=https%3A%2F%2Fflowstate.intrinsic.ai%2F_p%2Fxfa-awesome-alpha$escaped_request_uri"
       prom_external_url: "https://flowstate.intrinsic.ai/_p/xfa-awesome-alpha/victoriametrics"
       prom_ingress_auth_url: "http://frontend.app-frontend.svc.cluster.local/auth-proxy/authorize?scopes=internal"
       prom_ingress_auth_signin: "https://flowstate.intrinsic.ai/signin?redirectUrl=https%3A%2F%2Fflowstate.intrinsic.ai%2F_p%2Fxfa-awesome-alpha$escaped_request_uri"
