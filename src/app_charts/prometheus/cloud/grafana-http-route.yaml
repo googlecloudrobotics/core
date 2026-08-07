@@ -1,4 +1,3 @@
-{{- if .Values.enable_cloud_prometheus }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -54,4 +53,3 @@ spec:
   action: CUSTOM
   provider:
     name: auth-provider-oauth
-{{- end }}

@@ -1,4 +1,3 @@
-{{- if .Values.enable_cloud_cloud_victoriametrics }}
 # This includes all resources expanded from the victoria-metrics-agent
 # chart using the values in ../victoriametrics-agent.cloud.values.yaml.
 # This is the CLOUD-side vmagent instance (scrapes kube-state-metrics
@@ -39,4 +38,3 @@
 {{- $data = $data | replace "  scrape.yml: |" (printf "  upstream-relabel.yml: |%s\n  scrape.yml: |" (.Values.upstream.metrics_relabel_config | nindent 4)) -}}
 {{- end -}}
 {{ $data }}
-{{- end }}

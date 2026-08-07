@@ -1,4 +1,3 @@
-{{- if .Values.enable_cloud_robot_victoriametrics }}
 {{- range list "" "-auth" }}
 {{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
 apiVersion: gateway.networking.k8s.io/v1
@@ -49,5 +48,4 @@ spec:
       port: {{ $.Values.vmselect_port }}
 {{- end }}
 ---
-{{- end }}
 {{- end }}

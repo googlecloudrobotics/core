@@ -1,4 +1,3 @@
-{{- if .Values.enable_robot_prometheus }}
 # This includes all resources expanded from the prometheus-operator chart using
 # the values in ../prometheus-cloud.values.yaml.
 # Some pseudo-variables that were inserted there are replaced with actual runtime values.
@@ -19,4 +18,3 @@
 {{- end }}
 
 {{ $data }}
-{{- end }}

@@ -45,7 +45,6 @@ app_chart(
     extra_templates = [
         "//third_party/kube-prometheus-stack:00-crds.yaml",
     ],
-    extra_values = ["values-robot.yaml"],
     files = [
         ":prometheus-operator-chart.robot",
     ],

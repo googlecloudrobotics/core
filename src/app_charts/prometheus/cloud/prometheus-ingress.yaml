@@ -1,4 +1,3 @@
-{{- if .Values.enable_cloud_prometheus }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -25,4 +24,3 @@ spec:
             name: kube-prometheus
             port:
               number: 9090
-{{- end }}

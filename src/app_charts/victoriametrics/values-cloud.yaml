@@ -1,5 +1,3 @@
-enable_cloud_robot_victoriametrics: true
-
 # App-chart-level values consumed by cloud/victoriametrics-operator.yaml's
 # pseudo-variable replace chain.
 # Mirrors src/app_charts/prometheus/values-cloud.yaml's pattern.

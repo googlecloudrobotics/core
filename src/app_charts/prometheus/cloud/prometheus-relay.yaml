@@ -1,4 +1,3 @@
-{{- if .Values.enable_cloud_prometheus }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -153,4 +152,3 @@ spec:
   provider:
     name: auth-provider-tv-robots-true
 
-{{- end }}

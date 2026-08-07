@@ -1,4 +1,3 @@
-{{- if .Values.enable_cloud_prometheus }}
 apiVersion: app.k8s.io/v1beta1
 kind: Application
 metadata:
@@ -34,4 +33,3 @@ spec:
       url: "https://{{ .Values.domain }}/prometheus/"
     - description: Grafana Dashboard
       url: "https://{{ .Values.domain }}/grafana/"
-{{- end }}

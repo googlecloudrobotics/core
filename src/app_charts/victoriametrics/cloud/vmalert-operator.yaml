@@ -1,4 +1,3 @@
-{{- if .Values.enable_cloud_robot_victoriametrics }}
 # This includes all resources expanded from the victoria-metrics-alert
 # chart using the values in ../vmalert.cloud.values.yaml. The vmselect
 # port pseudo-variable is replaced here so vmalert follows the same
@@ -6,4 +5,3 @@
 {{- $data := .Files.Get "files/vmalert-chart.cloud.yaml" -}}
 {{- $data = $data | replace "${VMSELECT_PORT}" (toString .Values.vmselect_port) | replace "HELM-NAMESPACE" .Release.Namespace -}}
 {{ $data }}
-{{- end }}

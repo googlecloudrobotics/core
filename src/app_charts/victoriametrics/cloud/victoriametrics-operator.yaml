@@ -1,4 +1,3 @@
-{{- if .Values.enable_cloud_robot_victoriametrics }}
 # This includes all resources expanded from the victoria-metrics-cluster
 # chart using the values in ../victoriametrics-cloud.values.yaml.
 # Some pseudo-variables that were inserted there are replaced with
@@ -9,4 +8,3 @@
 {{- $data := .Files.Get "files/victoriametrics-chart.cloud.yaml" -}}
 {{- $data = $data | replace "${VMSTORAGE_LIMITS_MEMORY}" .Values.limits.memory | replace "${VMSTORAGE_LIMITS_CPU}" .Values.limits.cpu | replace "${REQUESTS_STORAGE}" .Values.requests.storage | replace "${RETENTION_TIME}" .Values.retention.time | replace "${VMINSERT_PORT}" (toString .Values.vminsert_port) | replace "${VMSELECT_PORT}" (toString .Values.vmselect_port) | replace "${VMINSERT_REPLICAS}" (toString .Values.vminsert_replicas) | replace "${VMSELECT_REPLICAS}" (toString .Values.vmselect_replicas) | replace "HELM-NAMESPACE" .Release.Namespace -}}
 {{ $data }}
-{{- end }}
