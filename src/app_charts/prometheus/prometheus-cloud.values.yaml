@@ -169,49 +169,7 @@ nodeExporter:
       targetLabel: instance
 
 grafana:
-  # default password used by old releases, deployed behind auth-proxy so this
-  # is not a secret.
-  # we could also use "auth proxy authentication" but the second login defends
-  # against unintentional edits to dashboards.
-  adminPassword: "prom-operator"
-  testFramework:
-    enabled: false
-  env:
-    GF_SERVER_DOMAIN: "${CR_GF_SERVER_DOMAIN}"
-    GF_SERVER_ROOT_URL: "${CR_GF_SERVER_ROOT_URL}"
-    GF_AUTH_ANONYMOUS_ENABLED: "true"
-  # Load dashboards from configmaps with a given label across all namespaces.
-  sidecar:
-    dashboards:
-      enabled: true
-      label: grafana # Label our own legacy grafana-operator uses.
-      searchNamespace: ALL
-      multicluster:
-        global:
-          enabled: true
-        etcd:
-          enabled: true
-  grafana.ini:
-    analytics:
-      check_for_updates: false
-    security:
-      csrf_trusted_origins: "${CR_GF_CSRF_TRUSTED_ORIGINS}"
-    smtp:
-      enabled: "${CR_GF_SMTP_ENABLED}"
-      host: "${CR_GF_SMTP_HOST}"
-      user: "${CR_GF_SMTP_USER}"
-      password: "${CR_GF_SMTP_PASSWORD}"
-      from_address: "${CR_GF_SMTP_FROM_ADDRESS}"
-      from_name: "${CR_GF_SMTP_FROM_NAME}"
-      skip_verify: "${CR_GF_SMTP_SKIP_VERIFY}"
-  serviceMonitor:
-    relabelings:
-    - sourceLabels: [__meta_kubernetes_pod_node_name]
-      targetLabel: instance
-
-gf_ingress_auth_url: "${CR_GF_INGRESS_AUTH_URL}"
-gf_ingress_auth_signin: "${CR_GF_INGRESS_AUTH_SIGNIN}"
-gf_ingress_error_page_403: "${CR_GF_INGRESS_ERROR_PAGE_403}"
+  enabled: false
 
 prom_ingress_auth_url: "${CR_PROM_INGRESS_AUTH_URL}"
 prom_ingress_auth_signin: "${CR_PROM_INGRESS_AUTH_SIGNIN}"
