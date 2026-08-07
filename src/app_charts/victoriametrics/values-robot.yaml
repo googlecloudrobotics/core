@@ -11,3 +11,14 @@ enable_robot_victoriametrics: true
 #
 # Must be set per deployment under AppRollout spec.robots[].values.
 vm_remote_write_url: ""
+
+# Optional upstream integration for an external metrics consumer. Sidecar fields
+# are raw YAML blocks for injecting an authorization sidecar into robot vmagent;
+# metrics fields add a second remote_write target with its own relabel filter.
+# Empty by default, no effect on existing projects.
+upstream:
+  sidecar_containers: ""
+  sidecar_volumes: ""
+  sidecar_volume_mounts: ""
+  metrics_url: ""
+  metrics_relabel_config: ""
