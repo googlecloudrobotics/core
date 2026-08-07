@@ -11,9 +11,8 @@
   {{- end -}}
 {{- end -}}
 {{- if $prometheusExternalLabelsMap }}
-  {{- $prometheusExternalLabelsRawYaml := toYaml $prometheusExternalLabelsMap -}}
-  {{- $formattedExternalLabelsObject := $prometheusExternalLabelsRawYaml | nindent 6 -}}
-  {{- $data = $data | replace "${PROMETHEUS_EXTERNAL_LABELS}" $formattedExternalLabelsObject -}}
+  {{- $formattedExternalLabels := toYaml $prometheusExternalLabelsMap | nindent 6 -}}
+  {{- $data = $data | replace "${PROMETHEUS_EXTERNAL_LABELS}" $formattedExternalLabels -}}
 {{- else }}
   {{- $data = $data | replace "${PROMETHEUS_EXTERNAL_LABELS}" " {}" -}}
 {{- end }}
