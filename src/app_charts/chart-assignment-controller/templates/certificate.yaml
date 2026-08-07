@@ -1,0 +1,15 @@
+{{- if .Values.webhook.enabled -}}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: chart-assignment-controller
+spec:
+  secretName: chart-assignment-controller-tls
+  commonName: chart-assignment-controller.{{ .Release.Namespace }}.svc
+  dnsNames:
+    - chart-assignment-controller.{{ .Release.Namespace }}.svc
+    - chart-assignment-controller.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    kind: ClusterIssuer
+    name: cluster-authority
+{{- end }}

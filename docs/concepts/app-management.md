@@ -151,3 +151,7 @@ action in the `ResourceSet` status.
 To revert to the state defined in the chart, simply remove the
 `synk.cloudrobotics.com/ignore` annotation (or set it to `"false"`). The next
 reconciliation will restore the original configuration.
+
+```shell
+kubectl annotate <resource-type> <resource-name> synk.cloudrobotics.com/ignore-
+```

@@ -9,6 +9,10 @@ removed {
 
 data "google_project" "project" {
   project_id = var.id
+
+  # Depending on `google_project_service.project-services` makes any resource that references
+  # this wait for services to be enabled.
+  depends_on = [google_project_service.project-services]
 }
 
 resource "google_project_iam_member" "owner_group" {
@@ -21,7 +25,7 @@ resource "google_project_iam_member" "owner_group" {
 # We can't use google_project_services because Endpoints adds services
 # dynamically.
 resource "google_project_service" "project-services" {
-  project            = data.google_project.project.project_id
+  project            = var.id
   disable_on_destroy = false
   for_each = toset(concat([
     "artifactregistry.googleapis.com",
@@ -52,11 +56,3 @@ resource "google_project_service" "project-services" {
   service = each.value
 }
 
-# This is needed to allow creating certificates in GCP.
-resource "google_project_service" "certificateauthority" {
-  project = data.google_project.project.project_id
-  # Only enable if Google CAS is the Certificate Authority
-  count              = var.certificate_provider == "google-cas" ? 1 : 0
-  service            = "privateca.googleapis.com"
-  disable_on_destroy = false
-}

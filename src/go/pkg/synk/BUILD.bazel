@@ -31,7 +31,7 @@ go_library(
         "@io_k8s_client_go//kubernetes/scheme:go_default_library",
         "@io_k8s_client_go//rest:go_default_library",
         "@io_k8s_client_go//restmapper:go_default_library",
-        "@io_opencensus_go//trace:go_default_library",
+        "@io_opentelemetry_go_otel//:otel",
     ],
 )
 
@@ -47,6 +47,7 @@ go_test(
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/apis/apiextensions/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
+        "@io_k8s_apimachinery//pkg/api/meta:go_default_library",
         "@io_k8s_apimachinery//pkg/api/meta/testrestmapper:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",

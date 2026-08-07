@@ -167,7 +167,7 @@ kind: Ingress
 metadata:
   name: hello-server-ingress
   annotations:
-    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
+    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
 spec:
   ingressClassName: nginx
   rules:

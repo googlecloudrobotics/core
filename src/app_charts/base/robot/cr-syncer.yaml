@@ -33,6 +33,12 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 120
           timeoutSeconds: 60
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          periodSeconds: 5
+          failureThreshold: 2
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true

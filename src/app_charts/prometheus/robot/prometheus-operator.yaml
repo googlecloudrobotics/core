@@ -2,5 +2,21 @@
 # This includes all resources expanded from the prometheus-operator chart using
 # the values in ../prometheus-cloud.values.yaml.
 # Some pseudo-variables that were inserted there are replaced with actual runtime values.
-{{ .Files.Get "files/prometheus-operator-chart.robot.yaml" | replace "${CLOUD_ROBOTICS_DOMAIN}" .Values.domain | replace "${GCP_PROJECT_ID}" .Values.project | replace "HELM-NAMESPACE" .Release.Namespace }}
+{{- $data := .Files.Get "files/prometheus-operator-chart.robot.yaml" | replace "${CLOUD_ROBOTICS_DOMAIN}" .Values.domain | replace "${GCP_PROJECT_ID}" .Values.project | replace "HELM-NAMESPACE" .Release.Namespace -}}
+
+# Inject the externalLabels as a pre-formatted YAML block to allow users to define multiple labels in a dict
+{{- $prometheusExternalLabelsMap := dict -}}
+{{- if .Values.prometheus -}}
+  {{- if .Values.prometheus.prometheusSpec -}}
+    {{- $prometheusExternalLabelsMap = .Values.prometheus.prometheusSpec.externalLabels -}}
+  {{- end -}}
+{{- end -}}
+{{- if $prometheusExternalLabelsMap }}
+  {{- $formattedExternalLabels := toYaml $prometheusExternalLabelsMap | nindent 6 -}}
+  {{- $data = $data | replace "${PROMETHEUS_EXTERNAL_LABELS}" $formattedExternalLabels -}}
+{{- else }}
+  {{- $data = $data | replace "${PROMETHEUS_EXTERNAL_LABELS}" " {}" -}}
+{{- end }}
+
+{{ $data }}
 {{- end }}

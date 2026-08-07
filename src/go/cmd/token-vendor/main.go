@@ -92,6 +92,8 @@ var (
 	scopes    = scopeFlags{}
 	robotName = flag.String("service_account", "robot-service",
 		"Name of the service account to generate cloud access tokens for (unless specified per on-prem robot).")
+	allowAnyMethod = flag.Bool("allow_any_method", false,
+		"If true, token verification endpoints (token.verify and jwt.verify) allow any HTTP method (GET, POST, etc.) for compatibility with Gateway API ext_authz.")
 )
 
 func main() {
@@ -162,7 +164,7 @@ func main() {
 		slog.Error("Failed to register root endpoints", ilog.Err(err))
 		os.Exit(1)
 	}
-	if err := apiv1.Register(tv, path.Join(*basePath, "v1")); err != nil {
+	if err := apiv1.Register(tv, path.Join(*basePath, "v1"), &apiv1.Options{AllowAnyMethod: *allowAnyMethod}); err != nil {
 		slog.Error("Failed to register v1 endpoints", ilog.Err(err))
 		os.Exit(1)
 	}

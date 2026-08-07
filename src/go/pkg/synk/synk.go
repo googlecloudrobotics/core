@@ -33,7 +33,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/ilog"
-	"go.opencensus.io/trace"
+	"go.opentelemetry.io/otel"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -61,6 +61,8 @@ const totalAnnotationSizeLimitB int = 256 * (1 << 10) // 256 kB
 // in the cluster, Synk will not overwrite it with the chart version, but will still
 // update its owner references so it does not get pruned.
 const AnnotationIgnore = "synk.cloudrobotics.com/ignore"
+
+var tracer = otel.Tracer("github.com/googlecloudrobotics/core/src/go/pkg/synk")
 
 // Synk allows to synchronize sets of resources with a fixed cluster.
 type Synk struct {
@@ -100,7 +102,7 @@ func NewForConfig(cfg *rest.Config) (*Synk, error) {
 	return New(client, cachedDiscovery), nil
 }
 
-// TODO: determine options that allow us to be semantically compatible with
+// TODO(freinartz): determine options that allow us to be semantically compatible with
 // vanilla kubectl apply.
 type ApplyOptions struct {
 	name    string
@@ -302,6 +304,7 @@ func IsTransientErr(err error) bool {
 	case k8serrors.IsServiceUnavailable(err):
 	// May happen shortly after CRD creation.
 	case discovery.IsGroupDiscoveryFailedError(err):
+	case meta.IsNoMatchError(err):
 	// May happen if a chart is deleted and immediately recreated.
 	// https://github.com/kubernetes/kubernetes/blob/d2a081c8e14e21e28fe5bdfa38a817ef9c0bb8e3/staging/src/k8s.io/apiserver/pkg/admission/plugin/namespace/lifecycle/admission.go#L173
 	case strings.Contains(err.Error(), "unable to create new content in namespace"):
@@ -444,7 +447,7 @@ func (s *Synk) initialize(
 	if err := s.populateNamespaces(ctx, opts.Namespace, crds, regulars...); err != nil {
 		return nil, nil, fmt.Errorf("set default namespaces: %w", err)
 	}
-	// TODO: consider putting this and other validation as a step after initialize
+	// TODO(freinartz): consider putting this and other validation as a step after initialize
 	// so we can give validation errors in batch in the ResourceSet status.
 	if opts.EnforceNamespace {
 		for _, r := range regulars {
@@ -503,7 +506,7 @@ func (s *Synk) populateNamespaces(
 	crds []*unstructured.Unstructured,
 	resources ...*unstructured.Unstructured,
 ) error {
-	_, span := trace.StartSpan(ctx, "Discover server resources")
+	_, span := tracer.Start(ctx, "Discover server resources")
 	// Invalidate is cheap (no noticeable effect on the duration of
 	// ServerGroupsAndResources) and reduces the frequency of the "stale
 	// GroupVersion discovery" warning.
@@ -684,12 +687,12 @@ func replace(ctx context.Context, client dynamic.ResourceInterface, resource *un
 
 func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured, set *apps.ResourceSet) (apps.ResourceAction, error) {
 	// If name is unset, we'd retrieve a list below and panic.
-	// TODO: This may be valid if generateName is set instead. In this case we
+	// TODO(freinartz): This may be valid if generateName is set instead. In this case we
 	// want to create the resource in any case.
 	if resource.GetName() == "" {
 		return apps.ResourceActionNone, fmt.Errorf("missing resource name for %s", resource.GroupVersionKind().String())
 	}
-	ctx, span := trace.StartSpan(ctx, "Apply "+resource.GetName())
+	ctx, span := tracer.Start(ctx, "Apply "+resource.GetName())
 	defer span.End()
 	// GroupVersionKind is not sufficient to determine the REST API path to use
 	// for the resource. We need to get this information from the RESTMapper,
@@ -713,11 +716,11 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 	}
 
 	// Create the resource if it doesn't exist yet.
-	_, getSpan := trace.StartSpan(ctx, "Get "+resource.GetName())
+	_, getSpan := tracer.Start(ctx, "Get "+resource.GetName())
 	current, err := client.Get(ctx, resource.GetName(), metav1.GetOptions{})
 	getSpan.End()
 	if k8serrors.IsNotFound(err) {
-		_, createSpan := trace.StartSpan(ctx, "Create "+resource.GetName())
+		_, createSpan := tracer.Start(ctx, "Create "+resource.GetName())
 		res, err := client.Create(ctx, resource, metav1.CreateOptions{})
 		createSpan.End()
 		if err != nil {
@@ -740,7 +743,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		// we are updating the current cluster state directly instead of applying
 		// the desired resource.
 		setOwnerRef(current, set)
-		_, updateSpan := trace.StartSpan(ctx, "Update owner refs "+resource.GetName())
+		_, updateSpan := tracer.Start(ctx, "Update owner refs "+resource.GetName())
 		res, err := client.Update(ctx, current, metav1.UpdateOptions{})
 		updateSpan.End()
 		if err != nil {
@@ -773,13 +776,13 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		)
 		obj, err := scheme.Scheme.New(mapping.GroupVersionKind)
 		if err == nil {
-			// TODO: add option to dynamically load patch meta from discovery API
+			// TODO(ensonic): add option to dynamically load patch meta from discovery API
 			// for full kubectl compatibility.
 			patchMeta, err := strategicpatch.NewPatchMetaFromStruct(obj)
 			if err != nil {
 				return apps.ResourceActionNone, fmt.Errorf("lookup patch meta: %w", err)
 			}
-			// TODO: Make overwrite boolean configurable for full kubectl compatibility.
+			// TODO(ensonic): Make overwrite boolean configurable for full kubectl compatibility.
 			patch, err = strategicpatch.CreateThreeWayMergePatch(
 				originalRaw, resourceRaw, currentRaw,
 				patchMeta, true,
@@ -811,7 +814,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		// However, it isn't used anywhere in kubectl apply itself. Thus we don't do it here either.
 		// Additionally the CL doesn't seem to implement valid behavior as the patch
 		// retries will not update to a new resourceVersion and the failure would persist.
-		_, patchSpan := trace.StartSpan(ctx, "Patch "+resource.GetName())
+		_, patchSpan := tracer.Start(ctx, "Patch "+resource.GetName())
 		res, err := client.Patch(ctx, resource.GetName(), patchType, patch, metav1.PatchOptions{})
 		patchSpan.End()
 		if err == nil {
@@ -827,7 +830,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 
 		resource.SetResourceVersion(current.GetResourceVersion())
 
-		_, updateSpan := trace.StartSpan(ctx, "Update "+resource.GetName())
+		_, updateSpan := tracer.Start(ctx, "Update "+resource.GetName())
 		res, err := client.Update(ctx, resource, metav1.UpdateOptions{})
 		updateSpan.End()
 		if err == nil {
@@ -842,9 +845,9 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 	if !canReplace(resource, patchErr) {
 		return apps.ResourceActionUpdate, fmt.Errorf("apply patch or update: %w", patchErr)
 	}
-	_, replace_span := trace.StartSpan(ctx, "Replace "+resource.GetName())
+	_, replaceSpan := tracer.Start(ctx, "Replace "+resource.GetName())
 	res, err := replace(ctx, client, resource)
-	replace_span.End()
+	replaceSpan.End()
 	if err != nil {
 		return apps.ResourceActionReplace, fmt.Errorf("replace: %w", err)
 	}
@@ -1033,7 +1036,7 @@ func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, versio
 		if !ok || n != name || v >= version {
 			continue
 		}
-		// TODO: should we possibly opt for foreground deletion here so
+		// TODO(freinartz): should we possibly opt for foreground deletion here so
 		// we only return after all dependents have been deleted as well?
 		// kubectl doesn't allow to opt into foreground deletion in general but
 		// here it would likely bring us closer to the apply --prune semantics.
@@ -1060,7 +1063,7 @@ func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int3
 		if !ok || n != name || v >= version {
 			continue
 		}
-		// TODO: should we possibly opt for foreground deletion here so
+		// TODO(freinartz): should we possibly opt for foreground deletion here so
 		// we only return after all dependents have been deleted as well?
 		// kubectl doesn't allow to opt into foreground deletion in general but
 		// here it would likely bring us closer to the apply --prune semantics.

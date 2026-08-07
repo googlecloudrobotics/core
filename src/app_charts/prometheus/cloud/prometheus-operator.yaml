@@ -35,5 +35,20 @@
   {{- $data = $data | replace "${CR_PROMETHEUS_TOLERATIONS_OBJECT}" " []" -}}
 {{- end }}
 
+
+# Inject the externalLabels as a pre-formatted YAML block to allow users to define multiple labels in a dict
+{{- $prometheusExternalLabelsMap := dict -}}
+{{- if .Values.prometheus -}}
+  {{- if .Values.prometheus.prometheusSpec -}}
+    {{- $prometheusExternalLabelsMap = .Values.prometheus.prometheusSpec.externalLabels -}}
+  {{- end -}}
+{{- end -}}
+{{- if $prometheusExternalLabelsMap }}
+  {{- $formattedExternalLabels := toYaml $prometheusExternalLabelsMap | nindent 6 -}}
+  {{- $data = $data | replace "${PROMETHEUS_EXTERNAL_LABELS}" $formattedExternalLabels -}}
+{{- else }}
+  {{- $data = $data | replace "${PROMETHEUS_EXTERNAL_LABELS}" " {}" -}}
+{{- end }}
+
 {{ $data }}
 {{- end }}

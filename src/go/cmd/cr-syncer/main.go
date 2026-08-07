@@ -57,14 +57,21 @@ import (
 	"syscall"
 	"time"
 
-	"contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"github.com/googlecloudrobotics/ilog"
 	"github.com/motemen/go-loghttp"
-	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
-	"go.opencensus.io/zpages"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/contrib/zpages"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/prometheus"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
+	"go.opentelemetry.io/otel/semconv/v1.41.0/httpconv"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -74,14 +81,15 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 const (
 	// Resync informers every 5 minutes. This will cause all current resources
 	// to be sent as updates once again, which will trigger reconciliation on those
 	// objects and thus fix any potential drift.
-	resyncPeriod = 5 * time.Minute
+	resyncPeriod               = 5 * time.Minute
+	tagLocation  attribute.Key = "location"
 )
 
 var (
@@ -94,44 +102,24 @@ var (
 	verbose            = flag.Bool("verbose", false, "DEPRECATED: Use log_level")
 	logLevel           = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
 
-	sizeDistribution    = view.Distribution(0, 1024, 2048, 4096, 16384, 65536, 262144, 1048576, 4194304, 33554432)
-	latencyDistribution = view.Distribution(0, 1, 2, 5, 10, 15, 25, 50, 100, 200, 400, 800, 1500, 3000, 6000)
-
-	tagLocation = mustNewTagKey("location")
+	sizeBoundaries    = []float64{0, 1024, 2048, 4096, 16384, 65536, 262144, 1048576, 4194304, 33554432}
+	latencyBoundaries = []float64{0, 1, 2, 5, 10, 15, 25, 50, 100, 200, 400, 800, 1500, 3000, 6000}
 )
 
-func init() {
-	if err := view.Register(
-		&view.View{
-			Name:        ochttp.ClientRequestCount.Name(),
-			Description: ochttp.ClientRequestCount.Description(),
-			Measure:     ochttp.ClientRequestCount,
-			TagKeys:     []tag.Key{ochttp.Method, tagLocation},
-			Aggregation: view.Count(),
-		},
-		&view.View{
-			Name:        ochttp.ClientRequestBytes.Name(),
-			Description: ochttp.ClientRequestBytes.Description(),
-			Measure:     ochttp.ClientRequestBytes,
-			TagKeys:     []tag.Key{ochttp.Method, ochttp.StatusCode, tagLocation},
-			Aggregation: sizeDistribution,
-		},
-		&view.View{
-			Name:        ochttp.ClientResponseBytes.Name(),
-			Description: ochttp.ClientResponseBytes.Description(),
-			Measure:     ochttp.ClientResponseBytes,
-			TagKeys:     []tag.Key{ochttp.Method, ochttp.StatusCode, tagLocation},
-			Aggregation: sizeDistribution,
-		},
-		&view.View{
-			Name:        ochttp.ClientLatency.Name(),
-			Description: ochttp.ClientLatency.Description(),
-			Measure:     ochttp.ClientLatency,
-			TagKeys:     []tag.Key{ochttp.Method, ochttp.StatusCode, tagLocation},
-			Aggregation: latencyDistribution,
-		},
-	); err != nil {
-		panic(err)
+func customViews() []sdkmetric.View {
+	return []sdkmetric.View{
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: httpconv.ClientRequestBodySize{}.Name()},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{Boundaries: sizeBoundaries}},
+		),
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: httpconv.ClientResponseBodySize{}.Name()},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{Boundaries: sizeBoundaries}},
+		),
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: httpconv.ClientRequestDuration{}.Name()},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{Boundaries: latencyBoundaries}},
+		),
 	}
 }
 
@@ -154,15 +142,17 @@ func (pr *PrefixingRoundtripper) RoundTrip(r *http.Request) (*http.Response, err
 	return resp, err
 }
 
-// ctxRoundTripper injects a fixed context into all requests. This is used to
-// provide static OpenCensus tags as Kubernetes' client-go provides no context hooks.
-type ctxRoundTripper struct {
-	base http.RoundTripper
-	ctx  context.Context
+// labelerRoundTripper injects an otelhttp.Labeler into the request context
+// so custom OpenTelemetry attributes (e.g. location="remote") can be attached
+// to native otelhttp client metrics.
+type labelerRoundTripper struct {
+	base    http.RoundTripper
+	labeler *otelhttp.Labeler
 }
 
-func (r *ctxRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	return r.base.RoundTrip(req.WithContext(r.ctx))
+func (r *labelerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	ctx := otelhttp.ContextWithLabeler(req.Context(), r.labeler)
+	return r.base.RoundTrip(req.WithContext(ctx))
 }
 
 // restConfigForRemote assembles the K8s REST config for the remote server.
@@ -177,10 +167,9 @@ func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
 			return nil, err
 		}
 	}
-	ctx, err = tag.New(ctx, tag.Insert(tagLocation, "remote"))
-	if err != nil {
-		return nil, err
-	}
+
+	labeler := new(otelhttp.Labeler)
+	labeler.Add(tagLocation.String("remote"))
 	transport := func(base http.RoundTripper) (rt http.RoundTripper) {
 		rt = &oauth2.Transport{
 			Source: tokenSource,
@@ -193,8 +182,8 @@ func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
 		if *verbose {
 			rt = &loghttp.Transport{Transport: rt}
 		}
-		rt = &ochttp.Transport{Base: rt}
-		return &ctxRoundTripper{base: rt, ctx: ctx}
+		rt = otelhttp.NewTransport(rt, otelhttp.WithPropagators(telemetry.HTTPPropagator))
+		return &labelerRoundTripper{base: rt, labeler: labeler}
 	}
 	return &rest.Config{
 		Host:          *remoteServer,
@@ -238,6 +227,7 @@ func streamCrds(done <-chan struct{}, clientset crdclientset.Interface, crds cha
 }
 
 func main() {
+	// Initialize klog flags (e.g. -v) to allow configuring client-go's internal logging verbosity.
 	klog.InitFlags(nil)
 	flag.Parse()
 
@@ -256,17 +246,15 @@ func main() {
 		slog.Error("InClusterConfig", ilog.Err(err))
 		os.Exit(1)
 	}
-	localCtx, err := tag.New(ctx, tag.Insert(tagLocation, "local"))
-	if err != nil {
-		slog.Error("tag.New", ilog.Err(err))
-		os.Exit(1)
-	}
+
+	labeler := new(otelhttp.Labeler)
+	labeler.Add(tagLocation.String("local"))
 	localConfig.WrapTransport = func(base http.RoundTripper) http.RoundTripper {
 		if *verbose {
 			base = &loghttp.Transport{Transport: base}
 		}
-		base = &ochttp.Transport{Base: base}
-		return &ctxRoundTripper{base: base, ctx: localCtx}
+		base = otelhttp.NewTransport(base, otelhttp.WithPropagators(telemetry.HTTPPropagator))
+		return &labelerRoundTripper{base: base, labeler: labeler}
 	}
 	local, err := dynamic.NewForConfig(localConfig)
 	if err != nil {
@@ -284,15 +272,36 @@ func main() {
 		os.Exit(1)
 	}
 
-	exporter, err := prometheus.NewExporter(prometheus.Options{})
+	exporter, err := prometheus.New()
 	if err != nil {
-		slog.Error("NewExporter", ilog.Err(err))
+		slog.Error("prometheus.New", ilog.Err(err))
 		os.Exit(1)
 	}
-	view.RegisterExporter(exporter)
-	view.SetReportingPeriod(time.Second)
-	zpages.Handle(nil, "/debug")
-	http.Handle("/metrics", exporter)
+
+	r, err := resource.New(
+		ctx,
+		resource.WithAttributes(semconv.ServiceName("cr-syncer")),
+		resource.WithFromEnv(),
+		resource.WithTelemetrySDK(),
+	)
+	if err != nil {
+		slog.Error("resource.New", ilog.Err(err))
+		os.Exit(1)
+	}
+
+	provider := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(exporter),
+		sdkmetric.WithView(customViews()...),
+		sdkmetric.WithResource(r),
+	)
+	otel.SetMeterProvider(provider)
+
+	spanProcessor := zpages.NewSpanProcessor()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spanProcessor))
+	otel.SetTracerProvider(tp)
+
+	http.Handle("/debug", zpages.NewTracezHandler(spanProcessor))
+	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/health", newHealthHandler(ctx, remote))
 
 	go func() {
@@ -344,12 +353,4 @@ func main() {
 			}
 		}
 	}
-}
-
-func mustNewTagKey(s string) tag.Key {
-	k, err := tag.NewKey(s)
-	if err != nil {
-		panic(err)
-	}
-	return k
 }

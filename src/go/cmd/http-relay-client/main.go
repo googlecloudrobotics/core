@@ -31,10 +31,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client"
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"github.com/googlecloudrobotics/ilog"
-	"go.opencensus.io/trace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 var (
@@ -113,16 +113,18 @@ func main() {
 	defer stop()
 
 	if stackdriverProjectID != "" {
-		sd, err := stackdriver.NewExporter(stackdriver.Options{
-			ProjectID: stackdriverProjectID,
-		})
+		tp, err := telemetry.SetupCloudTracing(ctx,
+			stackdriverProjectID,
+			"http-relay-client",
+			sdktrace.ParentBased(
+				sdktrace.TraceIDRatioBased(1e-4),
+			),
+		)
 		if err != nil {
-			slog.Error("Failed to create the Stackdriver exporter", slog.String("Project", stackdriverProjectID), ilog.Err(err))
+			slog.Error("Failed to setup Cloud Tracing", slog.String("Project", stackdriverProjectID), ilog.Err(err))
 			os.Exit(1)
-		} else {
-			trace.RegisterExporter(sd)
-			defer sd.Flush()
 		}
+		defer tp.Shutdown(context.Background())
 	}
 
 	client := client.NewClient(config)
