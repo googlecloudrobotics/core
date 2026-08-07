@@ -13,20 +13,16 @@ vmselect_replicas: 1
 vminsert_port: 8480
 vmselect_port: 8481
 
-# Optional raw YAML blocks for injecting an upstream authorization sidecar into
-# the cloud vmagent Deployment. The sidecar writes credentials to a shared
-# volume read automatically by vmagent, with no vmagent-side config needed
-# beyond the volume mount. Empty by default, no effect on existing projects.
-upstream_sidecar_containers: ""
-upstream_sidecar_volumes: ""
-upstream_sidecar_volume_mounts: ""
-
-# Optional second remote_write target for an external upstream metrics consumer
-# (Cloud Ops). Empty by default - no second target, existing behavior unchanged.
-# When set, applies to this target only, never the local vminsert target. Generic
-# naming per Cloud Ops's request.
-upstream_metrics_url: ""
-upstream_metrics_relabel_config: ""
+# Optional upstream integration for an external metrics consumer. Sidecar fields
+# are raw YAML blocks for injecting an authorization sidecar into cloud vmagent;
+# metrics fields add a second remote_write target with its own relabel filter.
+# Empty by default, no effect on existing projects.
+upstream:
+  sidecar_containers: ""
+  sidecar_volumes: ""
+  sidecar_volume_mounts: ""
+  metrics_url: ""
+  metrics_relabel_config: ""
 
 prom_ingress_auth_url: "http://frontend.app-frontend.svc.cluster.local/auth-proxy/authorize?scopes=internal"
 prom_ingress_auth_signin: "https://flowstate.intrinsic.ai/signin?redirectUrl=https%3A%2F%2Fflowstate.intrinsic.ai%2F_p%2Fxfa-awesome-alpha$escaped_request_uri"
