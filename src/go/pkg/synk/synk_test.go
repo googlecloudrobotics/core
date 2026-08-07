@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/meta/testrestmapper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -157,6 +158,8 @@ func TestSynk_IsTransientErr(t *testing.T) {
 				k8serrors.NewTooManyRequests("", 0),
 				k8serrors.NewServiceUnavailable(""),
 				&discovery.ErrGroupDiscoveryFailed{Groups: map[schema.GroupVersion]error{}},
+				&meta.NoKindMatchError{GroupKind: schema.GroupKind{Group: "security.istio.io", Kind: "AuthorizationPolicy"}},
+				&meta.NoResourceMatchError{PartialResource: schema.GroupVersionResource{Group: "security.istio.io", Version: "v1", Resource: "authorizationpolicies"}},
 			},
 		},
 		{
