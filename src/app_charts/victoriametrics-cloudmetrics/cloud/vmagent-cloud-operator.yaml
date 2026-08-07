@@ -16,10 +16,22 @@
 {{- if .Values.upstream.sidecar_volumes -}}
 {{- $data = $data | replace "            name: vmc-agent-victoria-metrics-agent-config" (printf "            name: vmc-agent-victoria-metrics-agent-config%s" (.Values.upstream.sidecar_volumes | nindent 8)) -}}
 {{- end -}}
+{{- if .Values.gcp_service_account -}}
+{{- $data = $data | replace "    gcp-service-account-placeholder: ${GCP_SERVICE_ACCOUNT}" (printf "    iam.gke.io/gcp-service-account: %s" .Values.gcp_service_account) -}}
+{{- else -}}
+{{- $data = $data | replace "  annotations:\n    gcp-service-account-placeholder: ${GCP_SERVICE_ACCOUNT}\n" "" -}}
+{{- end -}}
+{{- if or .Values.upstream.metrics_url .Values.upstream.remote_write_labels -}}
+{{- $extra := "" -}}
+{{- if .Values.upstream.remote_write_labels -}}
+{{- $extra = printf "%s%s" $extra (.Values.upstream.remote_write_labels | nindent 12) -}}
+{{- end -}}
 {{- if .Values.upstream.metrics_url -}}
-{{- $extra := printf "\n            - -remoteWrite.url=%s" .Values.upstream.metrics_url -}}
+{{- $urlExtra := printf "\n            - -remoteWrite.url=%s" .Values.upstream.metrics_url -}}
 {{- if .Values.upstream.metrics_relabel_config -}}
-{{- $extra = printf "\n            - -remoteWrite.urlRelabelConfig=\n            - -remoteWrite.urlRelabelConfig=/config/upstream-relabel.yml%s" $extra -}}
+{{- $urlExtra = printf "\n            - -remoteWrite.urlRelabelConfig=\n            - -remoteWrite.urlRelabelConfig=/config/upstream-relabel.yml%s" $urlExtra -}}
+{{- end -}}
+{{- $extra = printf "%s%s" $extra $urlExtra -}}
 {{- end -}}
 {{- $data = $data | replace "            - -loggerFormat=json" (printf "            - -loggerFormat=json%s" $extra) -}}
 {{- end -}}

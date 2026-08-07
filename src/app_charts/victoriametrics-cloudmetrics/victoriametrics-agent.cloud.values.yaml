@@ -22,6 +22,10 @@ remoteWriteUrls:
 rbac:
   pspEnabled: false
 
+serviceAccount:
+  annotations:
+    gcp-service-account-placeholder: "${GCP_SERVICE_ACCOUNT}"
+
 extraArgs:
   envflag.enable: "true"
   envflag.prefix: VM_

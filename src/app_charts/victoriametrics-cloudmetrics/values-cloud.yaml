@@ -1,5 +1,6 @@
 enable_cloud_cloud_victoriametrics: true
 release_name: "vmc-agent"
+gcp_service_account: ""
 
 limits:
   cpu: "2000m"
@@ -16,11 +17,14 @@ vmselect_port: 8481
 # Optional upstream integration for an external metrics consumer. Sidecar fields
 # are raw YAML blocks for injecting an authorization sidecar into cloud vmagent;
 # metrics fields add a second remote_write target with its own relabel filter.
+# remote_write_labels is a raw multi-line block of
+# "- -remoteWrite.label=key=value" style lines.
 # Empty by default, no effect on existing projects.
 upstream:
   sidecar_containers: ""
   sidecar_volumes: ""
   sidecar_volume_mounts: ""
+  remote_write_labels: ""
   metrics_url: ""
   metrics_relabel_config: ""
 
