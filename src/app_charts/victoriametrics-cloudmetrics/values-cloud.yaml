@@ -8,6 +8,8 @@ requests:
   storage: "100Gi"
 retention:
   time: "90d"
+vminsert_replicas: 1
+vmselect_replicas: 1
 vminsert_port: 8480
 vmselect_port: 8481
 

@@ -10,11 +10,11 @@ vmstorage:
   retentionPeriod: "${RETENTION_TIME}"
   resources:
     requests:
-      cpu: "${LIMITS_CPU}"
-      memory: "${LIMITS_MEMORY}"
+      cpu: "${VMSTORAGE_LIMITS_CPU}"
+      memory: "${VMSTORAGE_LIMITS_MEMORY}"
     limits:
-      cpu: "${LIMITS_CPU}"
-      memory: "${LIMITS_MEMORY}"
+      cpu: "${VMSTORAGE_LIMITS_CPU}"
+      memory: "${VMSTORAGE_LIMITS_MEMORY}"
   persistentVolume:
     storageClass: ssd
     accessModes:
@@ -23,14 +23,17 @@ vmstorage:
 
 vminsert:
   enabled: true
-  replicaCount: 1
+  replicaCount: ${VMINSERT_REPLICAS}
   extraArgs:
+    # Must stay coupled with vmstorage.replicaCount until vmstorage scaling is
+    # made build-time configurable; the upstream chart renders storageNode args
+    # from vmstorage.replicaCount during Bazel helm_template execution.
     replicationFactor: "2"
   service:
     servicePort: ${VMINSERT_PORT}
 
 vmselect:
   enabled: true
-  replicaCount: 1
+  replicaCount: ${VMSELECT_REPLICAS}
   service:
     servicePort: ${VMSELECT_PORT}
