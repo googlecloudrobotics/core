@@ -1,4 +1,4 @@
-{{- if .Values.prometheus_enabled }}
+{{- if .Values.enable_cloud_prometheus }}
 apiVersion: app.k8s.io/v1beta1
 kind: Application
 metadata:

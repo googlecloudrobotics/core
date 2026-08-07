@@ -1,3 +1,4 @@
+{{- if .Values.enable_robot_prometheus }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -33,4 +34,4 @@ spec:
         runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
-
+{{- end }}

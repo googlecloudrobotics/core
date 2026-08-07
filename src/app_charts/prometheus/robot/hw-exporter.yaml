@@ -1,3 +1,4 @@
+{{- if .Values.enable_robot_prometheus }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -79,3 +80,4 @@ spec:
   selector:
     matchLabels:
       app: hw-exporter
+{{- end }}

@@ -1,4 +1,4 @@
-victoriametrics_enabled: true
+enable_cloud_cloud_victoriametrics: true
 release_name: "vmc-agent"
 
 limits:

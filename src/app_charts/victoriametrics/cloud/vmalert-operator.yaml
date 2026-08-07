@@ -1,4 +1,4 @@
-{{- if .Values.victoriametrics_enabled }}
+{{- if .Values.enable_cloud_robot_victoriametrics }}
 # This includes all resources expanded from the victoria-metrics-alert
 # chart using the values in ../vmalert.cloud.values.yaml. The vmselect
 # port pseudo-variable is replaced here so vmalert follows the same

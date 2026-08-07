@@ -1,4 +1,4 @@
-{{- if .Values.victoriametrics_enabled }}
+{{- if .Values.enable_cloud_cloud_victoriametrics }}
 # This includes all resources expanded from the second victoria-metrics-cluster
 # chart using the values in ../victoriametrics-cloudmetrics.values.yaml.
 {{- $data := .Files.Get "files/victoriametrics-chart-cloudmetrics.cloud.yaml" -}}

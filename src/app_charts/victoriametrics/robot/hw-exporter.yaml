@@ -1,4 +1,4 @@
-{{- if .Values.victoriametrics_enabled }}
+{{- if .Values.enable_robot_victoriametrics }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:

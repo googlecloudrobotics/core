@@ -1,4 +1,4 @@
-victoriametrics_enabled: true
+enable_cloud_robot_victoriametrics: true
 
 # App-chart-level values consumed by cloud/victoriametrics-operator.yaml
 # and cloud/grafana-operator.yaml's pseudo-variable replace chains.

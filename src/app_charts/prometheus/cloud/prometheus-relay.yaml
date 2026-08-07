@@ -1,4 +1,4 @@
-{{- if .Values.prometheus_enabled }}
+{{- if .Values.enable_cloud_prometheus }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

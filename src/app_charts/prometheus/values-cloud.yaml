@@ -1,4 +1,4 @@
-prometheus_enabled: true
+enable_cloud_prometheus: true
 
 # The default requests/limits are sufficient for small deployments with a few
 # robots. For a large deployment with ~30 robots, you might need ~2CPU and

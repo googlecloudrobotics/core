@@ -1,4 +1,4 @@
-{{- if .Values.prometheus_enabled }}
+{{- if .Values.enable_cloud_prometheus }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

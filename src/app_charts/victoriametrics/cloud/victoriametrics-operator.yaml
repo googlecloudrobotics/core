@@ -1,4 +1,4 @@
-{{- if .Values.victoriametrics_enabled }}
+{{- if .Values.enable_cloud_robot_victoriametrics }}
 # This includes all resources expanded from the victoria-metrics-cluster
 # chart using the values in ../victoriametrics-cloud.values.yaml.
 # Some pseudo-variables that were inserted there are replaced with

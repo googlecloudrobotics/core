@@ -4,7 +4,7 @@
 # robot is already selected, letting the whole robot-side VM stack be turned off
 # project-wide without touching the selector. Defaults true - matches existing
 # behavior, no silent disable of any currently-deployed robot.
-victoriametrics_enabled: true
+enable_robot_victoriametrics: true
 
 # App-chart-level values consumed by robot/vmagent-operator.yaml's
 # pseudo-variable replace chain.

@@ -1,4 +1,4 @@
-{{- if .Values.victoriametrics_enabled }}
+{{- if .Values.enable_robot_victoriametrics }}
 # This includes all resources expanded from the prometheus-node-exporter
 # chart using the values in ../node-exporter.robot.values.yaml. No
 # pseudo-variables are currently used for this component - the

@@ -1,4 +1,4 @@
-{{- if .Values.victoriametrics_enabled }}
+{{- if .Values.enable_cloud_cloud_victoriametrics }}
 # This includes all resources expanded from the victoria-metrics-agent
 # chart using the values in ../victoriametrics-agent.cloud.values.yaml.
 # This is the CLOUD-side vmagent instance (scrapes kube-state-metrics

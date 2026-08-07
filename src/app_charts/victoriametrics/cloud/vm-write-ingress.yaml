@@ -1,4 +1,4 @@
-{{- if .Values.victoriametrics_enabled }}
+{{- if .Values.enable_cloud_robot_victoriametrics }}
 # Machine-to-machine write path for vmagent's remote_write, separate
 # from vm-ingress.yaml (the human browser-facing query path). Uses
 # the apikey auth-proxy scope (Bearer ink_... header) rather than the

@@ -1,4 +1,4 @@
-{{- if .Values.victoriametrics_enabled }}
+{{- if .Values.enable_cloud_cloud_victoriametrics }}
 # This includes all resources expanded from the kube-state-metrics
 # chart using the values in ../kube-state-metrics.cloud.values.yaml.
 # No custom pseudo-variables are currently used.
