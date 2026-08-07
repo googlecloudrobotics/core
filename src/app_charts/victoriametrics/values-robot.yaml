@@ -5,15 +5,16 @@
 vm_remote_write_url: ""
 
 # Optional upstream integration for an external metrics consumer. Sidecar fields
-# are raw YAML blocks for injecting an authorization sidecar into robot vmagent;
-# metrics fields add a second remote_write target with its own relabel filter.
-# remote_write_labels is a raw multi-line block of
-# "- -remoteWrite.label=key=value" style lines.
+# are structured YAML fragments for injecting an authorization sidecar into
+# robot vmagent; metrics fields add a second remote_write target with its own
+# relabel filter. remote_write_labels accepts key=value strings rendered as
+# repeated -remoteWrite.label flags; metrics_relabel_config accepts relabel
+# rule objects rendered into upstream-relabel.yml.
 # Empty by default, no effect on existing projects.
 upstream:
-  sidecar_containers: ""
-  sidecar_volumes: ""
-  sidecar_volume_mounts: ""
-  remote_write_labels: ""
+  sidecar_containers: []
+  sidecar_volumes: []
+  sidecar_volume_mounts: []
+  remote_write_labels: []
   metrics_url: ""
-  metrics_relabel_config: ""
+  metrics_relabel_config: []

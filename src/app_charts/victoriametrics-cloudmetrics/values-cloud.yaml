@@ -14,18 +14,19 @@ vminsert_port: 8480
 vmselect_port: 8481
 
 # Optional upstream integration for an external metrics consumer. Sidecar fields
-# are raw YAML blocks for injecting an authorization sidecar into cloud vmagent;
-# metrics fields add a second remote_write target with its own relabel filter.
-# remote_write_labels is a raw multi-line block of
-# "- -remoteWrite.label=key=value" style lines.
+# are structured YAML fragments for injecting an authorization sidecar into
+# cloud vmagent; metrics fields add a second remote_write target with its own
+# relabel filter. remote_write_labels accepts key=value strings rendered as
+# repeated -remoteWrite.label flags; metrics_relabel_config accepts relabel
+# rule objects rendered into upstream-relabel.yml.
 # Empty by default, no effect on existing projects.
 upstream:
-  sidecar_containers: ""
-  sidecar_volumes: ""
-  sidecar_volume_mounts: ""
-  remote_write_labels: ""
+  sidecar_containers: []
+  sidecar_volumes: []
+  sidecar_volume_mounts: []
+  remote_write_labels: []
   metrics_url: ""
-  metrics_relabel_config: ""
+  metrics_relabel_config: []
 
 prom_ingress_auth_url: "http://frontend.app-frontend.svc.cluster.local/auth-proxy/authorize?scopes=internal"
 prom_ingress_auth_signin: "https://flowstate.intrinsic.ai/signin?redirectUrl=https%3A%2F%2Fflowstate.intrinsic.ai%2F_p%2Fxfa-awesome-alpha$escaped_request_uri"
