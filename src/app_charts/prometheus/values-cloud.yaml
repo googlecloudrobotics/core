@@ -29,6 +29,7 @@ retention:
 # MetricRelabelConfigs to apply to samples after scraping, but before ingestion.
 prometheus:
   prometheusSpec:
+    externalLabels: {}
     nodeSelector: {}
     tolerations: []
   serviceMonitor:
