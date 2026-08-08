@@ -6,7 +6,7 @@
 # the output with `helm template`, and verify that your changes have
 # the expected effect.
 #
-#   bazel build src/app_charts/victoriametrics/victoriametrics-chart.cloud.yaml
+#   bazel build src/app_charts/victoriametrics-robotmetrics/victoriametrics-robotmetrics-chart.cloud.yaml
 #
 # NOTE: top-level limits/requests/retention values consumed by the
 # pseudo-variable replace chain live in ../values-cloud.yaml

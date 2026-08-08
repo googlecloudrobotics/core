@@ -5,7 +5,7 @@ load("//bazel:build_rules/helm_template.bzl", "helm_template")
 # --- Cloud side ---
 
 helm_template(
-    name = "victoriametrics-chart.cloud",
+    name = "victoriametrics-robotmetrics-chart.cloud",
     # Pinned to 0.11.23 (not latest) - newer versions require Helm 3.14+
     # via the shared victoria-metrics-common dependency, incompatible with
     # CRC's hermetic Helm 3.9.0 binary used by this rule.
@@ -31,10 +31,10 @@ helm_template(
 )
 
 app_chart(
-    name = "victoriametrics-cloud",
+    name = "victoriametrics-robotmetrics-cloud",
     extra_values = ["values-cloud.yaml"],
     files = [
-        ":victoriametrics-chart.cloud",
+        ":victoriametrics-robotmetrics-chart.cloud",
         ":vmalert-chart.cloud",
     ],
     images = {},
@@ -66,7 +66,7 @@ helm_template(
 )
 
 app_chart(
-    name = "victoriametrics-robot",
+    name = "victoriametrics-robotmetrics-robot",
     extra_values = ["values-robot.yaml"],
     files = [
         ":node-exporter-chart.robot",
@@ -75,10 +75,10 @@ app_chart(
 )
 
 app(
-    name = "victoriametrics",
+    name = "victoriametrics-robotmetrics",
     charts = [
-        ":victoriametrics-cloud",
-        ":victoriametrics-robot",
+        ":victoriametrics-robotmetrics-cloud",
+        ":victoriametrics-robotmetrics-robot",
     ],
     visibility = ["//visibility:public"],
 )

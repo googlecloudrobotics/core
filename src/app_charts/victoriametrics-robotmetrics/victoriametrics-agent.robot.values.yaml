@@ -9,7 +9,7 @@
 # the output with `helm template`, and verify that your changes have
 # the expected effect.
 #
-#   bazel build src/app_charts/victoriametrics/vmagent-chart.robot.yaml
+#   bazel build src/app_charts/victoriametrics-robotmetrics/vmagent-chart.robot.yaml
 
 remoteWriteUrls:
   - "${VM_REMOTE_WRITE_URL}"

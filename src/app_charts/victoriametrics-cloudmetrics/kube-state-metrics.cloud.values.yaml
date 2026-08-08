@@ -8,4 +8,4 @@
 # the output with `helm template`, and verify that your changes have
 # the expected effect.
 #
-#   bazel build src/app_charts/victoriametrics/kube-state-metrics-chart.cloud.yaml
+#   bazel build src/app_charts/victoriametrics-cloudmetrics/kube-state-metrics-chart.cloud.yaml

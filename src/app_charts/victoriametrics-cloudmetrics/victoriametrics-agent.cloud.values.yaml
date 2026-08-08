@@ -8,7 +8,7 @@
 # the output with `helm template`, and verify that your changes have
 # the expected effect.
 #
-#   bazel build src/app_charts/victoriametrics/vmagent-chart.cloud.yaml
+#   bazel build src/app_charts/victoriametrics-cloudmetrics/vmagent-chart.cloud.yaml
 
 remoteWriteUrls:
   # Same-cluster traffic - talks directly to the local vminsert
