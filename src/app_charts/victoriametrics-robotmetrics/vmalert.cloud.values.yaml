@@ -1,0 +1,24 @@
+server:
+  datasource:
+    url: "http://vm-victoria-metrics-cluster-vmselect:${VMSELECT_PORT}/select/0/prometheus"
+
+  notifier:
+    alertmanager:
+      url: "http://xfa-awesome-alpha-alertmanager.app-alertmanager.svc:9093"
+
+  config:
+    alerts:
+      groups:
+      - name: base-alerts.rules
+        rules:
+        - alert: CloudRoboticsPodFrequentlyRestarting
+          expr: increase(kube_pod_container_status_restarts_total[1h]) > 5
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Pod is restarting frequently
+            description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} was restarted {{ $value }} times within the last hour"
+
+alertmanager:
+  enabled: false

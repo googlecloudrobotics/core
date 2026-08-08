@@ -1,0 +1,39 @@
+# Configuration for the second victoria-metrics-cluster chart that stores
+# cloud-cluster metrics.
+#
+# Placeholder replica counts pending a real sizing discussion. Cloud-cluster
+# metrics volume should be much smaller and more stable than robot metrics.
+
+vmstorage:
+  enabled: true
+  replicaCount: 2
+  retentionPeriod: "${RETENTION_TIME}"
+  resources:
+    requests:
+      cpu: "${VMSTORAGE_LIMITS_CPU}"
+      memory: "${VMSTORAGE_LIMITS_MEMORY}"
+    limits:
+      cpu: "${VMSTORAGE_LIMITS_CPU}"
+      memory: "${VMSTORAGE_LIMITS_MEMORY}"
+  persistentVolume:
+    storageClass: ssd
+    accessModes:
+      - ReadWriteOnce
+    size: "${REQUESTS_STORAGE}"
+
+vminsert:
+  enabled: true
+  replicaCount: ${VMINSERT_REPLICAS}
+  extraArgs:
+    # Must stay coupled with vmstorage.replicaCount until vmstorage scaling is
+    # made build-time configurable; the upstream chart renders storageNode args
+    # from vmstorage.replicaCount during Bazel helm_template execution.
+    replicationFactor: "2"
+  service:
+    servicePort: ${VMINSERT_PORT}
+
+vmselect:
+  enabled: true
+  replicaCount: ${VMSELECT_REPLICAS}
+  service:
+    servicePort: ${VMSELECT_PORT}

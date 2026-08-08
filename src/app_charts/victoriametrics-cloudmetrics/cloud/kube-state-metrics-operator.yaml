@@ -1,0 +1,6 @@
+# This includes all resources expanded from the kube-state-metrics
+# chart using the values in ../kube-state-metrics.cloud.values.yaml.
+# No custom pseudo-variables are currently used.
+{{- $data := .Files.Get "files/kube-state-metrics-chart.cloud.yaml" -}}
+{{- $data = $data | replace "HELM-NAMESPACE" .Release.Namespace -}}
+{{ $data }}

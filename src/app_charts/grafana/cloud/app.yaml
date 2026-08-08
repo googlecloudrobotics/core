@@ -1,0 +1,30 @@
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: "grafana"
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/version: {{ .Chart.Version }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+  componentKinds:
+  - group: core
+    kind: Service
+  - group: apps
+    kind: Deployment
+  - group: apps
+    kind: Ingress
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+  descriptor:
+    type: "grafana"
+    version: {{ .Chart.Version }}
+    description: "Grafana provides metrics dashboards"
+    keywords:
+    - "dashboard"
+    - "metric"
+    links:
+    - description: Grafana Dashboard
+      url: "https://{{ .Values.domain }}/vm-grafana/"

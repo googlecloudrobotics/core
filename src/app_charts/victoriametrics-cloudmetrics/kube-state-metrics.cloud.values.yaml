@@ -1,0 +1,11 @@
+# Configuration for the kube-state-metrics chart used by the cloud-metrics
+# VictoriaMetrics stack. This provides Kubernetes object metrics for the
+# cloud cluster, matching the kube-state-metrics coverage provided by
+# Prometheus's kube-prometheus-stack subchart. Pinned to 5.33.2 to match
+# the version Prometheus's chart currently uses.
+#
+# WARNING: If you edit this file, run the following command to generate
+# the output with `helm template`, and verify that your changes have
+# the expected effect.
+#
+#   bazel build src/app_charts/victoriametrics-cloudmetrics/kube-state-metrics-chart.cloud.yaml

@@ -1,0 +1,13 @@
+# Apache license
+licenses(["notice"])
+
+exports_files(
+    glob(
+        [
+            "*.tgz",
+            "*.yaml",
+        ],
+        allow_empty = True,
+    ),
+    visibility = ["//visibility:public"],
+)

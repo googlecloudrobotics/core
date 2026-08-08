@@ -64,6 +64,8 @@ prometheus:
     retention: "${RETENTION_TIME}"
     retentionSize: "${RETENTION_SIZE}"
     walCompression: true
+    remoteWrite:
+    - url: "${PROM_REMOTE_WRITE_URL}"
     nodeSelector: "${CR_PROMETHEUS_NODE_SELECTOR_OBJECT}"
     tolerations: "${CR_PROMETHEUS_TOLERATIONS_OBJECT}"
     resources:

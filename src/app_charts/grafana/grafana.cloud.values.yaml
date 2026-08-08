@@ -1,0 +1,53 @@
+# Configuration for the standalone grafana chart.
+# Reference:
+# https://github.com/grafana/helm-charts/blob/grafana-10.5.15/charts/grafana/values.yaml
+#
+# Mirrors the Grafana configuration bundled in the existing
+# kube-prometheus-stack chart (see prometheus-cloud.values.yaml) so
+# that existing dashboard ConfigMaps continue to be picked up with no
+# changes required.
+
+testFramework:
+  enabled: false
+
+env:
+  GF_SERVER_DOMAIN: "${CR_GF_SERVER_DOMAIN}"
+  GF_SERVER_ROOT_URL: "${CR_GF_SERVER_ROOT_URL}"
+  GF_AUTH_ANONYMOUS_ENABLED: "true"
+
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana
+    searchNamespace: ALL
+
+grafana.ini:
+  analytics:
+    check_for_updates: false
+  security:
+    csrf_trusted_origins: "${CR_GF_CSRF_TRUSTED_ORIGINS}"
+  smtp:
+    enabled: "${CR_GF_SMTP_ENABLED}"
+    host: "${CR_GF_SMTP_HOST}"
+    user: "${CR_GF_SMTP_USER}"
+    password: "${CR_GF_SMTP_PASSWORD}"
+    from_address: "${CR_GF_SMTP_FROM_ADDRESS}"
+    from_name: "${CR_GF_SMTP_FROM_NAME}"
+    skip_verify: "${CR_GF_SMTP_SKIP_VERIFY}"
+
+# Point Grafana's datasources at VictoriaMetrics's PromQL-compatible
+# query endpoints instead of Prometheus.
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: VictoriaMetrics Robot
+        type: prometheus
+        url: "${VM_QUERY_URL_ROBOT}"
+        access: proxy
+        isDefault: true
+      - name: VictoriaMetrics Cloud
+        type: prometheus
+        url: "${VM_QUERY_URL_CLOUD}"
+        access: proxy
+        isDefault: false

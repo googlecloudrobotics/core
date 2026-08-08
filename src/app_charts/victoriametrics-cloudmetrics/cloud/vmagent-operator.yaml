@@ -1,0 +1,40 @@
+# This includes all resources expanded from the victoria-metrics-agent
+# chart using the values in ../victoriametrics-agent.cloud.values.yaml.
+# This is the CLOUD-side vmagent instance (scrapes kube-state-metrics
+# and kubelet/cAdvisor running in the cloud cluster itself) - distinct
+# from the ROBOT-side vmagent (../robot/vmagent-operator.yaml), which
+# scrapes robot hardware exporters.
+{{- $data := .Files.Get "files/vmagent-chart.cloud.yaml" -}}
+{{- $data = $data | replace "${VMINSERT_PORT}" (toString .Values.vminsert_port) | replace "release-name-placeholder" .Values.release_name | replace "HELM-NAMESPACE" .Release.Namespace -}}
+{{- if .Values.upstream.sidecar_volume_mounts -}}
+{{- $data = $data | replace "            - name: config\n              mountPath: /config" (printf "            - name: config\n              mountPath: /config%s" (toYaml .Values.upstream.sidecar_volume_mounts | nindent 12)) -}}
+{{- end -}}
+{{- if .Values.upstream.sidecar_containers -}}
+{{- $data = $data | replace "      volumes:" (printf "%s\n      volumes:" (toYaml .Values.upstream.sidecar_containers | nindent 8)) -}}
+{{- end -}}
+{{- if .Values.upstream.sidecar_volumes -}}
+{{- $data = $data | replace "            name: vmc-agent-victoria-metrics-agent-config" (printf "            name: vmc-agent-victoria-metrics-agent-config%s" (toYaml .Values.upstream.sidecar_volumes | nindent 8)) -}}
+{{- end -}}
+{{- if .Values.gcp_service_account -}}
+{{- $data = $data | replace "    gcp-service-account-placeholder: ${GCP_SERVICE_ACCOUNT}" (printf "    iam.gke.io/gcp-service-account: %s" .Values.gcp_service_account) -}}
+{{- else -}}
+{{- $data = $data | replace "  annotations:\n    gcp-service-account-placeholder: ${GCP_SERVICE_ACCOUNT}\n" "" -}}
+{{- end -}}
+{{- if or .Values.upstream.metrics_url .Values.upstream.remote_write_labels -}}
+{{- $extra := "" -}}
+{{- range .Values.upstream.remote_write_labels -}}
+{{- $extra = printf "%s\n            - -remoteWrite.label=%s" $extra . -}}
+{{- end -}}
+{{- if .Values.upstream.metrics_url -}}
+{{- $urlExtra := printf "\n            - -remoteWrite.url=%s" .Values.upstream.metrics_url -}}
+{{- if .Values.upstream.metrics_relabel_config -}}
+{{- $urlExtra = printf "\n            - -remoteWrite.urlRelabelConfig=\n            - -remoteWrite.urlRelabelConfig=/config/upstream-relabel.yml%s" $urlExtra -}}
+{{- end -}}
+{{- $extra = printf "%s%s" $extra $urlExtra -}}
+{{- end -}}
+{{- $data = $data | replace "            - -loggerFormat=json" (printf "            - -loggerFormat=json%s" $extra) -}}
+{{- end -}}
+{{- if .Values.upstream.metrics_relabel_config -}}
+{{- $data = $data | replace "  scrape.yml: |" (printf "  upstream-relabel.yml: |%s\n  scrape.yml: |" (toYaml .Values.upstream.metrics_relabel_config | nindent 4)) -}}
+{{- end -}}
+{{ $data }}
