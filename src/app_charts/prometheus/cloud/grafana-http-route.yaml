@@ -1,51 +1,21 @@
-{{- range list "" "-auth" }}
-{{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: grafana{{ . }}
+  name: grafana
   labels:
-    app.kubernetes.io/name: {{ $.Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
 spec:
   hostnames:
-  - {{ $.Values.domain }}
+  - {{ .Values.domain }}
   parentRefs:
-  - name: crc{{ . }}-gateway
+  - name: crc-gateway
     namespace: default
-    sectionName: {{ $sectionName }}
+    sectionName: https
   rules:
   - matches:
     - path:
         type: PathPrefix
         value: /grafana/
-{{- if eq . "-auth" }}
-{{- $authUrl := urlParse (tpl $.Values.gf_ingress_auth_url $) }}
-{{- $authUrlHeader := $.Values.gf_ingress_auth_url_header }}
-{{- $authUrlHeaderValue := $.Values.gf_ingress_auth_url_headervalue }}
-{{- $hostParts := splitList ":" $authUrl.host }}
-{{- $domainParts := splitList "." (first $hostParts) }}
-{{- $svcName := index $domainParts 0 }}
-{{- $svcNamespace := index $domainParts 1 }}
-{{- $svcPort := 80 }}{{ if eq $authUrl.scheme "https" }}{{ $svcPort = 443 }}{{ end }}
-{{- if gt (len $hostParts) 1 }}{{ $svcPort = index $hostParts 1 }}{{ end }}
-    filters:
-{{- if $authUrlHeader }}
-    - type: RequestHeaderModifier
-      requestHeaderModifier:
-        set:
-        - name: {{ $authUrlHeader }}
-          value: {{ $authUrlHeaderValue | quote }}
-{{- end }}
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplaceFullPath
-          replaceFullPath: {{ $authUrl.path }}{{ if $authUrl.query }}?{{ $authUrl.query }}{{ end }}
-    backendRefs:
-    - name: {{ $svcName }}
-      namespace: {{ $svcNamespace }}
-      port: {{ $svcPort }}
-{{- else }}
     filters:
     - type: URLRewrite
       urlRewrite:
@@ -55,6 +25,31 @@ spec:
     backendRefs:
     - name: prom-grafana
       port: 80
-{{- end }}
+  - matches:
+    - path:
+        type: Exact
+        value: /grafana
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /
+    backendRefs:
+    - name: prom-grafana
+      port: 80
 ---
-{{- end }}
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: grafana-auth
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: grafana
+  action: CUSTOM
+  provider:
+    name: auth-provider-oauth

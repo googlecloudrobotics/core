@@ -38,9 +38,9 @@ def _non_module_deps_impl(ctx):
     http_archive(
         name = "kubernetes_helm3",
         urls = [
-            "https://get.helm.sh/helm-v3.9.0-linux-amd64.tar.gz",
+            "https://get.helm.sh/helm-v3.21.3-linux-amd64.tar.gz",
         ],
-        sha256 = "1484ffb0c7a608d8069470f48b88d729e88c41a1b6602f145231e8ea7b43b50a",
+        sha256 = "15e041a93a590dce8100f39385cd98c84a765c9e36aeeb9e2dc6ff9e4769e2e0",
         strip_prefix = "linux-amd64",
         build_file = "//third_party/helm3:BUILD.bazel",
     )
