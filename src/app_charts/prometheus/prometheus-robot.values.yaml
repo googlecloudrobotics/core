@@ -155,7 +155,7 @@ kubelet:
       regex: 'container_(file_descriptors|tasks_state|threads_max)'
     - sourceLabels: [__name__]
       action: drop
-      regex: 'container_spec.*|container_network.*'
+      regex: 'container_spec.*|container_network.*|container_blkio.*|container_fs.*'
     - sourceLabels: [id, pod]
       action: drop
       regex: '.+;'
