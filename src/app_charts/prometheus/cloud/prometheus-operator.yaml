@@ -44,4 +44,47 @@
   {{- $data = $data | replace "${PROMETHEUS_EXTERNAL_LABELS}" " {}" -}}
 {{- end }}
 
+# Inject remoteWrite
+{{- $prometheusRemoteWriteList := .Values.prometheus.prometheusSpec.remoteWrite -}}
+{{- if $prometheusRemoteWriteList }}
+  {{- $formattedRemoteWriteObject := toYaml $prometheusRemoteWriteList | nindent 4 -}}
+  {{- $data = $data | replace "- url: ${CR_PROMETHEUS_REMOTE_WRITE_OBJECT}" $formattedRemoteWriteObject -}}
+{{- else }}
+  {{- $data = $data | replace "  remoteWrite:\n    - url: ${CR_PROMETHEUS_REMOTE_WRITE_OBJECT}" "" -}}
+{{- end }}
+
+
+# Inject containers
+{{- $prometheusContainersList := .Values.prometheus.prometheusSpec.containers -}}
+{{- if $prometheusContainersList }}
+  {{- $formattedContainersObject := toYaml $prometheusContainersList | nindent 4 -}}
+  {{- $data = $data | replace "- name: ${CR_PROMETHEUS_CONTAINERS_OBJECT}" $formattedContainersObject -}}
+{{- else }}
+  {{- $data = $data | replace "  containers:\n    - name: ${CR_PROMETHEUS_CONTAINERS_OBJECT}" "" -}}
+{{- end }}
+
+# Inject volumes
+{{- $prometheusVolumesList := .Values.prometheus.prometheusSpec.volumes -}}
+{{- if $prometheusVolumesList }}
+  {{- $formattedVolumesObject := toYaml $prometheusVolumesList | nindent 4 -}}
+  {{- $data = $data | replace "- name: ${CR_PROMETHEUS_VOLUMES_OBJECT}" $formattedVolumesObject -}}
+{{- else }}
+  {{- $data = $data | replace "  volumes:\n    - name: ${CR_PROMETHEUS_VOLUMES_OBJECT}" "" -}}
+{{- end }}
+
+
+# Inject Service Account Annotations
+{{- $prometheusSAAnnotationsMap := dict -}}
+{{- if .Values.prometheus.serviceAccount }}
+  {{- if .Values.prometheus.serviceAccount.annotations }}
+    {{- $prometheusSAAnnotationsMap = .Values.prometheus.serviceAccount.annotations -}}
+  {{- end }}
+{{- end }}
+{{- if $prometheusSAAnnotationsMap }}
+  {{- $prometheusSAAnnotationsRawYaml := toYaml $prometheusSAAnnotationsMap -}}
+  {{- $formattedSAAnnotationsObject := $prometheusSAAnnotationsRawYaml | nindent 4 -}}
+  {{- $data = $data | replace "CR_PROMETHEUS_SA_ANNOT_KEY: CR_PROMETHEUS_SA_ANNOTATIONS" $formattedSAAnnotationsObject -}}
+{{- else }}
+  {{- $data = $data | replace "  annotations:\n    CR_PROMETHEUS_SA_ANNOT_KEY: CR_PROMETHEUS_SA_ANNOTATIONS\n" "" -}}
+{{- end }}
 {{ $data }}
