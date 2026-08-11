@@ -108,7 +108,7 @@ prometheus:
     - name: "${CR_PROMETHEUS_VOLUMES_OBJECT}"
   serviceAccount:
     annotations:
-      CR_PROMETHEUS_SA_ANNOT_KEY: "CR_PROMETHEUS_SA_ANNOTATIONS"
+      "${CR_PROMETHEUS_SA_ANNOTATIONS}": ""
   serviceMonitor:
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
