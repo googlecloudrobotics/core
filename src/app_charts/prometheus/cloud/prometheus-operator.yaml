@@ -104,8 +104,7 @@
   {{- end }}
 {{- end }}
 {{- if $prometheusSAAnnotationsMap }}
-  {{- $prometheusSAAnnotationsRawYaml := toYaml $prometheusSAAnnotationsMap -}}
-  {{- $formattedSAAnnotationsObject := $prometheusSAAnnotationsRawYaml | indent 4 -}}
+  {{- $formattedSAAnnotationsObject := toYaml $prometheusSAAnnotationsMap | indent 4 -}}
   {{- $data = $data | replace "    ${CR_PROMETHEUS_SA_ANNOTATIONS}: \"\"" $formattedSAAnnotationsObject -}}
 {{- else }}
   {{- $data = $data | replace "  annotations:\n    ${CR_PROMETHEUS_SA_ANNOTATIONS}: \"\"\n" "" -}}
