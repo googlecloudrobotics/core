@@ -31,5 +31,3 @@ spec:
     links:
     - description: Prometheus
       url: "https://{{ .Values.domain }}/prometheus/"
-    - description: Grafana Dashboard
-      url: "https://{{ .Values.domain }}/grafana/"

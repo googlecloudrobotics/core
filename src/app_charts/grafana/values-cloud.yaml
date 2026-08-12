@@ -1,17 +1,28 @@
-gf_server_domain: "flowstate.intrinsic.ai"
-gf_server_root_url: "https://flowstate.intrinsic.ai/_p/xfa-awesome-alpha/vm-grafana"
-gf_csrf_trusted_origins: "flowstate.intrinsic.ai"
+# Enable toggle for the standalone app components
+grafana:
+  enabled: true
+
+# Grafana HTTP configuration
+gf_server_domain: "${CLOUD_ROBOTICS_DOMAIN}"
+gf_server_root_url: "https://${CLOUD_ROBOTICS_DOMAIN}/grafana"
+gf_csrf_trusted_origins: ""
+# Grafana Ingress configuration. Does not use the same replace as the values above.
+gf_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
+# Header modification for Istio/HTTPRoutes support.
+gf_ingress_auth_url_header: ""
+gf_ingress_auth_url_headervalue: ""
+gf_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+gf_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+
+# Grafana SMTP configuration
+# Notes: these need to be all string, since we apply them using the template funtion "replace"
 gf_smtp_enabled: "false"
-gf_smtp_host: ""
-gf_smtp_user: ""
-gf_smtp_password: ""
-gf_smtp_from_address: ""
-gf_smtp_from_name: ""
+gf_smtp_host: "smtp-host"
+gf_smtp_user: "smtp-user"
+gf_smtp_password: "smtp-api-key"
+gf_smtp_from_address: "from-address@example.com"
+gf_smtp_from_name: "from-name"
 gf_smtp_skip_verify: "true"
 
-gf_ingress_auth_url: "http://frontend.app-frontend.svc.cluster.local/auth-proxy/authorize?scopes=internal"
-gf_ingress_auth_signin: "https://flowstate.intrinsic.ai/signin?redirectUrl=https%3A%2F%2Fflowstate.intrinsic.ai%2F_p%2Fxfa-awesome-alpha$escaped_request_uri"
-gf_ingress_error_page_403: "https://flowstate.intrinsic.ai/signin?redirectUrl=https%3A%2F%2Fflowstate.intrinsic.ai%2F_p%2Fxfa-awesome-alpha$escaped_request_uri"
-
-vm_query_url_robot: "http://vm-victoria-metrics-cluster-vmselect.app-victoriametrics.svc.cluster.local:8481/select/0/prometheus"
-vm_query_url_cloud: "http://vmc-victoria-metrics-cluster-vmselect.app-victoriametrics-cloudmetrics.svc.cluster.local:8481/select/0/prometheus"
+# Fallback prometheus datasource namespace
+prometheusNamespace: "app-prometheus"

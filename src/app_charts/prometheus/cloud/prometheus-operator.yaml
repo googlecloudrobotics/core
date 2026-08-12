@@ -7,12 +7,18 @@
 #       need to be replaced last.
 {{- $data := .Files.Get "files/prometheus-operator-chart.cloud.yaml" -}}
 # Pre-process variables
-{{- $data = $data | replace "${CR_GF_SERVER_DOMAIN}" .Values.gf_server_domain | replace "${CR_GF_SERVER_ROOT_URL}" .Values.gf_server_root_url | replace "${CR_GF_CSRF_TRUSTED_ORIGINS}" .Values.gf_csrf_trusted_origins | replace "${CR_GF_SMTP_ENABLED}" .Values.gf_smtp_enabled | replace "${CR_GF_SMTP_HOST}" .Values.gf_smtp_host | replace "${CR_GF_SMTP_USER}" .Values.gf_smtp_user | replace "${CR_GF_SMTP_PASSWORD}" .Values.gf_smtp_password | replace "${CR_GF_SMTP_FROM_ADDRESS}" .Values.gf_smtp_from_address | replace "${CR_GF_SMTP_FROM_NAME}" .Values.gf_smtp_from_name | replace "${CR_GF_SMTP_SKIP_VERIFY}" .Values.gf_smtp_skip_verify | replace "${CR_GF_INGRESS_AUTH_URL}" .Values.gf_ingress_auth_url | replace "${CR_GF_INGRESS_AUTH_SIGNIN}" .Values.gf_ingress_auth_signin | replace "${CR_GF_INGRESS_ERROR_PAGE_403}" .Values.gf_ingress_error_page_403 | replace "${CR_PROM_INGRESS_AUTH_URL}" .Values.prom_ingress_auth_url | replace "${CR_PROM_INGRESS_AUTH_SIGNIN}" .Values.prom_ingress_auth_signin | replace "${CR_PROM_INGRESS_ERROR_PAGE_403}" .Values.prom_ingress_error_page_403 | replace "HELM-NAMESPACE" .Release.Namespace | replace "${LIMITS_MEMORY}" .Values.limits.memory | replace "${LIMITS_CPU}" .Values.limits.cpu | replace "${REQUESTS_STORAGE}" .Values.requests.storage | replace "${RETENTION_TIME}" .Values.retention.time | replace "${RETENTION_SIZE}" .Values.retention.size | replace "${EXTERNAL_URL}" .Values.prom_external_url | replace "${CLOUD_ROBOTICS_DOMAIN}" .Values.domain | replace "${GCP_PROJECT_ID}" .Values.project -}}
-{{- if .Values.prom_remote_write_url }}
-  {{- $data = $data | replace "${PROM_REMOTE_WRITE_URL}" .Values.prom_remote_write_url -}}
-{{- else }}
-  {{- $data = $data | replace "  remoteWrite:\n    - url: ${PROM_REMOTE_WRITE_URL}\n" "" -}}
-{{- end }}
+{{- $data = $data | replace "${CR_PROM_INGRESS_AUTH_URL}" .Values.prom_ingress_auth_url -}}
+{{- $data = $data | replace "${CR_PROM_INGRESS_AUTH_SIGNIN}" .Values.prom_ingress_auth_signin -}}
+{{- $data = $data | replace "${CR_PROM_INGRESS_ERROR_PAGE_403}" .Values.prom_ingress_error_page_403 -}}
+{{- $data = $data | replace "HELM-NAMESPACE" .Release.Namespace -}}
+{{- $data = $data | replace "${LIMITS_MEMORY}" .Values.limits.memory -}}
+{{- $data = $data | replace "${LIMITS_CPU}" .Values.limits.cpu -}}
+{{- $data = $data | replace "${REQUESTS_STORAGE}" .Values.requests.storage -}}
+{{- $data = $data | replace "${RETENTION_TIME}" .Values.retention.time -}}
+{{- $data = $data | replace "${RETENTION_SIZE}" .Values.retention.size -}}
+{{- $data = $data | replace "${EXTERNAL_URL}" .Values.prom_external_url -}}
+{{- $data = $data | replace "${CLOUD_ROBOTICS_DOMAIN}" .Values.domain -}}
+{{- $data = $data | replace "${GCP_PROJECT_ID}" .Values.project -}}
 
 # Inject the nodeSelector as a pre-formatted YAML block to allow users to define multiple selectors in a dict within values-cloud.yaml while maintaining valid indentation in the output.
 {{- $prometheusNodeSelectorMap := .Values.prometheus.prometheusSpec.nodeSelector -}}
@@ -49,4 +55,85 @@
   {{- $data = $data | replace "${PROMETHEUS_EXTERNAL_LABELS}" " {}" -}}
 {{- end }}
 
+# Inject remoteWrite
+{{- $prometheusRemoteWriteList := dict -}}
+{{- if .Values.prometheus }}
+  {{- if .Values.prometheus.prometheusSpec }}
+    {{- if .Values.prometheus.prometheusSpec.remoteWrite }}
+      {{- $prometheusRemoteWriteList = .Values.prometheus.prometheusSpec.remoteWrite -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $prometheusRemoteWriteList }}
+  {{- $formattedRemoteWriteObject := toYaml $prometheusRemoteWriteList | nindent 4 -}}
+  {{- $data = $data | replace "- url: ${CR_PROMETHEUS_REMOTE_WRITE_OBJECT}" $formattedRemoteWriteObject -}}
+{{- else }}
+  {{- $data = $data | replace "  remoteWrite:\n    - url: ${CR_PROMETHEUS_REMOTE_WRITE_OBJECT}" "" -}}
+{{- end }}
+
+
+# Inject containers
+{{- $prometheusContainersList := dict -}}
+{{- if .Values.prometheus }}
+  {{- if .Values.prometheus.prometheusSpec }}
+    {{- if .Values.prometheus.prometheusSpec.containers }}
+      {{- $prometheusContainersList = .Values.prometheus.prometheusSpec.containers -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $prometheusContainersList }}
+  {{- $formattedContainersObject := toYaml $prometheusContainersList | nindent 4 -}}
+  {{- $data = $data | replace "- name: ${CR_PROMETHEUS_CONTAINERS_OBJECT}" $formattedContainersObject -}}
+{{- else }}
+  {{- $data = $data | replace "\n    - name: ${CR_PROMETHEUS_CONTAINERS_OBJECT}" "" -}}
+{{- end }}
+
+# Inject volumes
+{{- $prometheusVolumesList := dict -}}
+{{- if .Values.prometheus }}
+  {{- if .Values.prometheus.prometheusSpec }}
+    {{- if .Values.prometheus.prometheusSpec.volumes }}
+      {{- $prometheusVolumesList = .Values.prometheus.prometheusSpec.volumes -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+
+# Inject volumeMounts
+{{- $prometheusVolumeMountsList := dict -}}
+{{- if .Values.prometheus }}
+  {{- if .Values.prometheus.prometheusSpec }}
+    {{- if .Values.prometheus.prometheusSpec.volumeMounts }}
+      {{- $prometheusVolumeMountsList = .Values.prometheus.prometheusSpec.volumeMounts -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $prometheusVolumeMountsList }}
+  {{- $formattedVolumeMountsObject := toYaml $prometheusVolumeMountsList | nindent 4 -}}
+  {{- $data = $data | replace "- name: ${CR_PROMETHEUS_VOLUME_MOUNTS_OBJECT}" $formattedVolumeMountsObject -}}
+{{- else }}
+  {{- $data = $data | replace "  volumeMounts:\n    - name: ${CR_PROMETHEUS_VOLUME_MOUNTS_OBJECT}" "" -}}
+{{- end }}
+{{- if $prometheusVolumesList }}
+  {{- $formattedVolumesObject := toYaml $prometheusVolumesList | nindent 4 -}}
+  {{- $data = $data | replace "- name: ${CR_PROMETHEUS_VOLUMES_OBJECT}" $formattedVolumesObject -}}
+{{- else }}
+  {{- $data = $data | replace "  volumes:\n    - name: ${CR_PROMETHEUS_VOLUMES_OBJECT}" "" -}}
+{{- end }}
+
+
+# Inject Service Account Annotations
+{{- $prometheusSAAnnotationsMap := dict -}}
+{{- if .Values.prometheus }}
+  {{- if .Values.prometheus.serviceAccount }}
+    {{- if .Values.prometheus.serviceAccount.annotations }}
+      {{- $prometheusSAAnnotationsMap = .Values.prometheus.serviceAccount.annotations -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $prometheusSAAnnotationsMap }}
+  {{- $formattedSAAnnotationsObject := toYaml $prometheusSAAnnotationsMap | indent 4 -}}
+  {{- $data = $data | replace "    ${CR_PROMETHEUS_SA_ANNOTATIONS}: \"\"" $formattedSAAnnotationsObject -}}
+{{- else }}
+  {{- $data = $data | replace "  annotations:\n    ${CR_PROMETHEUS_SA_ANNOTATIONS}: \"\"\n" "" -}}
+{{- end }}
 {{ $data }}

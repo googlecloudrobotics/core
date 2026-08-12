@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: vm-grafana
+  name: grafana
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
   annotations:
@@ -9,6 +9,8 @@ metadata:
     nginx.ingress.kubernetes.io/auth-signin: "{{ tpl .Values.gf_ingress_auth_signin . }}"
     nginx.ingress.kubernetes.io/backend-protocol: HTTP
     nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # HACK: oauth2-proxy will return 403, but nginx-ingress-controller only handles
+    # 401 with an error page.
     nginx.ingress.kubernetes.io/configuration-snippet: |
       error_page 403 = {{ tpl .Values.gf_ingress_error_page_403 . }};
 spec:
@@ -17,10 +19,10 @@ spec:
   - host: {{ .Values.domain }}
     http:
       paths:
-      - path: /vm-grafana($|/)(.*)
+      - path: /grafana($|/)(.*)
         pathType: Prefix
         backend:
           service:
-            name: vm-grafana
+            name: grafana
             port:
               number: 80

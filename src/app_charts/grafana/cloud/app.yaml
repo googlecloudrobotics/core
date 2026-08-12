@@ -16,15 +16,13 @@ spec:
     kind: Deployment
   - group: apps
     kind: Ingress
-  - group: gateway.networking.k8s.io
-    kind: HTTPRoute
   descriptor:
     type: "grafana"
     version: {{ .Chart.Version }}
-    description: "Grafana provides metrics dashboards"
+    description: "Grafana provides visualization dashboards"
     keywords:
     - "dashboard"
-    - "metric"
+    - "visualization"
     links:
     - description: Grafana Dashboard
-      url: "https://{{ .Values.domain }}/vm-grafana/"
+      url: "https://{{ .Values.domain }}/grafana/"
