@@ -106,6 +106,8 @@ prometheus:
     - url: "${CR_PROMETHEUS_REMOTE_WRITE_OBJECT}"
     volumes:
     - name: "${CR_PROMETHEUS_VOLUMES_OBJECT}"
+    volumeMounts:
+    - name: "${CR_PROMETHEUS_VOLUME_MOUNTS_OBJECT}"
   serviceAccount:
     annotations:
       "${CR_PROMETHEUS_SA_ANNOTATIONS}": ""

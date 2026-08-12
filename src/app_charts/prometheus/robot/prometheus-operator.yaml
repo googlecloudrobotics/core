@@ -58,6 +58,22 @@
     {{- end }}
   {{- end }}
 {{- end }}
+
+# Inject volumeMounts
+{{- $prometheusVolumeMountsList := dict -}}
+{{- if .Values.prometheus }}
+  {{- if .Values.prometheus.prometheusSpec }}
+    {{- if .Values.prometheus.prometheusSpec.volumeMounts }}
+      {{- $prometheusVolumeMountsList = .Values.prometheus.prometheusSpec.volumeMounts -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $prometheusVolumeMountsList }}
+  {{- $formattedVolumeMountsObject := toYaml $prometheusVolumeMountsList | nindent 4 -}}
+  {{- $data = $data | replace "- name: ${CR_PROMETHEUS_VOLUME_MOUNTS_OBJECT}" $formattedVolumeMountsObject -}}
+{{- else }}
+  {{- $data = $data | replace "  volumeMounts:\n    - name: ${CR_PROMETHEUS_VOLUME_MOUNTS_OBJECT}" "" -}}
+{{- end }}
 {{- if $prometheusVolumesList }}
   {{- $formattedVolumesObject := toYaml $prometheusVolumesList | nindent 4 -}}
   {{- $data = $data | replace "- name: ${CR_PROMETHEUS_VOLUMES_OBJECT}" $formattedVolumesObject -}}
