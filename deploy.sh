@@ -49,7 +49,7 @@ function include_config_and_defaults {
   APP_MANAGEMENT=${APP_MANAGEMENT:-false}
   ONPREM_FEDERATION=${ONPREM_FEDERATION:-true}
   GKE_SECRET_MANAGER_PLUGIN=${GKE_SECRET_MANAGER_PLUGIN:-false}
-  USE_ISTIO=${USE_ISTIO:-false}
+  USE_GATEWAY=${USE_GATEWAY:-false}
   USE_NGINX_SHIELD=${USE_NGINX_SHIELD:-false}
 
 
@@ -88,7 +88,7 @@ function prepare_source_install {
       //src/go/cmd/setup-robot:setup-robot.push
 
   mkdir -p ${DIR}/bazel-bin/src/go/cmd/synk/synk_/
-  mv -n ${tmpdir}/synk ${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk
+  mv -f ${tmpdir}/synk ${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk
   rm -f ${tmpdir}/synk
   rmdir ${tmpdir} || /bin/true
 
@@ -301,7 +301,7 @@ function helm_region_shared {
     --set-string "oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
     --set-string "oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
     --set-string "oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}"
-    --set-string "use_istio=${USE_ISTIO}"
+    --set-string "use_gateway=${USE_GATEWAY}"
     --set-string "use_nginx_shield=${USE_NGINX_SHIELD}"
     --set "use_tv_verbose=${CRC_USE_TV_VERBOSE}"
   )

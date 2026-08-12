@@ -21,6 +21,7 @@ spec:
           type: ReplacePrefixMatch
           replacePrefixMatch: /client
     timeouts:
+      request: 86400s
       backendRequest: 86400s
     backendRefs:
     - name: kubernetes-relay-server
@@ -48,12 +49,15 @@ spec:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /server
+    timeouts:
+      request: 86400s
+      backendRequest: 86400s
     backendRefs:
     - name: kubernetes-relay-server
       port: 80
 ---
-apiVersion: security.istio.io/v1
-kind: AuthorizationPolicy
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
 metadata:
   name: kubernetes-relay-client-auth
 spec:
@@ -61,12 +65,28 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: kubernetes-relay-client
-  action: CUSTOM
-  provider:
-    name: auth-provider-tv-robots-false
+  extAuth:
+    contextExtensions:
+    - name: robot
+      value: "false"
+    - name: scopes
+      value: "tokenvendor,tvhuman"
+    headersToExtAuth:
+    - authorization
+    - cookie
+    - x-forwarded-access-token
+    - x-forwarded-host
+    - apikey-token
+    - x-server-name
+    failOpen: false
+    grpc:
+      backendRefs:
+      - name: token-vendor
+        namespace: app-token-vendor
+        port: 9091
 ---
-apiVersion: security.istio.io/v1
-kind: AuthorizationPolicy
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
 metadata:
   name: kubernetes-relay-server-auth
 spec:
@@ -74,6 +94,25 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: kubernetes-relay-server
-  action: CUSTOM
-  provider:
-    name: auth-provider-tv-robots-true
+  extAuth:
+    contextExtensions:
+    - name: robot
+      value: "true"
+    - name: scopes
+      value: "tokenvendor,tvrobot"
+    headersToExtAuth:
+    - authorization
+    - cookie
+    - x-forwarded-access-token
+    - x-forwarded-host
+    - apikey-token
+    - x-server-name
+    failOpen: false
+    grpc:
+      backendRefs:
+      - name: token-vendor
+        namespace: app-token-vendor
+        port: 9091
+
+
+

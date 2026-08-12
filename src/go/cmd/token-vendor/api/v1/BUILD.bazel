@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["v1.go"],
+    srcs = [
+        "authz.go",
+        "v1.go",
+    ],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/api/v1",
     visibility = ["//visibility:public"],
     deps = [
@@ -10,13 +13,18 @@ go_library(
         "//src/go/cmd/token-vendor/app:go_default_library",
         "//src/go/cmd/token-vendor/oauth:go_default_library",
         "//src/go/cmd/token-vendor/repository:go_default_library",
+        "@com_github_envoyproxy_go_control_plane_envoy//service/auth/v3:go_default_library",
+        "@com_github_envoyproxy_go_control_plane_envoy//type/v3:go_default_library",
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
+        "@org_golang_google_genproto_googleapis_rpc//status:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
+        "authz_test.go",
         "ext_authz_test.go",
         "v1_test.go",
     ],
@@ -27,9 +35,12 @@ go_test(
         "//src/go/cmd/token-vendor/oauth:go_default_library",
         "//src/go/cmd/token-vendor/repository/k8s:go_default_library",
         "//src/go/cmd/token-vendor/tokensource:go_default_library",
+        "@com_github_envoyproxy_go_control_plane_envoy//service/auth/v3:go_default_library",
+        "@com_github_envoyproxy_go_control_plane_envoy//type/v3:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",
         "@io_k8s_client_go//kubernetes/fake:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
     ],
 )

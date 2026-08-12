@@ -30,7 +30,7 @@ spec:
     # We can't use dns01 since we don't control the dns-zone that endpoints uses.
     solvers:
       - http01:
-{{- if eq .Values.use_istio "true" }}
+{{- if eq .Values.use_gateway "true" }}
           gatewayHTTPRoute:
             parentRefs:
               - name: crc-gateway

@@ -1,0 +1,101 @@
+{{- if eq .Values.use_gateway "true" }}
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: crc-gateway-proxy-config
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: LoadBalancer
+        externalTrafficPolicy: Local
+        {{- if .Values.ingress_ip }}
+        loadBalancerIP: {{ .Values.ingress_ip }}
+        {{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: eg
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: crc-gateway-proxy-config
+    namespace: envoy-gateway-system
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: crc-gateway
+spec:
+  gatewayClassName: eg
+  listeners:
+  - name: http
+    # hostname: {{ .Values.domain }} # Uncomment to restrict this listener to the configured domain. Required if multiple Gateways share the same IP.
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https
+    # hostname: {{ .Values.domain }} # Uncomment to restrict this listener to the configured domain. Required if multiple Gateways share the same IP (via SNI).
+    protocol: HTTPS
+    port: 443
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: tls
+        kind: Secret
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-redirect
+spec:
+  parentRefs:
+  - name: crc-gateway
+    sectionName: http
+  rules:
+  - filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: https
+        statusCode: 301
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: crc-gateway-client-traffic-policy
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: crc-gateway
+  clientIPDetection:
+    xForwardedFor:
+      numTrustedHops: 1
+---
+# Align with NGINX default behavior: NGINX has no total request duration cap,
+# whereas Envoy Gateway defaults to a 15s requestTimeout. Setting requestTimeout
+# to 0s disables the 15s cap and allows infinite total request duration by default.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: crc-gateway-backend-traffic-policy
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: crc-gateway
+  timeout:
+    http:
+      requestTimeout: 0s
+{{- end }}
+

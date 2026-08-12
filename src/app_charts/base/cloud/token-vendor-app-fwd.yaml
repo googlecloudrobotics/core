@@ -13,5 +13,9 @@ spec:
     targetPort: 9090
     protocol: TCP
     name: token-vendor
+  - port: 9091
+    targetPort: 9091
+    protocol: TCP
+    name: grpc-auth
   type: ExternalName
   externalName: token-vendor.app-token-vendor.svc.cluster.local
