@@ -14,6 +14,28 @@ spec:
         {{- if .Values.ingress_ip }}
         loadBalancerIP: {{ .Values.ingress_ip }}
         {{- end }}
+      envoyDeployment:
+        pod:
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: envoy
+                  topologyKey: kubernetes.io/hostname
+        container:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 2000m
+              memory: 1Gi
+  shutdown:
+    drainTimeout: 60s
+    minDrainDuration: 15s
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
@@ -81,6 +103,16 @@ spec:
   clientIPDetection:
     xForwardedFor:
       numTrustedHops: 1
+  tls:
+    minVersion: "1.2"
+    alpnProtocols:
+    - h2
+    - http/1.1
+  http2:
+    initialStreamWindowSize: 1048576      # 1 MiB
+    initialConnectionWindowSize: 2097152  # 2 MiB
+  connection:
+    bufferLimit: 5Mi
 ---
 # Align with NGINX default behavior: NGINX has no total request duration cap,
 # whereas Envoy Gateway defaults to a 15s requestTimeout. Setting requestTimeout
@@ -94,8 +126,10 @@ spec:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: crc-gateway
+  bufferLimit: 5Mi
   timeout:
     http:
       requestTimeout: 0s
 {{- end }}
+
 

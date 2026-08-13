@@ -4,7 +4,7 @@ metadata:
   name: public-key-access
 spec:
   hostnames:
-  - {{ .Values.domain }}
+  - "{{ .Values.domain }}"
   parentRefs:
   - name: crc-gateway
     namespace: default
@@ -24,7 +24,7 @@ metadata:
   name: public-key-manager
 spec:
   hostnames:
-  - {{ .Values.domain }}
+  - "{{ .Values.domain }}"
   parentRefs:
   - name: crc-gateway
     namespace: default
@@ -47,7 +47,7 @@ metadata:
   name: token-vendor
 spec:
   hostnames:
-  - {{ .Values.domain }}
+  - "{{ .Values.domain }}"
   parentRefs:
   - name: crc-gateway
     namespace: default
