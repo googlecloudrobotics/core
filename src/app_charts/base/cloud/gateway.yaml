@@ -11,9 +11,7 @@ spec:
       envoyService:
         type: LoadBalancer
         externalTrafficPolicy: Local
-        {{- if .Values.ingress_ip }}
         loadBalancerIP: {{ .Values.ingress_ip }}
-        {{- end }}
       envoyDeployment:
         pod:
           affinity:

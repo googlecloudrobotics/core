@@ -72,12 +72,7 @@ spec:
     - name: scopes
       value: "tokenvendor,tvhuman"
     headersToExtAuth:
-    - authorization
-    - cookie
-    - x-forwarded-access-token
-    - x-forwarded-host
-    - apikey-token
-    - x-server-name
+    {{- toYaml .Values.authProxy.authHeaders | nindent 4 }}
     failOpen: false
     grpc:
       backendRefs:
@@ -101,12 +96,7 @@ spec:
     - name: scopes
       value: "tokenvendor,tvrobot"
     headersToExtAuth:
-    - authorization
-    - cookie
-    - x-forwarded-access-token
-    - x-forwarded-host
-    - apikey-token
-    - x-server-name
+    {{- toYaml .Values.authProxy.authHeaders | nindent 4 }}
     failOpen: false
     grpc:
       backendRefs:

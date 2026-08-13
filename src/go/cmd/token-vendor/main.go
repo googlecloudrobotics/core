@@ -101,11 +101,8 @@ var (
 		"If true, token verification endpoints (token.verify and jwt.verify) allow any HTTP method (GET, POST, etc.) for compatibility with Gateway API ext_authz.")
 )
 
-func init() {
-	flag.IntVar(grpcPort, "grpc-port", 9091, "Port number for gRPC ext_authz server (alias for grpc_port)")
-}
-
 func main() {
+	flag.IntVar(grpcPort, "grpc-port", 9091, "Port number for gRPC ext_authz server (alias for grpc_port)")
 	flag.Var(&scopes, "scope", "GCP scopes included in the token given out to robots.")
 	flag.Parse()
 

@@ -88,7 +88,7 @@ function prepare_source_install {
       //src/go/cmd/setup-robot:setup-robot.push
 
   mkdir -p ${DIR}/bazel-bin/src/go/cmd/synk/synk_/
-  mv -f ${tmpdir}/synk ${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk
+  mv -n ${tmpdir}/synk ${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk
   rm -f ${tmpdir}/synk
   rmdir ${tmpdir} || /bin/true
 

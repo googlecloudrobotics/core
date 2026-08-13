@@ -49,10 +49,9 @@ func (s *ExtAuthzServer) Check(ctx context.Context, req *authv3.CheckRequest) (*
 
 	isRobotReq := isRobot(req)
 
-	httpReq := req.GetAttributes().GetRequest().GetHttp()
 	var headers map[string]string
 	var pathStr string
-	if httpReq != nil {
+	if httpReq := req.GetAttributes().GetRequest().GetHttp(); httpReq != nil {
 		headers = httpReq.GetHeaders()
 		pathStr = httpReq.GetPath()
 	}
@@ -88,15 +87,25 @@ func (s *ExtAuthzServer) Check(ctx context.Context, req *authv3.CheckRequest) (*
 		return deniedResponse(typev3.StatusCode_Unauthorized, codes.Unauthenticated, "missing authorization credentials"), nil
 	}
 
-	if endpoint == "token.verify" || strings.Contains(endpoint, "token.verify") || strings.Contains(extPath, "/token.verify") || strings.Contains(pathStr, "/token.verify") {
+	if strings.HasPrefix(endpoint, "token.verify") || hasPathSuffix(extPath, "/token.verify") || hasPathSuffix(pathStr, "/token.verify") {
 		return s.verifyOAuthToken(ctx, tokenStr, isRobotReq)
 	}
 
-	if endpoint == "jwt.verify" || strings.Contains(endpoint, "jwt.verify") || strings.Contains(extPath, "/jwt.verify") || strings.Contains(pathStr, "/jwt.verify") {
+	if strings.HasPrefix(endpoint, "jwt.verify") || hasPathSuffix(extPath, "/jwt.verify") || hasPathSuffix(pathStr, "/jwt.verify") {
 		return s.verifyJWT(ctx, tokenStr)
 	}
 
 	return s.validateCredentials(ctx, tokenStr, isRobotReq)
+}
+
+func hasPathSuffix(rawURL, suffix string) bool {
+	if rawURL == "" {
+		return false
+	}
+	if u, err := url.Parse(rawURL); err == nil {
+		return strings.HasSuffix(u.Path, suffix) || u.Path == strings.TrimPrefix(suffix, "/")
+	}
+	return strings.HasSuffix(rawURL, suffix)
 }
 
 func (s *ExtAuthzServer) verifyOAuthToken(ctx context.Context, tokenStr string, isRobot bool) (*authv3.CheckResponse, error) {
@@ -179,9 +188,11 @@ func isRobot(req *authv3.CheckRequest) bool {
 			}
 		}
 		if scopes, ok := ext["scopes"]; ok {
-			s := strings.ToLower(scopes)
-			if strings.Contains(s, "robot") {
-				return true
+			for _, s := range strings.Split(scopes, ",") {
+				s = strings.ToLower(strings.TrimSpace(s))
+				if s == "tvrobot" || s == "robot" || s == "robots" {
+					return true
+				}
 			}
 		}
 		if p, ok := ext["path"]; ok && p != "" {
