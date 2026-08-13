@@ -153,26 +153,7 @@ func TestExtAuthzCheck_RobotJWT(t *testing.T) {
 			},
 			wantOK: true,
 		},
-		{
-			name: "valid robot jwt with contextExtension type=robot",
-			contextExt: map[string]string{
-				"type": "robot",
-			},
-			headers: map[string]string{
-				"authorization": jwtCorrect, // without Bearer prefix
-			},
-			wantOK: true,
-		},
-		{
-			name: "valid robot jwt with contextExtension scopes=tokenvendor,tvrobot",
-			contextExt: map[string]string{
-				"scopes": "tokenvendor,tvrobot",
-			},
-			headers: map[string]string{
-				"authorization": "Bearer " + jwtCorrect,
-			},
-			wantOK: true,
-		},
+
 		{
 			name: "valid robot jwt with header x-crc-tv-robots=true",
 			headers: map[string]string{
@@ -330,42 +311,7 @@ func TestExtAuthzCheck_OAuth2AccessToken(t *testing.T) {
 			iamStatus:  http.StatusOK,
 			wantOK:     true,
 		},
-		{
-			name: "robot token via x-forwarded-access-token with contextExtension type=robot",
-			contextExt: map[string]string{
-				"type": "robot",
-			},
-			headers: map[string]string{
-				"x-forwarded-access-token": validToken,
-			},
-			iamHasPerm: true,
-			iamStatus:  http.StatusOK,
-			wantOK:     true,
-		},
-		{
-			name: "robot token via authorization header with contextExtension scopes=tokenvendor,tvrobot",
-			contextExt: map[string]string{
-				"scopes": "tokenvendor,tvrobot",
-			},
-			headers: map[string]string{
-				"authorization": "Bearer " + validToken,
-			},
-			iamHasPerm: true,
-			iamStatus:  http.StatusOK,
-			wantOK:     true,
-		},
-		{
-			name: "human token via authorization header with contextExtension scopes=tokenvendor,tvhuman",
-			contextExt: map[string]string{
-				"scopes": "tokenvendor,tvhuman",
-			},
-			headers: map[string]string{
-				"authorization": "Bearer " + validToken,
-			},
-			iamHasPerm: true,
-			iamStatus:  http.StatusOK,
-			wantOK:     true,
-		},
+
 		{
 			name:       "token via query parameter happy path",
 			path:       "/test?token=" + validToken,

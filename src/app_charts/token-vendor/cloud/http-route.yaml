@@ -80,8 +80,6 @@ spec:
     contextExtensions:
     - name: robot
       value: "true"
-    - name: scopes
-      value: "tokenvendor,tvrobot"
     headersToExtAuth:
     - authorization
     - cookie
@@ -108,9 +106,6 @@ spec:
     contextExtensions:
     - name: robot
       value: "false"
-    - name: scopes
-      value: "tokenvendor,tvhuman"
-
     headersToExtAuth:
     - authorization
     - cookie

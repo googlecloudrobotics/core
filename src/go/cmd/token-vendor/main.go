@@ -79,7 +79,7 @@ var (
 	// API options
 	bind     = flag.String("bind", "0.0.0.0", "Address to bind to")
 	port     = flag.Int("port", 9090, "Port number to listen on")
-	grpcPort = flag.Int("grpc_port", 9091, "Port number for gRPC ext_authz server")
+	grpcPort = flag.Int("grpc-port", 9091, "Port number for gRPC ext_authz server")
 	basePath = flag.String("base",
 		"/apis/core.token-vendor",
 		"Base path where the API will be mounted to.")
@@ -102,7 +102,6 @@ var (
 )
 
 func main() {
-	flag.IntVar(grpcPort, "grpc-port", 9091, "Port number for gRPC ext_authz server (alias for grpc_port)")
 	flag.Var(&scopes, "scope", "GCP scopes included in the token given out to robots.")
 	flag.Parse()
 

@@ -50,10 +50,10 @@ func (s *ExtAuthzServer) Check(ctx context.Context, req *authv3.CheckRequest) (*
 	isRobotReq := isRobot(req)
 
 	var headers map[string]string
-	var pathStr string
+	var reqPath string
 	if httpReq := req.GetAttributes().GetRequest().GetHttp(); httpReq != nil {
 		headers = httpReq.GetHeaders()
-		pathStr = httpReq.GetPath()
+		reqPath = httpReq.GetPath()
 	}
 
 	var endpoint string
@@ -64,43 +64,46 @@ func (s *ExtAuthzServer) Check(ctx context.Context, req *authv3.CheckRequest) (*
 	}
 
 	// 1. Check X-Forwarded-Access-Token header
-	tokenStr := ""
+	token := ""
 	if fwdToken := getHeader(headers, "x-forwarded-access-token"); fwdToken != "" {
-		tokenStr = fwdToken
+		token = fwdToken
 	} else if authHeader := getHeader(headers, "authorization"); authHeader != "" {
-		tokenStr = strings.TrimSpace(authHeader)
-		if strings.HasPrefix(strings.ToLower(tokenStr), "bearer ") {
-			tokenStr = strings.TrimSpace(tokenStr[7:])
+		token = strings.TrimSpace(authHeader)
+		if strings.HasPrefix(strings.ToLower(token), "bearer ") {
+			token = strings.TrimSpace(token[7:])
 		}
-	} else if pathStr != "" {
-		if u, err := url.Parse(pathStr); err == nil {
-			tokenStr = u.Query().Get("token")
+	} else if reqPath != "" && strings.Contains(reqPath, "?") {
+		if u, err := url.Parse(reqPath); err == nil {
+			token = u.Query().Get("token")
 		}
 	}
-	if tokenStr == "" && extPath != "" {
+	if token == "" && extPath != "" && strings.Contains(extPath, "?") {
 		if u, err := url.Parse(extPath); err == nil {
-			tokenStr = u.Query().Get("token")
+			token = u.Query().Get("token")
 		}
 	}
 
-	if tokenStr == "" {
+	if token == "" {
 		return deniedResponse(typev3.StatusCode_Unauthorized, codes.Unauthenticated, "missing authorization credentials"), nil
 	}
 
-	if strings.HasPrefix(endpoint, "token.verify") || hasPathSuffix(extPath, "/token.verify") || hasPathSuffix(pathStr, "/token.verify") {
-		return s.verifyOAuthToken(ctx, tokenStr, isRobotReq)
+	if strings.HasPrefix(endpoint, "token.verify") || hasPathSuffix(extPath, "/token.verify") || hasPathSuffix(reqPath, "/token.verify") {
+		return s.verifyOAuthToken(ctx, token, isRobotReq)
 	}
 
-	if strings.HasPrefix(endpoint, "jwt.verify") || hasPathSuffix(extPath, "/jwt.verify") || hasPathSuffix(pathStr, "/jwt.verify") {
-		return s.verifyJWT(ctx, tokenStr)
+	if strings.HasPrefix(endpoint, "jwt.verify") || hasPathSuffix(extPath, "/jwt.verify") || hasPathSuffix(reqPath, "/jwt.verify") {
+		return s.verifyJWT(ctx, token)
 	}
 
-	return s.validateCredentials(ctx, tokenStr, isRobotReq)
+	return s.validateCredentials(ctx, token, isRobotReq)
 }
 
 func hasPathSuffix(rawURL, suffix string) bool {
 	if rawURL == "" {
 		return false
+	}
+	if !strings.Contains(rawURL, "?") {
+		return strings.HasSuffix(rawURL, suffix) || rawURL == suffix || rawURL == strings.TrimPrefix(suffix, "/")
 	}
 	if u, err := url.Parse(rawURL); err == nil {
 		return strings.HasSuffix(u.Path, suffix) || u.Path == strings.TrimPrefix(suffix, "/")
@@ -108,48 +111,67 @@ func hasPathSuffix(rawURL, suffix string) bool {
 	return strings.HasSuffix(rawURL, suffix)
 }
 
-func (s *ExtAuthzServer) verifyOAuthToken(ctx context.Context, tokenStr string, isRobot bool) (*authv3.CheckResponse, error) {
-	if _, err := isValidToken(tokenStr); err != nil {
-		return deniedResponse(typev3.StatusCode_BadRequest, codes.InvalidArgument, fmt.Sprintf("invalid access token format: %v", err)), nil
+func (s *ExtAuthzServer) verifyOAuthTokenInternal(ctx context.Context, token string, isRobot bool) (*authv3.CheckResponse, error) {
+	if _, err := isValidToken(token); err != nil {
+		return nil, err
 	}
-	if err := s.tv.VerifyToken(ctx, oauth.Token(tokenStr), isRobot); err != nil {
+	if err := s.tv.VerifyToken(ctx, oauth.Token(token), isRobot); err != nil {
 		slog.WarnContext(ctx, "Token verification failed", ilog.Err(err))
 		return deniedResponse(typev3.StatusCode_Forbidden, codes.PermissionDenied, "unable to verify token"), nil
 	}
 	return okResponse(), nil
 }
 
-func (s *ExtAuthzServer) verifyJWT(ctx context.Context, tokenStr string) (*authv3.CheckResponse, error) {
-	if _, err := isValidJWT(tokenStr); err != nil {
-		return deniedResponse(typev3.StatusCode_BadRequest, codes.InvalidArgument, fmt.Sprintf("invalid JWT format: %v", err)), nil
+func (s *ExtAuthzServer) verifyOAuthToken(ctx context.Context, token string, isRobot bool) (*authv3.CheckResponse, error) {
+	resp, err := s.verifyOAuthTokenInternal(ctx, token, isRobot)
+	if err != nil {
+		return deniedResponse(typev3.StatusCode_BadRequest, codes.InvalidArgument, fmt.Sprintf("invalid access token format: %v", err)), nil
 	}
-	if _, err := s.tv.ValidateJWT(ctx, tokenStr); err != nil {
+	return resp, nil
+}
+
+func (s *ExtAuthzServer) verifyJWTInternal(ctx context.Context, token string) (*authv3.CheckResponse, error) {
+	if _, err := isValidJWT(token); err != nil {
+		return nil, err
+	}
+	if _, err := s.tv.ValidateJWT(ctx, token); err != nil {
 		slog.WarnContext(ctx, "JWT validation failed", ilog.Err(err))
 		return deniedResponse(typev3.StatusCode_Forbidden, codes.PermissionDenied, fmt.Sprintf("JWT not valid: %v", err)), nil
 	}
 	return okResponse(), nil
 }
 
-func (s *ExtAuthzServer) validateCredentials(ctx context.Context, tokenStr string, isRobot bool) (*authv3.CheckResponse, error) {
+func (s *ExtAuthzServer) verifyJWT(ctx context.Context, token string) (*authv3.CheckResponse, error) {
+	resp, err := s.verifyJWTInternal(ctx, token)
+	if err != nil {
+		return deniedResponse(typev3.StatusCode_BadRequest, codes.InvalidArgument, fmt.Sprintf("invalid JWT format: %v", err)), nil
+	}
+	return resp, nil
+}
+
+func (s *ExtAuthzServer) validateCredentials(ctx context.Context, token string, isRobot bool) (*authv3.CheckResponse, error) {
 	// Google OAuth access tokens start with ya29. and must be verified as OAuth tokens,
 	// not JWTs (even if they contain dots matching loose regex).
-	if strings.HasPrefix(tokenStr, "ya29.") {
-		return s.verifyOAuthToken(ctx, tokenStr, isRobot)
+	if strings.HasPrefix(token, "ya29.") {
+		return s.verifyOAuthToken(ctx, token, isRobot)
 	}
 
 	if isRobot {
-		if ok, _ := isValidJWT(tokenStr); ok {
-			return s.verifyJWT(ctx, tokenStr)
+		resp, err := s.verifyJWTInternal(ctx, token)
+		if err == nil {
+			return resp, nil
 		}
-		if ok, _ := isValidToken(tokenStr); ok {
-			return s.verifyOAuthToken(ctx, tokenStr, true)
+		resp, err = s.verifyOAuthTokenInternal(ctx, token, true)
+		if err == nil {
+			return resp, nil
 		}
 		return deniedResponse(typev3.StatusCode_BadRequest, codes.InvalidArgument, "invalid token format"), nil
 	}
 
 	// Human request
-	if ok, _ := isValidToken(tokenStr); ok {
-		return s.verifyOAuthToken(ctx, tokenStr, false)
+	resp, err := s.verifyOAuthTokenInternal(ctx, token, false)
+	if err == nil {
+		return resp, nil
 	}
 
 	return deniedResponse(typev3.StatusCode_BadRequest, codes.InvalidArgument, "invalid token format"), nil
@@ -159,59 +181,40 @@ func isRobot(req *authv3.CheckRequest) bool {
 	if req.GetAttributes() == nil {
 		return false
 	}
+
+	parseBool := func(val string) (bool, bool) {
+		v := strings.ToLower(strings.TrimSpace(val))
+		if v == "true" || v == "1" || v == "yes" {
+			return true, true
+		}
+		if v == "false" || v == "0" || v == "no" {
+			return false, true
+		}
+		return false, false
+	}
+
 	if ext := req.GetAttributes().GetContextExtensions(); ext != nil {
 		if val, ok := ext["robot"]; ok {
-			v := strings.ToLower(strings.TrimSpace(val))
-			if v == "true" || v == "1" || v == "yes" {
-				return true
-			}
-			if v == "false" || v == "0" || v == "no" {
-				return false
+			if b, ok := parseBool(val); ok {
+				return b
 			}
 		}
 		if val, ok := ext["robots"]; ok {
-			v := strings.ToLower(strings.TrimSpace(val))
-			if v == "true" || v == "1" || v == "yes" {
-				return true
-			}
-			if v == "false" || v == "0" || v == "no" {
-				return false
+			if b, ok := parseBool(val); ok {
+				return b
 			}
 		}
-		if val, ok := ext["type"]; ok {
-			v := strings.ToLower(strings.TrimSpace(val))
-			if v == "robot" || v == "robots" {
-				return true
-			}
-			if v == "human" || v == "user" {
-				return false
-			}
-		}
-		if scopes, ok := ext["scopes"]; ok {
-			for _, s := range strings.Split(scopes, ",") {
-				s = strings.ToLower(strings.TrimSpace(s))
-				if s == "tvrobot" || s == "robot" || s == "robots" {
-					return true
-				}
-			}
-		}
-		if p, ok := ext["path"]; ok && p != "" {
+		if p, ok := ext["path"]; ok && p != "" && (strings.Contains(p, "robot") || strings.Contains(p, "robots")) {
 			if u, err := url.Parse(p); err == nil {
 				q := u.Query()
 				if val := q.Get("robots"); val != "" {
-					if strings.ToLower(strings.TrimSpace(val)) == "true" {
-						return true
-					}
-					if strings.ToLower(strings.TrimSpace(val)) == "false" {
-						return false
+					if b, ok := parseBool(val); ok {
+						return b
 					}
 				}
 				if val := q.Get("robot"); val != "" {
-					if strings.ToLower(strings.TrimSpace(val)) == "true" {
-						return true
-					}
-					if strings.ToLower(strings.TrimSpace(val)) == "false" {
-						return false
+					if b, ok := parseBool(val); ok {
+						return b
 					}
 				}
 			}
@@ -220,34 +223,22 @@ func isRobot(req *authv3.CheckRequest) bool {
 
 	httpReq := req.GetAttributes().GetRequest().GetHttp()
 	if httpReq != nil {
-		for k, v := range httpReq.GetHeaders() {
-			if strings.EqualFold(k, "x-crc-tv-robots") {
-				v := strings.ToLower(strings.TrimSpace(v))
-				if v == "true" || v == "1" || v == "yes" {
-					return true
-				}
-				if v == "false" || v == "0" || v == "no" {
-					return false
-				}
+		if val := getHeader(httpReq.GetHeaders(), "x-crc-tv-robots"); val != "" {
+			if b, ok := parseBool(val); ok {
+				return b
 			}
 		}
-		if pathStr := httpReq.GetPath(); pathStr != "" {
-			if u, err := url.Parse(pathStr); err == nil {
+		if reqPath := httpReq.GetPath(); reqPath != "" && (strings.Contains(reqPath, "robot") || strings.Contains(reqPath, "robots")) {
+			if u, err := url.Parse(reqPath); err == nil {
 				q := u.Query()
 				if val := q.Get("robots"); val != "" {
-					if strings.ToLower(strings.TrimSpace(val)) == "true" {
-						return true
-					}
-					if strings.ToLower(strings.TrimSpace(val)) == "false" {
-						return false
+					if b, ok := parseBool(val); ok {
+						return b
 					}
 				}
 				if val := q.Get("robot"); val != "" {
-					if strings.ToLower(strings.TrimSpace(val)) == "true" {
-						return true
-					}
-					if strings.ToLower(strings.TrimSpace(val)) == "false" {
-						return false
+					if b, ok := parseBool(val); ok {
+						return b
 					}
 				}
 			}
