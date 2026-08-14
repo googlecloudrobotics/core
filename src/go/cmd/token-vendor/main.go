@@ -182,7 +182,7 @@ func main() {
 		os.Exit(1)
 	}
 	grpcServer := grpc.NewServer()
-	authv3.RegisterAuthorizationServer(grpcServer, apiv1.NewAuthorizationServer(tv))
+	authv3.RegisterAuthorizationServer(grpcServer, apiv1.NewExtAuthzServer(tv))
 
 	go func() {
 		<-ctx.Done()
