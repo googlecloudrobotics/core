@@ -1,7 +1,7 @@
 # Cloud-side vmagent for the cloud-metrics VictoriaMetrics stack. This
 # instance scrapes metrics from the cloud cluster itself (kube-state-metrics
 # and kubelet/cAdvisor targets), distinct from the robot-side vmagent that
-# scrapes robot-local exporters. Pinned to 0.6.0, same reasoning as the
+# scrapes robot-local exporters. Pinned to 0.45.0 (appVersion v1.149.0), same as the
 # robot instance (see victoriametrics-agent.robot.values.yaml).
 #
 # WARNING: If you edit this file, run the following command to generate
@@ -10,12 +10,12 @@
 #
 #   bazel build src/app_charts/victoriametrics-cloudmetrics/vmagent-chart.cloud.yaml
 
-remoteWriteUrls:
+remoteWrite:
   # Same-cluster traffic - talks directly to the local vminsert
   # service, no Aqualine tunnel or API-key auth needed since this
   # never leaves the cluster (unlike robot-side vmagent's traffic,
   # which crosses the on-prem/cloud boundary).
-  - "http://vmc-victoria-metrics-cluster-vminsert:${VMINSERT_PORT}/insert/0/prometheus/api/v1/write"
+  - url: "http://vmc-victoria-metrics-cluster-vminsert:${VMINSERT_PORT}/insert/0/prometheus/api/v1/write"
 
 rbac:
   pspEnabled: false
@@ -25,7 +25,7 @@ serviceAccount:
     gcp-service-account-placeholder: "${GCP_SERVICE_ACCOUNT}"
 
 extraArgs:
-  envflag.enable: "true"
+  envflag.enable: true
   envflag.prefix: VM_
   loggerFormat: json
 
