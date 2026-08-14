@@ -36,8 +36,8 @@ type ExtAuthzServer struct {
 	tv *app.TokenVendor
 }
 
-// NewAuthorizationServer creates a new ExtAuthzServer with the given TokenVendor.
-func NewAuthorizationServer(tv *app.TokenVendor) *ExtAuthzServer {
+// NewExtAuthzServer creates a new ExtAuthzServer with the given TokenVendor.
+func NewExtAuthzServer(tv *app.TokenVendor) *ExtAuthzServer {
 	return &ExtAuthzServer{tv: tv}
 }
 
@@ -69,8 +69,9 @@ func (s *ExtAuthzServer) Check(ctx context.Context, req *authv3.CheckRequest) (*
 		token = fwdToken
 	} else if authHeader := getHeader(headers, "authorization"); authHeader != "" {
 		token = strings.TrimSpace(authHeader)
-		if strings.HasPrefix(strings.ToLower(token), "bearer ") {
-			token = strings.TrimSpace(token[7:])
+		const bearerPrefix = "bearer "
+		if strings.HasPrefix(strings.ToLower(token), bearerPrefix) {
+			token = strings.TrimSpace(token[len(bearerPrefix):])
 		}
 	} else if reqPath != "" && strings.Contains(reqPath, "?") {
 		if u, err := url.Parse(reqPath); err == nil {
@@ -102,13 +103,11 @@ func hasPathSuffix(rawURL, suffix string) bool {
 	if rawURL == "" {
 		return false
 	}
-	if !strings.Contains(rawURL, "?") {
-		return strings.HasSuffix(rawURL, suffix) || rawURL == suffix || rawURL == strings.TrimPrefix(suffix, "/")
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return strings.HasSuffix(rawURL, suffix)
 	}
-	if u, err := url.Parse(rawURL); err == nil {
-		return strings.HasSuffix(u.Path, suffix) || u.Path == strings.TrimPrefix(suffix, "/")
-	}
-	return strings.HasSuffix(rawURL, suffix)
+	return strings.HasSuffix(u.Path, suffix) || u.Path == strings.TrimPrefix(suffix, "/")
 }
 
 func (s *ExtAuthzServer) verifyOAuthTokenInternal(ctx context.Context, token string, isRobot bool) (*authv3.CheckResponse, error) {
@@ -182,41 +181,20 @@ func isRobot(req *authv3.CheckRequest) bool {
 		return false
 	}
 
-	parseBool := func(val string) (bool, bool) {
-		v := strings.ToLower(strings.TrimSpace(val))
-		if v == "true" || v == "1" || v == "yes" {
-			return true, true
-		}
-		if v == "false" || v == "0" || v == "no" {
-			return false, true
-		}
-		return false, false
-	}
-
 	if ext := req.GetAttributes().GetContextExtensions(); ext != nil {
 		if val, ok := ext["robot"]; ok {
-			if b, ok := parseBool(val); ok {
+			if b, ok := parseBoolValue(val); ok {
 				return b
 			}
 		}
 		if val, ok := ext["robots"]; ok {
-			if b, ok := parseBool(val); ok {
+			if b, ok := parseBoolValue(val); ok {
 				return b
 			}
 		}
 		if p, ok := ext["path"]; ok && p != "" && (strings.Contains(p, "robot") || strings.Contains(p, "robots")) {
-			if u, err := url.Parse(p); err == nil {
-				q := u.Query()
-				if val := q.Get("robots"); val != "" {
-					if b, ok := parseBool(val); ok {
-						return b
-					}
-				}
-				if val := q.Get("robot"); val != "" {
-					if b, ok := parseBool(val); ok {
-						return b
-					}
-				}
+			if b, ok := getRobotFromQuery(p); ok {
+				return b
 			}
 		}
 	}
@@ -224,27 +202,48 @@ func isRobot(req *authv3.CheckRequest) bool {
 	httpReq := req.GetAttributes().GetRequest().GetHttp()
 	if httpReq != nil {
 		if val := getHeader(httpReq.GetHeaders(), "x-crc-tv-robots"); val != "" {
-			if b, ok := parseBool(val); ok {
+			if b, ok := parseBoolValue(val); ok {
 				return b
 			}
 		}
 		if reqPath := httpReq.GetPath(); reqPath != "" && (strings.Contains(reqPath, "robot") || strings.Contains(reqPath, "robots")) {
-			if u, err := url.Parse(reqPath); err == nil {
-				q := u.Query()
-				if val := q.Get("robots"); val != "" {
-					if b, ok := parseBool(val); ok {
-						return b
-					}
-				}
-				if val := q.Get("robot"); val != "" {
-					if b, ok := parseBool(val); ok {
-						return b
-					}
-				}
+			if b, ok := getRobotFromQuery(reqPath); ok {
+				return b
 			}
 		}
 	}
 	return false
+}
+
+func parseBoolValue(val string) (bool, bool) {
+	v := strings.ToLower(strings.TrimSpace(val))
+	if v == "true" || v == "1" || v == "yes" {
+		return true, true
+	}
+	if v == "false" || v == "0" || v == "no" {
+		return false, true
+	}
+	return false, false
+}
+
+func getRobotFromQuery(rawURL string) (bool, bool) {
+	if rawURL == "" || !strings.Contains(rawURL, "?") {
+		return false, false
+	}
+	if u, err := url.Parse(rawURL); err == nil {
+		q := u.Query()
+		if val := q.Get("robots"); val != "" {
+			if b, ok := parseBoolValue(val); ok {
+				return b, true
+			}
+		}
+		if val := q.Get("robot"); val != "" {
+			if b, ok := parseBoolValue(val); ok {
+				return b, true
+			}
+		}
+	}
+	return false, false
 }
 
 func getHeader(headers map[string]string, key string) string {

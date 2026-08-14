@@ -81,7 +81,7 @@ func setupTestExtAuthzServer(t *testing.T, iamHandler RoundTripFunc) *ExtAuthzSe
 		t.Fatalf("failed to create token vendor: %v", err)
 	}
 
-	return NewAuthorizationServer(tv)
+	return NewExtAuthzServer(tv)
 }
 
 func TestExtAuthzCheck_NilRequest(t *testing.T) {
@@ -529,16 +529,7 @@ func TestExtAuthzCheck_EndpointDifferentiated(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			iamHandler := func(req *http.Request) *http.Response {
-				body := `{"permissions":["iam.serviceAccounts.actAs"]}`
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(strings.NewReader(body)),
-					Header:     make(http.Header),
-				}
-			}
-
-			srv := setupTestExtAuthzServer(t, iamHandler)
+			srv := setupTestExtAuthzServer(t, nil)
 
 			path := tc.path
 			if path == "" {
