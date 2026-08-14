@@ -24,6 +24,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: vm-victoria-metrics-cluster-vminsert
+            name: vmrobot-victoria-metrics-cluster-vminsert
             port:
               number: {{ .Values.vminsert_port }}

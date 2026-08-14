@@ -44,7 +44,7 @@ spec:
           type: ReplacePrefixMatch
           replacePrefixMatch: /
     backendRefs:
-    - name: vm-victoria-metrics-cluster-vmselect
+    - name: vmrobot-victoria-metrics-cluster-vmselect
       port: {{ $.Values.vmselect_port }}
 {{- end }}
 ---

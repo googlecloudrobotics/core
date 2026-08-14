@@ -21,6 +21,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: vm-victoria-metrics-cluster-vmselect
+            name: vmrobot-victoria-metrics-cluster-vmselect
             port:
               number: {{ .Values.vmselect_port }}
