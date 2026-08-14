@@ -1,4 +1,4 @@
-{{- if eq .Values.use_istio "false" }}
+{{- if eq .Values.use_gateway "false" }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

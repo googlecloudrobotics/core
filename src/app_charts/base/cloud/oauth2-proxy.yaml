@@ -148,8 +148,8 @@ spec:
     - name: oauth2-proxy
       port: 80
 ---
-apiVersion: security.istio.io/v1
-kind: AuthorizationPolicy
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
 metadata:
   name: oauth2-proxy-allow
 spec:
@@ -157,12 +157,11 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: oauth2-proxy
-  action: ALLOW
-  rules:
-  - {}
+  authorization:
+    defaultAction: Allow
 ---
-apiVersion: security.istio.io/v1
-kind: AuthorizationPolicy
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
 metadata:
   name: oauth2-proxy-interactive-allow
 spec:
@@ -170,7 +169,6 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: oauth2-proxy-interactive
-  action: ALLOW
-  rules:
-  - {}
+  authorization:
+    defaultAction: Allow
 {{- end }}
