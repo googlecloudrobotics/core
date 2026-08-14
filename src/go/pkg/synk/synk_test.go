@@ -158,8 +158,8 @@ func TestSynk_IsTransientErr(t *testing.T) {
 				k8serrors.NewTooManyRequests("", 0),
 				k8serrors.NewServiceUnavailable(""),
 				&discovery.ErrGroupDiscoveryFailed{Groups: map[schema.GroupVersion]error{}},
-				&meta.NoKindMatchError{GroupKind: schema.GroupKind{Group: "security.istio.io", Kind: "AuthorizationPolicy"}},
-				&meta.NoResourceMatchError{PartialResource: schema.GroupVersionResource{Group: "security.istio.io", Version: "v1", Resource: "authorizationpolicies"}},
+				&meta.NoKindMatchError{GroupKind: schema.GroupKind{Group: "gateway.envoyproxy.io", Kind: "SecurityPolicy"}},
+				&meta.NoResourceMatchError{PartialResource: schema.GroupVersionResource{Group: "gateway.envoyproxy.io", Version: "v1alpha1", Resource: "securitypolicies"}},
 			},
 		},
 		{
@@ -465,7 +465,7 @@ data:
 	if res.action != apps.ResourceActionIgnored {
 		t.Errorf("expected action Ignored, got %s", res.action)
 	}
-	
+
 	// Check that the returned resource has the old data
 	val, _, _ := unstructured.NestedString(res.resource.Object, "data", "foo1")
 	if val != "bar1" {
@@ -785,6 +785,12 @@ func TestSynk_validateNamespace(t *testing.T) {
 		{
 			desc:      "default is allowed",
 			namespace: "default",
+			optsNs:    "my-ns",
+			wantErr:   false,
+		},
+		{
+			desc:      "envoy-gateway-system is allowed",
+			namespace: "envoy-gateway-system",
 			optsNs:    "my-ns",
 			wantErr:   false,
 		},

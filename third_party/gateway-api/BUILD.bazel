@@ -4,7 +4,7 @@ licenses(["notice"])
 
 exports_files(
     [
-        "grpcroute-generated.yaml",
+        "gatewayapi-crds.yaml",
     ],
     visibility = ["//visibility:public"],
 )
