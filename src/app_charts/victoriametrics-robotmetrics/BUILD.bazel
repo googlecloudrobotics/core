@@ -44,10 +44,9 @@ app_chart(
 
 helm_template(
     name = "vmagent-chart.robot",
-    # Pinned to 0.6.0 - later versions introduce a probe templating
-    # pattern using Helm's tpl function that requires Template.Basepath
-    # context unavailable under this rule's invocation of Helm.
-    chart = "//third_party/victoria-metrics-agent:victoria-metrics-agent-0.6.0.tgz",
+    # Pinned to 0.45.0; CRC now uses Helm 3.21.3, which supports
+    # the victoria-metrics-common templates used by this chart.
+    chart = "//third_party/victoria-metrics-agent:victoria-metrics-agent-0.45.0.tgz",
     helm_version = 3,
     kube_version = "1.29.0",
     namespace = "HELM-NAMESPACE",

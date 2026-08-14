@@ -1,9 +1,7 @@
 # Configuration for the victoria-metrics-agent chart (vmagent).
-# Pinned to chart version 0.6.0 (predates the victoria-metrics-common
-# shared dependency, which introduces a templated probe pattern
-# incompatible with CRC's hermetic Helm 3.9.0 helm_template rule -
-# see technical log for details). Revisit this pin if CRC's pinned
-# Helm binary is ever upgraded to 3.14+.
+# Pinned to chart version 0.45.0 (appVersion v1.149.0). CRC now uses
+# Helm 3.21.3, which supports the victoria-metrics-common templates used
+# by this chart.
 #
 # WARNING: If you edit this file, run the following command to generate
 # the output with `helm template`, and verify that your changes have
@@ -11,8 +9,13 @@
 #
 #   bazel build src/app_charts/victoriametrics-robotmetrics/vmagent-chart.robot.yaml
 
-remoteWriteUrls:
-  - "${VM_REMOTE_WRITE_URL}"
+remoteWrite:
+  - url: "${VM_REMOTE_WRITE_URL}"
+
+extraArgs:
+  envflag.enable: true
+  envflag.prefix: VM_
+  loggerFormat: json
 
 rbac:
   pspEnabled: false
