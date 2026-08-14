@@ -16,9 +16,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,6 +28,8 @@ import (
 	"strings"
 	"syscall"
 
+	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
+	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -75,6 +79,7 @@ var (
 	// API options
 	bind     = flag.String("bind", "0.0.0.0", "Address to bind to")
 	port     = flag.Int("port", 9090, "Port number to listen on")
+	grpcPort = flag.Int("grpc-port", 9091, "Port number for gRPC ext_authz server")
 	basePath = flag.String("base",
 		"/apis/core.token-vendor",
 		"Base path where the API will be mounted to.")
@@ -168,6 +173,28 @@ func main() {
 		slog.Error("Failed to register v1 endpoints", ilog.Err(err))
 		os.Exit(1)
 	}
+
+	// start gRPC ext_authz server
+	grpcAddr := fmt.Sprintf("%s:%d", *bind, *grpcPort)
+	grpcListener, err := net.Listen("tcp", grpcAddr)
+	if err != nil {
+		slog.Error("Failed to listen for gRPC", slog.String("Address", grpcAddr), ilog.Err(err))
+		os.Exit(1)
+	}
+	grpcServer := grpc.NewServer()
+	authv3.RegisterAuthorizationServer(grpcServer, apiv1.NewAuthorizationServer(tv))
+
+	go func() {
+		<-ctx.Done()
+		grpcServer.GracefulStop()
+	}()
+
+	go func() {
+		slog.Info("gRPC ext_authz listening", slog.String("Address", grpcAddr))
+		if err := grpcServer.Serve(grpcListener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			slog.Error("gRPC server failed", ilog.Err(err))
+		}
+	}()
 
 	// serve API
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
