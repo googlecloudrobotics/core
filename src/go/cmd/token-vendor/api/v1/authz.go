@@ -103,13 +103,11 @@ func hasPathSuffix(rawURL, suffix string) bool {
 	if rawURL == "" {
 		return false
 	}
-	if !strings.Contains(rawURL, "?") {
-		return strings.HasSuffix(rawURL, suffix) || rawURL == suffix || rawURL == strings.TrimPrefix(suffix, "/")
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return strings.HasSuffix(rawURL, suffix)
 	}
-	if u, err := url.Parse(rawURL); err == nil {
-		return strings.HasSuffix(u.Path, suffix) || u.Path == strings.TrimPrefix(suffix, "/")
-	}
-	return strings.HasSuffix(rawURL, suffix)
+	return strings.HasSuffix(u.Path, suffix) || u.Path == strings.TrimPrefix(suffix, "/")
 }
 
 func (s *ExtAuthzServer) verifyOAuthTokenInternal(ctx context.Context, token string, isRobot bool) (*authv3.CheckResponse, error) {
