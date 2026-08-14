@@ -83,21 +83,3 @@ spec:
         {{- end }}
         port: {{ .Values.prom_auth_backend.port }}
     {{- end }}
-{{- if and .Values.prom_auth_backend.namespace (ne .Values.prom_auth_backend.namespace .Release.Namespace) }}
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: ReferenceGrant
-metadata:
-  name: allow-prometheus-auth-{{ .Values.prom_auth_backend.service }}
-  namespace: {{ .Values.prom_auth_backend.namespace }}
-spec:
-  from:
-  - group: gateway.envoyproxy.io
-    kind: SecurityPolicy
-    namespace: {{ .Release.Namespace }}
-  to:
-  - group: ""
-    kind: Service
-    name: {{ .Values.prom_auth_backend.service }}
-{{- end }}
-

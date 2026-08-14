@@ -83,22 +83,3 @@ spec:
         {{- end }}
         port: {{ .Values.gf_auth_backend.port }}
     {{- end }}
-{{- if and .Values.gf_auth_backend.namespace (ne .Values.gf_auth_backend.namespace .Release.Namespace) }}
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: ReferenceGrant
-metadata:
-  name: allow-grafana-auth-{{ .Values.gf_auth_backend.service }}
-  namespace: {{ .Values.gf_auth_backend.namespace }}
-spec:
-  from:
-  - group: gateway.envoyproxy.io
-    kind: SecurityPolicy
-    namespace: {{ .Release.Namespace }}
-  to:
-  - group: ""
-    kind: Service
-    name: {{ .Values.gf_auth_backend.service }}
-{{- end }}
-
-

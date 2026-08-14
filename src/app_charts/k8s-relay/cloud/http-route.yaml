@@ -99,6 +99,3 @@ spec:
       - name: token-vendor
         namespace: app-token-vendor
         port: 9091
-
-
-
