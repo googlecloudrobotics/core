@@ -1,0 +1,33 @@
+# This includes all resources expanded from the victoria-metrics-agent
+# chart using the values in ../victoriametrics-agent.robot.values.yaml.
+# The pseudo-variable inserted there is replaced with the actual
+# runtime remote_write target at deploy time.
+{{- $data := .Files.Get "files/vmagent-chart.robot.yaml" -}}
+{{- $data = $data | replace "${VM_REMOTE_WRITE_URL}" .Values.vm_remote_write_url | replace "HELM-NAMESPACE" .Release.Namespace -}}
+{{- if .Values.upstream.sidecar_volume_mounts -}}
+{{- $data = $data | replace "            - name: config\n              mountPath: /config" (printf "            - name: config\n              mountPath: /config%s" (toYaml .Values.upstream.sidecar_volume_mounts | nindent 12)) -}}
+{{- end -}}
+{{- if .Values.upstream.sidecar_containers -}}
+{{- $data = $data | replace "      volumes:" (printf "%s\n      volumes:" (toYaml .Values.upstream.sidecar_containers | nindent 8)) -}}
+{{- end -}}
+{{- if .Values.upstream.sidecar_volumes -}}
+{{- $data = $data | replace "            name: vmagent-victoria-metrics-agent-config" (printf "            name: vmagent-victoria-metrics-agent-config%s" (toYaml .Values.upstream.sidecar_volumes | nindent 8)) -}}
+{{- end -}}
+{{- if or .Values.upstream.metrics_url .Values.upstream.remote_write_labels -}}
+{{- $extra := "" -}}
+{{- range .Values.upstream.remote_write_labels -}}
+{{- $extra = printf "%s\n            - -remoteWrite.label=%s" $extra . -}}
+{{- end -}}
+{{- if .Values.upstream.metrics_url -}}
+{{- $urlExtra := printf "\n            - -remoteWrite.url=%s" .Values.upstream.metrics_url -}}
+{{- if .Values.upstream.metrics_relabel_config -}}
+{{- $urlExtra = printf "\n            - -remoteWrite.urlRelabelConfig=\n            - -remoteWrite.urlRelabelConfig=/config/upstream-relabel.yml%s" $urlExtra -}}
+{{- end -}}
+{{- $extra = printf "%s%s" $extra $urlExtra -}}
+{{- end -}}
+{{- $data = $data | replace "            - -loggerFormat=json" (printf "            - -loggerFormat=json%s" $extra) -}}
+{{- end -}}
+{{- if .Values.upstream.metrics_relabel_config -}}
+{{- $data = $data | replace "  scrape.yml: |" (printf "  upstream-relabel.yml: |%s\n  scrape.yml: |" (toYaml .Values.upstream.metrics_relabel_config | nindent 4)) -}}
+{{- end -}}
+{{ $data }}
