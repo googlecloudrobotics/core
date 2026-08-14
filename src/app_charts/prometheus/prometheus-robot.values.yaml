@@ -77,21 +77,10 @@ prometheus:
         value: 16MB
       - name: storage.tsdb.wal-segment-size
         value: 16MB
-    containers:
-    - name: "${CR_PROMETHEUS_CONTAINERS_OBJECT}"
-    remoteWrite:
-    - url: "${CR_PROMETHEUS_REMOTE_WRITE_OBJECT}"
-    volumes:
-    - name: "${CR_PROMETHEUS_VOLUMES_OBJECT}"
-    volumeMounts:
-    - name: "${CR_PROMETHEUS_VOLUME_MOUNTS_OBJECT}"
     storageSpec:
       emptyDir:
         medium: Memory
         sizeLimit: 512Mi
-  serviceAccount:
-    annotations:
-      "${CR_PROMETHEUS_SA_ANNOTATIONS}": ""
   serviceMonitor:
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
@@ -166,7 +155,7 @@ kubelet:
       regex: 'container_(file_descriptors|tasks_state|threads_max)'
     - sourceLabels: [__name__]
       action: drop
-      regex: 'container_spec.*|container_network.*|container_blkio.*|container_fs.*'
+      regex: 'container_spec.*|container_network.*'
     - sourceLabels: [id, pod]
       action: drop
       regex: '.+;'

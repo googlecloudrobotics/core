@@ -39,8 +39,8 @@ spec:
     - name: kube-prometheus
       port: 9090
 ---
-apiVersion: security.istio.io/v1
-kind: AuthorizationPolicy
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
 metadata:
   name: prometheus-auth
   labels:
@@ -50,6 +50,54 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: prometheus
-  action: CUSTOM
-  provider:
-    name: auth-provider-oauth
+  extAuth:
+    {{- if .Values.prom_auth_backend.contextExtensions }}
+    contextExtensions:
+    {{- range $k, $v := .Values.prom_auth_backend.contextExtensions }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+    {{- end }}
+    headersToExtAuth:
+    - authorization
+    - cookie
+    - x-forwarded-access-token
+    - x-forwarded-host
+    - apikey-token
+    - x-server-name
+    {{- if eq (default "http" .Values.prom_auth_backend.protocol) "grpc" }}
+    grpc:
+      backendRefs:
+      - name: {{ .Values.prom_auth_backend.service }}
+        {{- if .Values.prom_auth_backend.namespace }}
+        namespace: {{ .Values.prom_auth_backend.namespace }}
+        {{- end }}
+        port: {{ .Values.prom_auth_backend.port }}
+    {{- else }}
+    http:
+      path: {{ .Values.prom_auth_backend.path }}
+      backendRefs:
+      - name: {{ .Values.prom_auth_backend.service }}
+        {{- if .Values.prom_auth_backend.namespace }}
+        namespace: {{ .Values.prom_auth_backend.namespace }}
+        {{- end }}
+        port: {{ .Values.prom_auth_backend.port }}
+    {{- end }}
+{{- if and .Values.prom_auth_backend.namespace (ne .Values.prom_auth_backend.namespace .Release.Namespace) }}
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-prometheus-auth-{{ .Values.prom_auth_backend.service }}
+  namespace: {{ .Values.prom_auth_backend.namespace }}
+spec:
+  from:
+  - group: gateway.envoyproxy.io
+    kind: SecurityPolicy
+    namespace: {{ .Release.Namespace }}
+  to:
+  - group: ""
+    kind: Service
+    name: {{ .Values.prom_auth_backend.service }}
+{{- end }}
+

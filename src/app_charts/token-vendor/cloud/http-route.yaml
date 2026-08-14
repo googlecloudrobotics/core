@@ -4,7 +4,7 @@ metadata:
   name: public-key-access
 spec:
   hostnames:
-  - {{ .Values.domain }}
+  - "{{ .Values.domain }}"
   parentRefs:
   - name: crc-gateway
     namespace: default
@@ -24,7 +24,7 @@ metadata:
   name: public-key-manager
 spec:
   hostnames:
-  - {{ .Values.domain }}
+  - "{{ .Values.domain }}"
   parentRefs:
   - name: crc-gateway
     namespace: default
@@ -47,7 +47,7 @@ metadata:
   name: token-vendor
 spec:
   hostnames:
-  - {{ .Values.domain }}
+  - "{{ .Values.domain }}"
   parentRefs:
   - name: crc-gateway
     namespace: default
@@ -67,8 +67,8 @@ spec:
         type: PathPrefix
         value: /apis/core.token-vendor/v1/token.oauth2
 ---
-apiVersion: security.istio.io/v1
-kind: AuthorizationPolicy
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
 metadata:
   name: public-key-access-auth
 spec:
@@ -76,12 +76,25 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: public-key-access
-  action: CUSTOM
-  provider:
-    name: auth-provider-tv-robots-true
+  extAuth:
+    contextExtensions:
+    - name: robot
+      value: "true"
+    headersToExtAuth:
+    - authorization
+    - cookie
+    - x-forwarded-access-token
+    - x-forwarded-host
+    - apikey-token
+    - x-server-name
+    failOpen: false
+    grpc:
+      backendRefs:
+      - name: token-vendor
+        port: 9091
 ---
-apiVersion: security.istio.io/v1
-kind: AuthorizationPolicy
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
 metadata:
   name: public-key-manager-auth
 spec:
@@ -89,12 +102,25 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: public-key-manager
-  action: CUSTOM
-  provider:
-    name: auth-provider-tv-robots-false
+  extAuth:
+    contextExtensions:
+    - name: robot
+      value: "false"
+    headersToExtAuth:
+    - authorization
+    - cookie
+    - x-forwarded-access-token
+    - x-forwarded-host
+    - apikey-token
+    - x-server-name
+    failOpen: false
+    grpc:
+      backendRefs:
+      - name: token-vendor
+        port: 9091
 ---
-apiVersion: security.istio.io/v1
-kind: AuthorizationPolicy
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
 metadata:
   name: token-vendor-allow
 spec:
@@ -102,6 +128,5 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: token-vendor
-  action: ALLOW
-  rules:
-  - {}
+  authorization:
+    defaultAction: Allow
