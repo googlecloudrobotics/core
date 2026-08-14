@@ -44,6 +44,9 @@ kubelet:
   enabled: false
 prometheus-node-exporter:
   nameOverride: node-exporter
+  service:
+    port: 19100
+    targetPort: 19100
   extraArgs:
     # This collector produces log-spam on newer kernels
     # https://github.com/prometheus/node_exporter/issues/1892
