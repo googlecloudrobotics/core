@@ -1,0 +1,7 @@
+# This includes all resources expanded from the victoria-metrics-alert
+# chart using the values in ../vmalert.cloud.values.yaml. The vmselect
+# port pseudo-variable is replaced here so vmalert follows the same
+# configurable query port as the VictoriaMetrics service and ingress.
+{{- $data := .Files.Get "files/vmalert-chart.cloud.yaml" -}}
+{{- $data = $data | replace "${VMSELECT_PORT}" (toString .Values.vmselect_port) | replace "HELM-NAMESPACE" .Release.Namespace -}}
+{{ $data }}

@@ -1,0 +1,53 @@
+# Configuration for the victoria-metrics-cluster chart.
+# Reference:
+# https://github.com/VictoriaMetrics/helm-charts/blob/victoria-metrics-cluster-0.11.23/charts/victoria-metrics-cluster/values.yaml
+#
+# WARNING: If you edit this file, run the following command to generate
+# the output with `helm template`, and verify that your changes have
+# the expected effect.
+#
+#   bazel build src/app_charts/victoriametrics-robotmetrics/victoriametrics-robotmetrics-chart.cloud.yaml
+#
+# NOTE: top-level limits/requests/retention values consumed by the
+# pseudo-variable replace chain live in ../values-cloud.yaml
+# (app_chart-level extra_values), not in this file - this file only
+# contains the ${...} placeholders themselves, embedded at the
+# locations the underlying chart's own schema expects them.
+
+vmstorage:
+  enabled: true
+  replicaCount: 3
+  retentionPeriod: "${RETENTION_TIME}"
+  resources:
+    requests:
+      cpu: "${VMSTORAGE_LIMITS_CPU}"
+      memory: "${VMSTORAGE_LIMITS_MEMORY}"
+    limits:
+      cpu: "${VMSTORAGE_LIMITS_CPU}"
+      memory: "${VMSTORAGE_LIMITS_MEMORY}"
+  persistentVolume:
+    storageClass: ssd
+    accessModes:
+      - ReadWriteOnce
+    size: "${REQUESTS_STORAGE}"
+
+vminsert:
+  enabled: true
+  replicaCount: ${VMINSERT_REPLICAS}
+  extraArgs:
+    # Must stay coupled with vmstorage.replicaCount until vmstorage scaling is
+    # made build-time configurable; the upstream chart renders storageNode args
+    # from vmstorage.replicaCount during Bazel helm_template execution.
+    replicationFactor: "3"
+  service:
+    servicePort: ${VMINSERT_PORT}
+
+vmselect:
+  enabled: true
+  replicaCount: ${VMSELECT_REPLICAS}
+  service:
+    servicePort: ${VMSELECT_PORT}
+
+prom_ingress_auth_url: "${CR_PROM_INGRESS_AUTH_URL}"
+prom_ingress_auth_signin: "${CR_PROM_INGRESS_AUTH_SIGNIN}"
+prom_ingress_error_page_403: "${CR_PROM_INGRESS_ERROR_PAGE_403}"

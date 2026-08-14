@@ -1,0 +1,47 @@
+# Uses the kube-prometheus-stack chart instead of the standalone
+# kube-state-metrics chart, because kube-prometheus-stack carries
+# default configuration (RBAC, labels, dashboards) that Prometheus's
+# own deployment already relies on - a standalone injection risks
+# missing that. Everything except kubeStateMetrics is disabled,
+# including its own ServiceMonitor and the kubelet monitor, since
+# this app's vmagent does its own scraping via kubernetes_sd_configs,
+# not via Prometheus Operator's ServiceMonitor CRDs.
+#
+# WARNING: If you edit this file, run the following command to generate
+# the output with `helm template`, and verify that your changes have
+# the expected effect.
+#
+#   bazel build src/app_charts/victoriametrics-cloudmetrics/kube-state-metrics-chart.cloud.yaml
+
+defaultRules:
+  create: false
+alertmanager:
+  enabled: false
+prometheus:
+  enabled: false
+grafana:
+  enabled: false
+nodeExporter:
+  enabled: false
+prometheusOperator:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+coreDns:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeApiServer:
+  enabled: false
+kubelet:
+  enabled: false
+kube-state-metrics:
+  prometheus:
+    monitor:
+      enabled: false
+kubeStateMetrics:
+  enabled: true
