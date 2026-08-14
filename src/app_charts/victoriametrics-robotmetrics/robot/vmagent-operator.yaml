@@ -11,7 +11,7 @@
 {{- $data = $data | replace "      volumes:" (printf "%s\n      volumes:" (toYaml .Values.upstream.sidecar_containers | nindent 8)) -}}
 {{- end -}}
 {{- if .Values.upstream.sidecar_volumes -}}
-{{- $data = $data | replace "            name: vmagent-victoria-metrics-agent-config" (printf "            name: vmagent-victoria-metrics-agent-config%s" (toYaml .Values.upstream.sidecar_volumes | nindent 8)) -}}
+{{- $data = $data | replace "            name: vmagentrobot-victoria-metrics-agent-config" (printf "            name: vmagentrobot-victoria-metrics-agent-config%s" (toYaml .Values.upstream.sidecar_volumes | nindent 8)) -}}
 {{- end -}}
 {{- if or .Values.upstream.metrics_url .Values.upstream.remote_write_labels -}}
 {{- $extra := "" -}}
