@@ -17,13 +17,6 @@ remoteWriteUrls:
 rbac:
   pspEnabled: false
 
-extraArgs:
-  # On-prem outbound traffic goes through Aqualine, whose local client
-  # side is exposed at a fixed IP:port on every on-prem cluster (per
-  # google3/intrinsic/kubernetes/intrinsic_os/g3doc/aqualine.md) -
-  # confirmed real and correct directly against lab-mtv-400 on July 17.
-  remoteWrite.proxyURL: "http://172.28.0.8:1212"
-
 # The remote_write endpoint requires machine-to-machine auth via the
 # auth-proxy's apikey scope (see cloud/vm-write-ingress.yaml), since
 # the browser-oriented internal scope can't be completed by a
