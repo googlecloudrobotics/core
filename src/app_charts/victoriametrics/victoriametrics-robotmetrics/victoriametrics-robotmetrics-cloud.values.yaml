@@ -1,12 +1,15 @@
-# Configuration for the victoria-metrics-k8s-stack chart.
+# Configuration for the victoria-metrics-k8s-stack chart for the cloud ingestion target.
 # Reference:
 # https://github.com/VictoriaMetrics/helm-charts/blob/victoria-metrics-k8s-stack-0.91.0/charts/victoria-metrics-k8s-stack/values.yaml
+#
+# This chart deploys the vmcluster (storage/query) and the vmagent (acting as the remoteWrite ingestion proxy)
+# for metrics streaming in from physical robots.
 #
 # WARNING: If you edit this file, run the following command to generate
 # the output with `helm template`, and verify that your changes have
 # the expected effect.
 #
-#   bazel build src/app_charts/victoriametrics/victoriametrics-cloudmetrics:victoriametrics-cloudmetrics-chart.cloud.yaml
+#   bazel build src/app_charts/victoriametrics/victoriametrics-robotmetrics:victoriametrics-robotmetrics-chart.cloud.yaml
 
 vmsingle:
   enabled: false
@@ -41,40 +44,32 @@ vmcluster:
 vmagent:
   enabled: true
   spec:
-    selectAllByDefault: true
-    serviceMonitorSelector: "${CR_VICTORIAMETRICS_SERVICE_MONITOR_SELECTOR_OBJECT}"
-    podMonitorSelector: "${CR_VICTORIAMETRICS_POD_MONITOR_SELECTOR_OBJECT}"
+    # Cloud ingestion proxy doesn't dynamically scrape cloud pods (that's what cloudmetrics is for)
+    selectAllByDefault: false
+    serviceMonitorSelector: {}
+    podMonitorSelector: {}
+    
+    # RemoteWrite configuration for the ingestion proxy
     remoteWrite:
-      - url: "${CR_VICTORIAMETRICS_REMOTE_WRITE_OBJECT}"
-    externalLabels: "${CR_VICTORIAMETRICS_EXTERNAL_LABELS_OBJECT}"
+      - url: "http://${RELEASE_NAME}-victoria-metrics-k8s-stack-vminsert:8480/insert/0/prometheus/api/v1/write"
+    
     containers:
-      - name: "${CR_VICTORIAMETRICS_EXTRA_CONTAINERS_OBJECT}"
+      - name: "${CR_VICTORIAMETRICS_CONTAINERS_OBJECT}"
     volumes:
-      - name: "${CR_VICTORIAMETRICS_EXTRA_VOLUMES_OBJECT}"
+      - name: "${CR_VICTORIAMETRICS_VOLUMES_OBJECT}"
     volumeMounts:
-      - name: "${CR_VICTORIAMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT}"
-
-vmalert:
-  enabled: true
-  spec:
-    ruleSelector: "${CR_VICTORIAMETRICS_RULE_SELECTOR_OBJECT}"
-    ruleNamespaceSelector: "${CR_VICTORIAMETRICS_RULE_NAMESPACE_SELECTOR_OBJECT}"
-    notifiers:
-      - url: "${CR_VICTORIAMETRICS_ALERTMANAGER_URL}"
-
-alertmanager:
-  enabled: false
+      - name: "${CR_VICTORIAMETRICS_VOLUME_MOUNTS_OBJECT}"
 
 serviceAccount:
   annotations:
     "${CR_VICTORIAMETRICS_SA_ANNOTATIONS}": ""
 
-# Subcharts
+# Disable extra exporters as they are not needed on the robotmetrics proxy
 grafana:
   enabled: false
 
 prometheus-node-exporter:
-  enabled: true
+  enabled: false
 
 kube-state-metrics:
-  enabled: true
+  enabled: false

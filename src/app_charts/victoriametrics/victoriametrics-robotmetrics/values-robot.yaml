@@ -1,4 +1,4 @@
-# App-chart-level values consumed by robot/vmagent-operator.yaml's
+# App-chart-level values consumed by robot/victoriametrics-robotmetrics-operator.yaml's
 # pseudo-variable replace chain.
 #
 # Must be set per deployment under AppRollout spec.robots[].values.

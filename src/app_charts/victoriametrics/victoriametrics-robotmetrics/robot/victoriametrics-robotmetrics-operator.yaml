@@ -1,0 +1,82 @@
+# This includes all resources expanded from the victoria-metrics-k8s-stack chart using
+# the values in ../victoriametrics-robotmetrics-robot.values.yaml for the robot edge target.
+# Some pseudo-variables that were inserted there are replaced with actual runtime values.
+{{- $data := .Files.Get "files/victoriametrics-robotmetrics-chart.robot.yaml" -}}
+
+# Scalar Replacements
+{{- $data = $data | replace "${RELEASE_NAME}" .Release.Name -}}
+{{- $data = $data | replace "${CR_VICTORIAMETRICS_REMOTE_WRITE_URL}" .Values.victoriametrics_robotmetrics_remote_write_url -}}
+{{- $data = $data | replace "HELM-NAMESPACE" .Release.Namespace -}}
+
+# Inject extra containers
+{{- $containersList := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.containers }}
+      {{- $containersList = .Values.vmagent.spec.containers -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $containersList }}
+  {{- $formattedContainersObject := toYaml $containersList | nindent 4 -}}
+  {{- $data = $data | replace "- name: \"${CR_VICTORIAMETRICS_EXTRA_CONTAINERS_OBJECT}\"" $formattedContainersObject -}}
+{{- else }}
+  {{- $data = $data | replace "    containers:\n      - name: \"${CR_VICTORIAMETRICS_EXTRA_CONTAINERS_OBJECT}\"\n" "" -}}
+{{- end }}
+
+# Inject extra volumes
+{{- $volumesList := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.volumes }}
+      {{- $volumesList = .Values.vmagent.spec.volumes -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $volumesList }}
+  {{- $formattedVolumesObject := toYaml $volumesList | nindent 4 -}}
+  {{- $data = $data | replace "- name: \"${CR_VICTORIAMETRICS_EXTRA_VOLUMES_OBJECT}\"" $formattedVolumesObject -}}
+{{- else }}
+  {{- $data = $data | replace "    volumes:\n      - name: \"${CR_VICTORIAMETRICS_EXTRA_VOLUMES_OBJECT}\"\n" "" -}}
+{{- end }}
+
+# Inject extra volumeMounts
+{{- $volumeMountsList := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.volumeMounts }}
+      {{- $volumeMountsList = .Values.vmagent.spec.volumeMounts -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $volumeMountsList }}
+  {{- $formattedVolumeMountsObject := toYaml $volumeMountsList | nindent 4 -}}
+  {{- $data = $data | replace "- name: \"${CR_VICTORIAMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT}\"" $formattedVolumeMountsObject -}}
+{{- else }}
+  {{- $data = $data | replace "    volumeMounts:\n      - name: \"${CR_VICTORIAMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT}\"\n" "" -}}
+{{- end }}
+
+# Inject externalLabels
+{{- $externalLabelsMap := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.externalLabels }}
+      {{- $externalLabelsMap = .Values.vmagent.spec.externalLabels -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $externalLabelsMap }}
+  {{- $formattedExternalLabelsObject := toYaml $externalLabelsMap | nindent 6 -}}
+  {{- $data = $data | replace "    externalLabels: \"${CR_VICTORIAMETRICS_EXTERNAL_LABELS_OBJECT}\"" (printf "    externalLabels:%s" $formattedExternalLabelsObject) -}}
+{{- else }}
+  {{- $data = $data | replace "    externalLabels: \"${CR_VICTORIAMETRICS_EXTERNAL_LABELS_OBJECT}\"\n" "" -}}
+{{- end }}
+
+{{ $data | replace "toUpper" "upper" }}
+
+{{- if .Values.extraObjects }}
+{{- range .Values.extraObjects }}
+---
+{{ toYaml . }}
+{{- end }}
+{{- end }}

@@ -1,52 +1,26 @@
-load("//bazel:app.bzl", "app")
-load("//bazel:app_chart.bzl", "app_chart")
 load("//bazel:build_rules/helm_template.bzl", "helm_template")
+load("//bazel:app_chart.bzl", "app_chart")
 
 helm_template(
-    name = "victoriametrics-chart-cloudmetrics.cloud",
-    chart = "//third_party/victoria-metrics-cluster:victoria-metrics-cluster-0.48.0.tgz",
+    name = "victoriametrics-cloudmetrics-chart.cloud",
+    chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
     helm_version = 3,
-    kube_version = "1.29.0",
     namespace = "HELM-NAMESPACE",
-    release_name = "victoriametrics-cloudmetrics",
-    values = "victoriametrics-cloudmetrics.values.yaml",
-)
-
-helm_template(
-    name = "vmagent-chart.cloud",
-    chart = "//third_party/victoria-metrics-agent:victoria-metrics-agent-0.45.0.tgz",
-    helm_version = 3,
-    kube_version = "1.29.0",
-    namespace = "HELM-NAMESPACE",
-    release_name = "release-name-placeholder",
-    values = "victoriametrics-agent.cloud.values.yaml",
-)
-
-helm_template(
-    name = "kube-state-metrics-chart.cloud",
-    chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-87.5.1.tgz",
-    helm_version = 3,
-    kube_version = "1.29.0",
-    namespace = "HELM-NAMESPACE",
-    release_name = "victoriametrics-cloudmetrics-kube-state-metrics",
-    values = "kube-state-metrics.cloud.values.yaml",
+    release_name = "victoria-metrics-cloudmetrics",
+    values = "values-cloud.yaml",
 )
 
 app_chart(
-    name = "victoriametrics-cloudmetrics-cloud",
-    extra_values = ["values-cloud.yaml"],
-    files = [
-        ":kube-state-metrics-chart.cloud",
-        ":victoriametrics-chart-cloudmetrics.cloud",
-        ":vmagent-chart.cloud",
-    ],
-    images = {},
-)
-
-app(
     name = "victoriametrics-cloudmetrics",
-    charts = [
-        ":victoriametrics-cloudmetrics-cloud",
+    extra_templates = [
+        "cloud/victoriametrics-cloudmetrics-operator.yaml",
+        "cloud/kube-state-metrics-operator.yaml",
+        "cloud/victoriametrics-cloudmetrics-ingress.yaml",
     ],
-    visibility = ["//visibility:public"],
+    files = [
+        ":victoriametrics-cloudmetrics-chart.cloud",
+    ],
+    extra_values = ["values-cloud.yaml"],
+    images = {},
+    values = "victoriametrics-cloudmetrics.values.yaml",
 )

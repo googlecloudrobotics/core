@@ -6,41 +6,25 @@ load("//bazel:build_rules/helm_template.bzl", "helm_template")
 
 helm_template(
     name = "victoriametrics-robotmetrics-chart.cloud",
-    chart = "//third_party/victoria-metrics-cluster:victoria-metrics-cluster-0.48.0.tgz",
+    chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
     helm_version = 3,
     kube_version = "1.29.0",
     namespace = "HELM-NAMESPACE",
     release_name = "victoriametrics-robotmetrics",
-    values = "victoriametrics-cloud.values.yaml",
-)
-
-helm_template(
-    name = "vmalert-chart.cloud",
-    chart = "//third_party/victoria-metrics-alert:victoria-metrics-alert-0.46.0.tgz",
-    helm_version = 3,
-    kube_version = "1.29.0",
-    namespace = "HELM-NAMESPACE",
-    release_name = "victoriametrics-robotmetrics",
-    values = "vmalert.cloud.values.yaml",
-)
-
-helm_template(
-    name = "vmagent-chart.cloud",
-    chart = "//third_party/victoria-metrics-agent:victoria-metrics-agent-0.45.0.tgz",
-    helm_version = 3,
-    kube_version = "1.29.0",
-    namespace = "HELM-NAMESPACE",
-    release_name = "release-name-placeholder",
-    values = "victoriametrics-agent.cloud.values.yaml",
+    values = "victoriametrics-robotmetrics-cloud.values.yaml",
 )
 
 app_chart(
     name = "victoriametrics-robotmetrics-cloud",
+    extra_templates = [
+        "cloud/victoriametrics-robotmetrics-operator.yaml",
+        "cloud/victoriametrics-robotmetrics-ingress.yaml",
+        "cloud/victoriametrics-robotmetrics-write-ingress.yaml",
+        "cloud/victoriametrics-robotmetrics-http-route.yaml",
+    ],
     extra_values = ["values-cloud.yaml"],
     files = [
         ":victoriametrics-robotmetrics-chart.cloud",
-        ":vmalert-chart.cloud",
-        ":vmagent-chart.cloud",
     ],
     images = {},
 )
@@ -48,15 +32,13 @@ app_chart(
 # --- Robot side ---
 
 helm_template(
-    name = "vmagent-chart.robot",
-    # Pinned to 0.45.0; CRC now uses Helm 3.21.3, which supports
-    # the victoria-metrics-common templates used by this chart.
-    chart = "//third_party/victoria-metrics-agent:victoria-metrics-agent-0.45.0.tgz",
+    name = "victoriametrics-robotmetrics-chart.robot",
+    chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
     helm_version = 3,
     kube_version = "1.29.0",
     namespace = "HELM-NAMESPACE",
     release_name = "victoriametrics-robotmetrics",
-    values = "victoriametrics-agent.robot.values.yaml",
+    values = "victoriametrics-robotmetrics-robot.values.yaml",
 )
 
 helm_template(
@@ -71,10 +53,15 @@ helm_template(
 
 app_chart(
     name = "victoriametrics-robotmetrics-robot",
+    extra_templates = [
+        "robot/victoriametrics-robotmetrics-operator.yaml",
+        "robot/node-exporter-operator.yaml",
+        "robot/smartctl-exporter.yaml",
+    ],
     extra_values = ["values-robot.yaml"],
     files = [
         ":node-exporter-chart.robot",
-        ":vmagent-chart.robot",
+        ":victoriametrics-robotmetrics-chart.robot",
     ],
 )
 

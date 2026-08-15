@@ -38,7 +38,7 @@ flowchart TD
             
             ING --> VMA_PROXY
             VMA_PROXY --> VMI_R
-            VMA_PROXY -.->|Optional Upstream Relay| Mimir[Cloud-Ops Mimir]
+            VMA_PROXY -.->|Optional Upstream Relay| UpstreamTSDB[Upstream Time-Series Database]
             VMI_R --> VMS_R
             VMQ_R --> VMS_R
             VMA_R --> VMQ_R
@@ -60,13 +60,20 @@ flowchart TD
         end
         
         CP[Cloud Prometheus Relay]
+        AM[Central Alertmanager]
     end
 
     %% Data Flow
     RA -->|TLS remoteWrite| ING
     LP -->|Scraped by Cloud Prom| CP
     CP -->|remoteWrite Relay| VMI_R
+    VMA_R -->|Alerts| AM
+    VMA_C -->|Alerts| AM
 ```
+
+## Extra Objects & Autoscaling
+
+The `victoriametrics-cloudmetrics` and `victoriametrics-robotmetrics` charts support injecting arbitrary Kubernetes manifests (such as HPAs, VPAs, PodDisruptionBudgets, and custom scrapes) natively via the `extraObjects` value in `AppRollout`.
 
 ## Documentation
 
