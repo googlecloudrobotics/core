@@ -6,28 +6,32 @@ load("//bazel:build_rules/helm_template.bzl", "helm_template")
 
 helm_template(
     name = "victoriametrics-robotmetrics-chart.cloud",
-    # Pinned to 0.11.23 (not latest) - newer versions require Helm 3.14+
-    # via the shared victoria-metrics-common dependency, incompatible with
-    # CRC's hermetic Helm 3.9.0 binary used by this rule.
-    chart = "//third_party/victoria-metrics-cluster:victoria-metrics-cluster-0.11.23.tgz",
+    chart = "//third_party/victoria-metrics-cluster:victoria-metrics-cluster-0.48.0.tgz",
     helm_version = 3,
     kube_version = "1.29.0",
     namespace = "HELM-NAMESPACE",
-    release_name = "vmrobot",
+    release_name = "victoriametrics-robotmetrics",
     values = "victoriametrics-cloud.values.yaml",
 )
 
 helm_template(
     name = "vmalert-chart.cloud",
-    # Pinned to 0.6.0 - same reasoning as vmagent's pin: predates the
-    # victoria-metrics-common probe templating pattern incompatible
-    # with this rule's invocation of Helm.
-    chart = "//third_party/victoria-metrics-alert:victoria-metrics-alert-0.6.0.tgz",
+    chart = "//third_party/victoria-metrics-alert:victoria-metrics-alert-0.46.0.tgz",
     helm_version = 3,
     kube_version = "1.29.0",
     namespace = "HELM-NAMESPACE",
-    release_name = "vmrobot",
+    release_name = "victoriametrics-robotmetrics",
     values = "vmalert.cloud.values.yaml",
+)
+
+helm_template(
+    name = "vmagent-chart.cloud",
+    chart = "//third_party/victoria-metrics-agent:victoria-metrics-agent-0.45.0.tgz",
+    helm_version = 3,
+    kube_version = "1.29.0",
+    namespace = "HELM-NAMESPACE",
+    release_name = "release-name-placeholder",
+    values = "victoriametrics-agent.cloud.values.yaml",
 )
 
 app_chart(
@@ -36,6 +40,7 @@ app_chart(
     files = [
         ":victoriametrics-robotmetrics-chart.cloud",
         ":vmalert-chart.cloud",
+        ":vmagent-chart.cloud",
     ],
     images = {},
 )
@@ -50,7 +55,7 @@ helm_template(
     helm_version = 3,
     kube_version = "1.29.0",
     namespace = "HELM-NAMESPACE",
-    release_name = "vmagentrobot",
+    release_name = "victoriametrics-robotmetrics",
     values = "victoriametrics-agent.robot.values.yaml",
 )
 

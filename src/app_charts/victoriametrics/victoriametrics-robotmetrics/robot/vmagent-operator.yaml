@@ -3,15 +3,24 @@
 # The pseudo-variable inserted there is replaced with the actual
 # runtime remote_write target at deploy time.
 {{- $data := .Files.Get "files/vmagent-chart.robot.yaml" -}}
-{{- $data = $data | replace "${VM_REMOTE_WRITE_URL}" .Values.vm_remote_write_url | replace "HELM-NAMESPACE" .Release.Namespace -}}
-{{- if .Values.upstream.sidecar_volume_mounts -}}
-{{- $data = $data | replace "            - name: scrape-config\n              mountPath: /config/scrape" (printf "            - name: scrape-config\n              mountPath: /config/scrape%s" (toYaml .Values.upstream.sidecar_volume_mounts | nindent 12)) -}}
-{{- end -}}
+{{- $formattedContainersObject := toYaml .Values.upstream.sidecar_containers | nindent 0 -}}
+{{- $formattedVolumesObject := toYaml .Values.upstream.sidecar_volumes | nindent 0 -}}
+{{- $formattedVolumeMountsObject := toYaml .Values.upstream.sidecar_volume_mounts | nindent 0 -}}
+{{- $data = $data | replace "${CR_VICTORIAMETRICS_ROBOTMETRICS_REMOTE_WRITE_URL}" .Values.victoriametrics_robotmetrics_remote_write_url | replace "HELM-NAMESPACE" .Release.Namespace -}}
 {{- if .Values.upstream.sidecar_containers -}}
-{{- $data = $data | replace "      volumes:" (printf "%s\n      volumes:" (toYaml .Values.upstream.sidecar_containers | nindent 8)) -}}
+{{- $data = $data | replace "- \"${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_CONTAINERS_OBJECT}\"" $formattedContainersObject -}}
+{{- else -}}
+{{- $data = $data | replace "      - \"${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_CONTAINERS_OBJECT}\"\n" "" -}}
 {{- end -}}
 {{- if .Values.upstream.sidecar_volumes -}}
-{{- $data = $data | replace "            name: vmagentrobot-victoria-metrics-agent-config" (printf "            name: vmagentrobot-victoria-metrics-agent-config%s" (toYaml .Values.upstream.sidecar_volumes | nindent 8)) -}}
+{{- $data = $data | replace "- \"${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_VOLUMES_OBJECT}\"" $formattedVolumesObject -}}
+{{- else -}}
+{{- $data = $data | replace "      - \"${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_VOLUMES_OBJECT}\"\n" "" -}}
+{{- end -}}
+{{- if .Values.upstream.sidecar_volume_mounts -}}
+{{- $data = $data | replace "- \"${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT}\"" $formattedVolumeMountsObject -}}
+{{- else -}}
+{{- $data = $data | replace "            - \"${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT}\"\n" "" -}}
 {{- end -}}
 {{- if or .Values.upstream.metrics_url .Values.upstream.remote_write_labels -}}
 {{- $extra := "" -}}

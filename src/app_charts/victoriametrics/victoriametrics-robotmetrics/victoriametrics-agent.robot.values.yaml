@@ -9,8 +9,15 @@
 #
 #   bazel build src/app_charts/victoriametrics-robotmetrics/vmagent-chart.robot.yaml
 
+extraContainers:
+  - "${CR_VICTORIAMETRICS_ROBOT_EXTRA_CONTAINERS_OBJECT}"
+extraVolumes:
+  - "${CR_VICTORIAMETRICS_ROBOT_EXTRA_VOLUMES_OBJECT}"
+extraVolumeMounts:
+  - "${CR_VICTORIAMETRICS_ROBOT_EXTRA_VOLUME_MOUNTS_OBJECT}"
+
 remoteWrite:
-  - url: "${VM_REMOTE_WRITE_URL}"
+  - url: "${CR_VICTORIAMETRICS_ROBOTMETRICS_REMOTE_WRITE_URL}"
 
 extraArgs:
   envflag.enable: true
@@ -30,8 +37,8 @@ env:
   - name: VM_remoteWrite_bearerToken
     valueFrom:
       secretKeyRef:
-        name: vm-remote-write-apikey
-        key: token
+        name: robot-auth
+        key: json
 
 config:
   global:

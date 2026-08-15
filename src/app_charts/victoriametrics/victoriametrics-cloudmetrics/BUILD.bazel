@@ -4,11 +4,11 @@ load("//bazel:build_rules/helm_template.bzl", "helm_template")
 
 helm_template(
     name = "victoriametrics-chart-cloudmetrics.cloud",
-    chart = "//third_party/victoria-metrics-cluster:victoria-metrics-cluster-0.11.23.tgz",
+    chart = "//third_party/victoria-metrics-cluster:victoria-metrics-cluster-0.48.0.tgz",
     helm_version = 3,
     kube_version = "1.29.0",
     namespace = "HELM-NAMESPACE",
-    release_name = "vmc",
+    release_name = "victoriametrics-cloudmetrics",
     values = "victoriametrics-cloudmetrics.values.yaml",
 )
 
@@ -28,7 +28,7 @@ helm_template(
     helm_version = 3,
     kube_version = "1.29.0",
     namespace = "HELM-NAMESPACE",
-    release_name = "vmc-ksm",
+    release_name = "victoriametrics-cloudmetrics-kube-state-metrics",
     values = "kube-state-metrics.cloud.values.yaml",
 )
 

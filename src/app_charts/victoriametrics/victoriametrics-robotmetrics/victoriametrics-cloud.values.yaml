@@ -1,6 +1,6 @@
 # Configuration for the victoria-metrics-cluster chart.
 # Reference:
-# https://github.com/VictoriaMetrics/helm-charts/blob/victoria-metrics-cluster-0.11.23/charts/victoria-metrics-cluster/values.yaml
+# https://github.com/VictoriaMetrics/helm-charts/blob/victoria-metrics-cluster-0.48.0/charts/victoria-metrics-cluster/values.yaml
 #
 # WARNING: If you edit this file, run the following command to generate
 # the output with `helm template`, and verify that your changes have
@@ -48,6 +48,6 @@ vmselect:
   service:
     servicePort: ${VMSELECT_PORT}
 
-prom_ingress_auth_url: "${CR_PROM_INGRESS_AUTH_URL}"
-prom_ingress_auth_signin: "${CR_PROM_INGRESS_AUTH_SIGNIN}"
-prom_ingress_error_page_403: "${CR_PROM_INGRESS_ERROR_PAGE_403}"
+victoriametrics_ingress_auth_url: "${CR_VICTORIAMETRICS_ROBOTMETRICS_INGRESS_AUTH_URL}"
+victoriametrics_ingress_auth_signin: "${CR_VICTORIAMETRICS_ROBOTMETRICS_INGRESS_AUTH_SIGNIN}"
+victoriametrics_ingress_error_page_403: "${CR_VICTORIAMETRICS_ROBOTMETRICS_INGRESS_ERROR_PAGE_403}"

@@ -6,7 +6,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: victoriametrics-write
+  name: victoriametrics-robotmetrics-write
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
   annotations:
@@ -20,10 +20,10 @@ spec:
   - host: {{ .Values.domain }}
     http:
       paths:
-      - path: /victoriametrics-write($|/)(.*)
+      - path: /victoriametrics-robotmetrics-write($|/)(.*)
         pathType: Prefix
         backend:
           service:
-            name: vmrobot-victoria-metrics-cluster-vminsert
+            name: victoriametrics-robotmetrics-agent-vmagent
             port:
-              number: {{ .Values.vminsert_port }}
+              number: 8429

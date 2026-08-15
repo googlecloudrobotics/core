@@ -2,7 +2,7 @@
 # pseudo-variable replace chain.
 #
 # Must be set per deployment under AppRollout spec.robots[].values.
-vm_remote_write_url: ""
+victoriametrics_robotmetrics_remote_write_url: ""
 
 # Optional upstream integration for an external metrics consumer. Sidecar fields
 # are structured YAML fragments for injecting an authorization sidecar into

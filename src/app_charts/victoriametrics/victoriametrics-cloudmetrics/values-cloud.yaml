@@ -1,5 +1,5 @@
-release_name: "vmc-agent"
-gcp_service_account: ""
+release_name: "victoriametrics-cloudmetrics-agent"
+victoriametrics_cloudmetrics_gcp_service_account: ""
 
 limits:
   cpu: "2000m"
@@ -28,6 +28,6 @@ upstream:
   metrics_url: ""
   metrics_relabel_config: []
 
-prom_ingress_auth_url: "http://frontend.app-frontend.svc.cluster.local/auth-proxy/authorize?scopes=internal"
-prom_ingress_auth_signin: "https://flowstate.intrinsic.ai/signin?redirectUrl=https%3A%2F%2Fflowstate.intrinsic.ai%2F_p%2Fxfa-awesome-alpha$escaped_request_uri"
-prom_ingress_error_page_403: "https://flowstate.intrinsic.ai/signin?redirectUrl=https%3A%2F%2Fflowstate.intrinsic.ai%2F_p%2Fxfa-awesome-alpha$escaped_request_uri"
+victoriametrics_cloudmetrics_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
+victoriametrics_cloudmetrics_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+victoriametrics_cloudmetrics_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"

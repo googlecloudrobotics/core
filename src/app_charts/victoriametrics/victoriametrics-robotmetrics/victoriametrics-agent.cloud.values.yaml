@@ -1,0 +1,42 @@
+# Cloud-side vmagent for the robot-metrics VictoriaMetrics stack. This
+# instance acts purely as an INGESTION PROXY: it receives remoteWrites
+# from robots over the public internet, and duplicates the data to both
+# the local cloud vminsert and the external cloud-ops Mimir via upstream config.
+# Pinned to 0.45.0 (appVersion v1.149.0).
+#
+# WARNING: If you edit this file, run the following command to generate
+# the output with `helm template`, and verify that your changes have
+# the expected effect.
+#
+#   bazel build src/app_charts/victoriametrics/victoriametrics-robotmetrics:vmagent-chart.cloud.yaml
+
+extraContainers:
+  - "${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_CONTAINERS_OBJECT}"
+extraVolumes:
+  - "${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_VOLUMES_OBJECT}"
+extraVolumeMounts:
+  - "${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT}"
+
+remoteWrite:
+  # Same-cluster traffic - talks directly to the local vminsert
+  # service, no Aqualine tunnel or API-key auth needed since this
+  # never leaves the cluster.
+  - url: "http://${RELEASE_NAME}-victoria-metrics-cluster-vminsert:${VMINSERT_PORT}/insert/0/prometheus/api/v1/write"
+
+rbac:
+  pspEnabled: false
+
+serviceAccount:
+  annotations:
+    gcp-service-account-placeholder: "${CR_VICTORIAMETRICS_ROBOTMETRICS_GCP_SERVICE_ACCOUNT}"
+
+extraArgs:
+  envflag.enable: true
+  envflag.prefix: VM_
+  loggerFormat: json
+
+# No scrape configs needed; this agent acts purely as an ingestion proxy
+config:
+  global:
+    scrape_interval: 30s
+  scrape_configs: []

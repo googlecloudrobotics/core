@@ -10,19 +10,26 @@
 #
 #   bazel build src/app_charts/victoriametrics-cloudmetrics/vmagent-chart.cloud.yaml
 
+extraContainers:
+  - "${CR_VICTORIAMETRICS_CLOUD_EXTRA_CONTAINERS_OBJECT}"
+extraVolumes:
+  - "${CR_VICTORIAMETRICS_CLOUD_EXTRA_VOLUMES_OBJECT}"
+extraVolumeMounts:
+  - "${CR_VICTORIAMETRICS_CLOUD_EXTRA_VOLUME_MOUNTS_OBJECT}"
+
 remoteWrite:
   # Same-cluster traffic - talks directly to the local vminsert
   # service, no Aqualine tunnel or API-key auth needed since this
   # never leaves the cluster (unlike robot-side vmagent's traffic,
   # which crosses the on-prem/cloud boundary).
-  - url: "http://vmc-victoria-metrics-cluster-vminsert:${VMINSERT_PORT}/insert/0/prometheus/api/v1/write"
+  - url: "http://${RELEASE_NAME}-victoria-metrics-cluster-vminsert:${VMINSERT_PORT}/insert/0/prometheus/api/v1/write"
 
 rbac:
   pspEnabled: false
 
 serviceAccount:
   annotations:
-    gcp-service-account-placeholder: "${GCP_SERVICE_ACCOUNT}"
+    gcp-service-account-placeholder: "${CR_VICTORIAMETRICS_CLOUD_GCP_SERVICE_ACCOUNT}"
 
 extraArgs:
   envflag.enable: true
