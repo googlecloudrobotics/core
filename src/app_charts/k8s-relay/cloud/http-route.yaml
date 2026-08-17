@@ -4,7 +4,7 @@ metadata:
   name: kubernetes-relay-client
 spec:
   hostnames:
-  - "{{ .Values.domain }}"
+  - {{ .Values.domain }}
   parentRefs:
   - name: crc-gateway
     namespace: default
@@ -33,7 +33,7 @@ metadata:
   name: kubernetes-relay-server
 spec:
   hostnames:
-  - "{{ .Values.domain }}"
+  - {{ .Values.domain }}
   parentRefs:
   - name: crc-gateway
     namespace: default
