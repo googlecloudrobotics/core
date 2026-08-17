@@ -106,9 +106,9 @@ The following has not been tested:
 
 ## Flags
 
-*   `--port`: Port number to listen on (default: 80).
-*   `--block_size`: Size of i/o buffer in bytes (default: 10240).
-*   `--inactive_request_timeout`: Timeout for inactive requests (default: 60s). In particular, this sets a limit on how long the backend can wait before writing headers and the response status.
+- `--port`: Port number to listen on (default: 80).
+- `--block_size`: Size of i/o buffer in bytes (default: 10240).
+- `--inactive_request_timeout`: Timeout for inactive requests (default: 60s). In particular, this sets a limit on how long the backend can wait before writing headers and the response status.
 
 ## Configuration
 
@@ -119,3 +119,38 @@ If you are running the relay server behind Nginx, ensure that the proxy read tim
 Specifically, the `nginx.ingress.kubernetes.io/proxy-read-timeout` annotation (or `proxy_read_timeout` directive in nginx config) should be set to a value larger than `--inactive_request_timeout`.
 
 For example, if `--inactive_request_timeout` is set to `60s`, you might set `nginx.ingress.kubernetes.io/proxy-read-timeout` to `75s`.
+
+## Scalability considerations
+
+### Single instance capacity and resource usage
+
+A single `http-relay-server` instance is lightweight and can handle a large number of concurrent connections because it relies on Go's non-blocking I/O and goroutines.
+
+- **Idle / long-polling backends:** Each connected `http-relay-client` maintains a long-polling request (`/server/request`). An idle backend holds only a minimal in-memory state entry ([backendState](server/broker.go#L130-L133)) and one goroutine (~2–8 KB of stack memory). Thus, 1,000 idle backends require ~5–10 MB of RAM, and 10,000 idle backends require less than 100 MB of RAM.
+- **Active requests and streaming:** In-flight requests allocate a [pendingResponse](server/broker.go#L93-L115) tracking object and unbuffered channels. Memory consumption for streaming traffic is bounded by the chunk size (the relay client defaults to 1 MB max chunks and 64 KB I/O blocks) and the network buffers for active transfers. For typical workloads with tens to hundreds of concurrent active requests, memory usage remains modest (tens of megabytes).
+- **Resource recommendation:** The default deployment requests `16Mi` memory and `100m` CPU. For production environments handling hundreds of active streams or thousands of connected robots, allocating 512 MB to 1 GB of memory and 1–2 CPU cores provides ample headroom.
+
+### System, socket, and infrastructure limits
+
+When scaling to thousands of concurrent connections or high throughput, consider the following non-memory limits:
+
+- **File descriptors & sockets:** Each open TCP connection (from user clients, long-polling robot clients, or ingress proxies) consumes an OS file descriptor. Ensure the container and host `ulimit -n` is configured with sufficient headroom (e.g., 65,535) to prevent `too many open files` errors.
+- **Kernel TCP socket memory:** Outside the Go heap, the Linux kernel allocates read/write buffers (`rmem`/`wmem`) for each open TCP socket. For 10,000+ persistent connections, kernel socket memory can consume several hundred megabytes of system RAM.
+- **Connection churn from long-polling:** Relay clients time out and re-poll every 30 seconds. A large fleet (e.g., 10,000 robots) generates a baseline of ~333 requests/sec just for idle polling. Ensure reverse proxies and Ingress controllers allow HTTP keep-alive connections to avoid exhausting ephemeral ports or conntrack table entries (`nf_conntrack_max`) with rapid TCP/TLS handshakes.
+- **HTTP/2 stream concurrency:** Go's HTTP/2 server (`h2c`) defaults to a maximum of 250 concurrent streams per HTTP/2 TCP connection (`MaxConcurrentStreams`). If a single client or proxy multiplexes more than 250 simultaneous requests over one HTTP/2 connection, additional streams will be queued.
+- **In-memory statefulness:** The server stores request-matching state in local memory ([broker](server/broker.go#L135-L139)). A user request and the corresponding robot's long-polling connection must reach the exact same `http-relay-server` process.
+- **CPU & GC overhead:** Heavy streaming data or high request rates cause CPU load from Protobuf serialization, HTTP/2 framing, and Go garbage collection from frequent byte slice allocations.
+
+### Scaling strategies
+
+Because `http-relay-server` maintains routing state in memory, you cannot simply scale a single deployment horizontally behind a naive round-robin load balancer. To scale beyond a single instance, use **sharding**:
+
+1. **Functional Sharding (by API / Traffic Type):**
+   - Run separate relay server instances for different traffic profiles (e.g., one instance for low-latency Kubernetes API / control-plane RPCs, and another instance for high-throughput streaming such as `kubectl exec`, logs, or media streams).
+   - Configure Kubernetes Ingress or Gateway API ([HTTPRoute](../../../app_charts/k8s-relay/cloud/http-route.yaml#L4-L86)) to route different URL paths or prefixes to the respective relay server service.
+   - This isolates critical control plane traffic from being starved or delayed by high-bandwidth streaming transfers.
+
+2. **Fleet / Tenant Sharding (by Backend / Robot):**
+   - Partition robots across multiple relay server instances (e.g., shard by robot name, cluster, or tenant).
+   - Configure each robot's `http-relay-client` with `--relay_prefix` or `--relay_address` pointing to its designated relay server shard.
+   - Route user traffic to the appropriate shard using distinct hostnames (e.g., `relay-shard1.example.com`) or path prefixes.

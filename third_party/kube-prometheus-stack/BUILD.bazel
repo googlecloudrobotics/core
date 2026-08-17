@@ -2,11 +2,8 @@
 # Apache license
 licenses(["notice"])
 
-# this chart was downloaded by running:
-#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-#   helm fetch prometheus-community/kube-prometheus-stack --version=x.y.z
-# then edit VERSION= in update_crd.sh
-# then run update_crd.sh to generate new 00-crds.yaml
+# To update this chart and regenerate 00-crds.yaml / 01-crds.yaml, run:
+#   ./update.sh
 
 exports_files(
     glob([

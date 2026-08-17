@@ -25,9 +25,9 @@ import (
 	"time"
 
 	"github.com/googlecloudrobotics/ilog"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,47 +56,27 @@ const (
 	annotationResourceVersion = "cr-syncer.cloudrobotics.com/remote-resource-version"
 
 	cloudClusterName = "cloud"
+
+	tagEventSource attribute.Key = "event_source"
+	tagResource    attribute.Key = "resource"
 )
 
 var (
-	mSyncs = stats.Int64(
+	meter = otel.Meter("github.com/googlecloudrobotics/core/src/go/cmd/cr-syncer")
+
+	mSyncs, _ = meter.Int64Counter(
 		"cr-syncer.cloudrobotics.com/syncs",
-		"Synchronizations triggered by resource events",
-		stats.UnitDimensionless,
+		metric.WithDescription("Total number of synchronizations triggered by resource events"),
 	)
-	mSyncErrors = stats.Int64(
+	mSyncErrors, _ = meter.Int64Counter(
 		"cr-syncer.cloudrobotics.com/sync_errors",
-		"Synchronization errors on resource events",
-		stats.UnitDimensionless,
+		metric.WithDescription("Total number of synchronization errors on resource events"),
 	)
-	tagEventSource = mustNewTagKey("event_source")
-	tagResource    = mustNewTagKey("resource")
 
 	// errIgnoredCRD indicates that the spec-source label is missing or empty
 	// and this CRD should be ignored.
 	errIgnoredCRD = errors.New("this CRD is not synced")
 )
-
-func init() {
-	if err := view.Register(
-		&view.View{
-			Name:        "cr-syncer.cloudrobotics.com/syncs_total",
-			Description: "Total number of synchronizations triggered resource events",
-			Measure:     mSyncs,
-			TagKeys:     []tag.Key{tagEventSource, tagResource},
-			Aggregation: view.Count(),
-		},
-		&view.View{
-			Name:        "cr-syncer.cloudrobotics.com/sync_errors_total",
-			Description: "Total number of synchronizations errors on resource events",
-			Measure:     mSyncErrors,
-			TagKeys:     []tag.Key{tagEventSource, tagResource},
-			Aggregation: view.Count(),
-		},
-	); err != nil {
-		panic(err)
-	}
-}
 
 // removeFinalizer removes the cr-syncer finalizer for this robot. Finalizers
 // for offline robots have to be removed manually (eg with `kubectl edit`).
@@ -351,18 +331,20 @@ func (s *crSyncer) processNextWorkItem(
 		s.conflictErrors = 0
 	}
 
-	ctx, err := tag.New(ctx, tag.Insert(tagEventSource, qName))
-	if err != nil {
-		panic(err)
-	}
-	err = syncf(key.(string))
-	stats.Record(ctx, mSyncs.M(1))
+	err := syncf(key.(string))
+	mSyncs.Add(s.ctx, 1, metric.WithAttributes(
+		tagEventSource.String(qName),
+		tagResource.String(s.crd.Name),
+	))
 	if err == nil {
 		q.Forget(key)
 		return true
 	}
 	// Synchronization failed, retry later.
-	stats.Record(ctx, mSyncErrors.M(1))
+	mSyncErrors.Add(s.ctx, 1, metric.WithAttributes(
+		tagEventSource.String(qName),
+		tagResource.String(s.crd.Name),
+	))
 	slog.Warn("Syncing key from queue failed",
 		slog.Any("Key", key),
 		slog.String("Queue", qName),
@@ -384,17 +366,13 @@ func (s *crSyncer) run() {
 		return
 	}
 
-	ctx, err := tag.New(s.ctx, tag.Insert(tagResource, s.crd.Name))
-	if err != nil {
-		panic(err)
-	}
 	// Process the upstream and downstream work queues.
 	go func() {
-		for s.processNextWorkItem(ctx, s.upstreamQueue, s.syncUpstream, "upstream") {
+		for s.processNextWorkItem(s.ctx, s.upstreamQueue, s.syncUpstream, "upstream") {
 		}
 	}()
 	go func() {
-		for s.processNextWorkItem(ctx, s.downstreamQueue, s.syncDownstream, "downstream") {
+		for s.processNextWorkItem(s.ctx, s.downstreamQueue, s.syncDownstream, "downstream") {
 		}
 	}()
 	<-s.done
@@ -407,6 +385,9 @@ func (s *crSyncer) run() {
 func (s *crSyncer) stop() {
 	slog.Info("Stopping syncer", slog.String("CRD", s.crd.GetName()))
 	close(s.done)
+	s.stopInformers()
+	s.upstreamQueue.ShutDown()
+	s.downstreamQueue.ShutDown()
 }
 
 // syncDownstream reconciles state after receiving change events from the

@@ -25,6 +25,9 @@ spec:
         # This scope allows GKE RBAC policy bindings to refer to service accounts by email.
         # https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control#forbidden_error_for_service_accounts_on_vm_instances
         - --scope=https://www.googleapis.com/auth/userinfo.email
+{{- if .Values.token_vendor.allow_any_method }}
+        - --allow_any_method=true
+{{- end }}
 {{- if .Values.use_tv_verbose }}
         - --verbose
 {{- end }}
@@ -44,6 +47,12 @@ spec:
             path: /healthz
             port: 9090
           initialDelaySeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 9090
+          periodSeconds: 5
+          failureThreshold: 2
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true

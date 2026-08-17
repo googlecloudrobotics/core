@@ -5,7 +5,8 @@
 # workloads: see workload-identity.tf for those service accounts.
 
 locals {
-  node_disk_type = var.node_disk_type != null ? var.node_disk_type : (startswith(var.node_machine_type, "n4") ? "hyperdisk-balanced" : "pd-balanced")
+  # 4th gen machines (n4, c4, n4d etc) only supports hyperdisk
+  node_disk_type = var.node_disk_type != null ? var.node_disk_type : substr(var.node_machine_type, 1, 1) == "4" ? "hyperdisk-balanced" : null
 }
 
 resource "google_container_cluster" "cloud-robotics" {
@@ -151,6 +152,10 @@ resource "google_container_node_pool" "cloud_robotics_base_pool" {
       "https://www.googleapis.com/auth/userinfo.email",
     ]
   }
+
+  timeouts {
+    update = "${var.max_node_count * 10}m"
+  }
 }
 
 resource "google_container_node_pool" "cloud_robotics_base_pool_ar" {
@@ -179,6 +184,10 @@ resource "google_container_node_pool" "cloud_robotics_base_pool_ar" {
       "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/userinfo.email",
     ]
+  }
+
+  timeouts {
+    update = "${var.max_node_count * 10}m"
   }
 }
 

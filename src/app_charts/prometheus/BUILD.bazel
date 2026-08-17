@@ -4,8 +4,9 @@ load("//bazel:build_rules/helm_template.bzl", "helm_template")
 
 helm_template(
     name = "prometheus-operator-chart.cloud",
-    chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-72.9.1.tgz",
+    chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-87.5.1.tgz",
     helm_version = 3,
+    kube_version = "1.29.0",
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
     # Pick a short release name as it will be used as a prefix for a lot of resources.
@@ -15,8 +16,9 @@ helm_template(
 
 helm_template(
     name = "prometheus-operator-chart.robot",
-    chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-72.9.1.tgz",
+    chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-87.5.1.tgz",
     helm_version = 3,
+    kube_version = "1.29.0",
     # The namespace will later be replaced with the actual one.
     namespace = "HELM-NAMESPACE",
     # Pick a short release name as it will be used as a prefix for a lot of resources.
@@ -48,7 +50,6 @@ app_chart(
     ],
     images = {
         "http-relay-client": "//src/go/cmd/http-relay-client:http-relay-client-image",
-        "hw-exporter": "//src/go/cmd/hw-exporter:hw-exporter-image",
     },
 )
 

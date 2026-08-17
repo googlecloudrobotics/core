@@ -47,3 +47,6 @@ build:remote_cache --config=linux_x86_64
 
 # Don't run integration tests and tests that need docker by default
 test --test_tag_filters="-external,-requires-docker"
+
+# Workspace status command for stamping
+build --workspace_status_command=scripts/workspace-status.sh

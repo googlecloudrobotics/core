@@ -25,12 +25,18 @@ spec:
             path: /healthz
             port: 8080
           initialDelaySeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          periodSeconds: 5
+          failureThreshold: 2
         ports:
         - name: http
           containerPort: 8080
         resources:
           requests:
-            memory: "16Mi"
+            memory: "50Mi"
             cpu: "100m"
         securityContext:
           allowPrivilegeEscalation: false
@@ -68,7 +74,7 @@ metadata:
     nginx.ingress.kubernetes.io/client-body-buffer-size: "50m"
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     nginx.ingress.kubernetes.io/rewrite-target: /server/$2
-    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
+    nginx.ingress.kubernetes.io/auth-url: "http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/v1/token.verify?robots=true"
 spec:
   ingressClassName: nginx
   rules:
@@ -103,37 +109,24 @@ spec:
     matchLabels:
       app: prometheus-relay-server
 ---
-{{- range list "" "-auth" }}
-{{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: prometheus-relay-server{{ . }}
+  name: prometheus-relay-server
   labels:
-    app.kubernetes.io/name: {{ $.Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
 spec:
   hostnames:
-  - {{ $.Values.domain }}
+  - {{ .Values.domain }}
   parentRefs:
-  - name: crc{{ . }}-gateway
+  - name: crc-gateway
     namespace: default
-    sectionName: {{ $sectionName }}
+    sectionName: https
   rules:
   - matches:
     - path:
         type: PathPrefix
         value: /apis/core.prometheus-relay/server
-{{- if eq . "-auth" }}
-    filters:
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplaceFullPath
-          replaceFullPath: /apis/core.token-vendor/v1/token.verify?robots=true
-    backendRefs:
-    - name: token-vendor
-      port: 80
-{{- else }}
     filters:
     - type: URLRewrite
       urlRewrite:
@@ -143,6 +136,19 @@ spec:
     backendRefs:
     - name: prometheus-relay-server
       port: 80
-{{- end }}
 ---
-{{- end }}
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: prometheus-relay-server-auth
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: prometheus-relay-server
+  action: CUSTOM
+  provider:
+    name: auth-provider-tv-robots-true
+

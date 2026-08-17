@@ -39,6 +39,7 @@ fi
 
 TERRAFORM_DIR="${DIR}/src/bootstrap/cloud/terraform"
 TERRAFORM_APPLY_FLAGS=${TERRAFORM_APPLY_FLAGS:- -auto-approve}
+TERRAFORM_PLAN_FLAGS=${TERRAFORM_PLAN_FLAGS:-}
 # utility functions
 
 function include_config_and_defaults {
@@ -52,10 +53,6 @@ function include_config_and_defaults {
   USE_ISTIO=${USE_ISTIO:-false}
   USE_NGINX_SHIELD=${USE_NGINX_SHIELD:-false}
 
-  # lets-encrypt is used as the default certificate provider for backwards compatibility purposes
-  CLOUD_ROBOTICS_CERTIFICATE_PROVIDER=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER:-lets-encrypt}
-  CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME=${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME:-GCP_PROJECT_ID}
-  CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION=${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION:-GCP_PROJECT_ID}
 
   CLOUD_ROBOTICS_OWNER_EMAIL=${CLOUD_ROBOTICS_OWNER_EMAIL:-$(gcloud config get-value account)}
   CLOUD_ROBOTICS_CTX=${CLOUD_ROBOTICS_CTX:-"gke_${GCP_PROJECT_ID}_${GCP_ZONE}_${PROJECT_NAME}"}
@@ -151,7 +148,6 @@ region = "${GCP_REGION}"
 shared_owner_group = "${CLOUD_ROBOTICS_SHARED_OWNER_GROUP}"
 robot_image_reference = "${SOURCE_CONTAINER_REGISTRY}/setup-robot@${ROBOT_IMAGE_DIGEST}"
 crc_version = "${CRC_VERSION}"
-certificate_provider = "${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
 cluster_type = "${GKE_CLUSTER_TYPE}"
 datapath_provider = "${GKE_DATAPATH_PROVIDER}"
 node_machine_type = "${GCP_NODE_VM_TYPE}"
@@ -159,27 +155,7 @@ min_node_count = ${GKE_MIN_NODES}
 max_node_count = ${GKE_MAX_NODES}
 onprem_federation = ${ONPREM_FEDERATION}
 secret_manager_plugin = ${GKE_SECRET_MANAGER_PLUGIN}
-certificate_subject_common_name = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_COMMON_NAME}"
-certificate_subject_organization = "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATION}"
 EOF
-
-  if [[ -n "${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}" ]]; then
-    echo "certificate_subject_organizational_unit = \"${CLOUD_ROBOTICS_CERTIFICATE_SUBJECT_ORGANIZATIONAL_UNIT}\"" >> "${TERRAFORM_DIR}/terraform.tfvars"
-  else
-    echo "certificate_subject_organizational_unit = null" >> "${TERRAFORM_DIR}/terraform.tfvars"
-  fi
-
-  if [[ -n "${GCP_NODE_DISK_TYPE:-}" ]]; then
-    echo "node_disk_type = \"${GCP_NODE_DISK_TYPE}\"" >> "${TERRAFORM_DIR}/terraform.tfvars"
-  else
-    echo "node_disk_type = null" >> "${TERRAFORM_DIR}/terraform.tfvars"
-  fi
-
-  if [[ -n "${CLOUD_ROBOTICS_COOKIE_SECRET:-}" ]]; then
-    echo "cookie_secret = \"${CLOUD_ROBOTICS_COOKIE_SECRET}\"" >> "${TERRAFORM_DIR}/terraform.tfvars"
-  else
-    echo "cookie_secret = null" >> "${TERRAFORM_DIR}/terraform.tfvars"
-  fi
 
   echo 'additional_regions = {' >> "${TERRAFORM_DIR}/terraform.tfvars"
   local AR
@@ -257,6 +233,13 @@ function terraform_apply {
     || die "terraform apply failed"
 }
 
+function terraform_plan {
+  terraform_init
+
+  terraform_exec plan ${TERRAFORM_PLAN_FLAGS} \
+    || die "terraform plan failed"
+}
+
 function terraform_delete {
   terraform_init
   terraform_exec destroy -auto-approve || die "terraform destroy failed"
@@ -276,6 +259,7 @@ function helm_region_shared {
   CLUSTER_REGION="${4}"
   CLUSTER_ZONE="${5}"
   CLUSTER_NAME="${6}"
+  shift 6
 
   gke_get_credentials "${GCP_PROJECT_ID}" "${CLUSTER_NAME}" "${CLUSTER_REGION}" "${CLUSTER_ZONE}"
 
@@ -316,7 +300,6 @@ function helm_region_shared {
     --set-string "owner_email=${CLOUD_ROBOTICS_OWNER_EMAIL}"
     --set-string "app_management=${APP_MANAGEMENT}"
     --set-string "onprem_federation=${ONPREM_FEDERATION}"
-    --set-string "certificate_provider=${CLOUD_ROBOTICS_CERTIFICATE_PROVIDER}"
     --set-string "deploy_environment=${CLOUD_ROBOTICS_DEPLOY_ENVIRONMENT}"
     --set-string "oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
     --set-string "oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
@@ -325,6 +308,18 @@ function helm_region_shared {
     --set-string "use_nginx_shield=${USE_NGINX_SHIELD}"
     --set "use_tv_verbose=${CRC_USE_TV_VERBOSE}"
   )
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -f|--values)
+        values+=(-f "$2")
+        shift 2
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
 
   ${SYNK_COMMAND} --context "${CLUSTER_CONTEXT}" init
   echo "synk init done"
@@ -368,12 +363,14 @@ function helm_main_region {
     "${INGRESS_IP}" \
     "${GCP_REGION}" \
     "${GCP_ZONE}" \
-    "${PROJECT_NAME}"
+    "${PROJECT_NAME}" \
+    "$@"
 }
 
 function helm_additional_region {
   local ar_description
   ar_description="${1}"
+  shift
 
   local AR_NAME
   local AR_REGION
@@ -408,15 +405,16 @@ function helm_additional_region {
     "${INGRESS_IP}" \
     "${AR_REGION}" \
     "${AR_ZONE}" \
-    "${CLUSTER_NAME}"
+    "${CLUSTER_NAME}" \
+    "$@"
 }
 
 function helm_charts {
-  helm_main_region
+  helm_main_region "$@"
 
   local AR
   for AR in "${ADDITIONAL_REGIONS[@]}"; do
-    helm_additional_region "${AR}"
+    helm_additional_region "${AR}" "$@"
   done
 }
 
@@ -429,6 +427,7 @@ function set_config {
 
 function create {
   include_config_and_defaults $1
+  shift
   if is_source_install; then
     prepare_source_install
   fi
@@ -437,7 +436,7 @@ function create {
   else
     terraform_apply
   fi
-  helm_charts
+  helm_charts "$@"
 }
 
 function delete {
@@ -450,16 +449,17 @@ function delete {
 
 # Alias for create.
 function update {
-  create $1
+  create "$@"
 }
 
 # This is a shortcut for skipping Terraform config checks if you know the config has not changed.
 function fast_push {
   include_config_and_defaults $1
+  shift
   if is_source_install; then
     prepare_source_install
   fi
-  helm_charts
+  helm_charts "$@"
 }
 
 # This is a shortcut for skipping building and applying Terraform configs if you know the build has not changed.
@@ -468,9 +468,14 @@ function update_infra {
   terraform_apply
 }
 
+function plan {
+  include_config_and_defaults $1
+  terraform_plan
+}
+
 # main
-if [[ "$#" -lt 2 ]] || [[ ! "$1" =~ ^(set_config|create|delete|update|fast_push|update_infra)$ ]]; then
-  die "Usage: $0 {set_config|create|delete|update|fast_push|update_infra} <project id>"
+if [[ "$#" -lt 2 ]] || [[ ! "$1" =~ ^(set_config|create|delete|update|fast_push|update_infra|plan)$ ]]; then
+  die "Usage: $0 {set_config|create|delete|update|fast_push|update_infra|plan} <project id>"
 fi
 
 # log and call arguments verbatim:

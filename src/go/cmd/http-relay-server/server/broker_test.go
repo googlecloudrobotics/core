@@ -22,6 +22,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
@@ -84,7 +85,7 @@ func (bt *brokerConn) bakeRequest(b *broker, s string) {
 	// ensure that the request is created before the user client connects
 	b.m.Lock()
 	if _, found := b.req[s]; !found {
-		b.req[s] = make(chan *pb.HttpRequest)
+		b.req[s] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 	}
 	b.m.Unlock()
 	close(bt.ready)
@@ -244,7 +245,7 @@ func TestTimeout(t *testing.T) {
 	b := newBroker()
 	// create the request channel manually to avoid race condition between the 2
 	// goroutines below
-	b.req["foo"] = make(chan *pb.HttpRequest)
+	b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -270,98 +271,100 @@ func TestTimeout(t *testing.T) {
 }
 
 func TestReapWhileSendingResponse(t *testing.T) {
-	b := newBroker()
-	b.req["foo"] = make(chan *pb.HttpRequest)
+	synctest.Test(t, func(t *testing.T) {
+		b := newBroker()
+		b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 
-	// create a broker connection between the user client and backend side, but don't
-	// start sending data. "req" is backend side and "resp" is user client side.
-	var req *pb.HttpRequest
-	var reqErr error
-	// var resp <-chan *pb.HttpResponse
-	var respErr error
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		req, reqErr = b.GetRequest(t.Context(), "foo", "/")
-		if reqErr != nil {
-			t.Errorf("GetRequest error: %v", reqErr)
+		// create a broker connection between the user client and backend side, but don't
+		// start sending data. "req" is backend side and "resp" is user client side.
+		var req *pb.HttpRequest
+		var reqErr error
+		// var resp <-chan *pb.HttpResponse
+		var respErr error
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			req, reqErr = b.GetRequest(t.Context(), "foo", "/")
+			if reqErr != nil {
+				t.Errorf("GetRequest error: %v", reqErr)
+			}
+			wg.Done()
+		}()
+		go func() {
+			_, respErr = b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
+			if respErr != nil {
+				t.Errorf("RelayRequest error: %v", respErr)
+			}
+			wg.Done()
+		}()
+		wg.Wait()
+		if reqErr != nil || respErr != nil {
+			t.Errorf("Error making broker connection")
 		}
-		wg.Done()
-	}()
-	go func() {
-		_, respErr = b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
-		if respErr != nil {
-			t.Errorf("RelayRequest error: %v", respErr)
-		}
-		wg.Done()
-	}()
-	wg.Wait()
-	if reqErr != nil || respErr != nil {
-		t.Errorf("Error making broker connection")
-	}
 
-	// start sending response to user client, BUT do not start consuming the response.
-	wg.Add(1)
-	go func() {
-		reqErr = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(false)})
-		if !errors.Is(reqErr, ErrClosedInactivity) {
-			t.Errorf("Wrong SendResponse error: %v; want %v", reqErr, ErrClosedInactivity)
-		}
-		wg.Done()
-	}()
-	// FIXME(koonpeng): we need to wait for the goroutinue to be blocked on writing the response, currently
-	// there is no way to confirm that so we use a sleep.
-	time.Sleep(100 * time.Millisecond)
-	// reap the request
-	b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
-	wg.Wait()
+		// start sending response to user client, BUT do not start consuming the response.
+		wg.Add(1)
+		go func() {
+			reqErr = b.SendResponse(&pb.HttpResponse{Id: req.Id, Body: []byte(*req.Id), Eof: proto.Bool(false)})
+			if !errors.Is(reqErr, ErrClosedInactivity) {
+				t.Errorf("Wrong SendResponse error: %v; want %v", reqErr, ErrClosedInactivity)
+			}
+			wg.Done()
+		}()
+		// Wait for the goroutine to be blocked on writing the response.
+		synctest.Wait()
+		// reap the request
+		b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
+		wg.Wait()
+	})
 }
 
 func TestReapWhileSendingRequest(t *testing.T) {
-	b := newBroker()
-	b.req["foo"] = make(chan *pb.HttpRequest)
+	synctest.Test(t, func(t *testing.T) {
+		b := newBroker()
+		b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 
-	// create a broker connection between the user client and backend side, but don't
-	// start sending data. "req" is backend side and "resp" is user client side.
-	var req *pb.HttpRequest
-	var reqErr error
-	// var resp <-chan *pb.HttpResponse
-	var respErr error
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		req, reqErr = b.GetRequest(t.Context(), "foo", "/")
-		if reqErr != nil {
-			t.Errorf("GetRequest error: %v", reqErr)
+		// create a broker connection between the user client and backend side, but don't
+		// start sending data. "req" is backend side and "resp" is user client side.
+		var req *pb.HttpRequest
+		var reqErr error
+		// var resp <-chan *pb.HttpResponse
+		var respErr error
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			req, reqErr = b.GetRequest(t.Context(), "foo", "/")
+			if reqErr != nil {
+				t.Errorf("GetRequest error: %v", reqErr)
+			}
+			wg.Done()
+		}()
+		go func() {
+			_, respErr = b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
+			if respErr != nil {
+				t.Errorf("RelayRequest error: %v", respErr)
+			}
+			wg.Done()
+		}()
+		wg.Wait()
+		if reqErr != nil || respErr != nil {
+			t.Errorf("Error making broker connection")
 		}
-		wg.Done()
-	}()
-	go func() {
-		_, respErr = b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
-		if respErr != nil {
-			t.Errorf("RelayRequest error: %v", respErr)
-		}
-		wg.Done()
-	}()
-	wg.Wait()
-	if reqErr != nil || respErr != nil {
-		t.Errorf("Error making broker connection")
-	}
 
-	// start sending request stream to backend, BUT do not start consuming on the backend side
-	wg.Add(1)
-	go func() {
-		if ok := b.PutRequestStream(*req.Id, []byte(*req.Id)); !ok {
-			t.Errorf("Error putting request stream")
-		}
-		wg.Done()
-	}()
-	// FIXME(koonpeng): we need to wait for the goroutinue to be blocked on writing the request, currently
-	// there is no way to confirm that so we use a sleep.
-	time.Sleep(100 * time.Millisecond)
-	// reap the request
-	b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
-	wg.Wait()
+		// start sending request stream to backend, BUT do not start consuming on the backend side
+		wg.Add(1)
+		go func() {
+			if ok := b.PutRequestStream(*req.Id, []byte(*req.Id)); !ok {
+				t.Errorf("Error putting request stream")
+			}
+			wg.Done()
+		}()
+		// Wait for the goroutine to be blocked on writing the request.
+		synctest.Wait()
+		// reap the request
+		b.ReapInactiveRequests(time.Now().Add(10 * time.Second))
+		wg.Wait()
+	})
 }
 
 func TestRelayRequestUrlParseError(t *testing.T) {
@@ -378,7 +381,7 @@ func TestRelayRequestUrlParseError(t *testing.T) {
 
 func TestRelayRequestMultipleClients(t *testing.T) {
 	b := newBroker()
-	b.req["foo"] = make(chan *pb.HttpRequest, 1)
+	b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest, 1), lastActivity: time.Now()}
 	req1 := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
 	_, err := b.RelayRequest("foo", req1)
 	if err != nil {
@@ -409,7 +412,7 @@ func TestRelayRequestRelayTimeout(t *testing.T) {
 	}
 	b := newBroker()
 	// Create an unbuffered channel and don't read from it to trigger timeout.
-	b.req["foo"] = make(chan *pb.HttpRequest)
+	b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 	req := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
 
 	_, err := b.RelayRequest("foo", req)
@@ -423,7 +426,7 @@ func TestGetRequestStreamTimeout(t *testing.T) {
 		t.Skip("Skipping slow timeout test")
 	}
 	b := newBroker()
-	b.req["foo"] = make(chan *pb.HttpRequest, 1) // make it block
+	b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest, 1), lastActivity: time.Now()} // make it block
 	req := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
 	b.RelayRequest("foo", req)
 
@@ -438,7 +441,7 @@ func TestGetRequestStreamTimeout(t *testing.T) {
 
 func TestStopRelayRequestCleanup(t *testing.T) {
 	b := newBroker()
-	b.req["foo"] = make(chan *pb.HttpRequest, 1)
+	b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest, 1), lastActivity: time.Now()}
 	req := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
 
 	respChan, err := b.RelayRequest("foo", req)
@@ -473,5 +476,38 @@ func TestStopRelayRequestCleanup(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Error("Timed out waiting for respChan to close")
+	}
+}
+
+func TestReapInactiveBackends(t *testing.T) {
+	b := newBroker()
+	
+	// Create an active backend
+	b.req["active"] = &backendState{
+		reqChan:      make(chan *pb.HttpRequest),
+		lastActivity: time.Now(),
+	}
+	
+	// Create an inactive backend
+	b.req["inactive"] = &backendState{
+		reqChan:      make(chan *pb.HttpRequest),
+		lastActivity: time.Now().Add(-15 * time.Minute),
+	}
+
+	// Record some metrics for both to ensure deletion doesn't panic
+	brokerRequests.WithLabelValues("client", "active").Inc()
+	brokerRequests.WithLabelValues("client", "inactive").Inc()
+
+	// Reap backends inactive for more than 10 minutes
+	b.ReapInactiveBackends(time.Now().Add(-10 * time.Minute))
+
+	b.m.Lock()
+	defer b.m.Unlock()
+
+	if _, ok := b.req["active"]; !ok {
+		t.Error("Active backend was incorrectly reaped")
+	}
+	if _, ok := b.req["inactive"]; ok {
+		t.Error("Inactive backend was not reaped")
 	}
 }

@@ -20,12 +20,14 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -192,6 +194,112 @@ func TestGetPublicKey_Invalid(t *testing.T) {
 				t.Errorf("getPublicKey(%s) should have failed", tc.name)
 			}
 		})
+	}
+}
+
+func TestGetRobotName(t *testing.T) {
+	scheme := runtime.NewScheme()
+	client := fake.NewSimpleDynamicClient(scheme)
+	resource := client.Resource(schema.GroupVersionResource{
+		Group:    "registry.cloudrobotics.com",
+		Version:  "v1alpha1",
+		Resource: "robots",
+	})
+
+	robot := &unstructured.Unstructured{}
+	robot.SetKind("Robot")
+	robot.SetAPIVersion("registry.cloudrobotics.com/v1alpha1")
+	robot.SetName("my-robot")
+	_, err := resource.Create(t.Context(), robot, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name      string
+		robotName string
+		wantName  string
+		wantErr   bool
+		errSubstr string
+	}{
+		{
+			name:      "exists",
+			robotName: "my-robot",
+			wantName:  "my-robot",
+		},
+		{
+			name:      "not found",
+			robotName: "non-existent",
+			wantErr:   true,
+			errSubstr: "robot non-existent not found",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			name, err := GetRobotName(t.Context(), nil, resource, tc.robotName)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("GetRobotName() error = %v, wantErr %v", err, tc.wantErr)
+			}
+			if tc.wantErr {
+				if !strings.Contains(err.Error(), tc.errSubstr) {
+					t.Errorf("Expected error to contain %q, got %q", tc.errSubstr, err.Error())
+				}
+			} else if name != tc.wantName {
+				t.Errorf("GetRobotName() = %q, want %q", name, tc.wantName)
+			}
+		})
+	}
+}
+
+func TestPublishCredentialsToCloud_Success(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(key),
+	})
+
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead && r.URL.Path == "/apis/core.token-vendor/v1/public-key.read" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.Method == http.MethodPost && r.URL.Path == "/apis/core.token-vendor/v1/public-key.publish" {
+			if r.URL.Query().Get("device-id") != "my-device" {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if !bytes.Contains(body, []byte("BEGIN PUBLIC KEY")) {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("expected public key"))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	domain := strings.TrimPrefix(server.URL, "https://")
+
+	auth := &robotauth.RobotAuth{
+		Domain:               domain,
+		PrivateKey:           privateKeyPEM,
+		PublicKeyRegistryId: "my-device",
+	}
+
+	err = PublishCredentialsToCloud(server.Client(), auth, 1)
+	if err != nil {
+		t.Fatalf("PublishCredentialsToCloud failed: %v", err)
 	}
 }
 

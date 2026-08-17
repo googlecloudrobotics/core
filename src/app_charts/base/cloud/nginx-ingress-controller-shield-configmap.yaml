@@ -175,7 +175,7 @@ data:
 
       # Set the maximum number of simultaneous connections
       # that can be opened by a worker process
-      worker_connections 4096;
+      worker_connections 8192;
     }
 
     http {
@@ -268,19 +268,19 @@ data:
       # Upstream pool for standard HTTP/HTTPS traffic
       upstream backend_http {
           server nginx-ingress-controller-internal:443;
-          keepalive 64;
+          keepalive 256;
       }
 
       # Upstream pool for gRPC traffic
       upstream backend_grpc {
           server nginx-ingress-controller-internal:443;
-          keepalive 64;
+          keepalive 256;
       }
 
       # Listen on port 80 for non-secure HTTP requests
       # Redirect all HTTP traffic to HTTPS (port 443) using a 301 Permanent Redirect.
       server {
-          listen 80;
+          listen 80 backlog=4096;
           server_name _;
           return 301 https://$host$request_uri;
       }
@@ -289,7 +289,7 @@ data:
       server {
 
         # Listen on port 443 for all secure HTTPS requests.
-        listen 443 ssl default_server;
+        listen 443 ssl default_server backlog=4096;
 
         # Enable HTTP/2
         http2 on;
@@ -345,6 +345,9 @@ data:
           # Set the SNI hostname to match the incoming client host header.
           proxy_ssl_name $host;
 
+          # Disable verification of the backend certificates.
+          proxy_ssl_verify off;
+
           # Force the proxy protocol to use HTTP/1.1 to match standard backend communication.
           proxy_http_version 1.1;
 
@@ -395,6 +398,9 @@ data:
           # Set the SNI hostname to match the client host.
           grpc_ssl_name $host;
 
+          # Disable validation of certificate of upstream gRPC backend.
+          grpc_ssl_verify off;
+
           # Pass Host header to backend.
           grpc_set_header Host $host;
 
@@ -421,7 +427,7 @@ data:
     pid /tmp/nginx.pid;
 
     events {
-      worker_connections 4096;
+      worker_connections 8192;
     }
 
     http {
@@ -439,12 +445,12 @@ data:
 
       upstream backend_http_bootstrap {
           server nginx-ingress-controller-internal:80;
-          keepalive 64;
+          keepalive 256;
       }
 
       # Bootstrap configuration for HTTP-01 challenges
       server {
-          listen 80;
+          listen 80 backlog=4096;
           server_name _;
 
           # Verify that responses come from CRC NGINX Shield

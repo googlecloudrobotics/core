@@ -127,15 +127,20 @@ func (e *RelayClientUnavailableError) Error() string {
 // Responses (resp) are mapped by stream id (randomly generated hex string).
 // There can be multiple concurrent transfers per relay-client, each identified
 // by a unique id query parameter.
+type backendState struct {
+	reqChan      chan *pb.HttpRequest
+	lastActivity time.Time
+}
+
 type broker struct {
 	m    sync.Mutex
-	req  map[string]chan *pb.HttpRequest
+	req  map[string]*backendState
 	resp map[string]*pendingResponse
 }
 
 func newBroker() *broker {
 	return &broker{
-		req:  make(map[string]chan *pb.HttpRequest),
+		req:  make(map[string]*backendState),
 		resp: make(map[string]*pendingResponse),
 	}
 }
@@ -158,11 +163,13 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	}
 
 	r.m.Lock()
-	if r.req[server] == nil {
+	bs := r.req[server]
+	if bs == nil {
 		// If we haven't seen this relay client before, immediately return error.
 		r.m.Unlock()
 		return nil, &RelayClientUnavailableError{client: server}
 	}
+	bs.lastActivity = time.Now()
 	if r.resp[id] != nil {
 		r.m.Unlock()
 		return nil, fmt.Errorf("%w %s on server %s", ErrMultipleClients, id, server)
@@ -176,7 +183,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 		requestPath:    targetUrl.Path,
 		markReap:       make(chan struct{}),
 	}
-	reqChan := r.req[server]
+	reqChan := bs.reqChan
 	respChan := r.resp[id].responseStream
 	r.m.Unlock()
 
@@ -207,12 +214,17 @@ func (r *broker) StopRelayRequest(requestId string) {
 // until a client makes a request.
 func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpRequest, error) {
 	r.m.Lock()
-	if r.req[server] == nil {
+	bs := r.req[server]
+	if bs == nil {
 		// This happens when the relay-server started and a client connects before
 		// the relay-client connected.
-		r.req[server] = make(chan *pb.HttpRequest)
+		bs = &backendState{
+			reqChan: make(chan *pb.HttpRequest),
+		}
+		r.req[server] = bs
 	}
-	reqChan := r.req[server]
+	bs.lastActivity = time.Now()
+	reqChan := bs.reqChan
 	r.m.Unlock()
 
 	brokerRequests.WithLabelValues("server_request", server).Inc()
@@ -298,6 +310,9 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	} else {
 		pr.lastActivity = time.Now()
 	}
+	if bs := r.req[backendName]; bs != nil {
+		bs.lastActivity = time.Now()
+	}
 	duration := time.Since(pr.startTime).Seconds()
 	// Release the lock on the broker before we write to `responseStream` so it does not
 	// block other requests.
@@ -358,4 +373,33 @@ func (r *broker) removeRequest(id string, pr *pendingResponse) {
 	pr.sendMutex.Unlock()
 
 	delete(r.resp, id)
+}
+
+func (r *broker) ReapInactiveBackends(threshold time.Time) {
+	r.m.Lock()
+	defer r.m.Unlock()
+	for server, bs := range r.req {
+		if bs.lastActivity.Before(threshold) {
+			slog.Info("Timeout on inactive backend", slog.String("ServerName", server))
+			
+			// Delete metrics
+			brokerRequests.DeleteLabelValues("client", server)
+			brokerRequests.DeleteLabelValues("server_request", server)
+			brokerRequests.DeleteLabelValues("server_response", server)
+			
+			brokerResponses.DeleteLabelValues("client", "missing_message", server)
+			brokerResponses.DeleteLabelValues("client", "missing_header", server)
+			brokerResponses.DeleteLabelValues("client", "ok", server)
+			brokerResponses.DeleteLabelValues("server_request", "ok", server)
+			brokerResponses.DeleteLabelValues("server_request", "timeout", server)
+			brokerResponses.DeleteLabelValues("server_response", "ok", server)
+			brokerResponses.DeleteLabelValues("server_response", "not recognized or reaches the inactivity timeout", server)
+			
+			brokerResponseDurations.DeleteLabelValues("server_response", server)
+			brokerBackendResponseDurations.DeleteLabelValues("server_response", server)
+			brokerOverheadDurations.DeleteLabelValues("server_response", server)
+
+			delete(r.req, server)
+		}
+	}
 }

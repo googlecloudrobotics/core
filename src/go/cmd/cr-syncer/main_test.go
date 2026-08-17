@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
 	crdtypes "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	fakecrdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +27,6 @@ import (
 )
 
 func TestStreamCrdsSeesPreexistingObject(t *testing.T) {
-	g := NewGomegaWithT(t)
 	items := []runtime.Object{
 		&crdtypes.CustomResourceDefinition{
 			ObjectMeta: metav1.ObjectMeta{
@@ -47,8 +45,12 @@ func TestStreamCrdsSeesPreexistingObject(t *testing.T) {
 		defer wg.Done()
 		select {
 		case crd := <-crds:
-			g.Expect(crd.Type).To(Equal(watch.Added))
-			g.Expect(crd.CRD.GetName()).To(Equal("foo"))
+			if crd.Type != watch.Added {
+				t.Errorf("crd.Type = %v; want %v", crd.Type, watch.Added)
+			}
+			if name := crd.CRD.GetName(); name != "foo" {
+				t.Errorf("crd.CRD.GetName() = %q; want %q", name, "foo")
+			}
 		case <-time.After(15 * time.Second):
 			t.Errorf("Received no watch event; wanted add for foo")
 		}
@@ -62,7 +64,6 @@ func TestStreamCrdsSeesPreexistingObject(t *testing.T) {
 
 func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
 	ctx := t.Context()
-	g := NewGomegaWithT(t)
 	cs := fakecrdclientset.NewSimpleClientset()
 
 	crds := make(chan CrdChange)
@@ -82,8 +83,12 @@ func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
 		metav1.CreateOptions{})
 	select {
 	case crd := <-crds:
-		g.Expect(crd.Type).To(Equal(watch.Added))
-		g.Expect(crd.CRD.GetName()).To(Equal("later"))
+		if crd.Type != watch.Added {
+			t.Errorf("crd.Type = %v; want %v", crd.Type, watch.Added)
+		}
+		if name := crd.CRD.GetName(); name != "later" {
+			t.Errorf("crd.CRD.GetName() = %q; want %q", name, "later")
+		}
 	case <-time.After(15 * time.Second):
 		t.Errorf("Received no watch event; wanted add for later")
 	}
@@ -91,8 +96,12 @@ func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
 	cs.ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, "later", metav1.DeleteOptions{})
 	select {
 	case crd := <-crds:
-		g.Expect(crd.Type).To(Equal(watch.Deleted))
-		g.Expect(crd.CRD.GetName()).To(Equal("later"))
+		if crd.Type != watch.Deleted {
+			t.Errorf("crd.Type = %v; want %v", crd.Type, watch.Deleted)
+		}
+		if name := crd.CRD.GetName(); name != "later" {
+			t.Errorf("crd.CRD.GetName() = %q; want %q", name, "later")
+		}
 	case <-time.After(15 * time.Second):
 		t.Errorf("Received no watch event; wanted deleted for later")
 	}
@@ -100,7 +109,6 @@ func TestStreamCrdsSeesAdditionAndDeletion(t *testing.T) {
 
 func TestStreamCrdsSeesUpdate(t *testing.T) {
 	ctx := t.Context()
-	g := NewGomegaWithT(t)
 	cs := fakecrdclientset.NewSimpleClientset()
 
 	crds := make(chan CrdChange)
@@ -120,8 +128,12 @@ func TestStreamCrdsSeesUpdate(t *testing.T) {
 		metav1.CreateOptions{})
 	select {
 	case crd := <-crds:
-		g.Expect(crd.Type).To(Equal(watch.Added))
-		g.Expect(crd.CRD.GetName()).To(Equal("later"))
+		if crd.Type != watch.Added {
+			t.Errorf("crd.Type = %v; want %v", crd.Type, watch.Added)
+		}
+		if name := crd.CRD.GetName(); name != "later" {
+			t.Errorf("crd.CRD.GetName() = %q; want %q", name, "later")
+		}
 	case <-time.After(15 * time.Second):
 		t.Errorf("Received no watch event; wanted add for later")
 	}
@@ -138,8 +150,12 @@ func TestStreamCrdsSeesUpdate(t *testing.T) {
 		metav1.UpdateOptions{})
 	select {
 	case crd := <-crds:
-		g.Expect(crd.Type).To(Equal(watch.Modified))
-		g.Expect(crd.CRD.GetName()).To(Equal("later"))
+		if crd.Type != watch.Modified {
+			t.Errorf("crd.Type = %v; want %v", crd.Type, watch.Modified)
+		}
+		if name := crd.CRD.GetName(); name != "later" {
+			t.Errorf("crd.CRD.GetName() = %q; want %q", name, "later")
+		}
 	case <-time.After(15 * time.Second):
 		t.Errorf("Received no watch event; wanted modified for later")
 	}

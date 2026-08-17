@@ -139,7 +139,7 @@ func TestTokenVendor_ValidateJWT(t *testing.T) {
 	}
 
 	defaultFields := fields{
-		repo:          getInMemoryRepo(deviceId, devicePubKey.PublicKey),
+		repo:          getInMemoryRepo(t.Context(), deviceId, devicePubKey.PublicKey),
 		v:             nil,
 		ts:            nil,
 		accAud:        "",
@@ -260,8 +260,7 @@ func TestTokenVendor_ValidateJWT(t *testing.T) {
 	}
 }
 
-func getInMemoryRepo(deviceId, key string) repository.PubKeyRepository {
-	ctx := context.Background()
+func getInMemoryRepo(ctx context.Context, deviceId, key string) repository.PubKeyRepository {
 	repo, _ := memory.NewMemoryRepository(ctx)
 	_ = repo.PublishKey(ctx, deviceId, key)
 	return repo

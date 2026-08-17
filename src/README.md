@@ -31,7 +31,7 @@ To re-generate Go modules dependencies run this from the top-level source
 directory:
 
 ```shell
-./src/gomod.sh
+./gomod.sh
 ```
 
 This will always download the latest stable tag of a go module. To use a

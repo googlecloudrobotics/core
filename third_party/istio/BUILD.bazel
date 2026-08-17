@@ -5,8 +5,16 @@ licenses(["notice"])
 exports_files(
     [
         "istio-generated.yaml",
+        "istio-crds.yaml",
+        "istio-dashboards.yaml",
         "istio-config.yaml",
         "istio-values.json",
     ],
-    visibility = ["//visibility:public"]
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "istio-dashboards",
+    srcs = glob(["grafana-dashboards/*.json"]),
+    visibility = ["//visibility:public"],
 )

@@ -60,7 +60,7 @@ func updateCredentials(ctx context.Context) error {
 
 	// Perform a token exchange with the TokenVendor in the cloud cluster and update the
 	// credentials used to pull images from GCR.
-	return gcr.UpdateGcrCredentials(ctx, localClient, robotAuth, effectiveSA)
+	return gcr.UpdateGcrCredentials(ctx, localClient, robotAuth.CreateRobotTokenSource(ctx, effectiveSA))
 }
 
 // Updates the token used to pull images from GCR in the surrounding cluster. The update runs

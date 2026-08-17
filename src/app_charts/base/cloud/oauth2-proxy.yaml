@@ -19,7 +19,7 @@ spec:
         - --provider=oidc
         - --oidc-issuer-url=https://accounts.google.com
         - --email-domain=*
-        - --upstream=http://token-vendor.default.svc.cluster.local/apis/core.token-vendor/
+        - --upstream=http://token-vendor.app-token-vendor.svc.cluster.local/apis/core.token-vendor/
         - --upstream=https://{{ .Values.domain }}/
         - --http-address=0.0.0.0:8080
         - --pass-access-token
@@ -122,6 +122,8 @@ spec:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /apis
+    timeouts:
+      backendRequest: 600s
     backendRefs:
     - name: oauth2-proxy
       port: 80
@@ -145,4 +147,30 @@ spec:
     backendRefs:
     - name: oauth2-proxy
       port: 80
-{{ end }}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: oauth2-proxy-allow
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: oauth2-proxy
+  action: ALLOW
+  rules:
+  - {}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: oauth2-proxy-interactive-allow
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: oauth2-proxy-interactive
+  action: ALLOW
+  rules:
+  - {}
+{{- end }}

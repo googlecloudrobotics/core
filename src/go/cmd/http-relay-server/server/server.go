@@ -34,9 +34,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/protobuf/proto"
 
-	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/plugin/ochttp/propagation/tracecontext"
-	"go.opencensus.io/trace"
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"golang.org/x/sync/errgroup"
@@ -45,6 +47,8 @@ import (
 var (
 	ErrRequestPathTooShort     = errors.New("request path too short")
 	ErrMissingServerNameHeader = errors.New("missing required header")
+
+	tracer = otel.Tracer("github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server/server")
 )
 
 const (
@@ -62,6 +66,8 @@ const (
 	DefaultBlockSize = 10 * 1024
 	// DefaultInactiveRequestTimeout is the default timeout for inactive requests. In particular, this sets a limit on how long the backend can wait before writing headers and the response status.
 	DefaultInactiveRequestTimeout = 60 * time.Second
+	// DefaultInactiveBackendTimeout is the default timeout for inactive backends.
+	DefaultInactiveBackendTimeout = 30 * time.Minute
 )
 
 type Config struct {
@@ -71,6 +77,8 @@ type Config struct {
 	BlockSize int
 	// InactiveRequestTimeout is the timeout for inactive requests.
 	InactiveRequestTimeout time.Duration
+	// InactiveBackendTimeout is the timeout for inactive backends.
+	InactiveBackendTimeout time.Duration
 }
 
 type Server struct {
@@ -87,6 +95,9 @@ func NewServer(conf Config) *Server {
 	}
 	if conf.InactiveRequestTimeout == 0 {
 		conf.InactiveRequestTimeout = DefaultInactiveRequestTimeout
+	}
+	if conf.InactiveBackendTimeout == 0 {
+		conf.InactiveBackendTimeout = DefaultInactiveBackendTimeout
 	}
 	s := &Server{
 		conf: conf,
@@ -116,11 +127,6 @@ func unmarshalHeader(w http.ResponseWriter, protoHeader []*pb.HttpHeader) {
 	for _, h := range protoHeader {
 		w.Header().Add(*h.Name, *h.Value)
 	}
-}
-
-func addServiceName(span *trace.Span) {
-	relayServerAttr := trace.StringAttribute("service.name", "http-relay-server")
-	span.AddAttributes(relayServerAttr)
 }
 
 func extractBackendNameAndPath(r *http.Request) (backendName string, path string, err error) {
@@ -293,8 +299,7 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 }
 
 func (s *Server) readRequestBody(ctx context.Context, r *http.Request) ([]byte, error) {
-	_, span := trace.StartSpan(ctx, "Read request body")
-	addServiceName(span)
+	_, span := tracer.Start(ctx, "Read request body")
 	defer span.End()
 	return io.ReadAll(r.Body)
 }
@@ -321,8 +326,7 @@ func (s *Server) createBackendRequest(backendCtx backendContext, r *http.Request
 }
 
 func (s *Server) relayRequest(ctx context.Context, backendCtx backendContext, request *pb.HttpRequest) (<-chan *pb.HttpResponse, error) {
-	_, span := trace.StartSpan(ctx, "Schedule request for pickup")
-	addServiceName(span)
+	_, span := tracer.Start(ctx, "Schedule request for pickup")
 	defer span.End()
 
 	backendRespChan, err := s.b.RelayRequest(backendCtx.ServerName, request)
@@ -333,8 +337,7 @@ func (s *Server) relayRequest(ctx context.Context, backendCtx backendContext, re
 }
 
 func (s *Server) waitForFirstResponseAndHandleSwitching(ctx context.Context, backendCtx backendContext, w http.ResponseWriter, backendRespChan <-chan *pb.HttpResponse) ([]*pb.HttpHeader, <-chan *responseChunk, bool) {
-	_, span := trace.StartSpan(ctx, "Waiting for first response")
-	addServiceName(span)
+	_, span := tracer.Start(ctx, "Waiting for first response")
 	defer span.End()
 
 	header, status, responseChunksChan := s.responseFilter(backendCtx, backendRespChan)
@@ -343,7 +346,7 @@ func (s *Server) waitForFirstResponseAndHandleSwitching(ctx context.Context, bac
 	}
 
 	if status == http.StatusSwitchingProtocols {
-		span.AddAttributes(trace.StringAttribute("notes", "Received 101 switching protocols."))
+		span.SetAttributes(attribute.String("notes", "Received 101 switching protocols."))
 		// Note: call s.bidirectionalStream before w.WriteHeader so that
 		// bidirectionalStream can set the status on error.
 		// TODO(haukeheibel): I don't get this comment. We never write the
@@ -360,20 +363,12 @@ func (s *Server) waitForFirstResponseAndHandleSwitching(ctx context.Context, bac
 // This function is used to handle requests by the user-client.
 // This is e.g. a browser request.
 func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
-	f := &tracecontext.HTTPFormat{}
-	var span *trace.Span
-	ctx := r.Context()
-	if sctx, ok := f.SpanContextFromRequest(r); ok {
-		ctx, span = trace.StartSpanWithRemoteParent(ctx, "Received user client request "+r.URL.Path, sctx)
-	} else {
-		ctx, span = trace.StartSpan(ctx, "Received user client request "+r.URL.Path)
-	}
-	addServiceName(span)
+	ctx, span := tracer.Start(r.Context(), "Received user client request "+r.URL.Path)
 	// Embedding the span in the request ensures that the server side spans are correctly
 	// nested.
 	// Note: We are overwriting the previous one with the current one which is not a
 	// problem since we have already read the previous one.
-	f.SpanContextToRequest(span.SpanContext(), r)
+	telemetry.HTTPPropagator.Inject(ctx, propagation.HeaderCarrier(r.Header))
 	// We can actually defer span.end() since this function will wait until a response from
 	// a server is being received.
 	defer span.End()
@@ -418,8 +413,7 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, forwardingResponseSpan := trace.StartSpan(ctx, "Forwarding backend response to user-client")
-	addServiceName(forwardingResponseSpan)
+	_, forwardingResponseSpan := tracer.Start(ctx, "Forwarding backend response to user-client")
 	defer forwardingResponseSpan.End()
 
 	// This code here will block until we have actually received a response from the backend,
@@ -442,9 +436,18 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// TODO(ensonic): open questions:
-	// - can we do this less hacky? (see unmarshalHeader() above)
-	// - why do we not always get them as trailers?
+	// Standard gRPC servers use a "Trailers-Only" response for immediate errors,
+	// sending the gRPC status and message in the initial HTTP headers (no body).
+	// The http-relay-client forwards these to us as HTTP headers.
+	//
+	// However, when we write them back to the user-client, Go's net/http server
+	// does not send a true HTTP/2 Trailers-Only response (it sends a HEADERS
+	// frame, followed by an empty DATA frame). Because of the DATA frame,
+	// standard gRPC clients expect the gRPC status in the HTTP Trailers at the
+	// end of the stream, rather than in the initial Headers.
+	//
+	// To ensure clients receive the error correctly, we duplicate all "Grpc-"
+	// prefixed headers into the HTTP Trailers.
 	for _, h := range header {
 		if strings.HasPrefix(*h.Name, "Grpc-") {
 			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
@@ -556,11 +559,14 @@ func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 
 	h2s := &http2.Server{}
 	h2h := h2c.NewHandler(h, h2s)
-	och := &ochttp.Handler{
-		Handler: h2h,
-	}
+	otelHandler := otelhttp.NewHandler(h2h, "",
+		otelhttp.WithPropagators(telemetry.HTTPPropagator),
+		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+			return r.URL.Path
+		}),
+	)
 	h1s := &http.Server{
-		Handler: och,
+		Handler: otelHandler,
 		BaseContext: func(l net.Listener) context.Context {
 			return ctx
 		},
@@ -579,6 +585,8 @@ func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 				return nil
 			case t := <-ticker.C:
 				s.b.ReapInactiveRequests(t.Add(-1 * s.conf.InactiveRequestTimeout))
+				// Reap backends that have been inactive for InactiveBackendTimeout.
+				s.b.ReapInactiveBackends(t.Add(-1 * s.conf.InactiveBackendTimeout))
 			}
 		}
 	})
@@ -601,7 +609,7 @@ func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 		if errors.Is(err, context.Canceled) {
 			return
 		}
-		// A non-nil error indicates either an abnormal shutdown or a failed 
+		// A non-nil error indicates either an abnormal shutdown or a failed
 		// liveness check (eg broker deadlock).
 		slog.Error("Server terminated abnormally", ilog.Err(err))
 		panic("Server terminated abnormally")
