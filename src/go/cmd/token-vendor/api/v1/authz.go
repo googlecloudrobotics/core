@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"strconv"
 	"strings"
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
@@ -63,7 +64,7 @@ func (s *ExtAuthzServer) Check(ctx context.Context, req *authv3.CheckRequest) (*
 		extPath = strings.TrimSpace(ext["path"])
 	}
 
-	// 1. Check X-Forwarded-Access-Token header
+	// Extract token from request headers or query parameter
 	token := ""
 	if fwdToken := getHeader(headers, "x-forwarded-access-token"); fwdToken != "" {
 		token = fwdToken
@@ -103,13 +104,11 @@ func hasPathSuffix(rawURL, suffix string) bool {
 	if rawURL == "" {
 		return false
 	}
-	if !strings.Contains(rawURL, "?") {
-		return strings.HasSuffix(rawURL, suffix) || rawURL == suffix || rawURL == strings.TrimPrefix(suffix, "/")
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return strings.HasSuffix(rawURL, suffix)
 	}
-	if u, err := url.Parse(rawURL); err == nil {
-		return strings.HasSuffix(u.Path, suffix) || u.Path == strings.TrimPrefix(suffix, "/")
-	}
-	return strings.HasSuffix(rawURL, suffix)
+	return strings.HasSuffix(u.Path, suffix) || u.Path == strings.TrimPrefix(suffix, "/")
 }
 
 func (s *ExtAuthzServer) verifyOAuthTokenInternal(ctx context.Context, token string, isRobot bool) (*authv3.CheckResponse, error) {
@@ -203,7 +202,7 @@ func isRobot(req *authv3.CheckRequest) bool {
 
 	httpReq := req.GetAttributes().GetRequest().GetHttp()
 	if httpReq != nil {
-		if val := getHeader(httpReq.GetHeaders(), "x-crc-tv-robots"); val != "" {
+		if val := getHeader(httpReq.GetHeaders(), headerRobots); val != "" {
 			if b, ok := parseBoolValue(val); ok {
 				return b
 			}
@@ -218,14 +217,8 @@ func isRobot(req *authv3.CheckRequest) bool {
 }
 
 func parseBoolValue(val string) (bool, bool) {
-	v := strings.ToLower(strings.TrimSpace(val))
-	if v == "true" || v == "1" || v == "yes" {
-		return true, true
-	}
-	if v == "false" || v == "0" || v == "no" {
-		return false, true
-	}
-	return false, false
+	b, err := strconv.ParseBool(strings.TrimSpace(val))
+	return b, err == nil
 }
 
 func getRobotFromQuery(rawURL string) (bool, bool) {
