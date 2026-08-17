@@ -10,11 +10,11 @@ This directory contains vendored Custom Resource Definitions (CRDs) and system m
 To update or re-generate the Envoy Gateway and Gateway API manifests, run:
 
 ```shell
-./update-envoy-gateway.sh
+./update.sh
 ```
 
 You can optionally override the versions by setting environment variables:
 
 ```shell
-EG_VERSION=v1.8.3 GAPI_VERSION=v1.5.1 ./update-envoy-gateway.sh
+EG_VERSION=v1.8.3 GAPI_VERSION=v1.5.1 ./update.sh
 ```
