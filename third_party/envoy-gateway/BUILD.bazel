@@ -1,0 +1,15 @@
+# https://github.com/envoyproxy/gateway/blob/main/LICENSE
+# Apache 2.0 license
+licenses(["notice"])
+
+exports_files(
+    glob(
+        [
+            "*.yaml",
+            "*.py",
+            "*.sh",
+        ],
+        allow_empty = True,
+    ),
+    visibility = ["//visibility:public"],
+)
