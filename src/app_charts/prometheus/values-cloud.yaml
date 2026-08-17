@@ -67,6 +67,14 @@ prom_auth_backend:
   port: 80
   path: "/oauth2/auth"
   contextExtensions: {}
+authProxy:
+  authHeaders:
+  - authorization
+  - cookie
+  - x-forwarded-access-token
+  - x-forwarded-host
+  - apikey-token
+  - x-server-name
 # Prometheus: Using ${} replacement
 prom_external_url: "https://${CLOUD_ROBOTICS_DOMAIN}/prometheus/"
 # Grafana SMTP configuration
