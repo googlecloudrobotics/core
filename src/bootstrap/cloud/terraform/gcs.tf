@@ -35,8 +35,8 @@ resource "google_storage_bucket_object" "setup_robot" {
 # We did not always create the bucket here, but sometimes elsewhere. Import it
 # to consitently manage it from here now. 
 import {
-   to = google_storage_bucket.config_store
-   id = "${var.id}-cloud-robotics-config"
+  to = google_storage_bucket.config_store
+  id = "${var.id}-cloud-robotics-config"
 }
 
 resource "google_storage_bucket" "config_store" {
@@ -50,6 +50,42 @@ resource "google_storage_bucket" "config_store" {
 resource "google_storage_bucket_object" "config_store_crc_version" {
   name          = "crc_version.txt"
   content       = var.crc_version
+  bucket        = google_storage_bucket.config_store.name
+  cache_control = "private, max-age=0, no-transform"
+}
+
+resource "random_id" "cloud_robotics_cookie_secret" {
+  count = var.managed_config ? 1 : 0
+
+  byte_length = 16
+}
+
+resource "google_storage_bucket_object" "crc_config" {
+  count = var.managed_config ? 1 : 0
+
+  name          = "config.sh"
+  content       = <<EOF
+#!/usr/bin/env bash
+GCP_PROJECT_ID='${var.id}'
+GCP_REGION='${var.region}'
+GCP_ZONE='${var.zone}'
+CLOUD_ROBOTICS_CONTAINER_REGISTRY='gcr.io/${var.id}'
+PRIVATE_DOCKER_PROJECTS='${join(" ", var.private_image_repositories)}'
+CLOUD_ROBOTICS_SHARED_OWNER_GROUP='${var.shared_owner_group}'
+TERRAFORM_GCS_BUCKET=
+TERRAFORM_GCS_PREFIX=
+CLOUD_ROBOTICS_COOKIE_SECRET='${random_id.cloud_robotics_cookie_secret[0].b64_url}'
+CLOUD_ROBOTICS_OAUTH2_CLIENT_ID='${var.oauth2_client_id}'
+CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET='${var.oauth2_secret}'
+CLOUD_ROBOTICS_DOMAIN='${var.domain}'
+GCP_NODE_VM_TYPE='${var.node_machine_type}'
+GKE_MIN_NODES='${var.min_node_count}'
+GKE_MAX_NODES='${var.max_node_count}'
+APP_MANAGEMENT=true
+ONPREM_FEDERATION="${var.onprem_federation}"
+GKE_SECRET_MANAGER_PLUGIN='${var.secret_manager_plugin}'
+MANAGED_CONFIG=true
+EOF
   bucket        = google_storage_bucket.config_store.name
   cache_control = "private, max-age=0, no-transform"
 }
