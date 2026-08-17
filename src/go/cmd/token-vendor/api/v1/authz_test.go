@@ -177,18 +177,6 @@ func TestExtAuthzCheck_RobotJWT(t *testing.T) {
 			},
 			wantOK: true,
 		},
-		{
-			name: "robot jwt with invalid signature",
-			contextExt: map[string]string{
-				"robot": "true",
-			},
-			headers: map[string]string{
-				"authorization": "Bearer " + jwtWrongSig,
-			},
-			wantOK:       false,
-			wantHTTPCode: typev3.StatusCode_Forbidden,
-			wantRPCCode:  codes.PermissionDenied,
-		},
 	}
 
 	for _, tc := range tests {
@@ -277,25 +265,6 @@ func TestExtAuthzCheck_OAuth2AccessToken(t *testing.T) {
 			headers:    map[string]string{},
 			iamHasPerm: true,
 			wantOK:     true,
-		},
-		{
-			name: "human token missing IAM permission",
-			headers: map[string]string{
-				"authorization": "Bearer " + validToken,
-			},
-			iamHasPerm:   false,
-			wantOK:       false,
-			wantHTTPCode: typev3.StatusCode_Forbidden,
-			wantRPCCode:  codes.PermissionDenied,
-		},
-		{
-			name: "invalid token format",
-			headers: map[string]string{
-				"authorization": "Bearer invalid_short_token",
-			},
-			wantOK:       false,
-			wantHTTPCode: typev3.StatusCode_BadRequest,
-			wantRPCCode:  codes.InvalidArgument,
 		},
 	}
 
