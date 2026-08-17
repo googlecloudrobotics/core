@@ -282,3 +282,4 @@ func okResponse() *authv3.CheckResponse {
 			OkResponse: &authv3.OkHttpResponse{},
 		},
 	}
+}
