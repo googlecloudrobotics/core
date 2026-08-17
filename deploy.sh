@@ -162,6 +162,7 @@ min_node_count = ${GKE_MIN_NODES}
 max_node_count = ${GKE_MAX_NODES}
 onprem_federation = ${ONPREM_FEDERATION}
 secret_manager_plugin = ${GKE_SECRET_MANAGER_PLUGIN}
+managed_config = ${CONFIG_MANAGED_BY_TERRAFORM:-false}
 EOF
 
   echo 'additional_regions = {' >> "${TERRAFORM_DIR}/terraform.tfvars"
