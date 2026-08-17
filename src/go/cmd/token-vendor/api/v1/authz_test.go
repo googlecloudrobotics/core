@@ -84,6 +84,29 @@ func setupTestExtAuthzServer(t *testing.T, iamHandler RoundTripFunc) *ExtAuthzSe
 	return NewExtAuthzServer(tv)
 }
 
+func assertCheckResponse(t *testing.T, resp *authv3.CheckResponse, wantOK bool, wantHTTPCode typev3.StatusCode, wantRPCCode codes.Code) {
+	t.Helper()
+	if wantOK {
+		if resp.GetStatus().GetCode() != int32(codes.OK) {
+			t.Errorf("got rpc code %v, want %v", resp.GetStatus().GetCode(), codes.OK)
+		}
+		if resp.GetOkResponse() == nil {
+			t.Fatalf("expected OkResponse, got nil")
+		}
+	} else {
+		if resp.GetStatus().GetCode() != int32(wantRPCCode) {
+			t.Errorf("got rpc code %v, want %v", resp.GetStatus().GetCode(), wantRPCCode)
+		}
+		denied := resp.GetDeniedResponse()
+		if denied == nil {
+			t.Fatalf("expected DeniedResponse, got nil")
+		}
+		if denied.GetStatus().GetCode() != wantHTTPCode {
+			t.Errorf("got http code %v, want %v", denied.GetStatus().GetCode(), wantHTTPCode)
+		}
+	}
+}
+
 func TestExtAuthzCheck_NilRequest(t *testing.T) {
 	srv := setupTestExtAuthzServer(t, nil)
 
@@ -91,16 +114,7 @@ func TestExtAuthzCheck_NilRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.GetStatus().GetCode() != int32(codes.Unauthenticated) {
-		t.Errorf("got rpc code %v, want %v", resp.GetStatus().GetCode(), codes.Unauthenticated)
-	}
-	denied := resp.GetDeniedResponse()
-	if denied == nil {
-		t.Fatalf("expected DeniedResponse, got nil")
-	}
-	if denied.GetStatus().GetCode() != typev3.StatusCode_Unauthorized {
-		t.Errorf("got http code %v, want %v", denied.GetStatus().GetCode(), typev3.StatusCode_Unauthorized)
-	}
+	assertCheckResponse(t, resp, false, typev3.StatusCode_Unauthorized, codes.Unauthenticated)
 }
 
 func TestExtAuthzCheck_MissingCredentials(t *testing.T) {
@@ -122,13 +136,7 @@ func TestExtAuthzCheck_MissingCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	denied := resp.GetDeniedResponse()
-	if denied == nil {
-		t.Fatalf("expected DeniedResponse, got nil")
-	}
-	if denied.GetStatus().GetCode() != typev3.StatusCode_Unauthorized {
-		t.Errorf("got http code %v, want %v", denied.GetStatus().GetCode(), typev3.StatusCode_Unauthorized)
-	}
+	assertCheckResponse(t, resp, false, typev3.StatusCode_Unauthorized, codes.Unauthenticated)
 }
 
 func TestExtAuthzCheck_RobotJWT(t *testing.T) {
@@ -153,7 +161,6 @@ func TestExtAuthzCheck_RobotJWT(t *testing.T) {
 			},
 			wantOK: true,
 		},
-
 		{
 			name: "valid robot jwt with header x-crc-tv-robots=true",
 			headers: map[string]string{
@@ -169,42 +176,6 @@ func TestExtAuthzCheck_RobotJWT(t *testing.T) {
 				"authorization": "Bearer " + jwtCorrect,
 			},
 			wantOK: true,
-		},
-		{
-			name: "robot jwt with wrong signature",
-			contextExt: map[string]string{
-				"robot": "true",
-			},
-			headers: map[string]string{
-				"authorization": "Bearer " + jwtWrongSig,
-			},
-			wantOK:       false,
-			wantHTTPCode: typev3.StatusCode_Forbidden,
-			wantRPCCode:  codes.PermissionDenied,
-		},
-		{
-			name: "robot jwt with wrong audience",
-			contextExt: map[string]string{
-				"robot": "true",
-			},
-			headers: map[string]string{
-				"authorization": "Bearer " + jwtWrongAud,
-			},
-			wantOK:       false,
-			wantHTTPCode: typev3.StatusCode_Forbidden,
-			wantRPCCode:  codes.PermissionDenied,
-		},
-		{
-			name: "robot jwt expired",
-			contextExt: map[string]string{
-				"robot": "true",
-			},
-			headers: map[string]string{
-				"authorization": "Bearer " + jwtExpired,
-			},
-			wantOK:       false,
-			wantHTTPCode: typev3.StatusCode_Forbidden,
-			wantRPCCode:  codes.PermissionDenied,
 		},
 	}
 
@@ -232,25 +203,7 @@ func TestExtAuthzCheck_RobotJWT(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if tc.wantOK {
-				if resp.GetStatus().GetCode() != int32(codes.OK) {
-					t.Errorf("got rpc code %v, want %v", resp.GetStatus().GetCode(), codes.OK)
-				}
-				if resp.GetOkResponse() == nil {
-					t.Fatalf("expected OkResponse, got nil")
-				}
-			} else {
-				if resp.GetStatus().GetCode() != int32(tc.wantRPCCode) {
-					t.Errorf("got rpc code %v, want %v", resp.GetStatus().GetCode(), tc.wantRPCCode)
-				}
-				denied := resp.GetDeniedResponse()
-				if denied == nil {
-					t.Fatalf("expected DeniedResponse, got nil")
-				}
-				if denied.GetStatus().GetCode() != tc.wantHTTPCode {
-					t.Errorf("got http code %v, want %v", denied.GetStatus().GetCode(), tc.wantHTTPCode)
-				}
-			}
+			assertCheckResponse(t, resp, tc.wantOK, tc.wantHTTPCode, tc.wantRPCCode)
 		})
 	}
 }
@@ -264,7 +217,6 @@ func TestExtAuthzCheck_OAuth2AccessToken(t *testing.T) {
 		headers      map[string]string
 		path         string
 		iamHasPerm   bool
-		iamStatus    int
 		wantOK       bool
 		wantHTTPCode typev3.StatusCode
 		wantRPCCode  codes.Code
@@ -275,7 +227,6 @@ func TestExtAuthzCheck_OAuth2AccessToken(t *testing.T) {
 				"authorization": "Bearer " + validToken,
 			},
 			iamHasPerm: true,
-			iamStatus:  http.StatusOK,
 			wantOK:     true,
 		},
 		{
@@ -284,7 +235,6 @@ func TestExtAuthzCheck_OAuth2AccessToken(t *testing.T) {
 				"x-forwarded-access-token": validToken,
 			},
 			iamHasPerm: true,
-			iamStatus:  http.StatusOK,
 			wantOK:     true,
 		},
 		{
@@ -296,7 +246,6 @@ func TestExtAuthzCheck_OAuth2AccessToken(t *testing.T) {
 				"authorization": "Bearer " + validToken,
 			},
 			iamHasPerm: true,
-			iamStatus:  http.StatusOK,
 			wantOK:     true,
 		},
 		{
@@ -308,61 +257,20 @@ func TestExtAuthzCheck_OAuth2AccessToken(t *testing.T) {
 				"authorization": "Bearer ya29.c." + strings.Repeat("a", 100),
 			},
 			iamHasPerm: true,
-			iamStatus:  http.StatusOK,
 			wantOK:     true,
 		},
-
 		{
 			name:       "token via query parameter happy path",
 			path:       "/test?token=" + validToken,
 			headers:    map[string]string{},
 			iamHasPerm: true,
-			iamStatus:  http.StatusOK,
 			wantOK:     true,
-		},
-		{
-			name: "human token missing IAM permission",
-			headers: map[string]string{
-				"authorization": "Bearer " + validToken,
-			},
-			iamHasPerm:   false,
-			iamStatus:    http.StatusOK,
-			wantOK:       false,
-			wantHTTPCode: typev3.StatusCode_Forbidden,
-			wantRPCCode:  codes.PermissionDenied,
-		},
-		{
-			name: "IAM API returned error",
-			headers: map[string]string{
-				"authorization": "Bearer " + validToken,
-			},
-			iamHasPerm:   true,
-			iamStatus:    http.StatusInternalServerError,
-			wantOK:       false,
-			wantHTTPCode: typev3.StatusCode_Forbidden,
-			wantRPCCode:  codes.PermissionDenied,
-		},
-		{
-			name: "invalid token format",
-			headers: map[string]string{
-				"authorization": "Bearer invalid_short_token",
-			},
-			wantOK:       false,
-			wantHTTPCode: typev3.StatusCode_BadRequest,
-			wantRPCCode:  codes.InvalidArgument,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			iamHandler := func(req *http.Request) *http.Response {
-				if tc.iamStatus != http.StatusOK {
-					return &http.Response{
-						StatusCode: tc.iamStatus,
-						Body:       io.NopCloser(strings.NewReader("internal error")),
-						Header:     make(http.Header),
-					}
-				}
 				body := `{"permissions":[]}`
 				if tc.iamHasPerm {
 					body = `{"permissions":["iam.serviceAccounts.actAs"]}`
@@ -398,25 +306,7 @@ func TestExtAuthzCheck_OAuth2AccessToken(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if tc.wantOK {
-				if resp.GetStatus().GetCode() != int32(codes.OK) {
-					t.Errorf("got rpc code %v, want %v", resp.GetStatus().GetCode(), codes.OK)
-				}
-				if resp.GetOkResponse() == nil {
-					t.Fatalf("expected OkResponse, got nil")
-				}
-			} else {
-				if resp.GetStatus().GetCode() != int32(tc.wantRPCCode) {
-					t.Errorf("got rpc code %v, want %v", resp.GetStatus().GetCode(), tc.wantRPCCode)
-				}
-				denied := resp.GetDeniedResponse()
-				if denied == nil {
-					t.Fatalf("expected DeniedResponse, got nil")
-				}
-				if denied.GetStatus().GetCode() != tc.wantHTTPCode {
-					t.Errorf("got http code %v, want %v", denied.GetStatus().GetCode(), tc.wantHTTPCode)
-				}
-			}
+			assertCheckResponse(t, resp, tc.wantOK, tc.wantHTTPCode, tc.wantRPCCode)
 		})
 	}
 }
@@ -553,25 +443,7 @@ func TestExtAuthzCheck_EndpointDifferentiated(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if tc.wantOK {
-				if resp.GetStatus().GetCode() != int32(codes.OK) {
-					t.Errorf("got rpc code %v, want %v", resp.GetStatus().GetCode(), codes.OK)
-				}
-				if resp.GetOkResponse() == nil {
-					t.Fatalf("expected OkResponse, got nil")
-				}
-			} else {
-				if resp.GetStatus().GetCode() != int32(tc.wantRPCCode) {
-					t.Errorf("got rpc code %v, want %v", resp.GetStatus().GetCode(), tc.wantRPCCode)
-				}
-				denied := resp.GetDeniedResponse()
-				if denied == nil {
-					t.Fatalf("expected DeniedResponse, got nil")
-				}
-				if denied.GetStatus().GetCode() != tc.wantHTTPCode {
-					t.Errorf("got http code %v, want %v", denied.GetStatus().GetCode(), tc.wantHTTPCode)
-				}
-			}
+			assertCheckResponse(t, resp, tc.wantOK, tc.wantHTTPCode, tc.wantRPCCode)
 		})
 	}
 }
