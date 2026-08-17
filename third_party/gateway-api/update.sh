@@ -23,4 +23,7 @@ dst="${SCRIPT_DIR}/gatewayapi-crds.yaml"
 echo "Downloading official Gateway API Standard Channel ${GAPI_VERSION} CRDs..."
 curl -fsSL "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GAPI_VERSION}/standard-install.yaml" -o "${dst}"
 
+python3 "${SCRIPT_DIR}/process_gateway_api.py" "${dst}"
+
 echo "Updated ${dst}"
+

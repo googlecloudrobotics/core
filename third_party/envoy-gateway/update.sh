@@ -38,10 +38,9 @@ curl -fsSL "https://github.com/envoyproxy/gateway/releases/download/${EG_VERSION
 eg_crd_dst="${SCRIPT_DIR}/envoy-gateway-crds.yaml"
 eg_manifest_dst="${SCRIPT_DIR}/envoy-gateway-generated.yaml"
 
-echo "Processing Envoy Gateway and Gateway API manifests..."
+echo "Processing Envoy Gateway manifests..."
 python3 "${SCRIPT_DIR}/process_envoy_gateway_manifest.py" \
   "${install_manifest}" \
-  "${gapi_dst}" \
   "${eg_crd_dst}" \
   "${eg_manifest_dst}"
 
