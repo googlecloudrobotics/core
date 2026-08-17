@@ -19,13 +19,13 @@ set -euo pipefail
 # Check Envoy Gateway, Envoy Proxy, Gateway API, and Kubernetes version compatibility at:
 # https://gateway.envoyproxy.io/news/releases/matrix/
 EG_VERSION="${EG_VERSION:-v1.8.3}"
-GAPI_VERSION="${GAPI_VERSION:-v1.5.1}"
+export GAPI_VERSION="${GAPI_VERSION:-v1.5.1}"
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 CORE_ROOT=$( cd -- "${SCRIPT_DIR}/../.." &> /dev/null && pwd )
-
-echo "Downloading official Gateway API Standard Channel ${GAPI_VERSION} CRDs..."
 gapi_dst="${CORE_ROOT}/third_party/gateway-api/gatewayapi-crds.yaml"
-curl -fsSL "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GAPI_VERSION}/standard-install.yaml" -o "${gapi_dst}"
+
+# Invoke the split-out Gateway API update script
+"${CORE_ROOT}/third_party/gateway-api/update.sh"
 
 echo "Downloading official Envoy Gateway ${EG_VERSION} install manifest..."
 
