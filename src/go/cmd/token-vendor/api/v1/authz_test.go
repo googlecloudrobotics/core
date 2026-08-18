@@ -91,7 +91,7 @@ func assertCheckResponse(t *testing.T, resp *authv3.CheckResponse, wantOK bool, 
 			t.Errorf("got rpc code %v, want %v", resp.GetStatus().GetCode(), codes.OK)
 		}
 		if resp.GetOkResponse() == nil {
-			t.Fatalf("expected OkResponse, got nil")
+			t.Fatalf("got nil, want non-nil OkResponse")
 		}
 	} else {
 		if resp.GetStatus().GetCode() != int32(wantRPCCode) {
@@ -99,7 +99,7 @@ func assertCheckResponse(t *testing.T, resp *authv3.CheckResponse, wantOK bool, 
 		}
 		denied := resp.GetDeniedResponse()
 		if denied == nil {
-			t.Fatalf("expected DeniedResponse, got nil")
+			t.Fatalf("got nil, want non-nil DeniedResponse")
 		}
 		if denied.GetStatus().GetCode() != wantHTTPCode {
 			t.Errorf("got http code %v, want %v", denied.GetStatus().GetCode(), wantHTTPCode)
