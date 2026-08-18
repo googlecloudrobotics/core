@@ -39,8 +39,8 @@ spec:
     - name: prom-grafana
       port: 80
 ---
-apiVersion: security.istio.io/v1
-kind: AuthorizationPolicy
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
 metadata:
   name: grafana-auth
   labels:
@@ -50,6 +50,31 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: grafana
-  action: CUSTOM
-  provider:
-    name: auth-provider-oauth
+  extAuth:
+    {{- if .Values.gf_auth_backend.contextExtensions }}
+    contextExtensions:
+    {{- range $k, $v := .Values.gf_auth_backend.contextExtensions }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+    {{- end }}
+    headersToExtAuth:
+    {{- toYaml .Values.authProxy.authHeaders | nindent 4 }}
+    {{- if eq (default "http" .Values.gf_auth_backend.protocol) "grpc" }}
+    grpc:
+      backendRefs:
+      - name: {{ .Values.gf_auth_backend.service }}
+        {{- if .Values.gf_auth_backend.namespace }}
+        namespace: {{ .Values.gf_auth_backend.namespace }}
+        {{- end }}
+        port: {{ .Values.gf_auth_backend.port }}
+    {{- else }}
+    http:
+      path: {{ .Values.gf_auth_backend.path }}
+      backendRefs:
+      - name: {{ .Values.gf_auth_backend.service }}
+        {{- if .Values.gf_auth_backend.namespace }}
+        namespace: {{ .Values.gf_auth_backend.namespace }}
+        {{- end }}
+        port: {{ .Values.gf_auth_backend.port }}
+    {{- end }}

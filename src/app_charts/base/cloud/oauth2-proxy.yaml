@@ -171,4 +171,18 @@ spec:
     name: oauth2-proxy-interactive
   authorization:
     defaultAction: Allow
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-extauth-oauth2-proxy
+spec:
+  from:
+  - group: gateway.envoyproxy.io
+    kind: SecurityPolicy
+    namespace: app-prometheus
+  to:
+  - group: ""
+    kind: Service
+    name: oauth2-proxy
 {{- end }}
