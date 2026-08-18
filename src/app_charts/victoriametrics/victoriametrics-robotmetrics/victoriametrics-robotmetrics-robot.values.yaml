@@ -1,0 +1,59 @@
+# Configuration for the victoria-metrics-k8s-stack chart for the physical robot edge target.
+# Reference:
+# https://github.com/VictoriaMetrics/helm-charts/blob/victoria-metrics-k8s-stack-0.91.0/charts/victoria-metrics-k8s-stack/values.yaml
+#
+# This chart deploys the vm-operator and vmagent to dynamically discover and scrape
+# local ServiceMonitor and PodMonitor CRDs deployed by robot workloads, and forward
+# the data to the cloud via remoteWrite over TLS.
+#
+# Storage and Alerting are disabled here, as they run in the cloud.
+#
+# WARNING: If you edit this file, run the following command to generate
+# the output with `helm template`, and verify that your changes have
+# the expected effect.
+#
+#   bazel build src/app_charts/victoriametrics/victoriametrics-robotmetrics:victoriametrics-robotmetrics-chart.robot.yaml
+
+vmsingle:
+  enabled: false
+
+vmcluster:
+  enabled: false
+
+vmalert:
+  enabled: false
+
+vmagent:
+  enabled: true
+  spec:
+    selectAllByDefault: true
+    externalLabels: "${CR_VICTORIAMETRICS_EXTERNAL_LABELS_OBJECT}"
+    remoteWrite:
+      - url: "${CR_VICTORIAMETRICS_REMOTE_WRITE_URL}"
+        tlsConfig:
+          insecureSkipVerify: true
+    extraArgs:
+      - remoteWrite.tmpDataPath: "${CR_VICTORIAMETRICS_VMAGENT_TMP_DATA_PATH}"
+      - remoteWrite.maxDiskUsagePerURL: "5GB"
+      - memory.allowedBytes: "200MB"
+    resources:
+      requests:
+        memory: "512Mi"
+      limits:
+        memory: "512Mi"
+    containers:
+      - name: "${CR_VICTORIAMETRICS_EXTRA_CONTAINERS_OBJECT}"
+    volumes:
+      - name: "${CR_VICTORIAMETRICS_EXTRA_VOLUMES_OBJECT}"
+    volumeMounts:
+      - name: "${CR_VICTORIAMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT}"
+
+# Disable extra exporters as we run node-exporter manually or via k3s default.
+grafana:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: false
+
+kube-state-metrics:
+  enabled: true

@@ -1,0 +1,41 @@
+# App-chart-level values consumed by cloud/victoriametrics-robotmetrics-operator.yaml's
+# pseudo-variable replace chain.
+# Mirrors src/app_charts/prometheus/values-cloud.yaml's pattern.
+#
+# The default requests/limits are sufficient for a small test
+# deployment (single project, testing scope). Should be revisited for
+# any larger/production rollout.
+release_name: "victoriametrics-robotmetrics-agent"
+victoriametrics_robotmetrics_gcp_service_account: ""
+
+limits:
+  cpu: "2000m"
+  memory: "12Gi"
+requests:
+  storage: "100Gi"
+retention:
+  time: "90d"
+vminsert_replicas: 2
+vmselect_replicas: 2
+vminsert_port: 8480
+vmselect_port: 8481
+
+# Optional upstream integration for an external metrics consumer. Sidecar fields
+# are structured YAML fragments for injecting an authorization sidecar into
+# cloud vmagent; metrics fields add a second remote_write target with its own
+# relabel filter. remote_write_labels accepts key=value strings rendered as
+# repeated -remoteWrite.label flags; metrics_relabel_config accepts relabel
+# rule objects rendered into upstream-relabel.yml.
+# Empty by default, no effect on existing projects.
+upstream:
+  sidecar_containers: []
+  sidecar_volumes: []
+  sidecar_volume_mounts: []
+  remote_write_labels: []
+  metrics_url: ""
+  metrics_relabel_config: []
+
+victoriametrics_robotmetrics_alertmanager_url: ""
+victoriametrics_robotmetrics_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
+victoriametrics_robotmetrics_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+victoriametrics_robotmetrics_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"

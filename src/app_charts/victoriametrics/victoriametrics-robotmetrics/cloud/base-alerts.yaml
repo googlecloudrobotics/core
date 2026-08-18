@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    prometheus: kube-prometheus
+    role: alert-rules
+  name: base-alerts
+spec:
+  groups:
+  - name: base-alerts.rules
+    rules:
+    - alert: CloudRoboticsPodFrequentlyRestarting
+      expr: increase(kube_pod_container_status_restarts_total[1h]) > 5
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        description: Pod {{`{{$labels.namespace}}`}}/{{`{{$labels.pod}}`}} was restarted {{`{{$value}}`}}
+          times within the last hour
+        logs: "https://console.cloud.google.com/logs/viewer?project={{ .Values.project }}&resource=container&logName=projects%2F{{ .Values.project }}%2Flogs%2F{{`{{$labels.container}}`}}&interval=PT6H"
+        summary: Pod is restarting frequently

@@ -1,0 +1,51 @@
+{{- range list "" "-auth" }}
+{{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: victoriametrics-robotmetrics{{ . }}
+  labels:
+    app.kubernetes.io/name: {{ $.Chart.Name }}
+spec:
+  hostnames:
+  - {{ $.Values.domain }}
+  parentRefs:
+  - name: crc{{ . }}-gateway
+    namespace: default
+    sectionName: {{ $sectionName }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /victoriametrics-robotmetrics
+{{- if eq . "-auth" }}
+{{- $authUrl := urlParse (tpl $.Values.victoriametrics_robotmetrics_ingress_auth_url $) }}
+{{- $hostParts := splitList ":" $authUrl.host }}
+{{- $domainParts := splitList "." (first $hostParts) }}
+{{- $svcName := index $domainParts 0 }}
+{{- $svcNamespace := index $domainParts 1 }}
+{{- $svcPort := 80 }}{{ if eq $authUrl.scheme "https" }}{{ $svcPort = 443 }}{{ end }}
+{{- if gt (len $hostParts) 1 }}{{ $svcPort = index $hostParts 1 }}{{ end }}
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: {{ $authUrl.path }}{{ if $authUrl.query }}?{{ $authUrl.query }}{{ end }}
+    backendRefs:
+    - name: {{ $svcName }}
+      namespace: {{ $svcNamespace }}
+      port: {{ $svcPort }}
+{{- else }}
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: victoriametrics-robotmetrics-victoria-metrics-cluster-vmselect
+      port: {{ $.Values.vmselect_port }}
+{{- end }}
+---
+{{- end }}

@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: victoriametrics-cloudmetrics
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: "{{ tpl .Values.victoriametrics_cloudmetrics_ingress_auth_url . }}"
+    nginx.ingress.kubernetes.io/auth-signin: "{{ tpl .Values.victoriametrics_cloudmetrics_ingress_auth_signin . }}"
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      error_page 403 = {{ tpl .Values.victoriametrics_cloudmetrics_ingress_error_page_403 . }};
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: {{ .Values.domain }}
+    http:
+      paths:
+      - path: /victoriametrics-cloudmetrics($|/)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: victoriametrics-cloudmetrics-victoria-metrics-cluster-vmselect
+            port:
+              number: {{ .Values.vmselect_port }}

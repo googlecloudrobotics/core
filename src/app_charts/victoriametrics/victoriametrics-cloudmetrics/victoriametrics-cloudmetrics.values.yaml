@@ -1,0 +1,28 @@
+# Configuration for the second victoria-metrics-cluster chart that stores
+# cloud-cluster metrics.
+#
+# Placeholder replica counts pending a real sizing discussion. Cloud-cluster
+# metrics volume should be much smaller and more stable than robot metrics.
+
+limits:
+  cpu: 2000m
+  memory: 4Gi
+requests:
+  storage: 50Gi
+retention:
+  time: 14d
+
+replicationFactor: "${CR_VICTORIAMETRICS_REPLICATION_FACTOR}"
+alertmanager_url: "${CR_VICTORIAMETRICS_ALERTMANAGER_URL}"
+vmcluster:
+  spec:
+    vmstorage:
+      replicaCount: "${CR_VICTORIAMETRICS_VMSTORAGE_REPLICA_COUNT}"
+    vminsert:
+      replicaCount: "${CR_VICTORIAMETRICS_VMINSERT_REPLICA_COUNT}"
+    vmselect:
+      replicaCount: "${CR_VICTORIAMETRICS_VMSELECT_REPLICA_COUNT}"
+
+victoriametrics_cloudmetrics_ingress_auth_url: "${CR_VICTORIAMETRICS_INGRESS_AUTH_URL}"
+victoriametrics_cloudmetrics_ingress_auth_signin: "${CR_VICTORIAMETRICS_INGRESS_AUTH_SIGNIN}"
+victoriametrics_cloudmetrics_ingress_error_page_403: "${CR_VICTORIAMETRICS_INGRESS_ERROR_PAGE_403}"

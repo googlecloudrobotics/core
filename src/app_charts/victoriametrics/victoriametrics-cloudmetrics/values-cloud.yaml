@@ -1,0 +1,80 @@
+# Configuration for the victoria-metrics-k8s-stack chart.
+# Reference:
+# https://github.com/VictoriaMetrics/helm-charts/blob/victoria-metrics-k8s-stack-0.91.0/charts/victoria-metrics-k8s-stack/values.yaml
+#
+# WARNING: If you edit this file, run the following command to generate
+# the output with `helm template`, and verify that your changes have
+# the expected effect.
+#
+#   bazel build src/app_charts/victoriametrics/victoriametrics-cloudmetrics:victoriametrics-cloudmetrics-chart.cloud.yaml
+
+vmsingle:
+  enabled: false
+
+vmcluster:
+  enabled: true
+  spec:
+    retentionPeriod: "${RETENTION_TIME}"
+    vmstorage:
+      replicaCount: "${VMSTORAGE_REPLICA_COUNT}"
+      nodeSelector: "${CR_VICTORIAMETRICS_NODE_SELECTOR_OBJECT}"
+      tolerations: "${CR_VICTORIAMETRICS_TOLERATIONS_OBJECT}"
+      resources: "${CR_VICTORIAMETRICS_VMSTORAGE_RESOURCES_OBJECT}"
+      storage:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: ssd
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: "${REQUESTS_STORAGE}"
+    vminsert:
+      replicaCount: "${VMINSERT_REPLICA_COUNT}"
+      resources: "${CR_VICTORIAMETRICS_VMINSERT_RESOURCES_OBJECT}"
+      extraArgs:
+        replicationFactor: "${REPLICATION_FACTOR}"
+    vmselect:
+      replicaCount: "${VMSELECT_REPLICA_COUNT}"
+      resources: "${CR_VICTORIAMETRICS_VMSELECT_RESOURCES_OBJECT}"
+
+vmagent:
+  enabled: true
+  spec:
+    selectAllByDefault: true
+    serviceMonitorSelector: "${CR_VICTORIAMETRICS_SERVICE_MONITOR_SELECTOR_OBJECT}"
+    podMonitorSelector: "${CR_VICTORIAMETRICS_POD_MONITOR_SELECTOR_OBJECT}"
+    remoteWrite:
+      - url: "${CR_VICTORIAMETRICS_REMOTE_WRITE_OBJECT}"
+    externalLabels: "${CR_VICTORIAMETRICS_EXTERNAL_LABELS_OBJECT}"
+    containers:
+      - name: "${CR_VICTORIAMETRICS_EXTRA_CONTAINERS_OBJECT}"
+    volumes:
+      - name: "${CR_VICTORIAMETRICS_EXTRA_VOLUMES_OBJECT}"
+    volumeMounts:
+      - name: "${CR_VICTORIAMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT}"
+
+vmalert:
+  enabled: true
+  spec:
+    ruleSelector: "${CR_VICTORIAMETRICS_RULE_SELECTOR_OBJECT}"
+    ruleNamespaceSelector: "${CR_VICTORIAMETRICS_RULE_NAMESPACE_SELECTOR_OBJECT}"
+    notifiers:
+      - url: "${CR_VICTORIAMETRICS_ALERTMANAGER_URL}"
+
+alertmanager:
+  enabled: false
+
+serviceAccount:
+  annotations:
+    "${CR_VICTORIAMETRICS_SA_ANNOTATIONS}": ""
+
+# Subcharts
+grafana:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: true
+
+kube-state-metrics:
+  enabled: true

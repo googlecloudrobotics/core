@@ -1,0 +1,213 @@
+# This includes all resources expanded from the victoria-metrics-k8s-stack chart using
+# the values in ../victoriametrics-robotmetrics-cloud.values.yaml for the cloud ingestion target.
+# Some pseudo-variables that were inserted there are replaced with actual runtime values.
+{{- $data := .Files.Get "files/victoriametrics-robotmetrics-chart.cloud.yaml" -}}
+
+# Scalar Replacements
+{{- if .Values.vmcluster }}
+  {{- if .Values.vmcluster.spec }}
+    {{- if .Values.vmcluster.spec.vmstorage }}
+      {{- $data = $data | replace "\"${VMSTORAGE_REPLICA_COUNT}\"" (toString .Values.vmcluster.spec.vmstorage.replicaCount) -}}
+    {{- end }}
+    {{- if .Values.vmcluster.spec.vminsert }}
+      {{- $data = $data | replace "\"${VMINSERT_REPLICA_COUNT}\"" (toString .Values.vmcluster.spec.vminsert.replicaCount) -}}
+    {{- end }}
+    {{- if .Values.vmcluster.spec.vmselect }}
+      {{- $data = $data | replace "\"${VMSELECT_REPLICA_COUNT}\"" (toString .Values.vmcluster.spec.vmselect.replicaCount) -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- $data = $data | replace "${RELEASE_NAME}" .Release.Name -}}
+{{- $data = $data | replace "${VMSTORAGE_LIMITS_MEMORY}" .Values.limits.memory -}}
+{{- $data = $data | replace "${VMSTORAGE_LIMITS_CPU}" .Values.limits.cpu -}}
+{{- $data = $data | replace "${REQUESTS_STORAGE}" .Values.requests.storage -}}
+{{- $data = $data | replace "${RETENTION_TIME}" .Values.retention.time -}}
+{{- $data = $data | replace "${REPLICATION_FACTOR}" (toString .Values.replicationFactor) -}}
+{{- $data = $data | replace "HELM-NAMESPACE" .Release.Namespace -}}
+
+# Inject the vmstorage resources
+{{- $vmstorageResourcesMap := dict -}}
+{{- if .Values.vmcluster -}}
+  {{- if .Values.vmcluster.spec -}}
+    {{- if .Values.vmcluster.spec.vmstorage -}}
+      {{- if .Values.vmcluster.spec.vmstorage.resources -}}
+        {{- $vmstorageResourcesMap = .Values.vmcluster.spec.vmstorage.resources -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if $vmstorageResourcesMap }}
+  {{- $formattedResources := toYaml $vmstorageResourcesMap | nindent 8 -}}
+  {{- $data = $data | replace "\"${CR_VICTORIAMETRICS_VMSTORAGE_RESOURCES_OBJECT}\"" (printf "\n%s" $formattedResources) -}}
+{{- else }}
+  {{- $data = $data | replace "      resources: \"${CR_VICTORIAMETRICS_VMSTORAGE_RESOURCES_OBJECT}\"\n" "" -}}
+{{- end }}
+
+# Inject the vminsert resources
+{{- $vminsertResourcesMap := dict -}}
+{{- if .Values.vmcluster -}}
+  {{- if .Values.vmcluster.spec -}}
+    {{- if .Values.vmcluster.spec.vminsert -}}
+      {{- if .Values.vmcluster.spec.vminsert.resources -}}
+        {{- $vminsertResourcesMap = .Values.vmcluster.spec.vminsert.resources -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if $vminsertResourcesMap }}
+  {{- $formattedResources := toYaml $vminsertResourcesMap | nindent 8 -}}
+  {{- $data = $data | replace "\"${CR_VICTORIAMETRICS_VMINSERT_RESOURCES_OBJECT}\"" (printf "\n%s" $formattedResources) -}}
+{{- else }}
+  {{- $data = $data | replace "      resources: \"${CR_VICTORIAMETRICS_VMINSERT_RESOURCES_OBJECT}\"\n" "" -}}
+{{- end }}
+
+# Inject the vmselect resources
+{{- $vmselectResourcesMap := dict -}}
+{{- if .Values.vmcluster -}}
+  {{- if .Values.vmcluster.spec -}}
+    {{- if .Values.vmcluster.spec.vmselect -}}
+      {{- if .Values.vmcluster.spec.vmselect.resources -}}
+        {{- $vmselectResourcesMap = .Values.vmcluster.spec.vmselect.resources -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if $vmselectResourcesMap }}
+  {{- $formattedResources := toYaml $vmselectResourcesMap | nindent 8 -}}
+  {{- $data = $data | replace "\"${CR_VICTORIAMETRICS_VMSELECT_RESOURCES_OBJECT}\"" (printf "\n%s" $formattedResources) -}}
+{{- else }}
+  {{- $data = $data | replace "      resources: \"${CR_VICTORIAMETRICS_VMSELECT_RESOURCES_OBJECT}\"\n" "" -}}
+{{- end }}
+
+# Inject Alertmanager URL if configured
+{{- if .Values.alertmanager_url }}
+  {{- $data = $data | replace "${CR_VICTORIAMETRICS_ALERTMANAGER_URL}" .Values.alertmanager_url -}}
+{{- else }}
+  {{- $data = $data | replace "- url: \"${CR_VICTORIAMETRICS_ALERTMANAGER_URL}\"\n" "" -}}
+  {{- $data = $data | replace "    notifiers:\n      - url: \"${CR_VICTORIAMETRICS_ALERTMANAGER_URL}\"\n" "" -}}
+{{- end }}
+
+# Inject the nodeSelector and tolerations for vmstorage
+{{- $vmstorageNodeSelectorMap := dict -}}
+{{- if .Values.vmcluster -}}
+  {{- if .Values.vmcluster.spec -}}
+    {{- if .Values.vmcluster.spec.vmstorage -}}
+      {{- if .Values.vmcluster.spec.vmstorage.nodeSelector -}}
+        {{- $vmstorageNodeSelectorMap = .Values.vmcluster.spec.vmstorage.nodeSelector -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if $vmstorageNodeSelectorMap }}
+  {{- $formattedNodeSelector := toYaml $vmstorageNodeSelectorMap | nindent 8 -}}
+  {{- $data = $data | replace "${CR_VICTORIAMETRICS_NODE_SELECTOR_OBJECT}" $formattedNodeSelector -}}
+{{- else }}
+  {{- $data = $data | replace "      nodeSelector: \"${CR_VICTORIAMETRICS_NODE_SELECTOR_OBJECT}\"\n" "" -}}
+{{- end }}
+
+{{- $vmstorageTolerationsList := list -}}
+{{- if .Values.vmcluster -}}
+  {{- if .Values.vmcluster.spec -}}
+    {{- if .Values.vmcluster.spec.vmstorage -}}
+      {{- if .Values.vmcluster.spec.vmstorage.tolerations -}}
+        {{- $vmstorageTolerationsList = .Values.vmcluster.spec.vmstorage.tolerations -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if $vmstorageTolerationsList }}
+  {{- $formattedTolerations := toYaml $vmstorageTolerationsList | nindent 8 -}}
+  {{- $data = $data | replace "${CR_VICTORIAMETRICS_TOLERATIONS_OBJECT}" $formattedTolerations -}}
+{{- else }}
+  {{- $data = $data | replace "      tolerations: \"${CR_VICTORIAMETRICS_TOLERATIONS_OBJECT}\"\n" "" -}}
+{{- end }}
+
+# Inject Service Account Annotations
+{{- $saAnnotationsMap := dict -}}
+{{- if .Values.serviceAccount }}
+  {{- if .Values.serviceAccount.annotations }}
+    {{- $saAnnotationsMap = .Values.serviceAccount.annotations -}}
+  {{- end }}
+{{- end }}
+{{- if $saAnnotationsMap }}
+  {{- $formattedSAAnnotationsObject := toYaml $saAnnotationsMap | indent 4 -}}
+  {{- $data = $data | replace "    ${CR_VICTORIAMETRICS_SA_ANNOTATIONS}: \"\"" $formattedSAAnnotationsObject -}}
+{{- else }}
+  {{- $data = $data | replace "  annotations:\n    ${CR_VICTORIAMETRICS_SA_ANNOTATIONS}: \"\"\n" "" -}}
+{{- end }}
+
+# Inject remoteWrite
+{{- $remoteWriteList := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.remoteWrite }}
+      {{- $remoteWriteList = .Values.vmagent.spec.remoteWrite -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $remoteWriteList }}
+  {{- $formattedRemoteWriteObject := toYaml $remoteWriteList | nindent 4 -}}
+  {{- $data = $data | replace "- url: \"http://${RELEASE_NAME}-victoria-metrics-k8s-stack-vminsert:8480/insert/0/prometheus/api/v1/write\"" $formattedRemoteWriteObject -}}
+{{- else }}
+  {{- $data = $data | replace "    remoteWrite:\n      - url: \"http://${RELEASE_NAME}-victoria-metrics-k8s-stack-vminsert:8480/insert/0/prometheus/api/v1/write\"\n" "" -}}
+{{- end }}
+
+# Inject extra containers
+{{- $containersList := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.containers }}
+      {{- $containersList = .Values.vmagent.spec.containers -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $containersList }}
+  {{- $formattedContainersObject := toYaml $containersList | nindent 4 -}}
+  {{- $data = $data | replace "- name: \"${CR_VICTORIAMETRICS_CONTAINERS_OBJECT}\"" $formattedContainersObject -}}
+{{- else }}
+  {{- $data = $data | replace "    containers:\n      - name: \"${CR_VICTORIAMETRICS_CONTAINERS_OBJECT}\"\n" "" -}}
+{{- end }}
+
+# Inject extra volumes
+{{- $volumesList := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.volumes }}
+      {{- $volumesList = .Values.vmagent.spec.volumes -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $volumesList }}
+  {{- $formattedVolumesObject := toYaml $volumesList | nindent 4 -}}
+  {{- $data = $data | replace "- name: \"${CR_VICTORIAMETRICS_VOLUMES_OBJECT}\"" $formattedVolumesObject -}}
+{{- else }}
+  {{- $data = $data | replace "    volumes:\n      - name: \"${CR_VICTORIAMETRICS_VOLUMES_OBJECT}\"\n" "" -}}
+{{- end }}
+
+# Inject extra volumeMounts
+{{- $volumeMountsList := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.volumeMounts }}
+      {{- $volumeMountsList = .Values.vmagent.spec.volumeMounts -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $volumeMountsList }}
+  {{- $formattedVolumeMountsObject := toYaml $volumeMountsList | nindent 4 -}}
+  {{- $data = $data | replace "- name: \"${CR_VICTORIAMETRICS_VOLUME_MOUNTS_OBJECT}\"" $formattedVolumeMountsObject -}}
+{{- else }}
+  {{- $data = $data | replace "    volumeMounts:\n      - name: \"${CR_VICTORIAMETRICS_VOLUME_MOUNTS_OBJECT}\"\n" "" -}}
+{{- end }}
+
+---
+# Emit rendered VM components
+{{ $data }}
+
+# Expand extra objects if any
+{{- if .Values.extraObjects }}
+{{- range .Values.extraObjects }}
+---
+{{ toYaml . }}
+{{- end }}
+{{- end }}

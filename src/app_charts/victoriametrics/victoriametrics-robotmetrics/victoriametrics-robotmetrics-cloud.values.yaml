@@ -1,0 +1,75 @@
+# Configuration for the victoria-metrics-k8s-stack chart for the cloud ingestion target.
+# Reference:
+# https://github.com/VictoriaMetrics/helm-charts/blob/victoria-metrics-k8s-stack-0.91.0/charts/victoria-metrics-k8s-stack/values.yaml
+#
+# This chart deploys the vmcluster (storage/query) and the vmagent (acting as the remoteWrite ingestion proxy)
+# for metrics streaming in from physical robots.
+#
+# WARNING: If you edit this file, run the following command to generate
+# the output with `helm template`, and verify that your changes have
+# the expected effect.
+#
+#   bazel build src/app_charts/victoriametrics/victoriametrics-robotmetrics:victoriametrics-robotmetrics-chart.cloud.yaml
+
+vmsingle:
+  enabled: false
+
+vmcluster:
+  enabled: true
+  spec:
+    retentionPeriod: "${RETENTION_TIME}"
+    vmstorage:
+      replicaCount: "${VMSTORAGE_REPLICA_COUNT}"
+      nodeSelector: "${CR_VICTORIAMETRICS_NODE_SELECTOR_OBJECT}"
+      tolerations: "${CR_VICTORIAMETRICS_TOLERATIONS_OBJECT}"
+      resources: "${CR_VICTORIAMETRICS_VMSTORAGE_RESOURCES_OBJECT}"
+      storage:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: ssd
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: "${REQUESTS_STORAGE}"
+    vminsert:
+      replicaCount: "${VMINSERT_REPLICA_COUNT}"
+      resources: "${CR_VICTORIAMETRICS_VMINSERT_RESOURCES_OBJECT}"
+      extraArgs:
+        replicationFactor: "${REPLICATION_FACTOR}"
+    vmselect:
+      replicaCount: "${VMSELECT_REPLICA_COUNT}"
+      resources: "${CR_VICTORIAMETRICS_VMSELECT_RESOURCES_OBJECT}"
+
+vmagent:
+  enabled: true
+  spec:
+    # Cloud ingestion proxy doesn't dynamically scrape cloud pods (that's what cloudmetrics is for)
+    selectAllByDefault: false
+    serviceMonitorSelector: {}
+    podMonitorSelector: {}
+    
+    # RemoteWrite configuration for the ingestion proxy
+    remoteWrite:
+      - url: "http://${RELEASE_NAME}-victoria-metrics-k8s-stack-vminsert:8480/insert/0/prometheus/api/v1/write"
+    
+    containers:
+      - name: "${CR_VICTORIAMETRICS_CONTAINERS_OBJECT}"
+    volumes:
+      - name: "${CR_VICTORIAMETRICS_VOLUMES_OBJECT}"
+    volumeMounts:
+      - name: "${CR_VICTORIAMETRICS_VOLUME_MOUNTS_OBJECT}"
+
+serviceAccount:
+  annotations:
+    "${CR_VICTORIAMETRICS_SA_ANNOTATIONS}": ""
+
+# Disable extra exporters as they are not needed on the robotmetrics proxy
+grafana:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: false
+
+kube-state-metrics:
+  enabled: false
