@@ -38,15 +38,6 @@ spec:
   - group: gateway.envoyproxy.io
     kind: SecurityPolicy
     namespace: app-prometheus
-  - group: gateway.envoyproxy.io
-    kind: SecurityPolicy
-    namespace: app-frontend
-  - group: gateway.envoyproxy.io
-    kind: SecurityPolicy
-    namespace: app-devicemanager
-  - group: gateway.envoyproxy.io
-    kind: SecurityPolicy
-    namespace: app-api-relay
   to:
   - group: ""
     kind: Service
