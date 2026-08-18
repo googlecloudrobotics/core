@@ -1,0 +1,73 @@
+# Uses the kube-prometheus-stack chart instead of the standalone
+# prometheus-node-exporter chart, same reasoning as kube-state-metrics
+# in the cloudmetrics app - avoids missing default config a standalone
+# injection risks. nameOverride keeps the pod label as "node-exporter"
+# (kube-prometheus-stack's own default would be "prometheus-node-
+# exporter"), preserving compatibility with vmagent's existing scrape
+# config without needing to change it.
+#
+# extraArgs mirrored from Prometheus's own robot deployment
+# (prometheus-robot.values.yaml, prometheus-node-exporter section) to
+# preserve identical cardinality tuning.
+#
+# WARNING: If you edit this file, run the following command to generate
+# the output with `helm template`, and verify that your changes have
+# the expected effect.
+#
+#   bazel build src/app_charts/victoriametrics-robotmetrics/node-exporter-chart.robot.yaml
+
+defaultRules:
+  create: false
+alertmanager:
+  enabled: false
+prometheus:
+  enabled: false
+grafana:
+  enabled: false
+kubeStateMetrics:
+  enabled: false
+prometheusOperator:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+coreDns:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeApiServer:
+  enabled: false
+kubelet:
+  enabled: false
+prometheus-node-exporter:
+  nameOverride: node-exporter
+  service:
+    port: 19100
+    targetPort: 19100
+  extraArgs:
+    # This collector produces log-spam on newer kernels
+    # https://github.com/prometheus/node_exporter/issues/1892
+    - --no-collector.rapl
+    # Since we have hardware network IRQs, this generates 7 zero-value metrics for each CPU core.
+    - --no-collector.softnet
+    # This is disabled by default, since it might leak memory
+    # (https://github.com/prometheus/node_exporter/blob/master/CHANGELOG.md#0160-rc1--2018-04-04)
+    - --collector.wifi
+    # Export CPU model (one metric per core)
+    - --collector.cpu.info
+    # Ignore more fuse filesystems
+    # https://github.com/prometheus/node_exporter/blob/master/collector/filesystem_linux.go#L33
+    - --collector.filesystem.ignored-fs-types=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|fuse\.\w*|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$
+    # Ignore filesystems with UIDs in the mount points (high cardinality)
+    - --collector.filesystem.mount-points-exclude=^(/run/containerd/|/var/lib/kubelet)
+    # Ignore virtual network devices
+    - --collector.netdev.device-exclude=^(bond|cilium|ip6tnl0|lo|lxc|tunl)
+    - --collector.netclass.ignored-devices=^(bond|cilium|ip6tnl0|lo|lxc|tunl)
+  prometheus:
+    monitor:
+      enabled: false
+nodeExporter:
+  enabled: true
