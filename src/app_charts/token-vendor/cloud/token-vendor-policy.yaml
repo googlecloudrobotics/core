@@ -26,7 +26,7 @@ roleRef:
   name: token-vendor-key-mngmt
   apiGroup: rbac.authorization.k8s.io
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: ReferenceGrant
 metadata:
   name: allow-extauth-token-vendor
