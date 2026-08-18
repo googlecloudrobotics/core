@@ -39,7 +39,7 @@ function save_variable {
   local name="$2"
   local value="$3"
 
-  if ( source "${config_file}" 2>/dev/null; [[ "${CONFIG_MANAGED_BY_TERRAFORM}" == "true" ]] ); then
+  if ( source "${config_file}" 2>/dev/null; [[ "${CONFIG_MANAGED_BY_TERRAFORM:-}" == "true" ]] ); then
     echo "ERROR: The Cloud Robotics configuration is managed by Terraform and cannot be modified directly. Please update your Terraform variables instead." >&2
     exit 1
   fi
