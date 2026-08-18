@@ -216,24 +216,24 @@ func isRobot(req *authv3.CheckRequest) bool {
 	return false
 }
 
-func parseBoolValue(val string) (bool, bool) {
-	b, err := strconv.ParseBool(strings.TrimSpace(val))
-	return b, err == nil
+func parseBoolValue(val string) (b, ok bool) {
+	parsed, err := strconv.ParseBool(strings.TrimSpace(val))
+	return parsed, err == nil
 }
 
-func getRobotFromQuery(rawURL string) (bool, bool) {
+func getRobotFromQuery(rawURL string) (val, ok bool) {
 	if rawURL == "" || !strings.Contains(rawURL, "?") {
 		return false, false
 	}
 	if u, err := url.Parse(rawURL); err == nil {
 		q := u.Query()
-		if val := q.Get("robots"); val != "" {
-			if b, ok := parseBoolValue(val); ok {
+		if param := q.Get("robots"); param != "" {
+			if b, ok := parseBoolValue(param); ok {
 				return b, true
 			}
 		}
-		if val := q.Get("robot"); val != "" {
-			if b, ok := parseBoolValue(val); ok {
+		if param := q.Get("robot"); param != "" {
+			if b, ok := parseBoolValue(param); ok {
 				return b, true
 			}
 		}

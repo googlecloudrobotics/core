@@ -30,7 +30,7 @@ spec:
               memory: 256Mi
             limits:
               cpu: 2000m
-              memory: 1Gi
+              memory: 2Gi
   shutdown:
     drainTimeout: 60s
     minDrainDuration: 15s
@@ -98,9 +98,6 @@ spec:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: crc-gateway
-  clientIPDetection:
-    xForwardedFor:
-      numTrustedHops: 1
   tls:
     minVersion: "1.2"
     alpnProtocols:
@@ -110,7 +107,7 @@ spec:
     initialStreamWindowSize: 1048576      # 1 MiB
     initialConnectionWindowSize: 2097152  # 2 MiB
   connection:
-    bufferLimit: 5Mi
+    bufferLimit: 1Mi
 ---
 # Align with NGINX default behavior: NGINX has no total request duration cap,
 # whereas Envoy Gateway defaults to a 15s requestTimeout. Setting requestTimeout
@@ -125,7 +122,7 @@ spec:
     kind: Gateway
     name: crc-gateway
   connection:
-    bufferLimit: 5Mi
+    bufferLimit: 1Mi
   timeout:
     http:
       requestTimeout: 0s
