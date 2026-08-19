@@ -1,0 +1,118 @@
+# Configuration for the victoria-metrics-k8s-stack chart for the cloud ingestion target.
+# Reference:
+# https://github.com/VictoriaMetrics/helm-charts/blob/victoria-metrics-k8s-stack-0.91.0/charts/victoria-metrics-k8s-stack/values.yaml
+#
+# This chart deploys the vmcluster (storage/query) and the vmagent (acting as the remoteWrite ingestion proxy)
+# for metrics streaming in from physical robots.
+#
+# WARNING: If you edit this file, run the following command to generate
+# the output with `helm template`, and verify that your changes have
+# the expected effect.
+#
+#   bazel build src/app_charts/victoriametrics/victoriametrics-robotmetrics:victoriametrics-robotmetrics-chart.cloud.yaml
+
+fullnameOverride: "victoriametrics-robotmetrics"
+
+vmalert:
+  spec:
+    nodeSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_NODE_SELECTOR_OBJECT}"
+    tolerations: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_TOLERATIONS_OBJECT}"
+    notifiers:
+      - url: "${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}"
+
+vmsingle:
+  enabled: false
+
+vmcluster:
+  enabled: true
+  spec:
+    retentionPeriod: "${VMCLUSTER_RETENTION_TIME}"
+    vmstorage:
+      replicaCount: "${VMSTORAGE_REPLICA_COUNT}"
+      nodeSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_NODE_SELECTOR_OBJECT}"
+      tolerations: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_TOLERATIONS_OBJECT}"
+      resources: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_RESOURCES_OBJECT}"
+      storage:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: ssd
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: "${VMSTORAGE_REQUESTS_STORAGE}"
+    vminsert:
+      replicaCount: "${VMINSERT_REPLICA_COUNT}"
+      port: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_PORT}"
+      nodeSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_NODE_SELECTOR_OBJECT}"
+      tolerations: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_TOLERATIONS_OBJECT}"
+      resources: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_RESOURCES_OBJECT}"
+      extraArgs:
+        replicationFactor: "${VMINSERT_REPLICATION_FACTOR}"
+    vmselect:
+      replicaCount: "${VMSELECT_REPLICA_COUNT}"
+      port: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_PORT}"
+      nodeSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_NODE_SELECTOR_OBJECT}"
+      tolerations: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_TOLERATIONS_OBJECT}"
+      resources: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_RESOURCES_OBJECT}"
+
+vmagent:
+  enabled: true
+  spec:
+    # Cloud ingestion proxy doesn't dynamically scrape cloud pods (that's what cloudmetrics is for)
+    selectAllByDefault: false
+    externalLabels: "${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTERNAL_LABELS_OBJECT}"
+    nodeSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_NODE_SELECTOR_OBJECT}"
+    tolerations: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TOLERATIONS_OBJECT}"
+    serviceMonitorSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_MONITOR_SELECTOR_OBJECT}"
+    podMonitorSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_POD_MONITOR_SELECTOR_OBJECT}"
+    
+    # RemoteWrite configuration for the ingestion proxy
+    # To inject dynamic arrays from the downstream AppRollout (e.g., for remoteWrite),
+    # we define a single dummy item below (like `- url: "${CR_...}"`) to pass Helm's schema validation.
+    # The `operator.yaml` script then replaces that entire dummy line with the properly formatted array.
+    remoteWrite:
+      - url: "http://vminsert-victoriametrics-robotmetrics.default.svc.cluster.local:${CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_PORT}/insert/0/prometheus/api/v1/write"
+      - url: "${CR_VICTORIAMETRICS_ROBOTMETRICS_REMOTE_WRITE_OBJECT}"
+    
+    resources: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_RESOURCES_OBJECT}"
+
+    containers:
+      - name: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_CONTAINERS_OBJECT}"
+    volumes:
+      - name: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUMES_OBJECT}"
+    volumeMounts:
+      - name: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUME_MOUNTS_OBJECT}"
+
+serviceAccount:
+  annotations:
+    "${CR_VICTORIAMETRICS_ROBOTMETRICS_SA_ANNOTATIONS}": ""
+
+# Disable extra exporters as they are not needed on the robotmetrics proxy
+victoria-metrics-operator:
+  fullnameOverride: "victoriametrics-robotmetrics-operator"
+
+grafana:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: "${CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_ENABLED}"
+
+kube-state-metrics:
+  enabled: false
+
+# etcd, scheduler, and controller-manager are managed by GKE and hidden.
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+coreDns:
+  enabled: false
+
+# Throws an invalid namespace "kube-system" error during deployment, as this is
+# trying to install resources into the kube-system namespace, which synk does
+# not support.
+kubeProxy:
+  enabled: false

@@ -1,0 +1,59 @@
+load("//bazel:app.bzl", "app")
+load("//bazel:app_chart.bzl", "app_chart")
+load("//bazel:build_rules/helm_template.bzl", "helm_template")
+
+# --- Cloud side ---
+
+helm_template(
+    name = "victoriametrics-robotmetrics-chart.cloud",
+    chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
+    helm_version = 3,
+    kube_version = "1.29.0",
+    namespace = "HELM-NAMESPACE",
+    release_name = "victoriametrics-robotmetrics",
+    values = "victoriametrics-robotmetrics-cloud.values.yaml",
+)
+
+app_chart(
+    name = "victoriametrics-robotmetrics-cloud",
+    extra_templates = [
+        "//third_party/victoria-metrics-k8s-stack:00-crds.yaml",
+    ],
+    extra_values = ["values-cloud.yaml"],
+    files = [
+        ":victoriametrics-robotmetrics-chart.cloud",
+    ],
+    images = {},
+)
+
+# --- Robot side ---
+
+helm_template(
+    name = "victoriametrics-robotmetrics-chart.robot",
+    chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
+    helm_version = 3,
+    kube_version = "1.29.0",
+    namespace = "HELM-NAMESPACE",
+    release_name = "victoriametrics-robotmetrics",
+    values = "victoriametrics-robotmetrics-robot.values.yaml",
+)
+
+app_chart(
+    name = "victoriametrics-robotmetrics-robot",
+    extra_templates = [
+        "//third_party/victoria-metrics-k8s-stack:00-crds.yaml",
+    ],
+    extra_values = ["values-robot.yaml"],
+    files = [
+        ":victoriametrics-robotmetrics-chart.robot",
+    ],
+)
+
+app(
+    name = "victoriametrics-robotmetrics",
+    charts = [
+        ":victoriametrics-robotmetrics-cloud",
+        ":victoriametrics-robotmetrics-robot",
+    ],
+    visibility = ["//visibility:public"],
+)
