@@ -1,0 +1,64 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: victoriametrics-robotmetrics-write
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+spec:
+  hostnames:
+  - {{ .Values.domain }}
+  parentRefs:
+  - name: crc-gateway
+    namespace: default
+    sectionName: https
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /victoriametrics-robotmetrics-write/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: victoriametrics-robotmetrics-vmagent
+      port: 8429
+  - matches:
+    - path:
+        type: Exact
+        value: /victoriametrics-robotmetrics-write
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /
+    backendRefs:
+    - name: victoriametrics-robotmetrics-vmagent
+      port: 8429
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: victoriametrics-robotmetrics-write-auth
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: victoriametrics-robotmetrics-write
+  extAuth:
+    contextExtensions:
+    - name: robot
+      value: "true"
+    headersToExtAuth:
+    {{- toYaml .Values.authProxy.authHeaders | nindent 4 }}
+    failOpen: false
+    grpc:
+      backendRefs:
+      - name: token-vendor
+        namespace: app-token-vendor
+        port: 9091

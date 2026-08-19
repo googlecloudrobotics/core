@@ -41,6 +41,37 @@
 {{- end }}
 
 
+# Inject the serviceMonitorSelector and podMonitorSelector to allow users to override the universal matching default.
+{{- $prometheusServiceMonitorSelectorMap := dict -}}
+{{- if .Values.prometheus }}
+  {{- if .Values.prometheus.prometheusSpec }}
+    {{- if .Values.prometheus.prometheusSpec.serviceMonitorSelector }}
+      {{- $prometheusServiceMonitorSelectorMap = .Values.prometheus.prometheusSpec.serviceMonitorSelector -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $prometheusServiceMonitorSelectorMap }}
+  {{- $formattedPrometheusServiceMonitorSelectorObject := toYaml $prometheusServiceMonitorSelectorMap | nindent 6 -}}
+  {{- $data = $data | replace "\"${CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT}\"" $formattedPrometheusServiceMonitorSelectorObject -}}
+{{- else }}
+  {{- $data = $data | replace "    serviceMonitorSelector: \"${CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT}\"\n" "" -}}
+{{- end }}
+
+{{- $prometheusPodMonitorSelectorMap := dict -}}
+{{- if .Values.prometheus }}
+  {{- if .Values.prometheus.prometheusSpec }}
+    {{- if .Values.prometheus.prometheusSpec.podMonitorSelector }}
+      {{- $prometheusPodMonitorSelectorMap = .Values.prometheus.prometheusSpec.podMonitorSelector -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $prometheusPodMonitorSelectorMap }}
+  {{- $formattedPrometheusPodMonitorSelectorObject := toYaml $prometheusPodMonitorSelectorMap | nindent 6 -}}
+  {{- $data = $data | replace "\"${CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT}\"" $formattedPrometheusPodMonitorSelectorObject -}}
+{{- else }}
+  {{- $data = $data | replace "    podMonitorSelector: \"${CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT}\"\n" "" -}}
+{{- end }}
+
 # Inject the externalLabels as a pre-formatted YAML block to allow users to define multiple labels in a dict
 {{- $prometheusExternalLabelsMap := dict -}}
 {{- if .Values.prometheus -}}
