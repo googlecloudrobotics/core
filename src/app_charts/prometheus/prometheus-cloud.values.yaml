@@ -23,29 +23,19 @@ defaultRules:
 
 prometheus:
   prometheusSpec:
-    # Pick up all service monitors across all namespaces.
+    # Pick up all service monitors across all namespaces by default.
     serviceMonitorNamespaceSelector:
-      # Inverse selector selects everything
       matchExpressions:
       - key: "non-existent-label-for-universal-matching"
         operator: "DoesNotExist"
-    serviceMonitorSelector:
-      # Inverse selector selects everything
-      matchExpressions:
-      - key: "non-existent-label-for-universal-matching"
-        operator: "DoesNotExist"
+    serviceMonitorSelector: "${CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT}"
 
-    # Pick up all pod monitors across all namespaces.
+    # Pick up all pod monitors across all namespaces by default.
     podMonitorNamespaceSelector:
-      # Inverse selector selects everything
       matchExpressions:
       - key: "non-existent-label-for-universal-matching"
         operator: "DoesNotExist"
-    podMonitorSelector:
-      # Inverse selector selects everything
-      matchExpressions:
-      - key: "non-existent-label-for-universal-matching"
-        operator: "DoesNotExist"
+    podMonitorSelector: "${CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT}"
 
     # Pick up all rules across all namespaces.
     ruleNamespaceSelector:

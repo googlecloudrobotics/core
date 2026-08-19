@@ -1,0 +1,80 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: victoriametrics-robotmetrics
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+spec:
+  hostnames:
+  - {{ .Values.domain }}
+  parentRefs:
+  - name: crc-gateway
+    namespace: default
+    sectionName: https
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /victoriametrics-robotmetrics/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: victoriametrics-robotmetrics-vmselect
+      port: {{ .Values.vmselect_port }}
+  - matches:
+    - path:
+        type: Exact
+        value: /victoriametrics-robotmetrics
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /
+    backendRefs:
+    - name: victoriametrics-robotmetrics-vmselect
+      port: {{ .Values.vmselect_port }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: victoriametrics-robotmetrics-auth
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: victoriametrics-robotmetrics
+  extAuth:
+    {{- if .Values.victoriametrics_robotmetrics_auth_backend.contextExtensions }}
+    contextExtensions:
+    {{- range $k, $v := .Values.victoriametrics_robotmetrics_auth_backend.contextExtensions }}
+    - name: {{ $k }}
+      value: {{ $v | quote }}
+    {{- end }}
+    {{- end }}
+    headersToExtAuth:
+    {{- toYaml .Values.authProxy.authHeaders | nindent 4 }}
+    {{- if eq (default "http" .Values.victoriametrics_robotmetrics_auth_backend.protocol) "grpc" }}
+    grpc:
+      backendRefs:
+      - name: {{ .Values.victoriametrics_robotmetrics_auth_backend.service }}
+        {{- if .Values.victoriametrics_robotmetrics_auth_backend.namespace }}
+        namespace: {{ .Values.victoriametrics_robotmetrics_auth_backend.namespace }}
+        {{- end }}
+        port: {{ .Values.victoriametrics_robotmetrics_auth_backend.port }}
+    {{- else }}
+    http:
+      path: {{ .Values.victoriametrics_robotmetrics_auth_backend.path }}
+      backendRefs:
+      - name: {{ .Values.victoriametrics_robotmetrics_auth_backend.service }}
+        {{- if .Values.victoriametrics_robotmetrics_auth_backend.namespace }}
+        namespace: {{ .Values.victoriametrics_robotmetrics_auth_backend.namespace }}
+        {{- end }}
+        port: {{ .Values.victoriametrics_robotmetrics_auth_backend.port }}
+    {{- end }}

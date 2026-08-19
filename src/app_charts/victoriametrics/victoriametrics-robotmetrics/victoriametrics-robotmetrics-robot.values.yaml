@@ -1,0 +1,141 @@
+# Configuration for the victoria-metrics-k8s-stack chart for the physical robot edge target.
+# Reference:
+# https://github.com/VictoriaMetrics/helm-charts/blob/victoria-metrics-k8s-stack-0.91.0/charts/victoria-metrics-k8s-stack/values.yaml
+#
+# This chart deploys the vm-operator and vmagent to dynamically discover and scrape
+# local ServiceMonitor and PodMonitor CRDs deployed by robot workloads, and forward
+# the data to the cloud via remoteWrite over TLS.
+#
+# Storage and Alerting are disabled here, as they run in the cloud.
+#
+# WARNING: If you edit this file, run the following command to generate
+# the output with `helm template`, and verify that your changes have
+# the expected effect.
+#
+#   bazel build src/app_charts/victoriametrics/victoriametrics-robotmetrics:victoriametrics-robotmetrics-chart.robot.yaml
+
+fullnameOverride: "victoriametrics-robotmetrics"
+
+vmsingle:
+  enabled: false
+
+vmcluster:
+  enabled: false
+
+vmalert:
+  enabled: false
+
+vmagent:
+  enabled: true
+  spec:
+    selectAllByDefault: true
+    externalLabels: "${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTERNAL_LABELS_OBJECT}"
+    nodeSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_NODE_SELECTOR_OBJECT}"
+    tolerations: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TOLERATIONS_OBJECT}"
+    serviceMonitorSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_MONITOR_SELECTOR_OBJECT}"
+    podMonitorSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_POD_MONITOR_SELECTOR_OBJECT}"
+    remoteWrite:
+      - url: "${CR_VICTORIAMETRICS_ROBOTMETRICS_REMOTE_WRITE_OBJECT}"
+        tlsConfig:
+          insecureSkipVerify: true
+    extraArgs:
+      remoteWrite.tmpDataPath: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TMP_DATA_PATH}"
+      remoteWrite.maxDiskUsagePerURL: "${VMAGENT_MAX_DISK_USAGE}"
+      memory.allowedBytes: "${VMAGENT_ALLOWED_BYTES}"
+    resources: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_RESOURCES_OBJECT}"
+    containers:
+      - name: "${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_CONTAINERS_OBJECT}"
+    volumes:
+      - name: "${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_VOLUMES_OBJECT}"
+    volumeMounts:
+      - name: "${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT}"
+
+grafana:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: true
+  extraArgs:
+    # This collector produces log-spam on newer kernels
+    # https://github.com/prometheus/node_exporter/issues/1892
+    - --no-collector.rapl
+    # Since we have hardware network IRQs, this generates 7 zero-value metrics for each CPU core.
+    - --no-collector.softnet
+    # This is disabled by default, since it might leak memory
+    # (https://github.com/prometheus/node_exporter/blob/master/CHANGELOG.md#0160-rc1--2018-04-04)
+    - --collector.wifi
+    # Export CPU model (one metric per core)
+    - --collector.cpu.info
+    # Ignore more fuse filesystems
+    # https://github.com/prometheus/node_exporter/blob/master/collector/filesystem_linux.go#L33
+    - --collector.filesystem.ignored-fs-types=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|fuse\.\w*|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$
+    # Ignore filesystems with UIDs in the mount points (high cardinality)
+    - --collector.filesystem.mount-points-exclude=^(/run/containerd/|/var/lib/kubelet)
+    # Ignore virtual network devices
+    - --collector.netdev.device-exclude=^(bond|cilium|ip6tnl0|lo|lxc|tunl)
+    - --collector.netclass.ignored-devices=^(bond|cilium|ip6tnl0|lo|lxc|tunl)
+
+kube-state-metrics:
+  enabled: true
+
+# Throws an invalid namespace "kube-system" error during deployment, as this is
+# trying to install resources into the kube-system namespace, which synk does
+# not support.
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeScheduler:
+  enabled: false
+coreDns:
+  enabled: false
+
+# Default scraping interval is 20s and these metrics result in a large amount of data
+kubeApiServer:
+  serviceMonitor:
+    interval: 10m
+    metricRelabelings:
+    # Drop high cardinality apiserver metrics.
+    - action: drop
+      regex: "apiserver_(request|response|watch|admission).*|etcd_request.*|code_*"
+      sourceLabels: [__name__]
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+
+kubelet:
+  serviceMonitor:
+    # From kubernetes 1.18, /metrics/resource/v1alpha1 renamed to /metrics/resource
+    resourcePath: "/metrics/resource"
+    metricRelabelings:
+    # Drop high cardinality metrics from kubelet.
+    - action: drop
+      regex: "container_network.*|container_blkio.*|kubelet_.*|kubernetes_feature_enabled|container_fs.*|container_processes|container_last_seen|storage_operation_duration_seconds_bucket"
+      sourceLabels: [__name__]
+    cAdvisorMetricRelabelings:
+    # Drop high cardinality metrics from kubelet. (with metrics_path="/metrics/cadvisor")
+    - sourceLabels: [__name__]
+      action: drop
+      regex: 'container_cpu_(cfs_throttled_seconds_total|load_average_10s|system_seconds_total|user_seconds_total)'
+    - sourceLabels: [__name__]
+      action: drop
+      regex: 'container_fs_(io_current|io_time_seconds_total|io_time_weighted_seconds_total|reads_merged_total|sector_reads_total|sector_writes_total|writes_merged_total)'
+    - sourceLabels: [__name__]
+      action: drop
+      regex: 'container_memory_(mapped_file|swap|failures_total)'
+    - sourceLabels: [__name__]
+      action: drop
+      regex: 'container_(file_descriptors|tasks_state|threads_max)'
+    - sourceLabels: [__name__]
+      action: drop
+      regex: 'container_spec.*|container_network.*|container_blkio.*|container_fs.*'
+    - sourceLabels: [id, pod]
+      action: drop
+      regex: '.+;'
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+    - sourceLabels: [__metrics_path__]
+      targetLabel: metrics_path

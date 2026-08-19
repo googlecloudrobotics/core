@@ -1,0 +1,127 @@
+# Configuration for the second victoria-metrics-cluster chart that stores
+# cloud-cluster metrics.
+
+fullnameOverride: "victoriametrics-cloudmetrics"
+
+vmalert:
+  enabled: true
+  spec:
+    ruleSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_RULE_SELECTOR_OBJECT}"
+    ruleNamespaceSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_RULE_NAMESPACE_SELECTOR_OBJECT}"
+    nodeSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_NODE_SELECTOR_OBJECT}"
+    tolerations: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_TOLERATIONS_OBJECT}"
+    notifiers:
+      - url: "${CR_VICTORIAMETRICS_CLOUDMETRICS_NOTIFIERS_OBJECT}"
+
+vmsingle:
+  enabled: false
+
+vmcluster:
+  enabled: true
+  spec:
+    # Scalar strings use component-scoped names and are substituted directly (e.g. replace "${VMCLUSTER_RETENTION_TIME}").
+    # Note: replicaCount requires a toString cast during substitution because Helm evaluates it as a string, but the CRD expects an integer.
+    retentionPeriod: "${VMCLUSTER_RETENTION_TIME}"
+    replicationFactor: "${REPLICATION_FACTOR}"
+    vmstorage:
+      replicaCount: "${VMSTORAGE_REPLICA_COUNT}"
+      # Complex objects (nodeSelector, tolerations) use the global CR_..._OBJECT suffix.
+      # They are injected via `toYaml | nindent` by the operator to prevent YAML indentation corruption.
+      nodeSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSTORAGE_NODE_SELECTOR_OBJECT}"
+      tolerations: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSTORAGE_TOLERATIONS_OBJECT}"
+      resources: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSTORAGE_RESOURCES_OBJECT}"
+      storage:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: ssd
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: "${VMSTORAGE_REQUESTS_STORAGE}"
+    vminsert:
+      replicaCount: "${VMINSERT_REPLICA_COUNT}"
+      port: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_PORT}"
+      nodeSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_NODE_SELECTOR_OBJECT}"
+      tolerations: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_TOLERATIONS_OBJECT}"
+      resources: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_RESOURCES_OBJECT}"
+      extraArgs:
+        replicationFactor: "${REPLICATION_FACTOR}"
+    vmselect:
+      replicaCount: "${VMSELECT_REPLICA_COUNT}"
+      port: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_PORT}"
+      nodeSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_NODE_SELECTOR_OBJECT}"
+      tolerations: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_TOLERATIONS_OBJECT}"
+      resources: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_RESOURCES_OBJECT}"
+
+vmagent:
+  enabled: true
+  spec:
+    selectAllByDefault: true
+    serviceMonitorSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_SERVICE_MONITOR_SELECTOR_OBJECT}"
+    podMonitorSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_POD_MONITOR_SELECTOR_OBJECT}"
+    # Array fields (remoteWrite, containers, volumes) use a dummy '- url' or '- name' object
+    # to pass Helm's initial schema validation. The deploy-time operator deletes this dummy line
+    # and injects the actual array block.
+    remoteWrite:
+      - url: "${CR_VICTORIAMETRICS_CLOUDMETRICS_REMOTE_WRITE_OBJECT}"
+    externalLabels: "${CR_VICTORIAMETRICS_CLOUDMETRICS_EXTERNAL_LABELS_OBJECT}"
+    nodeSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_NODE_SELECTOR_OBJECT}"
+    tolerations: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_TOLERATIONS_OBJECT}"
+    extraArgs:
+      remoteWrite.tmpDataPath: "${VMAGENT_TMP_DATA_PATH}"
+      remoteWrite.maxDiskUsagePerURL: "${VMAGENT_MAX_DISK_USAGE}"
+      memory.allowedBytes: "${VMAGENT_ALLOWED_BYTES}"
+    resources: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_RESOURCES_OBJECT}"
+
+alertmanager:
+  enabled: false
+
+serviceAccount:
+  annotations:
+    "${CR_VICTORIAMETRICS_CLOUDMETRICS_SA_ANNOTATIONS}": ""
+
+# Subcharts
+grafana:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: true
+  prometheus:
+    monitor:
+      relabelings:
+      - sourceLabels: [__meta_kubernetes_pod_node_name]
+        targetLabel: instance
+
+kube-state-metrics:
+  enabled: true
+  prometheus:
+    monitor:
+      relabelings:
+      - sourceLabels: [__meta_kubernetes_pod_node_name]
+        targetLabel: instance
+
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+coreDns:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+kubeApiServer:
+  serviceMonitor:
+    interval: 1m
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+
+kubelet:
+  serviceMonitor:
+    resourcePath: "/metrics/resource"
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
