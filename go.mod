@@ -33,9 +33,6 @@ require (
 	google.golang.org/api v0.293.0
 	google.golang.org/grpc v1.83.0
 	google.golang.org/protobuf v1.36.12
-	// WatchList feature in client-go 0.35+ causes timeouts with fake clients.
-	// See https://github.com/kubernetes/kubernetes/issues/125501
-	// Keep at 0.34.4 until fakes support bookmark events for initial events stream.
 	k8s.io/api v0.36.3
 	k8s.io/apiextensions-apiserver v0.36.3
 	k8s.io/apimachinery v0.36.3
