@@ -40,8 +40,8 @@ spec:
         hostname: {{ .Values.domain }}
         statusCode: 301
 ---
-apiVersion: security.istio.io/v1
-kind: AuthorizationPolicy
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
 metadata:
   name: domain-redirect-allow
 spec:
@@ -49,7 +49,6 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: domain-redirect
-  action: ALLOW
-  rules:
-  - {}
+  authorization:
+    defaultAction: Allow
 {{- end }}

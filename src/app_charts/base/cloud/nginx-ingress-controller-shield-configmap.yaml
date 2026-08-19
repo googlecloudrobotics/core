@@ -1,4 +1,4 @@
-{{- if and (eq .Values.use_nginx_shield "true") (eq .Values.use_istio "false") }}
+{{- if and (eq .Values.use_nginx_shield "true") (eq .Values.use_gateway "false") }}
 ---
 apiVersion: v1
 kind: ConfigMap

@@ -133,12 +133,15 @@ spec:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /server
+    timeouts:
+      request: 86400s
+      backendRequest: 86400s
     backendRefs:
     - name: prometheus-relay-server
       port: 80
 ---
-apiVersion: security.istio.io/v1
-kind: AuthorizationPolicy
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
 metadata:
   name: prometheus-relay-server-auth
   labels:
@@ -148,7 +151,15 @@ spec:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: prometheus-relay-server
-  action: CUSTOM
-  provider:
-    name: auth-provider-tv-robots-true
-
+  extAuth:
+    contextExtensions:
+    - name: robot
+      value: "true"
+    headersToExtAuth:
+    {{- toYaml .Values.authProxy.authHeaders | nindent 4 }}
+    failOpen: false
+    grpc:
+      backendRefs:
+      - name: token-vendor
+        namespace: app-token-vendor
+        port: 9091

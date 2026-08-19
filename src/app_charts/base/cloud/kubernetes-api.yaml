@@ -26,7 +26,7 @@ spec:
             port:
               number: 443
 ---
-# Gateway API (Istio Single Gateway): Routes /apis/core.kubernetes/ directly to cr-syncer-auth-webhook:80.
+# Gateway API (Envoy Gateway): Routes /apis/core.kubernetes/ directly to cr-syncer-auth-webhook:80.
 # Why: Envoy's ExtAuthz filter appends headers by default, causing duplicate Bearer token collisions.
 # Routing directly to cr-syncer-auth-webhook as an inline reverse proxy allows Go code to perform
 # in-memory token replacement and stream requests to https://kubernetes.default.svc:443 cleanly.
@@ -51,4 +51,16 @@ spec:
     backendRefs:
     - name: cr-syncer-auth-webhook
       port: 80
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: kubernetes-api-allow
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: kubernetes-api
+  authorization:
+    defaultAction: Allow
 {{- end }}
