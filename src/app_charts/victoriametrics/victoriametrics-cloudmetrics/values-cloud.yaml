@@ -1,0 +1,110 @@
+# Configuration for the victoria-metrics-k8s-stack chart.
+# Reference:
+# https://github.com/VictoriaMetrics/helm-charts/blob/victoria-metrics-k8s-stack-0.91.0/charts/victoria-metrics-k8s-stack/values.yaml
+#
+# WARNING: If you edit this file, run the following command to generate
+# the output with `helm template`, and verify that your changes have
+# the expected effect.
+#
+#   bazel build src/app_charts/victoriametrics/victoriametrics-cloudmetrics:victoriametrics-cloudmetrics-chart.cloud.yaml
+
+fullnameOverride: "victoriametrics-cloudmetrics"
+
+limits:
+  cpu: "2000m"
+  memory: "12Gi"
+requests:
+  storage: "100Gi"
+retention:
+  time: "90d"
+
+vmcluster:
+  spec:
+    retentionPeriod: "90d"
+    replicationFactor: 2
+    vmstorage:
+      replicaCount: 2
+      nodeSelector: {}
+      tolerations: []
+      resources:
+        requests:
+          cpu: "1000m"
+          memory: "4Gi"
+        limits:
+          cpu: "2000m"
+          memory: "12Gi"
+      storage:
+        requests:
+          storage: "100Gi"
+    vminsert:
+      replicaCount: 2
+      port: 8480
+      nodeSelector: {}
+      tolerations: []
+      resources:
+        requests:
+          cpu: "200m"
+          memory: "512Mi"
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
+    vmselect:
+      replicaCount: 2
+      port: 8481
+      nodeSelector: {}
+      tolerations: []
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "1Gi"
+        limits:
+          cpu: "2000m"
+          memory: "4Gi"
+
+vmagent:
+  spec:
+    remoteWrite: []
+    externalLabels: {}
+    nodeSelector: {}
+    tolerations: []
+    serviceMonitorSelector: {}
+    podMonitorSelector: {}
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "512Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+  # These scalars map to explicit command-line extraArgs for the agent.
+  max_disk_usage: "5GB"
+  allowed_bytes: "200MB"
+  memory_request: "512Mi"
+  memory_limit: "512Mi"
+
+vmalert:
+  spec:
+    notifiers: []
+    nodeSelector: {}
+    tolerations: []
+
+victoriametrics_cloudmetrics_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
+victoriametrics_cloudmetrics_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+victoriametrics_cloudmetrics_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+
+victoriametrics_cloudmetrics_auth_backend:
+  protocol: "http"
+  service: "oauth2-proxy"
+  namespace: "default"
+  port: 80
+  path: "/oauth2/auth"
+  contextExtensions: {}
+
+authProxy:
+  authHeaders:
+  - authorization
+  - cookie
+  - x-forwarded-access-token
+  - x-forwarded-host
+  - apikey-token
+  - x-server-name

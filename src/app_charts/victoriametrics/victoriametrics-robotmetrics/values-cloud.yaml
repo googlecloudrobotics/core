@@ -1,0 +1,94 @@
+# App-chart-level values consumed by cloud/victoriametrics-robotmetrics-operator.yaml's
+# pseudo-variable replace chain.
+# Mirrors src/app_charts/prometheus/values-cloud.yaml's pattern.
+#
+# The default requests/limits are sufficient for a small test
+# deployment (single project, testing scope). Should be revisited for
+# any larger/production rollout.
+
+fullnameOverride: "victoriametrics-robotmetrics"
+
+limits:
+  cpu: "2000m"
+  memory: "12Gi"
+requests:
+  storage: "100Gi"
+retention:
+  time: "90d"
+
+vmcluster:
+  spec:
+    retentionPeriod: "90d"
+    replicationFactor: 2
+    vmstorage:
+      replicaCount: 2
+      nodeSelector: {}
+      tolerations: []
+      storage:
+        requests:
+          storage: "100Gi"
+    vminsert:
+      replicaCount: 2
+      port: 8480
+      nodeSelector: {}
+      tolerations: []
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 2Gi
+        limits:
+          cpu: 2000m
+          memory: 4Gi
+    vmselect:
+      replicaCount: 2
+      port: 8481
+      nodeSelector: {}
+      tolerations: []
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 2Gi
+        limits:
+          cpu: 2000m
+          memory: 4Gi
+
+vmagent:
+  spec:
+    remoteWrite: []
+    externalLabels: {}
+    nodeSelector: {}
+    tolerations: []
+    serviceMonitorSelector: {}
+    podMonitorSelector: {}
+  max_disk_usage: "5GB"
+  # These scalars map to explicit command-line extraArgs for the agent.
+  allowed_bytes: "200MB"
+  memory_request: "512Mi"
+  memory_limit: "512Mi"
+
+vmalert:
+  spec:
+    notifiers: []
+    nodeSelector: {}
+    tolerations: []
+
+victoriametrics_robotmetrics_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
+victoriametrics_robotmetrics_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+victoriametrics_robotmetrics_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
+
+victoriametrics_robotmetrics_auth_backend:
+  protocol: "http"
+  service: "oauth2-proxy"
+  namespace: "default"
+  port: 80
+  path: "/oauth2/auth"
+  contextExtensions: {}
+
+authProxy:
+  authHeaders:
+  - authorization
+  - cookie
+  - x-forwarded-access-token
+  - x-forwarded-host
+  - apikey-token
+  - x-server-name
