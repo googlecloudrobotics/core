@@ -12,9 +12,9 @@
 {{- end -}}
 {{- if $prometheusExternalLabelsMap }}
   {{- $formattedExternalLabels := toYaml $prometheusExternalLabelsMap | nindent 6 -}}
-  {{- $data = $data | replace "${PROMETHEUS_EXTERNAL_LABELS}" $formattedExternalLabels -}}
+  {{- $data = $data | replace "$PROMETHEUS_EXTERNAL_LABELS: REMOVE_ME" $formattedExternalLabels -}}
 {{- else }}
-  {{- $data = $data | replace "${PROMETHEUS_EXTERNAL_LABELS}" " {}" -}}
+  {{- $data = $data | replace "$PROMETHEUS_EXTERNAL_LABELS: REMOVE_ME" "{}" -}}
 {{- end }}
 
 # Inject remoteWrite
