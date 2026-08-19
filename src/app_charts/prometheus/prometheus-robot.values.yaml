@@ -21,7 +21,8 @@ defaultRules:
 
 prometheus:
   prometheusSpec:
-    externalLabels: "${PROMETHEUS_EXTERNAL_LABELS}"
+    externalLabels:
+      $PROMETHEUS_EXTERNAL_LABELS: REMOVE_ME
     # Pick up all service monitors across all namespaces.
     serviceMonitorNamespaceSelector:
       # Inverse selector selects everything
