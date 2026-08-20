@@ -37,7 +37,7 @@ jobs:
         run: |
           set -euo pipefail
           EVENT_FILTER="&event=schedule"
-          if [[ "${ANY_POSTSUBMIT}" == "true" || ("${{ github.event_name }}" == "workflow_dispatch" && "${ANY_POSTSUBMIT}" == "") ]] ; then
+          if [[ "${ANY_POSTSUBMIT}" == "true" ]]; then
             EVENT_FILTER=""
           fi
           output=$(curl --fail-with-body -sS \
