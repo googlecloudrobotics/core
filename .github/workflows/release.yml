@@ -11,7 +11,7 @@ on:
           Allow releasing from any successful postsubmit (including manual
           runs), not just scheduled ones.
         type: boolean
-        default: true
+        default: false
 
 permissions:
   actions: read
