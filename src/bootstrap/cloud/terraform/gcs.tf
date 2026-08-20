@@ -26,7 +26,7 @@ resource "google_storage_bucket_object" "setup_robot_crc_version" {
 
 resource "google_storage_bucket_object" "setup_robot" {
   name          = "setup_robot.sh"
-  source        = "../../robot/setup_robot.sh"
+  source        = "${path.module}/../../robot/setup_robot.sh"
   bucket        = google_storage_bucket.robot[0].name
   cache_control = "private, max-age=0, no-transform"
   count         = var.onprem_federation ? 1 : 0
