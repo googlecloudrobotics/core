@@ -5,13 +5,6 @@ on:
     - cron: "0 5 * * *" # Once a day at 5am.
   # Manual runs through Actions tab in the UI
   workflow_dispatch:
-    inputs:
-      any-postsubmit:
-        description: >-
-          Allow releasing from any successful postsubmit (including manual
-          runs), not just scheduled ones.
-        type: boolean
-        default: false
 
 permissions:
   actions: read
@@ -33,16 +26,11 @@ jobs:
         id: latest-green
         env:
           REPO: ${{ github.repository }}
-          ANY_POSTSUBMIT: ${{ inputs.any-postsubmit }}
         run: |
           set -euo pipefail
-          EVENT_FILTER="&event=schedule"
-          if [[ "${ANY_POSTSUBMIT}" == "true" ]]; then
-            EVENT_FILTER=""
-          fi
           output=$(curl --fail-with-body -sS \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/$REPO/actions/workflows/postsubmit.yml/runs?per_page=1&branch=main&status=success${EVENT_FILTER}")
+            "https://api.github.com/repos/$REPO/actions/workflows/postsubmit.yml/runs?per_page=1&branch=main&status=success")
           repo_id=$(jq -r '.workflow_runs[0].head_repository.id' <<< $output)
           if [[ "${repo_id}" != "${{ github.repository_id }}" ]] ; then
             echo >&2 "Unexpected head repository ID: ${repo_id} - check postsubmit.yml configuration"
