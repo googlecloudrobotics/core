@@ -60,11 +60,13 @@ prometheus:
         operator: "DoesNotExist"
 
     externalUrl: "${EXTERNAL_URL}"
-    externalLabels: "${PROMETHEUS_EXTERNAL_LABELS}"
+    externalLabels:
+      $PROMETHEUS_EXTERNAL_LABELS: REMOVE_ME
     retention: "${RETENTION_TIME}"
     retentionSize: "${RETENTION_SIZE}"
     walCompression: true
-    nodeSelector: "${CR_PROMETHEUS_NODE_SELECTOR_OBJECT}"
+    nodeSelector:
+      $CR_PROMETHEUS_NODE_SELECTOR_OBJECT: REMOVE_ME
     tolerations: "${CR_PROMETHEUS_TOLERATIONS_OBJECT}"
     resources:
       requests:

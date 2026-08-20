@@ -52,12 +52,13 @@ func TestClientHandler(t *testing.T) {
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := httptest.NewRecorder()
 	server := NewServer(Config{})
+	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
 	relayRequest, err := server.b.GetRequest(t.Context(), "foo", "/")
 	if err != nil {
-		t.Errorf("Error when getting request: %v", err)
+		t.Fatalf("Error when getting request: %v", err)
 	}
 
 	wantRequest := &pb.HttpRequest{
@@ -120,12 +121,13 @@ func TestClientHandlerWithChunkedResponse(t *testing.T) {
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := httptest.NewRecorder()
 	server := NewServer(Config{})
+	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
 	relayRequest, err := server.b.GetRequest(t.Context(), "foo", "/")
 	if err != nil {
-		t.Errorf("Error when getting request: %v", err)
+		t.Fatalf("Error when getting request: %v", err)
 	}
 
 	wantRequest := &pb.HttpRequest{
@@ -350,6 +352,7 @@ func TestRequestStreamHandler(t *testing.T) {
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := hijacktest.NewRecorder(wantRequestStream)
 	server := NewServer(Config{BlockSize: blockSize})
+	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
@@ -357,7 +360,7 @@ func TestRequestStreamHandler(t *testing.T) {
 	// Simulate a 101 Switching Protocols response from the backend.
 	relayRequest, err := server.b.GetRequest(t.Context(), "foo", "/")
 	if err != nil {
-		t.Errorf("Error when getting request: %v", err)
+		t.Fatalf("Error when getting request: %v", err)
 	}
 	server.b.SendResponse(&pb.HttpResponse{
 		Id:         relayRequest.Id,
@@ -662,6 +665,7 @@ func TestTrailers(t *testing.T) {
 			req := httptest.NewRequest("GET", "/client/foo/", nil)
 			respRecorder := httptest.NewRecorder()
 			server := NewServer(Config{})
+			server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
 			wg := sync.WaitGroup{}
 			wg.Add(1)
 			go func() {

@@ -170,8 +170,10 @@ func TestExtAuthzCheck_RobotJWT(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name: "valid robot jwt with path query robots=true",
-			path: "/test?robots=true",
+			name: "valid robot jwt with contextExtension robots=true",
+			contextExt: map[string]string{
+				"robots": "true",
+			},
 			headers: map[string]string{
 				"authorization": "Bearer " + jwtCorrect,
 			},
@@ -356,25 +358,9 @@ func TestExtAuthzCheck_EndpointDifferentiated(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name: "path /apis/core.token-vendor/v1/token.verify?robots=true with valid oauth token",
-			path: "/apis/core.token-vendor/v1/token.verify?robots=true",
-			headers: map[string]string{
-				"authorization": "Bearer " + validOAuthToken,
-			},
-			wantOK: true,
-		},
-		{
-			name: "path /apis/core.token-vendor/v1/jwt.verify with valid jwt",
-			path: "/apis/core.token-vendor/v1/jwt.verify",
-			headers: map[string]string{
-				"authorization": "Bearer " + jwtCorrect,
-			},
-			wantOK: true,
-		},
-		{
-			name: "contextExtensions path /apis/core.token-vendor/v1/token.verify?robots=true",
+			name: "empty endpoint defaults to validateCredentials",
 			contextExt: map[string]string{
-				"path": "/apis/core.token-vendor/v1/token.verify?robots=true",
+				"endpoint": "",
 			},
 			headers: map[string]string{
 				"authorization": "Bearer " + validOAuthToken,
@@ -382,14 +368,36 @@ func TestExtAuthzCheck_EndpointDifferentiated(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name: "contextExtensions path /apis/core.token-vendor/v1/jwt.verify",
+			name: "endpoint validate delegates to validateCredentials",
 			contextExt: map[string]string{
-				"path": "/apis/core.token-vendor/v1/jwt.verify",
+				"endpoint": "validate",
 			},
 			headers: map[string]string{
-				"authorization": "Bearer " + jwtCorrect,
+				"authorization": "Bearer " + validOAuthToken,
 			},
 			wantOK: true,
+		},
+		{
+			name: "endpoint default delegates to validateCredentials",
+			contextExt: map[string]string{
+				"endpoint": "default",
+			},
+			headers: map[string]string{
+				"authorization": "Bearer " + validOAuthToken,
+			},
+			wantOK: true,
+		},
+		{
+			name: "unrecognized endpoint returns 400 Bad Request",
+			contextExt: map[string]string{
+				"endpoint": "unknown.endpoint",
+			},
+			headers: map[string]string{
+				"authorization": "Bearer " + validOAuthToken,
+			},
+			wantOK:       false,
+			wantHTTPCode: typev3.StatusCode_BadRequest,
+			wantRPCCode:  codes.InvalidArgument,
 		},
 		{
 			name: "endpoint token.verify rejects non-oauth format token",

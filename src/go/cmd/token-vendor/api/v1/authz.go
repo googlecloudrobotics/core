@@ -58,10 +58,8 @@ func (s *ExtAuthzServer) Check(ctx context.Context, req *authv3.CheckRequest) (*
 	}
 
 	var endpoint string
-	var extPath string
 	if ext := req.GetAttributes().GetContextExtensions(); ext != nil {
 		endpoint = strings.TrimSpace(ext["endpoint"])
-		extPath = strings.TrimSpace(ext["path"])
 	}
 
 	// Extract token from request headers or query parameter
@@ -79,36 +77,21 @@ func (s *ExtAuthzServer) Check(ctx context.Context, req *authv3.CheckRequest) (*
 			token = u.Query().Get("token")
 		}
 	}
-	if token == "" && extPath != "" && strings.Contains(extPath, "?") {
-		if u, err := url.Parse(extPath); err == nil {
-			token = u.Query().Get("token")
-		}
-	}
 
 	if token == "" {
 		return deniedResponse(typev3.StatusCode_Unauthorized, codes.Unauthenticated, "missing authorization credentials"), nil
 	}
 
-	if strings.HasPrefix(endpoint, "token.verify") || hasPathSuffix(extPath, "/token.verify") || hasPathSuffix(reqPath, "/token.verify") {
+	switch endpoint {
+	case "token.verify":
 		return s.verifyOAuthToken(ctx, token, isRobotReq)
-	}
-
-	if strings.HasPrefix(endpoint, "jwt.verify") || hasPathSuffix(extPath, "/jwt.verify") || hasPathSuffix(reqPath, "/jwt.verify") {
+	case "jwt.verify":
 		return s.verifyJWT(ctx, token)
+	case "", "default", "validate":
+		return s.validateCredentials(ctx, token, isRobotReq)
+	default:
+		return deniedResponse(typev3.StatusCode_BadRequest, codes.InvalidArgument, "unrecognized endpoint: "+endpoint), nil
 	}
-
-	return s.validateCredentials(ctx, token, isRobotReq)
-}
-
-func hasPathSuffix(rawURL, suffix string) bool {
-	if rawURL == "" {
-		return false
-	}
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return strings.HasSuffix(rawURL, suffix)
-	}
-	return strings.HasSuffix(u.Path, suffix) || u.Path == strings.TrimPrefix(suffix, "/")
 }
 
 func (s *ExtAuthzServer) verifyOAuthTokenInternal(ctx context.Context, token string, isRobot bool) (*authv3.CheckResponse, error) {
@@ -193,22 +176,12 @@ func isRobot(req *authv3.CheckRequest) bool {
 				return b
 			}
 		}
-		if p, ok := ext["path"]; ok && p != "" && (strings.Contains(p, "robot") || strings.Contains(p, "robots")) {
-			if b, ok := getRobotFromQuery(p); ok {
-				return b
-			}
-		}
 	}
 
 	httpReq := req.GetAttributes().GetRequest().GetHttp()
 	if httpReq != nil {
 		if val := getHeader(httpReq.GetHeaders(), headerRobots); val != "" {
 			if b, ok := parseBoolValue(val); ok {
-				return b
-			}
-		}
-		if reqPath := httpReq.GetPath(); reqPath != "" && (strings.Contains(reqPath, "robot") || strings.Contains(reqPath, "robots")) {
-			if b, ok := getRobotFromQuery(reqPath); ok {
 				return b
 			}
 		}
@@ -219,26 +192,6 @@ func isRobot(req *authv3.CheckRequest) bool {
 func parseBoolValue(val string) (b, ok bool) {
 	parsed, err := strconv.ParseBool(strings.TrimSpace(val))
 	return parsed, err == nil
-}
-
-func getRobotFromQuery(rawURL string) (val, ok bool) {
-	if rawURL == "" || !strings.Contains(rawURL, "?") {
-		return false, false
-	}
-	if u, err := url.Parse(rawURL); err == nil {
-		q := u.Query()
-		if param := q.Get("robots"); param != "" {
-			if b, ok := parseBoolValue(param); ok {
-				return b, true
-			}
-		}
-		if param := q.Get("robot"); param != "" {
-			if b, ok := parseBoolValue(param); ok {
-				return b, true
-			}
-		}
-	}
-	return false, false
 }
 
 func getHeader(headers map[string]string, key string) string {

@@ -1,9 +1,6 @@
 # Enable Bzlmod for every Bazel command
 common --enable_bzlmod
 
-# Work around go issue with LLVM 15+: https://github.com/bazelbuild/rules_go/issues/3691#issuecomment-2263999685
-build --@io_bazel_rules_go//go/config:linkmode=pie
-
 # Enforce stricter environment rules, which eliminates some non-hermetic
 # behavior and therefore improves both the remote_cache cache hit rate and the
 # correctness and repeatability of the build.
