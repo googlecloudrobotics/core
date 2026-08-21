@@ -115,7 +115,6 @@ app_chart(
         "relay-dashboard.json",
         ":cert-manager-chart.cloud",
         ":chart-assignment-controller-chart.cloud",
-        "//third_party/envoy-gateway:envoy-gateway-dashboards",
         "@ingress-nginx//:ingress-nginx-dashboards",
     ],
     images = {

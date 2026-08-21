@@ -126,55 +126,6 @@ spec:
   timeout:
     http:
       requestTimeout: 0s
----
-apiVersion: monitoring.coreos.com/v1
-kind: PodMonitor
-metadata:
-  name: envoy-proxy-metrics
-  namespace: envoy-gateway-system
-  labels:
-    prometheus: kube-prometheus
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: envoy
-      app.kubernetes.io/component: proxy
-  podMetricsEndpoints:
-    - port: metrics
-      path: /stats/prometheus
-      relabelings:
-        - sourceLabels: [__meta_kubernetes_pod_node_name]
-          targetLabel: instance
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: envoy-gateway-metrics
-  namespace: envoy-gateway-system
-  labels:
-    prometheus: kube-prometheus
-spec:
-  selector:
-    matchLabels:
-      control-plane: envoy-gateway
-  endpoints:
-    - port: metrics
-      path: /metrics
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: envoy-dashboards-json
-  namespace: envoy-gateway-system
-  labels:
-    grafana: "1"
-data:
-  envoy-proxy-global.json: |-
-{{ .Files.Get "files/envoy-proxy-global.json" | indent 4 }}
-  envoy-gateway-global.json: |-
-{{ .Files.Get "files/envoy-gateway-global.json" | indent 4 }}
-  envoy-clusters.json: |-
-{{ .Files.Get "files/envoy-clusters.json" | indent 4 }}
 {{- end }}
 
 
