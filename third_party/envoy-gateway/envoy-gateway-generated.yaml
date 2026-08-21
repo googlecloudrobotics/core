@@ -112,8 +112,7 @@ data:
                       name: envoy-ratelimit
         shutdownManager:
           image: envoyproxy/gateway:v1.8.3
-      type: Kubernetes
-
+     type: Kubernetes
 ---
 # Source: gateway-helm/templates/envoy-gateway-rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
