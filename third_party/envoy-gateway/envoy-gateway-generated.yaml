@@ -74,7 +74,6 @@ metadata:
     app.kubernetes.io/version: "latest"
     app.kubernetes.io/managed-by: Helm
 ---
-# Source: gateway-helm/templates/envoy-gateway-config.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -84,13 +83,14 @@ metadata:
     helm.sh/chart: gateway-helm-v0.0.0-latest
     app.kubernetes.io/name: gateway-helm
     app.kubernetes.io/instance: eg
-    app.kubernetes.io/version: "latest"
+    app.kubernetes.io/version: latest
     app.kubernetes.io/managed-by: Helm
 data:
   envoy-gateway.yaml: |
     apiVersion: gateway.envoyproxy.io/v1alpha1
     kind: EnvoyGateway
-    extensionApis: {}
+    extensionApis:
+      enableBackend: true
     gateway:
       controllerName: gateway.envoyproxy.io/gatewayclass-controller
     logging:
@@ -113,6 +113,7 @@ data:
         shutdownManager:
           image: envoyproxy/gateway:v1.8.3
       type: Kubernetes
+
 ---
 # Source: gateway-helm/templates/envoy-gateway-rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
