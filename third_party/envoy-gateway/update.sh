@@ -44,4 +44,11 @@ python3 "${SCRIPT_DIR}/process_envoy_gateway_manifest.py" \
   "${eg_crd_dst}" \
   "${eg_manifest_dst}"
 
+dashboards_dst="${SCRIPT_DIR}/dashboards"
+mkdir -p "${dashboards_dst}"
+echo "Downloading official Envoy Gateway ${EG_VERSION} Grafana dashboards..."
+curl -fsSL "https://raw.githubusercontent.com/envoyproxy/gateway/${EG_VERSION}/charts/gateway-addons-helm/dashboards/envoy-proxy-global.json" -o "${dashboards_dst}/envoy-proxy-global.json"
+curl -fsSL "https://raw.githubusercontent.com/envoyproxy/gateway/${EG_VERSION}/charts/gateway-addons-helm/dashboards/envoy-gateway-global.json" -o "${dashboards_dst}/envoy-gateway-global.json"
+curl -fsSL "https://raw.githubusercontent.com/envoyproxy/gateway/${EG_VERSION}/charts/gateway-addons-helm/dashboards/envoy-clusters.json" -o "${dashboards_dst}/envoy-clusters.json"
+
 echo "Envoy Gateway (${EG_VERSION}) and Gateway API (${GAPI_VERSION}) assets updated successfully!"
