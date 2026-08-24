@@ -82,6 +82,8 @@ CLOUD_ROBOTICS_COOKIE_SECRET='${random_id.cloud_robotics_cookie_secret[0].b64_ur
 CLOUD_ROBOTICS_OAUTH2_CLIENT_ID='${var.oauth2_client_id}'
 CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET='${var.oauth2_secret}'
 CLOUD_ROBOTICS_DOMAIN='${var.domain}'
+CLOUD_ROBOTICS_INGRESS_IP='${google_compute_address.cloud_robotics.address}'
+ADDITIONAL_REGIONS=(%{ for key, value in var.additional_regions ~}'${jsonencode({ name = key, region = value.region, zone = value.zone, ingress_ip = google_compute_address.cloud_robotics_ar[key].address })}' %{ endfor ~})
 GCP_NODE_VM_TYPE='${var.node_machine_type}'
 GKE_MIN_NODES='${var.min_node_count}'
 GKE_MAX_NODES='${var.max_node_count}'

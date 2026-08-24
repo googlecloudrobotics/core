@@ -339,11 +339,10 @@ function helm_region_shared {
 }
 
 function helm_main_region {
-  local INGRESS_IP
-  INGRESS_IP=$(gcloud compute addresses describe cloud-robotics \
-    --region="${GCP_REGION}" \
-    --project="${GCP_PROJECT_ID}" \
-    --format='value(address)')
+  local INGRESS_IP="${CLOUD_ROBOTICS_INGRESS_IP:-}"
+  if [[ -z "${INGRESS_IP}" ]]; then
+    INGRESS_IP=$(terraform_exec output ingress-ip | tr -d '"')
+  fi
 
   helm_region_shared \
     "${CLOUD_ROBOTICS_CTX}" \
@@ -372,10 +371,10 @@ function helm_additional_region {
   CLUSTER_NAME="${AR_NAME}-ar-cloud-robotics"
 
   local INGRESS_IP
-  INGRESS_IP=$(gcloud compute addresses describe "${CLUSTER_NAME}" \
-    --region="${AR_REGION}" \
-    --project="${GCP_PROJECT_ID}" \
-    --format='value(address)')
+  INGRESS_IP=$(jq -r '.ingress_ip // ""' <<<"${ar_description}")
+  if [[ -z "${INGRESS_IP}" ]]; then
+    INGRESS_IP=$(terraform_exec output -json ingress-ip-ar | jq -r ."\"${CLUSTER_NAME}\"")
+  fi
 
   helm_region_shared \
     $(gke_context_name "${GCP_PROJECT_ID}" "${CLUSTER_NAME}" "${AR_REGION}" "${AR_ZONE}") \
