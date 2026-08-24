@@ -29,6 +29,7 @@ if [[ -z "${GCP_PROJECT_ID}" || "${GCP_PROJECT_ID}" == -* ]]; then
   echo "  --set-oauth     Enables and configures OAuth interactively."
   echo "  --delete        Deletes Cloud Robotics from the cloud project."
   echo "  --terraform     Apply only terraform changes."
+  echo "  --fast-push     Only deploy charts, skip terraform."
   echo "  (default)       Install the specified version."
   exit 1
 fi
@@ -42,7 +43,7 @@ if [[ $# -gt 0 && -n "$1" && "$1" != -* ]]; then
 fi
 
 COMMAND=""
-if [[ $# -gt 0 && "$1" =~ ^(--set-config|--set-oauth|--delete|--terraform)$ ]]; then
+if [[ $# -gt 0 && "$1" =~ ^(--set-config|--set-oauth|--delete|--terraform|--fast-push)$ ]]; then
   COMMAND="$1"
   shift
 fi
@@ -63,11 +64,13 @@ if [[ $SHELLOPTS =~ xtrace ]] ; then
   BASH="bash -o xtrace"
 fi
 
-if [[ "${COMMAND}" = "--set-config" ]]; then
+if [[ "${COMMAND}" == "--set-config" ]]; then
   $BASH scripts/set-config.sh "${GCP_PROJECT_ID}" "$@"
-elif [[ "${COMMAND}" = "--set-oauth" ]]; then
+elif [[ "${COMMAND}" == "--fast-push" ]]; then
+  $BASH ./deploy.sh fast_push "${GCP_PROJECT_ID}" "$@"
+elif [[ "${COMMAND}" == "--set-oauth" ]]; then
   $BASH scripts/set-config.sh "${GCP_PROJECT_ID}" --edit-oauth "$@"
-elif [[ "${COMMAND}" = "--delete" ]]; then
+elif [[ "${COMMAND}" == "--delete" ]]; then
   $BASH ./deploy.sh delete "${GCP_PROJECT_ID}" "$@"
 else
   # We tag the setup-robot files with this information to be able to check if

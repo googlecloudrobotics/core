@@ -340,7 +340,10 @@ function helm_region_shared {
 
 function helm_main_region {
   local INGRESS_IP
-  INGRESS_IP=$(terraform_exec output ingress-ip | tr -d '"')
+  INGRESS_IP=$(gcloud compute addresses describe cloud-robotics \
+    --region="${GCP_REGION}" \
+    --project="${GCP_PROJECT_ID}" \
+    --format='value(address)')
 
   helm_region_shared \
     "${CLOUD_ROBOTICS_CTX}" \
@@ -369,7 +372,10 @@ function helm_additional_region {
   CLUSTER_NAME="${AR_NAME}-ar-cloud-robotics"
 
   local INGRESS_IP
-  INGRESS_IP=$(terraform_exec output -json ingress-ip-ar | jq -r ."\"${CLUSTER_NAME}\"")
+  INGRESS_IP=$(gcloud compute addresses describe "${CLUSTER_NAME}" \
+    --region="${AR_REGION}" \
+    --project="${GCP_PROJECT_ID}" \
+    --format='value(address)')
 
   helm_region_shared \
     $(gke_context_name "${GCP_PROJECT_ID}" "${CLUSTER_NAME}" "${AR_REGION}" "${AR_ZONE}") \
@@ -420,7 +426,7 @@ function update {
   create "$@"
 }
 
-# This is a shortcut for skipping Terraform config checks if you know the config has not changed.
+# This is a shortcut for skipping Terraform config checks if you know the config has not changed, or if the config is managed by terraform module.
 function fast_push {
   include_config_and_defaults $1
   shift
@@ -430,7 +436,7 @@ function fast_push {
   helm_charts "$@"
 }
 
-# This is a shortcut for skipping building and applying Terraform configs if you know the build has not changed.
+# This is a shortcut for skipping building and only applying Terraform configs (if you know the build has not changed).
 function update_infra {
   include_config_and_defaults $1
   terraform_apply
