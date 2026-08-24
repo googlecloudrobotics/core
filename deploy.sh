@@ -341,6 +341,9 @@ function helm_region_shared {
 function helm_main_region {
   local INGRESS_IP="${CLOUD_ROBOTICS_INGRESS_IP:-}"
   if [[ -z "${INGRESS_IP}" ]]; then
+    if [[ "${CONFIG_MANAGED_BY_TERRAFORM:-}" == "true" ]]; then
+      die "CLOUD_ROBOTICS_INGRESS_IP is missing in Terraform-managed configuration, please update your terraform module to a supported version."
+    fi
     INGRESS_IP=$(terraform_exec output ingress-ip | tr -d '"')
   fi
 
@@ -373,6 +376,9 @@ function helm_additional_region {
   local INGRESS_IP
   INGRESS_IP=$(jq -r '.ingress_ip // ""' <<<"${ar_description}")
   if [[ -z "${INGRESS_IP}" ]]; then
+    if [[ "${CONFIG_MANAGED_BY_TERRAFORM:-}" == "true" ]]; then
+      die "ingress_ip for ${AR_NAME} is missing in Terraform-managed configuration, please update your terraform module to a supported version."
+    fi
     INGRESS_IP=$(terraform_exec output -json ingress-ip-ar | jq -r ."\"${CLUSTER_NAME}\"")
   fi
 
