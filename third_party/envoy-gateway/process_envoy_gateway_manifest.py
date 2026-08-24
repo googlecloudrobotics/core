@@ -61,6 +61,16 @@ def _parse_manifests(install_file: str) -> tuple[list[str], list[str]]:
       if group.endswith("gateway.envoyproxy.io"):
         eg_crds.append(cleaned)
     else:
+      # Inject extensionApis.enableBackend into envoy-gateway-config ConfigMap so
+      # routes can reference Backend custom resources (e.g. firebase-signin-helper).
+      if (
+          kind == "ConfigMap"
+          and doc_obj.get("metadata", {}).get("name") == "envoy-gateway-config"
+      ):
+        cleaned = cleaned.replace(
+            "extensionApis: {}",
+            "extensionApis:\n      enableBackend: true",
+        )
       system_docs.append(cleaned)
 
   return eg_crds, system_docs
