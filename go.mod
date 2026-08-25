@@ -45,7 +45,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/storage v1.64.0
+	cloud.google.com/go/storage v1.65.0
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	golang.org/x/oauth2 v0.36.0
 	google.golang.org/genproto v0.0.0-20260519071638-aa98bba5eb94 // indirect
