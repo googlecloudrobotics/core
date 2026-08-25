@@ -33,11 +33,11 @@ require (
 	google.golang.org/api v0.293.0
 	google.golang.org/grpc v1.83.0
 	google.golang.org/protobuf v1.36.12
-	k8s.io/api v0.36.3
+	k8s.io/api v0.36.4
 	k8s.io/apiextensions-apiserver v0.36.3
 	k8s.io/apimachinery v0.36.4
-	k8s.io/cli-runtime v0.36.2
-	k8s.io/client-go v0.36.3
+	k8s.io/cli-runtime v0.36.4
+	k8s.io/client-go v0.36.4
 	k8s.io/helm v2.17.0+incompatible
 	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/kind v0.32.0
