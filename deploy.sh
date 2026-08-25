@@ -339,8 +339,13 @@ function helm_region_shared {
 }
 
 function helm_main_region {
-  local INGRESS_IP
-  INGRESS_IP=$(terraform_exec output ingress-ip | tr -d '"')
+  local INGRESS_IP="${CLOUD_ROBOTICS_INGRESS_IP:-}"
+  if [[ -z "${INGRESS_IP}" ]]; then
+    if [[ "${CONFIG_MANAGED_BY_TERRAFORM:-}" == "true" ]]; then
+      die "CLOUD_ROBOTICS_INGRESS_IP is missing in Terraform-managed configuration, please update your terraform module to a supported version."
+    fi
+    INGRESS_IP=$(terraform_exec output ingress-ip | tr -d '"')
+  fi
 
   helm_region_shared \
     "${CLOUD_ROBOTICS_CTX}" \
@@ -369,7 +374,13 @@ function helm_additional_region {
   CLUSTER_NAME="${AR_NAME}-ar-cloud-robotics"
 
   local INGRESS_IP
-  INGRESS_IP=$(terraform_exec output -json ingress-ip-ar | jq -r ."\"${CLUSTER_NAME}\"")
+  INGRESS_IP=$(jq -r '.ingress_ip // ""' <<<"${ar_description}")
+  if [[ -z "${INGRESS_IP}" ]]; then
+    if [[ "${CONFIG_MANAGED_BY_TERRAFORM:-}" == "true" ]]; then
+      die "ingress_ip for ${AR_NAME} is missing in Terraform-managed configuration, please update your terraform module to a supported version."
+    fi
+    INGRESS_IP=$(terraform_exec output -json ingress-ip-ar | jq -r ."\"${CLUSTER_NAME}\"")
+  fi
 
   helm_region_shared \
     $(gke_context_name "${GCP_PROJECT_ID}" "${CLUSTER_NAME}" "${AR_REGION}" "${AR_ZONE}") \
@@ -420,7 +431,7 @@ function update {
   create "$@"
 }
 
-# This is a shortcut for skipping Terraform config checks if you know the config has not changed.
+# This is a shortcut for skipping Terraform config checks if you know the config has not changed, or if the config is managed by terraform module.
 function fast_push {
   include_config_and_defaults $1
   shift
@@ -430,7 +441,7 @@ function fast_push {
   helm_charts "$@"
 }
 
-# This is a shortcut for skipping building and applying Terraform configs if you know the build has not changed.
+# This is a shortcut for skipping building and only applying Terraform configs (if you know the build has not changed).
 function update_infra {
   include_config_and_defaults $1
   terraform_apply
