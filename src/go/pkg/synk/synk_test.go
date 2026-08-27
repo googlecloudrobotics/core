@@ -984,3 +984,46 @@ func sprintAction(a k8stest.Action) string {
 		return fmt.Sprintf("<UNKNOWN ACTION %T>", a)
 	}
 }
+
+func Test_resourceSetName(t *testing.T) {
+	cases := []struct {
+		name    string
+		version int
+		want    string
+	}{
+		{"app", 1, "app.v1"},
+		{"my.chart", 42, "my.chart.v42"},
+	}
+	for _, c := range cases {
+		if got := resourceSetName(c.name, c.version); got != c.want {
+			t.Errorf("resourceSetName(%q, %d) = %q, want %q", c.name, c.version, got, c.want)
+		}
+	}
+}
+
+func Test_decodeResourceSetName(t *testing.T) {
+	cases := []struct {
+		input       string
+		wantName    string
+		wantVersion int
+		wantOk      bool
+	}{
+		{"app.v1", "app", 1, true},
+		{"my.chart.name.v42", "my.chart.name", 42, true},
+		{"app.v0", "app", 0, true},
+		{"app.v12345", "app", 12345, true},
+		{"app", "", 0, false},
+		{"app.v", "", 0, false},
+		{"app.v-1", "", 0, false},
+		{"app.vabc", "", 0, false},
+		{".v1", "", 0, false},
+		{"app.v999999999999999999999999999999999999999", "", 0, false},
+	}
+	for _, c := range cases {
+		gotName, gotVersion, gotOk := decodeResourceSetName(c.input)
+		if gotName != c.wantName || gotVersion != c.wantVersion || gotOk != c.wantOk {
+			t.Errorf("decodeResourceSetName(%q) = (%q, %d, %v), want (%q, %d, %v)",
+				c.input, gotName, gotVersion, gotOk, c.wantName, c.wantVersion, c.wantOk)
+		}
+	}
+}
