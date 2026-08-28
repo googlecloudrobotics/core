@@ -8,7 +8,7 @@
 #
 #   bazel build src/app_charts/victoriametrics/victoriametrics-cloudmetrics:victoriametrics-cloudmetrics-chart.cloud.yaml
 
-fullnameOverride: "victoriametrics-cloudmetrics"
+fullnameOverride: "vmc"
 
 limits:
   cpu: "2000m"
@@ -34,8 +34,11 @@ vmcluster:
           cpu: "2000m"
           memory: "12Gi"
       storage:
-        requests:
-          storage: "100Gi"
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: "100Gi"
     vminsert:
       replicaCount: 2
       port: 8480
@@ -63,12 +66,11 @@ vmcluster:
 
 vmagent:
   spec:
-    remoteWrite: []
     externalLabels: {}
     nodeSelector: {}
     tolerations: []
-    serviceMonitorSelector: {}
-    podMonitorSelector: {}
+    serviceScrapeSelector: {}
+    podScrapeSelector: {}
     resources:
       requests:
         cpu: "100m"
@@ -108,3 +110,4 @@ authProxy:
   - x-forwarded-host
   - apikey-token
   - x-server-name
+

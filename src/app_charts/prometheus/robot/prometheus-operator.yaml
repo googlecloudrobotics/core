@@ -97,4 +97,21 @@
   {{- $data = $data | replace "  annotations:\n    ${CR_PROMETHEUS_SA_ANNOTATIONS}: \"\"\n" "" -}}
 {{- end }}
 
+{{- /* Filter out prometheus-node-exporter resources if disabled */ -}}
+{{- $nodeExporterEnabled := true }}
+{{- if .Values.nodeExporter }}
+  {{- if hasKey .Values.nodeExporter "enabled" }}
+    {{- $nodeExporterEnabled = .Values.nodeExporter.enabled }}
+  {{- end }}
+{{- end }}
+{{- $parts := splitList "\n---\n# Source: " (printf "\n%s" $data) -}}
+{{- $newData := "" -}}
+{{- range $part := $parts -}}
+{{- if (trim $part) }}
+{{- if not (and (not $nodeExporterEnabled) (contains "app.kubernetes.io/name: prometheus-node-exporter" $part)) }}
+{{- $newData = printf "%s\n---\n# Source: %s" $newData $part -}}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $data = trimPrefix "\n" $newData -}}
 {{ $data }}

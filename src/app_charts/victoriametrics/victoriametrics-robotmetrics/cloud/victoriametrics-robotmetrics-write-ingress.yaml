@@ -24,6 +24,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: victoriametrics-robotmetrics-vmagent
+            name: vmagent-vmr
             port:
               number: 8429

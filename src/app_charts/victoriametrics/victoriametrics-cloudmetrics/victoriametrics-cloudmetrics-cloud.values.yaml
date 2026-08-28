@@ -1,39 +1,54 @@
 # Configuration for the second victoria-metrics-cluster chart that stores
 # cloud-cluster metrics.
 
-fullnameOverride: "victoriametrics-cloudmetrics"
+fullnameOverride: "vmc"
 
 vmalert:
   enabled: true
+  annotations:
+    # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks
+    argocd.argoproj.io/sync-wave: "5"
   spec:
-    ruleSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_RULE_SELECTOR_OBJECT}"
-    ruleNamespaceSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_RULE_NAMESPACE_SELECTOR_OBJECT}"
-    nodeSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_NODE_SELECTOR_OBJECT}"
-    tolerations: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_TOLERATIONS_OBJECT}"
+    ruleSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_RULE_SELECTOR_OBJECT: REMOVE_ME
+    ruleNamespaceSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_RULE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    nodeSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_NODE_SELECTOR_OBJECT: REMOVE_ME
+    tolerations:
+      - $CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_TOLERATIONS_OBJECT: REMOVE_ME
     notifiers:
       - url: "${CR_VICTORIAMETRICS_CLOUDMETRICS_NOTIFIERS_OBJECT}"
+    extraArgs:
+      http.pathPrefix: "/victoriametrics/cloud/vmalert"
 
 vmsingle:
   enabled: false
 
 vmcluster:
   enabled: true
+  annotations:
+    # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks
+    argocd.argoproj.io/sync-wave: "5"
   spec:
     # Scalar strings use component-scoped names and are substituted directly (e.g. replace "${VMCLUSTER_RETENTION_TIME}").
     # Note: replicaCount requires a toString cast during substitution because Helm evaluates it as a string, but the CRD expects an integer.
     retentionPeriod: "${VMCLUSTER_RETENTION_TIME}"
-    replicationFactor: "${REPLICATION_FACTOR}"
+    replicationFactor: "${VMCLUSTER_REPLICATION_FACTOR}"
     vmstorage:
       replicaCount: "${VMSTORAGE_REPLICA_COUNT}"
       # Complex objects (nodeSelector, tolerations) use the global CR_..._OBJECT suffix.
       # They are injected via `toYaml | nindent` by the operator to prevent YAML indentation corruption.
-      nodeSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSTORAGE_NODE_SELECTOR_OBJECT}"
-      tolerations: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSTORAGE_TOLERATIONS_OBJECT}"
-      resources: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSTORAGE_RESOURCES_OBJECT}"
+      nodeSelector:
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSTORAGE_NODE_SELECTOR_OBJECT: REMOVE_ME
+      tolerations:
+        - $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSTORAGE_TOLERATIONS_OBJECT: REMOVE_ME
+      resources:
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSTORAGE_RESOURCES_OBJECT: REMOVE_ME
       storage:
         volumeClaimTemplate:
           spec:
-            storageClassName: ssd
+            storageClassName: victoriametrics-cloudmetrics-cloud-ssd
             accessModes:
               - ReadWriteOnce
             resources:
@@ -42,37 +57,52 @@ vmcluster:
     vminsert:
       replicaCount: "${VMINSERT_REPLICA_COUNT}"
       port: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_PORT}"
-      nodeSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_NODE_SELECTOR_OBJECT}"
-      tolerations: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_TOLERATIONS_OBJECT}"
-      resources: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_RESOURCES_OBJECT}"
+      nodeSelector:
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_NODE_SELECTOR_OBJECT: REMOVE_ME
+      tolerations:
+        - $CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_TOLERATIONS_OBJECT: REMOVE_ME
+      resources:
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_RESOURCES_OBJECT: REMOVE_ME
       extraArgs:
-        replicationFactor: "${REPLICATION_FACTOR}"
+        replicationFactor: "${VMINSERT_REPLICATION_FACTOR}"
     vmselect:
       replicaCount: "${VMSELECT_REPLICA_COUNT}"
       port: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_PORT}"
-      nodeSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_NODE_SELECTOR_OBJECT}"
-      tolerations: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_TOLERATIONS_OBJECT}"
-      resources: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_RESOURCES_OBJECT}"
+      nodeSelector:
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_NODE_SELECTOR_OBJECT: REMOVE_ME
+      tolerations:
+        - $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_TOLERATIONS_OBJECT: REMOVE_ME
+      resources:
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_RESOURCES_OBJECT: REMOVE_ME
+      extraArgs:
+        http.pathPrefix: "/victoriametrics/cloud"
 
 vmagent:
   enabled: true
+  annotations:
+    # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks
+    argocd.argoproj.io/sync-wave: "5"
   spec:
     selectAllByDefault: true
-    serviceMonitorSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_SERVICE_MONITOR_SELECTOR_OBJECT}"
-    podMonitorSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_POD_MONITOR_SELECTOR_OBJECT}"
-    # Array fields (remoteWrite, containers, volumes) use a dummy '- url' or '- name' object
-    # to pass Helm's initial schema validation. The deploy-time operator deletes this dummy line
-    # and injects the actual array block.
-    remoteWrite:
-      - url: "${CR_VICTORIAMETRICS_CLOUDMETRICS_REMOTE_WRITE_OBJECT}"
-    externalLabels: "${CR_VICTORIAMETRICS_CLOUDMETRICS_EXTERNAL_LABELS_OBJECT}"
-    nodeSelector: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_NODE_SELECTOR_OBJECT}"
-    tolerations: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_TOLERATIONS_OBJECT}"
+    serviceScrapeSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    podScrapeSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    additionalRemoteWrites:
+      - url: "${CR_VICTORIAMETRICS_CLOUDMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT}"
+    externalLabels:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTERNAL_LABELS_OBJECT: REMOVE_ME
+    nodeSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_NODE_SELECTOR_OBJECT: REMOVE_ME
+    tolerations:
+      - $CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_TOLERATIONS_OBJECT: REMOVE_ME
     extraArgs:
       remoteWrite.tmpDataPath: "${VMAGENT_TMP_DATA_PATH}"
       remoteWrite.maxDiskUsagePerURL: "${VMAGENT_MAX_DISK_USAGE}"
       memory.allowedBytes: "${VMAGENT_ALLOWED_BYTES}"
-    resources: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_RESOURCES_OBJECT}"
+      http.pathPrefix: "/victoriametrics/cloud/vmagent"
+    resources:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_RESOURCES_OBJECT: REMOVE_ME
 
 alertmanager:
   enabled: false
@@ -85,7 +115,23 @@ serviceAccount:
 
 # Override victoria-metrics-operator name, otherwise some names become too long
 victoria-metrics-operator:
-  fullnameOverride: "victoriametrics-cloudmetrics-operator"
+  fullnameOverride: "vmc-operator"
+  annotations:
+    # Ensure Operator is created first and deleted last so it can process CRD finalizers cleanly
+    argocd.argoproj.io/sync-wave: "-1"
+  crds:
+    # Disable the cleanup hook. Synk's Server-Side Apply treats Helm pre-delete hooks as
+    # regular resources, causing the operator to instantly delete our pods upon deployment.
+    cleanup:
+      enabled: false
+  watchNamespaces:
+    - "HELM-NAMESPACE"
+  admissionWebhooks:
+    certManager:
+      enabled: true
+      issuer:
+        name: "selfsigned-issuer"
+        kind: "ClusterIssuer"
 
 grafana:
   enabled: false
@@ -101,6 +147,7 @@ prometheus-node-exporter:
         targetLabel: instance
 
 kube-state-metrics:
+  fullnameOverride: "vmc-kube-state-metrics"
   enabled: true
   prometheus:
     monitor:

@@ -52,9 +52,9 @@
 {{- end }}
 {{- if $prometheusServiceMonitorSelectorMap }}
   {{- $formattedPrometheusServiceMonitorSelectorObject := toYaml $prometheusServiceMonitorSelectorMap | nindent 6 -}}
-  {{- $data = $data | replace "\"${CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT}\"" $formattedPrometheusServiceMonitorSelectorObject -}}
+  {{- $data = $data | replace "$CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedPrometheusServiceMonitorSelectorObject)) -}}
 {{- else }}
-  {{- $data = $data | replace "    serviceMonitorSelector: \"${CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT}\"\n" "" -}}
+  {{- $data = $data | replace "$CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
 
 {{- $prometheusPodMonitorSelectorMap := dict -}}
@@ -67,9 +67,9 @@
 {{- end }}
 {{- if $prometheusPodMonitorSelectorMap }}
   {{- $formattedPrometheusPodMonitorSelectorObject := toYaml $prometheusPodMonitorSelectorMap | nindent 6 -}}
-  {{- $data = $data | replace "\"${CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT}\"" $formattedPrometheusPodMonitorSelectorObject -}}
+  {{- $data = $data | replace "$CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedPrometheusPodMonitorSelectorObject)) -}}
 {{- else }}
-  {{- $data = $data | replace "    podMonitorSelector: \"${CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT}\"\n" "" -}}
+  {{- $data = $data | replace "$CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
 
 # Inject the externalLabels as a pre-formatted YAML block to allow users to define multiple labels in a dict
@@ -167,4 +167,22 @@
 {{- else }}
   {{- $data = $data | replace "  annotations:\n    ${CR_PROMETHEUS_SA_ANNOTATIONS}: \"\"\n" "" -}}
 {{- end }}
+
+{{- /* Filter out prometheus-node-exporter resources if disabled */ -}}
+{{- $nodeExporterEnabled := true }}
+{{- if .Values.nodeExporter }}
+  {{- if hasKey .Values.nodeExporter "enabled" }}
+    {{- $nodeExporterEnabled = .Values.nodeExporter.enabled }}
+  {{- end }}
+{{- end }}
+{{- $parts := splitList "\n---\n# Source: " (printf "\n%s" $data) -}}
+{{- $newData := "" -}}
+{{- range $part := $parts -}}
+{{- if (trim $part) }}
+{{- if not (and (not $nodeExporterEnabled) (contains "app.kubernetes.io/name: prometheus-node-exporter" $part)) }}
+{{- $newData = printf "%s\n---\n# Source: %s" $newData $part -}}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $data = trimPrefix "\n" $newData -}}
 {{ $data }}

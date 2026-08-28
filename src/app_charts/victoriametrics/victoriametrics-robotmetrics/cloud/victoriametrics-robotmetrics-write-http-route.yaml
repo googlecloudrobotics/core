@@ -23,7 +23,7 @@ spec:
           type: ReplacePrefixMatch
           replacePrefixMatch: /
     backendRefs:
-    - name: victoriametrics-robotmetrics-vmagent
+    - name: vmagent-vmr
       port: 8429
   - matches:
     - path:
@@ -36,7 +36,7 @@ spec:
           type: ReplaceFullPath
           replaceFullPath: /
     backendRefs:
-    - name: victoriametrics-robotmetrics-vmagent
+    - name: vmagent-vmr
       port: 8429
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1

@@ -1,13 +1,3 @@
-{{- $vmselectPort := 8481 -}}
-{{- if .Values.vmcluster }}
-  {{- if .Values.vmcluster.spec }}
-    {{- if .Values.vmcluster.spec.vmselect }}
-      {{- if .Values.vmcluster.spec.vmselect.port }}
-        {{- $vmselectPort = .Values.vmcluster.spec.vmselect.port -}}
-      {{- end }}
-    {{- end }}
-  {{- end }}
-{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -18,19 +8,36 @@ metadata:
     nginx.ingress.kubernetes.io/auth-url: "{{ tpl .Values.victoriametrics_cloudmetrics_ingress_auth_url . }}"
     nginx.ingress.kubernetes.io/auth-signin: "{{ tpl .Values.victoriametrics_cloudmetrics_ingress_auth_signin . }}"
     nginx.ingress.kubernetes.io/backend-protocol: HTTP
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/configuration-snippet: |
       error_page 403 = {{ tpl .Values.victoriametrics_cloudmetrics_ingress_error_page_403 . }};
+      rewrite ^/victoriametrics/cloud/?$ /victoriametrics/cloud/select/0/prometheus/vmui redirect;
 spec:
   ingressClassName: nginx
   rules:
   - host: {{ .Values.domain }}
     http:
       paths:
-      - path: /victoriametrics-cloudmetrics($|/)(.*)
+      # Main VMUI and Prometheus Query API
+      - path: /victoriametrics/cloud(/|$)(.*)
         pathType: Prefix
         backend:
           service:
-            name: victoriametrics-cloudmetrics-vmselect
+            name: vmc-victoria-metrics-vmselect
             port:
-              number: {{ $vmselectPort }}
+              number: 8481
+      # Alerts Dashboard
+      - path: /victoriametrics/cloud/vmalert(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: vmc-victoria-metrics-vmalert
+            port:
+              number: 8880
+      # Scraper Targets and Service Discovery Dashboard
+      - path: /victoriametrics/cloud/vmagent(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: vmc-victoria-metrics-vmagent
+            port:
+              number: 8429

@@ -6,7 +6,7 @@
 # deployment (single project, testing scope). Should be revisited for
 # any larger/production rollout.
 
-fullnameOverride: "victoriametrics-robotmetrics"
+fullnameOverride: "vmr"
 
 limits:
   cpu: "2000m"
@@ -25,8 +25,11 @@ vmcluster:
       nodeSelector: {}
       tolerations: []
       storage:
-        requests:
-          storage: "100Gi"
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: "100Gi"
     vminsert:
       replicaCount: 2
       port: 8480
@@ -54,12 +57,11 @@ vmcluster:
 
 vmagent:
   spec:
-    remoteWrite: []
     externalLabels: {}
     nodeSelector: {}
     tolerations: []
-    serviceMonitorSelector: {}
-    podMonitorSelector: {}
+    serviceScrapeSelector: {}
+    podScrapeSelector: {}
   max_disk_usage: "5GB"
   # These scalars map to explicit command-line extraArgs for the agent.
   allowed_bytes: "200MB"
@@ -92,3 +94,4 @@ authProxy:
   - x-forwarded-host
   - apikey-token
   - x-server-name
+
