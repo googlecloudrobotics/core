@@ -33,7 +33,7 @@ spec:
           type: ReplacePrefixMatch
           replacePrefixMatch: /
     backendRefs:
-    - name: victoriametrics-robotmetrics-vmselect
+    - name: vmselect-vmr
       port: {{ $vmselectPort }}
   - matches:
     - path:
@@ -46,7 +46,7 @@ spec:
           type: ReplaceFullPath
           replaceFullPath: /
     backendRefs:
-    - name: victoriametrics-robotmetrics-vmselect
+    - name: vmselect-vmr
       port: {{ $vmselectPort }}
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1

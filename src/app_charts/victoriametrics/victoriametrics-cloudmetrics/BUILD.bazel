@@ -7,7 +7,7 @@ helm_template(
     chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
     helm_version = 3,
     namespace = "HELM-NAMESPACE",
-    release_name = "victoria-metrics-cloudmetrics",
+    release_name = "vmc",
     values = "victoriametrics-cloudmetrics-cloud.values.yaml",
 )
 

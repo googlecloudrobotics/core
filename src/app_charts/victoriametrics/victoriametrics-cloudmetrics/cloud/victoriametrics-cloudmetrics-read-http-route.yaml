@@ -23,7 +23,7 @@ spec:
           type: ReplacePrefixMatch
           replacePrefixMatch: /
     backendRefs:
-    - name: victoriametrics-cloudmetrics-vmselect
+    - name: vmselect-vmc
       port: {{ .Values.vmselect_port | default 8481 }}
   - matches:
     - path:
@@ -36,7 +36,7 @@ spec:
           type: ReplaceFullPath
           replaceFullPath: /
     backendRefs:
-    - name: victoriametrics-cloudmetrics-vmselect
+    - name: vmselect-vmc
       port: {{ .Values.vmselect_port | default 8481 }}
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
