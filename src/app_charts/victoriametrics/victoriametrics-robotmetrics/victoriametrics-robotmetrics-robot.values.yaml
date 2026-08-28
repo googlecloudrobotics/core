@@ -59,32 +59,18 @@ vmagent:
     volumeMounts:
       - name: "${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT}"
 
+# Disable extra exporters and operator as they are managed independently
 victoria-metrics-operator:
-  annotations:
-    # Ensure Operator is created first and deleted last so it can process CRD finalizers cleanly
-    argocd.argoproj.io/sync-wave: "-1"
-  fullnameOverride: "vmr-operator"
-  crds:
-    # Disable the cleanup hook. Synk's Server-Side Apply treats Helm pre-delete hooks as
-    # regular resources, causing the operator to instantly delete our pods upon deployment.
-    cleanup:
-      enabled: false
-  watchNamespaces:
-    - "HELM-NAMESPACE"
-  admissionWebhooks:
-    certManager:
-      enabled: true
-      issuer:
-        name: "selfsigned-issuer"
-        kind: "ClusterIssuer"
+  enabled: false
 
 grafana:
   enabled: false
 
 prometheus-node-exporter:
-  enabled: "${CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_ENABLED}"
+  enabled: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_ENABLED}
   service:
     port: "${CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_PORT}"
+    targetPort: "${CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_PORT}"
   extraArgs:
     # This collector produces log-spam on newer kernels
     # https://github.com/prometheus/node_exporter/issues/1892
@@ -106,7 +92,13 @@ prometheus-node-exporter:
     - --collector.netclass.ignored-devices=^(bond|cilium|ip6tnl0|lo|lxc|tunl)
 
 kube-state-metrics:
+  fullnameOverride: "vmr-kube-state-metrics"
   enabled: true
+  prometheus:
+    monitor:
+      relabelings:
+      - sourceLabels: [__meta_kubernetes_pod_node_name]
+        targetLabel: instance
 
 # Throws an invalid namespace "kube-system" error during deployment, as this is
 # trying to install resources into the kube-system namespace, which synk does

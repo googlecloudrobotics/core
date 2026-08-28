@@ -1,0 +1,3 @@
+{{- $data := .Files.Get "files/victoriametrics-operator-chart.robot.yaml" -}}
+{{- $data = $data | replace "HELM-NAMESPACE" .Release.Namespace -}}
+{{ $data }}
