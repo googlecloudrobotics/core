@@ -13,9 +13,6 @@ helm_template(
 
 app_chart(
     name = "victoriametrics-cloudmetrics-cloud",
-    extra_templates = [
-        "//third_party/victoria-metrics-k8s-stack:00-crds.yaml",
-    ],
     extra_values = ["values-cloud.yaml"],
     files = [
         ":victoriametrics-cloudmetrics-chart.cloud",

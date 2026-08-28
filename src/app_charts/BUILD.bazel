@@ -10,6 +10,7 @@ APPS = [
     "grafana",
     "token-vendor",
     "akri",
+    "victoriametrics/victoriametrics-operator",
     "victoriametrics/victoriametrics-robotmetrics",
     "victoriametrics/victoriametrics-cloudmetrics",
 ]
