@@ -11,3 +11,10 @@ output "ingress-ip-ar" {
 output "cluster-location" {
   value = google_container_cluster.cloud-robotics.location
 }
+
+output "service-accounts" {
+  value = {
+    human         = google_service_account.human-acl
+    robot-service = google_service_account.robot-service
+  }
+}
