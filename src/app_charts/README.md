@@ -12,3 +12,7 @@ bazel run //src/app_charts/k8s-relay:k8s-relay.push <registry-location>
 ## Mission CRD
 
 The Mission CRD App creates the mission custom resource definition in the cloud and on the robot. The mission custom resources are used to send commands to the robot and are actuated by a robot-type-specific controller.
+
+## Architecture & Internals
+
+- [App Charts Variable Substitution](./app_charts_variable_substitution.md)
