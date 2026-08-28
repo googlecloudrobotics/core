@@ -28,14 +28,16 @@ prometheus:
       matchExpressions:
       - key: "non-existent-label-for-universal-matching"
         operator: "DoesNotExist"
-    serviceMonitorSelector: "${CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT}"
+    serviceMonitorSelector:
+      $CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT: REMOVE_ME
 
     # Pick up all pod monitors across all namespaces by default.
     podMonitorNamespaceSelector:
       matchExpressions:
       - key: "non-existent-label-for-universal-matching"
         operator: "DoesNotExist"
-    podMonitorSelector: "${CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT}"
+    podMonitorSelector:
+      $CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT: REMOVE_ME
 
     # Pick up all rules across all namespaces.
     ruleNamespaceSelector:
@@ -68,7 +70,7 @@ prometheus:
     storageSpec:
       volumeClaimTemplate:
         spec:
-          storageClassName: ssd
+          storageClassName: prometheus-ssd
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:

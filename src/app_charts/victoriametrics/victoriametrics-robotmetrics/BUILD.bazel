@@ -10,7 +10,7 @@ helm_template(
     helm_version = 3,
     kube_version = "1.29.0",
     namespace = "HELM-NAMESPACE",
-    release_name = "victoriametrics-robotmetrics",
+    release_name = "vmr",
     values = "victoriametrics-robotmetrics-cloud.values.yaml",
 )
 
@@ -34,7 +34,7 @@ helm_template(
     helm_version = 3,
     kube_version = "1.29.0",
     namespace = "HELM-NAMESPACE",
-    release_name = "victoriametrics-robotmetrics",
+    release_name = "vmr",
     values = "victoriametrics-robotmetrics-robot.values.yaml",
 )
 

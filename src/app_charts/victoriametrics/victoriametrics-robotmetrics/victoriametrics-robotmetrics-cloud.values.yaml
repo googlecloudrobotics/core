@@ -11,31 +11,44 @@
 #
 #   bazel build src/app_charts/victoriametrics/victoriametrics-robotmetrics:victoriametrics-robotmetrics-chart.cloud.yaml
 
-fullnameOverride: "victoriametrics-robotmetrics"
+fullnameOverride: "vmr"
 
 vmalert:
+  annotations:
+    # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks
+    argocd.argoproj.io/sync-wave: "5"
   spec:
-    nodeSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_NODE_SELECTOR_OBJECT}"
-    tolerations: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_TOLERATIONS_OBJECT}"
+    nodeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_NODE_SELECTOR_OBJECT: REMOVE_ME
+    tolerations:
+      - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_TOLERATIONS_OBJECT: REMOVE_ME
     notifiers:
       - url: "${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}"
+    extraArgs:
+      http.pathPrefix: "/victoriametrics/robots/vmalert"
 
 vmsingle:
   enabled: false
 
 vmcluster:
+  annotations:
+    # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks
+    argocd.argoproj.io/sync-wave: "5"
   enabled: true
   spec:
     retentionPeriod: "${VMCLUSTER_RETENTION_TIME}"
     vmstorage:
       replicaCount: "${VMSTORAGE_REPLICA_COUNT}"
-      nodeSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_NODE_SELECTOR_OBJECT}"
-      tolerations: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_TOLERATIONS_OBJECT}"
-      resources: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_RESOURCES_OBJECT}"
+      nodeSelector:
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_NODE_SELECTOR_OBJECT: REMOVE_ME
+      tolerations:
+        - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_TOLERATIONS_OBJECT: REMOVE_ME
+      resources:
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_RESOURCES_OBJECT: REMOVE_ME
       storage:
         volumeClaimTemplate:
           spec:
-            storageClassName: ssd
+            storageClassName: victoriametrics-robotmetrics-cloud-ssd
             accessModes:
               - ReadWriteOnce
             resources:
@@ -44,38 +57,57 @@ vmcluster:
     vminsert:
       replicaCount: "${VMINSERT_REPLICA_COUNT}"
       port: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_PORT}"
-      nodeSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_NODE_SELECTOR_OBJECT}"
-      tolerations: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_TOLERATIONS_OBJECT}"
-      resources: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_RESOURCES_OBJECT}"
+      nodeSelector:
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_NODE_SELECTOR_OBJECT: REMOVE_ME
+      tolerations:
+        - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_TOLERATIONS_OBJECT: REMOVE_ME
+      resources:
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_RESOURCES_OBJECT: REMOVE_ME
       extraArgs:
         replicationFactor: "${VMINSERT_REPLICATION_FACTOR}"
     vmselect:
       replicaCount: "${VMSELECT_REPLICA_COUNT}"
       port: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_PORT}"
-      nodeSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_NODE_SELECTOR_OBJECT}"
-      tolerations: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_TOLERATIONS_OBJECT}"
-      resources: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_RESOURCES_OBJECT}"
+      nodeSelector:
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_NODE_SELECTOR_OBJECT: REMOVE_ME
+      tolerations:
+        - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_TOLERATIONS_OBJECT: REMOVE_ME
+      resources:
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_RESOURCES_OBJECT: REMOVE_ME
+      extraArgs:
+        http.pathPrefix: "/victoriametrics/robots"
 
 vmagent:
+  annotations:
+    # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks
+    argocd.argoproj.io/sync-wave: "5"
   enabled: true
   spec:
     # Cloud ingestion proxy doesn't dynamically scrape cloud pods (that's what cloudmetrics is for)
     selectAllByDefault: false
-    externalLabels: "${CR_VICTORIAMETRICS_ROBOTMETRICS_EXTERNAL_LABELS_OBJECT}"
-    nodeSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_NODE_SELECTOR_OBJECT}"
-    tolerations: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TOLERATIONS_OBJECT}"
-    serviceMonitorSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_MONITOR_SELECTOR_OBJECT}"
-    podMonitorSelector: "${CR_VICTORIAMETRICS_ROBOTMETRICS_POD_MONITOR_SELECTOR_OBJECT}"
+    externalLabels:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_EXTERNAL_LABELS_OBJECT: REMOVE_ME
+    nodeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_NODE_SELECTOR_OBJECT: REMOVE_ME
+    tolerations:
+      - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TOLERATIONS_OBJECT: REMOVE_ME
+    serviceScrapeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    podScrapeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
     
     # RemoteWrite configuration for the ingestion proxy
-    # To inject dynamic arrays from the downstream AppRollout (e.g., for remoteWrite),
+    # To inject dynamic arrays from the downstream AppRollout (e.g., for additionalRemoteWrites),
     # we define a single dummy item below (like `- url: "${CR_...}"`) to pass Helm's schema validation.
     # The `operator.yaml` script then replaces that entire dummy line with the properly formatted array.
-    remoteWrite:
-      - url: "http://vminsert-victoriametrics-robotmetrics.default.svc.cluster.local:${CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_PORT}/insert/0/prometheus/api/v1/write"
-      - url: "${CR_VICTORIAMETRICS_ROBOTMETRICS_REMOTE_WRITE_OBJECT}"
+    additionalRemoteWrites:
+      - url: "${CR_VICTORIAMETRICS_ROBOTMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT}"
     
-    resources: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_RESOURCES_OBJECT}"
+    extraArgs:
+      http.pathPrefix: "/victoriametrics/robots/vmagent"
+    
+    resources:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_RESOURCES_OBJECT: REMOVE_ME
 
     containers:
       - name: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_CONTAINERS_OBJECT}"
@@ -90,13 +122,29 @@ serviceAccount:
 
 # Disable extra exporters as they are not needed on the robotmetrics proxy
 victoria-metrics-operator:
-  fullnameOverride: "victoriametrics-robotmetrics-operator"
+  annotations:
+    # Ensure Operator is created first and deleted last so it can process CRD finalizers cleanly
+    argocd.argoproj.io/sync-wave: "-1"
+  fullnameOverride: "vmr-operator"
+  crds:
+    # Disable the cleanup hook. Synk's Server-Side Apply treats Helm pre-delete hooks as
+    # regular resources, causing the operator to instantly delete our pods upon deployment.
+    cleanup:
+      enabled: false
+  watchNamespaces:
+    - "HELM-NAMESPACE"
+  admissionWebhooks:
+    certManager:
+      enabled: true
+      issuer:
+        name: "selfsigned-issuer"
+        kind: "ClusterIssuer"
 
 grafana:
   enabled: false
 
 prometheus-node-exporter:
-  enabled: "${CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_ENABLED}"
+  enabled: false
 
 kube-state-metrics:
   enabled: false

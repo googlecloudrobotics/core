@@ -3,7 +3,7 @@
 #
 # Must be set per deployment under AppRollout spec.robots[].values.
 
-fullnameOverride: "victoriametrics-robotmetrics"
+fullnameOverride: "vmr"
 
 vmagent:
   spec:
