@@ -122,23 +122,7 @@ serviceAccount:
 
 # Disable extra exporters as they are not needed on the robotmetrics proxy
 victoria-metrics-operator:
-  annotations:
-    # Ensure Operator is created first and deleted last so it can process CRD finalizers cleanly
-    argocd.argoproj.io/sync-wave: "-1"
-  fullnameOverride: "vmr-operator"
-  crds:
-    # Disable the cleanup hook. Synk's Server-Side Apply treats Helm pre-delete hooks as
-    # regular resources, causing the operator to instantly delete our pods upon deployment.
-    cleanup:
-      enabled: false
-  watchNamespaces:
-    - "HELM-NAMESPACE"
-  admissionWebhooks:
-    certManager:
-      enabled: true
-      issuer:
-        name: "selfsigned-issuer"
-        kind: "ClusterIssuer"
+  enabled: false
 
 grafana:
   enabled: false

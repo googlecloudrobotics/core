@@ -113,33 +113,18 @@ serviceAccount:
 
 # Subcharts
 
-# Override victoria-metrics-operator name, otherwise some names become too long
+# Disable extra exporters and operator as they are managed independently
 victoria-metrics-operator:
-  fullnameOverride: "vmc-operator"
-  annotations:
-    # Ensure Operator is created first and deleted last so it can process CRD finalizers cleanly
-    argocd.argoproj.io/sync-wave: "-1"
-  crds:
-    # Disable the cleanup hook. Synk's Server-Side Apply treats Helm pre-delete hooks as
-    # regular resources, causing the operator to instantly delete our pods upon deployment.
-    cleanup:
-      enabled: false
-  watchNamespaces:
-    - "HELM-NAMESPACE"
-  admissionWebhooks:
-    certManager:
-      enabled: true
-      issuer:
-        name: "selfsigned-issuer"
-        kind: "ClusterIssuer"
+  enabled: false
 
 grafana:
   enabled: false
 
 prometheus-node-exporter:
-  enabled: "${CR_VICTORIAMETRICS_CLOUDMETRICS_NODE_EXPORTER_ENABLED}"
+  enabled: ${CR_VICTORIAMETRICS_CLOUDMETRICS_NODE_EXPORTER_ENABLED}
   service:
     port: "${CR_VICTORIAMETRICS_CLOUDMETRICS_NODE_EXPORTER_PORT}"
+    targetPort: "${CR_VICTORIAMETRICS_CLOUDMETRICS_NODE_EXPORTER_PORT}"
   prometheus:
     monitor:
       relabelings:
