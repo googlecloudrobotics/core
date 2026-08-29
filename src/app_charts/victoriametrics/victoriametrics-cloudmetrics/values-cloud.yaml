@@ -70,7 +70,15 @@ vmagent:
     nodeSelector: {}
     tolerations: []
     serviceScrapeSelector: {}
+    serviceScrapeNamespaceSelector: {}
     podScrapeSelector: {}
+    podScrapeNamespaceSelector: {}
+    nodeScrapeSelector: {}
+    nodeScrapeNamespaceSelector: {}
+    probeSelector: {}
+    probeNamespaceSelector: {}
+    staticScrapeSelector: {}
+    staticScrapeNamespaceSelector: {}
     resources:
       requests:
         cpu: "100m"

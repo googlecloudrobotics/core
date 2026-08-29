@@ -82,6 +82,8 @@ vmagent:
     # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks
     argocd.argoproj.io/sync-wave: "5"
   enabled: true
+  additionalRemoteWrites:
+    - $CR_VICTORIAMETRICS_ROBOTMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT: REMOVE_ME
   spec:
     # Cloud ingestion proxy doesn't dynamically scrape cloud pods (that's what cloudmetrics is for)
     selectAllByDefault: false
@@ -93,15 +95,24 @@ vmagent:
       - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TOLERATIONS_OBJECT: REMOVE_ME
     serviceScrapeSelector:
       $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    serviceScrapeNamespaceSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
     podScrapeSelector:
       $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
-    
-    # RemoteWrite configuration for the ingestion proxy
-    # To inject dynamic arrays from the downstream AppRollout (e.g., for additionalRemoteWrites),
-    # we define a single dummy item below (like `- url: "${CR_...}"`) to pass Helm's schema validation.
-    # The `operator.yaml` script then replaces that entire dummy line with the properly formatted array.
-    additionalRemoteWrites:
-      - url: "${CR_VICTORIAMETRICS_ROBOTMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT}"
+    podScrapeNamespaceSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    nodeScrapeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    nodeScrapeNamespaceSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    probeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_SELECTOR_OBJECT: REMOVE_ME
+    probeNamespaceSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    staticScrapeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    staticScrapeNamespaceSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
     
     extraArgs:
       http.pathPrefix: "/victoriametrics/robots/vmagent"
