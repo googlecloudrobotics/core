@@ -7,7 +7,16 @@ fullnameOverride: "vmr"
 
 vmagent:
   spec:
-    remoteWrite: []
+    serviceScrapeSelector: {}
+    serviceScrapeNamespaceSelector: {}
+    podScrapeSelector: {}
+    podScrapeNamespaceSelector: {}
+    nodeScrapeSelector: {}
+    nodeScrapeNamespaceSelector: {}
+    probeSelector: {}
+    probeNamespaceSelector: {}
+    staticScrapeSelector: {}
+    staticScrapeNamespaceSelector: {}
   tmp_data_path: "/tmp/vmagent-remotewrite-data"
   max_disk_usage: "5GB"
   allowed_bytes: "200MB"
