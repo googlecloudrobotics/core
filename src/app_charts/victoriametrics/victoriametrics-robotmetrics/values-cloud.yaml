@@ -61,7 +61,9 @@ vmagent:
     nodeSelector: {}
     tolerations: []
     serviceScrapeSelector: {}
+    serviceScrapeNamespaceSelector: {}
     podScrapeSelector: {}
+    podScrapeNamespaceSelector: {}
   max_disk_usage: "5GB"
   # These scalars map to explicit command-line extraArgs for the agent.
   allowed_bytes: "200MB"
