@@ -20,6 +20,10 @@ victoria-metrics-operator:
 # Disable all components (they are deployed by the actual metric apps)
 vmalert:
   enabled: false
+vmalertmanager:
+  enabled: false
+alertmanager:
+  enabled: false
 vmsingle:
   enabled: false
 vmcluster:

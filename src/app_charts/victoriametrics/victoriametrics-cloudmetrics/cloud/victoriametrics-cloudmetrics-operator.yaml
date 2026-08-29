@@ -389,6 +389,22 @@
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
 
+# Inject the serviceScrapeNamespaceSelector to allow users to filter scraping by namespace.
+{{- $serviceScrapeNamespaceSelectorMap := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.serviceScrapeNamespaceSelector }}
+      {{- $serviceScrapeNamespaceSelectorMap = .Values.vmagent.spec.serviceScrapeNamespaceSelector -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $serviceScrapeNamespaceSelectorMap }}
+  {{- $formattedServiceMonitorNamespaceSelectorObject := toYaml $serviceScrapeNamespaceSelectorMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_SERVICE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedServiceMonitorNamespaceSelectorObject)) -}}
+{{- else }}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_SERVICE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+{{- end }}
+
 # Inject the podScrapeSelector to allow users to override the universal matching default.
 {{- $podScrapeSelectorMap := dict -}}
 {{- if .Values.vmagent }}
@@ -403,6 +419,118 @@
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedPodMonitorSelectorObject)) -}}
 {{- else }}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+{{- end }}
+
+# Inject the podScrapeNamespaceSelector to allow users to filter scraping by namespace.
+{{- $podScrapeNamespaceSelectorMap := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.podScrapeNamespaceSelector }}
+      {{- $podScrapeNamespaceSelectorMap = .Values.vmagent.spec.podScrapeNamespaceSelector -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $podScrapeNamespaceSelectorMap }}
+  {{- $formattedPodMonitorNamespaceSelectorObject := toYaml $podScrapeNamespaceSelectorMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_POD_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedPodMonitorNamespaceSelectorObject)) -}}
+{{- else }}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_POD_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+{{- end }}
+
+# Inject the nodeScrapeSelector to allow users to filter scraping by node.
+{{- $nodeScrapeSelectorMap := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.nodeScrapeSelector }}
+      {{- $nodeScrapeSelectorMap = .Values.vmagent.spec.nodeScrapeSelector -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $nodeScrapeSelectorMap }}
+  {{- $formattedSelector := toYaml $nodeScrapeSelectorMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_NODE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
+{{- else }}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_NODE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+{{- end }}
+
+# Inject the nodeScrapeNamespaceSelector to allow users to filter scraping by namespace.
+{{- $nodeScrapeNamespaceSelectorMap := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.nodeScrapeNamespaceSelector }}
+      {{- $nodeScrapeNamespaceSelectorMap = .Values.vmagent.spec.nodeScrapeNamespaceSelector -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $nodeScrapeNamespaceSelectorMap }}
+  {{- $formattedSelector := toYaml $nodeScrapeNamespaceSelectorMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_NODE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
+{{- else }}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_NODE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+{{- end }}
+
+# Inject the probeSelector to allow users to filter scraping by probe.
+{{- $probeSelectorMap := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.probeSelector }}
+      {{- $probeSelectorMap = .Values.vmagent.spec.probeSelector -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $probeSelectorMap }}
+  {{- $formattedSelector := toYaml $probeSelectorMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_PROBE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
+{{- else }}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_PROBE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+{{- end }}
+
+# Inject the probeNamespaceSelector to allow users to filter scraping by namespace.
+{{- $probeNamespaceSelectorMap := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.probeNamespaceSelector }}
+      {{- $probeNamespaceSelectorMap = .Values.vmagent.spec.probeNamespaceSelector -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $probeNamespaceSelectorMap }}
+  {{- $formattedSelector := toYaml $probeNamespaceSelectorMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_PROBE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
+{{- else }}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_PROBE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+{{- end }}
+
+# Inject the staticScrapeSelector to allow users to filter scraping by staticScrape.
+{{- $staticScrapeSelectorMap := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.staticScrapeSelector }}
+      {{- $staticScrapeSelectorMap = .Values.vmagent.spec.staticScrapeSelector -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $staticScrapeSelectorMap }}
+  {{- $formattedSelector := toYaml $staticScrapeSelectorMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
+{{- else }}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+{{- end }}
+
+# Inject the staticScrapeNamespaceSelector to allow users to filter scraping by namespace.
+{{- $staticScrapeNamespaceSelectorMap := dict -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.staticScrapeNamespaceSelector }}
+      {{- $staticScrapeNamespaceSelectorMap = .Values.vmagent.spec.staticScrapeNamespaceSelector -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $staticScrapeNamespaceSelectorMap }}
+  {{- $formattedSelector := toYaml $staticScrapeNamespaceSelectorMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
+{{- else }}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
 
 # Inject the ruleSelector to allow users to filter alerting rules.
@@ -446,11 +574,9 @@
 {{- end }}
 {{- if $remoteWriteList }}
   {{- $formattedRemoteWriteObject := toYaml $remoteWriteList | nindent 2 -}}
-  {{- $data = $data | replace "  - url: \"${CR_VICTORIAMETRICS_CLOUDMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT}\"" (printf "\n%s" (trimPrefix "\n" $formattedRemoteWriteObject)) -}}
-  {{- $data = $data | replace "  - url: ${CR_VICTORIAMETRICS_CLOUDMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT}" (printf "\n%s" (trimPrefix "\n" $formattedRemoteWriteObject)) -}}
+  {{- $data = $data | replace "- $CR_VICTORIAMETRICS_CLOUDMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedRemoteWriteObject)) -}}
 {{- else }}
-  {{- $data = $data | replace "  - url: \"${CR_VICTORIAMETRICS_CLOUDMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT}\"\n" "" -}}
-  {{- $data = $data | replace "  - url: ${CR_VICTORIAMETRICS_CLOUDMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT}\n" "" -}}
+  {{- $data = $data | replace "  - $CR_VICTORIAMETRICS_CLOUDMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject externalLabels
