@@ -204,9 +204,14 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 // with the relay id to not be recognized, resulting in the relay server returning an error.
 func (r *broker) StopRelayRequest(requestId string) {
 	r.m.Lock()
-	defer r.m.Unlock()
-	if pr, ok := r.resp[requestId]; ok {
-		r.removeRequest(requestId, pr)
+	pr, ok := r.resp[requestId]
+	if ok {
+		delete(r.resp, requestId)
+	}
+	r.m.Unlock()
+
+	if ok {
+		r.removeRequest(pr)
 	}
 }
 
@@ -348,17 +353,23 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 }
 
 func (r *broker) ReapInactiveRequests(threshold time.Time) {
+	var toReap []*pendingResponse
 	r.m.Lock()
-	defer r.m.Unlock()
 	for id, pr := range r.resp {
 		if pr.lastActivity.Before(threshold) {
 			slog.Info("Timeout on inactive request", slog.String("ID", id))
-			r.removeRequest(id, pr)
+			delete(r.resp, id)
+			toReap = append(toReap, pr)
 		}
+	}
+	r.m.Unlock()
+
+	for _, pr := range toReap {
+		r.removeRequest(pr)
 	}
 }
 
-func (r *broker) removeRequest(id string, pr *pendingResponse) {
+func (r *broker) removeRequest(pr *pendingResponse) {
 	// Closing `pr.markReap` tells `SendResponse` and `PutRequestStream` to stop.
 	close(pr.markReap)
 
@@ -371,8 +382,6 @@ func (r *broker) removeRequest(id string, pr *pendingResponse) {
 	pr.sendMutex.Lock()
 	close(pr.responseStream)
 	pr.sendMutex.Unlock()
-
-	delete(r.resp, id)
 }
 
 func (r *broker) ReapInactiveBackends(threshold time.Time) {

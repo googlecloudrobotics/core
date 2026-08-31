@@ -1,0 +1,25 @@
+# https://github.com/envoyproxy/gateway/blob/main/LICENSE
+# Apache 2.0 license
+licenses(["notice"])
+
+exports_files(
+    glob(
+        [
+            "*.yaml",
+            "*.py",
+            "*.sh",
+            "dashboards/*.json",
+        ],
+        allow_empty = True,
+    ),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "envoy-gateway-dashboards",
+    srcs = glob(
+        ["dashboards/*.json"],
+        allow_empty = True,
+    ),
+    visibility = ["//visibility:public"],
+)

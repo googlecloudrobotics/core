@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/meta/testrestmapper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -157,6 +158,8 @@ func TestSynk_IsTransientErr(t *testing.T) {
 				k8serrors.NewTooManyRequests("", 0),
 				k8serrors.NewServiceUnavailable(""),
 				&discovery.ErrGroupDiscoveryFailed{Groups: map[schema.GroupVersion]error{}},
+				&meta.NoKindMatchError{GroupKind: schema.GroupKind{Group: "gateway.envoyproxy.io", Kind: "SecurityPolicy"}},
+				&meta.NoResourceMatchError{PartialResource: schema.GroupVersionResource{Group: "gateway.envoyproxy.io", Version: "v1alpha1", Resource: "securitypolicies"}},
 			},
 		},
 		{
@@ -462,7 +465,7 @@ data:
 	if res.action != apps.ResourceActionIgnored {
 		t.Errorf("expected action Ignored, got %s", res.action)
 	}
-	
+
 	// Check that the returned resource has the old data
 	val, _, _ := unstructured.NestedString(res.resource.Object, "data", "foo1")
 	if val != "bar1" {
@@ -786,6 +789,12 @@ func TestSynk_validateNamespace(t *testing.T) {
 			wantErr:   false,
 		},
 		{
+			desc:      "envoy-gateway-system is allowed",
+			namespace: "envoy-gateway-system",
+			optsNs:    "my-ns",
+			wantErr:   false,
+		},
+		{
 			desc:      "opts namespace is allowed",
 			namespace: "my-ns",
 			optsNs:    "my-ns",
@@ -973,5 +982,48 @@ func sprintAction(a k8stest.Action) string {
 		return fmt.Sprintf("PATCH %s/%s %s/%s: %s %s", v.Resource, v.Subresource, v.Namespace, v.Name, v.PatchType, v.Patch)
 	default:
 		return fmt.Sprintf("<UNKNOWN ACTION %T>", a)
+	}
+}
+
+func Test_resourceSetName(t *testing.T) {
+	cases := []struct {
+		name    string
+		version int
+		want    string
+	}{
+		{"app", 1, "app.v1"},
+		{"my.chart", 42, "my.chart.v42"},
+	}
+	for _, c := range cases {
+		if got := resourceSetName(c.name, c.version); got != c.want {
+			t.Errorf("resourceSetName(%q, %d) = %q, want %q", c.name, c.version, got, c.want)
+		}
+	}
+}
+
+func Test_decodeResourceSetName(t *testing.T) {
+	cases := []struct {
+		input       string
+		wantName    string
+		wantVersion int
+		wantOk      bool
+	}{
+		{"app.v1", "app", 1, true},
+		{"my.chart.name.v42", "my.chart.name", 42, true},
+		{"app.v0", "app", 0, true},
+		{"app.v12345", "app", 12345, true},
+		{"app", "", 0, false},
+		{"app.v", "", 0, false},
+		{"app.v-1", "", 0, false},
+		{"app.vabc", "", 0, false},
+		{".v1", "", 0, false},
+		{"app.v999999999999999999999999999999999999999", "", 0, false},
+	}
+	for _, c := range cases {
+		gotName, gotVersion, gotOk := decodeResourceSetName(c.input)
+		if gotName != c.wantName || gotVersion != c.wantVersion || gotOk != c.wantOk {
+			t.Errorf("decodeResourceSetName(%q) = (%q, %d, %v), want (%q, %d, %v)",
+				c.input, gotName, gotVersion, gotOk, c.wantName, c.wantVersion, c.wantOk)
+		}
 	}
 }

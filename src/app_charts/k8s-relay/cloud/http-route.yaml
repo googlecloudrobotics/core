@@ -1,86 +1,101 @@
-{{- range list "" "-auth" }}
-{{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: kubernetes-relay-client{{ . }}
+  name: kubernetes-relay-client
 spec:
   hostnames:
-  - {{ $.Values.domain }}
+  - {{ .Values.domain }}
   parentRefs:
-  - name: crc{{ . }}-gateway
+  - name: crc-gateway
     namespace: default
-    sectionName: {{ $sectionName }}
+    sectionName: https
   rules:
   - matches:
     - path:
         type: PathPrefix
         value: /apis/core.kubernetes-relay/client
-{{- if eq . "-auth" }}
-    filters:
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplaceFullPath
-          replaceFullPath: /apis/core.token-vendor/v1/token.verify
-    backendRefs:
-    - name: token-vendor
-      namespace: app-token-vendor
-      port: 80
-{{- else }}
     filters:
     - type: URLRewrite
       urlRewrite:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /client
+    timeouts:
+      request: 86400s
+      backendRequest: 86400s
     backendRefs:
     - name: kubernetes-relay-server
       port: 80
-{{- end }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: kubernetes-relay-server{{ . }}
+  name: kubernetes-relay-server
 spec:
   hostnames:
-  - {{ $.Values.domain }}
+  - {{ .Values.domain }}
   parentRefs:
-  - name: crc{{ . }}-gateway
+  - name: crc-gateway
     namespace: default
-    sectionName: {{ $sectionName }}
+    sectionName: https
   rules:
   - matches:
     - path:
         type: PathPrefix
         value: /apis/core.kubernetes-relay/server
-{{- if eq . "-auth" }}
-    filters:
-    - type: RequestHeaderModifier
-      requestHeaderModifier:
-        set:
-        - name: x-crc-tv-robots
-          value: "true"
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplaceFullPath
-          replaceFullPath: /apis/core.token-vendor/v1/token.verify
-    backendRefs:
-    - name: token-vendor
-      namespace: app-token-vendor
-      port: 80
-{{- else }}
     filters:
     - type: URLRewrite
       urlRewrite:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /server
+    timeouts:
+      request: 86400s
+      backendRequest: 86400s
     backendRefs:
     - name: kubernetes-relay-server
       port: 80
-{{- end }}
 ---
-{{- end }}
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: kubernetes-relay-client-auth
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: kubernetes-relay-client
+  extAuth:
+    contextExtensions:
+    - name: robot
+      value: "false"
+    headersToExtAuth:
+    {{- toYaml .Values.authProxy.authHeaders | nindent 4 }}
+    failOpen: false
+    grpc:
+      backendRefs:
+      - name: token-vendor
+        namespace: app-token-vendor
+        port: 9091
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: kubernetes-relay-server-auth
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: kubernetes-relay-server
+  extAuth:
+    contextExtensions:
+    - name: robot
+      value: "true"
+    headersToExtAuth:
+    {{- toYaml .Values.authProxy.authHeaders | nindent 4 }}
+    failOpen: false
+    grpc:
+      backendRefs:
+      - name: token-vendor
+        namespace: app-token-vendor
+        port: 9091

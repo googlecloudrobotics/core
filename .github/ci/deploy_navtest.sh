@@ -2,9 +2,8 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${DIR}/common.sh"
-
-PROJECT_DIR="${DIR}/deployments/robco-navtest"
-source "${PROJECT_DIR}/config.sh"
+# shellcheck source=/dev/null
+source <(gcloud storage cat "gs://robco-navtest-cloud-robotics-config/config.sh")
 
 # TODO(skopecki) These variables should be declared in the run-install.sh and removed from this script.
 export BUCKET_URI="https://storage.googleapis.com/robco-ci-binary-builds"

@@ -1,4 +1,6 @@
 {{- if eq .Values.onprem_federation "true" }}
+# Legacy NGINX Ingress: Uses subrequest authentication via /auth.
+# NGINX replaces the Authorization header with the subrequest response header.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -24,60 +26,41 @@ spec:
             port:
               number: 443
 ---
-{{- range list "" "-auth" }}
-{{- $sectionName := "https" }}{{ if eq . "-auth" }}{{ $sectionName = "http" }}{{ end }}
+# Gateway API (Envoy Gateway): Routes /apis/core.kubernetes/ directly to cr-syncer-auth-webhook:80.
+# Why: Envoy's ExtAuthz filter appends headers by default, causing duplicate Bearer token collisions.
+# Routing directly to cr-syncer-auth-webhook as an inline reverse proxy allows Go code to perform
+# in-memory token replacement and stream requests to https://kubernetes.default.svc:443 cleanly.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: kubernetes-api{{ . }}
+  name: kubernetes-api
 spec:
   hostnames:
-  - {{ $.Values.domain }}
+  - {{ .Values.domain }}
   parentRefs:
-  - name: crc{{ . }}-gateway
+  - name: crc-gateway
     namespace: default
-    sectionName: {{ $sectionName }}
+    sectionName: https
   rules:
   - matches:
     - path:
         type: PathPrefix
         value: /apis/core.kubernetes/
-{{- if eq . "-auth" }}
-    filters:
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplaceFullPath
-          replaceFullPath: /auth
+    timeouts:
+      backendRequest: 600s
     backendRefs:
     - name: cr-syncer-auth-webhook
       port: 80
-{{- else }}
-    filters:
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplacePrefixMatch
-          replacePrefixMatch: /
-    backendRefs:
-    - name: kubernetes
-      port: 443
-{{- end }}
 ---
-{{- end }}
-apiVersion: gateway.networking.k8s.io/v1
-kind: BackendTLSPolicy
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
 metadata:
-  name: kubernetes-tls-policy
+  name: kubernetes-api-allow
 spec:
   targetRefs:
-  - group: ""
-    kind: Service
-    name: kubernetes
-  validation:
-    caCertificateRefs:
-    - group: ""
-      kind: ConfigMap
-      name: kube-root-ca.crt
-    hostname: kubernetes.default.svc
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: kubernetes-api
+  authorization:
+    defaultAction: Allow
 {{- end }}

@@ -1,0 +1,180 @@
+{{- if eq .Values.use_gateway "true" }}
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: crc-gateway-proxy-config
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: LoadBalancer
+        externalTrafficPolicy: Local
+        loadBalancerIP: {{ .Values.ingress_ip }}
+      envoyDeployment:
+        pod:
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: envoy
+                  topologyKey: kubernetes.io/hostname
+        container:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+  shutdown:
+    drainTimeout: 60s
+    minDrainDuration: 15s
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: eg
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: crc-gateway-proxy-config
+    namespace: envoy-gateway-system
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: crc-gateway
+spec:
+  gatewayClassName: eg
+  listeners:
+  - name: http
+    # hostname: {{ .Values.domain }} # Uncomment to restrict this listener to the configured domain. Required if multiple Gateways share the same IP.
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https
+    # hostname: {{ .Values.domain }} # Uncomment to restrict this listener to the configured domain. Required if multiple Gateways share the same IP (via SNI).
+    protocol: HTTPS
+    port: 443
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: tls
+        kind: Secret
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-redirect
+spec:
+  parentRefs:
+  - name: crc-gateway
+    sectionName: http
+  rules:
+  - filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: https
+        statusCode: 301
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: crc-gateway-client-traffic-policy
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: crc-gateway
+  tls:
+    minVersion: "1.2"
+    alpnProtocols:
+    - h2
+    - http/1.1
+  http2:
+    initialStreamWindowSize: 1048576      # 1 MiB
+    initialConnectionWindowSize: 2097152  # 2 MiB
+  connection:
+    bufferLimit: 1Mi
+---
+# Align with NGINX default behavior: NGINX has no total request duration cap,
+# whereas Envoy Gateway defaults to a 15s requestTimeout. Setting requestTimeout
+# to 0s disables the 15s cap and allows infinite total request duration by default.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: crc-gateway-backend-traffic-policy
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: crc-gateway
+  connection:
+    bufferLimit: 1Mi
+  timeout:
+    http:
+      requestTimeout: 0s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: envoy-proxy-metrics
+  namespace: envoy-gateway-system
+  labels:
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: envoy
+      app.kubernetes.io/component: proxy
+  podMetricsEndpoints:
+    - port: metrics
+      path: /stats/prometheus
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: instance
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: envoy-gateway-metrics
+  namespace: envoy-gateway-system
+  labels:
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      control-plane: envoy-gateway
+  endpoints:
+    - port: metrics
+      path: /metrics
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: envoy-dashboards-json
+  namespace: envoy-gateway-system
+  labels:
+    grafana: "1"
+data:
+  envoy-proxy-global.json: |-
+{{ .Files.Get "files/envoy-proxy-global.json" | indent 4 }}
+  envoy-gateway-global.json: |-
+{{ .Files.Get "files/envoy-gateway-global.json" | indent 4 }}
+  envoy-clusters.json: |-
+{{ .Files.Get "files/envoy-clusters.json" | indent 4 }}
+{{- end }}
+
+

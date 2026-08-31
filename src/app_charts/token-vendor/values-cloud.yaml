@@ -4,3 +4,13 @@ token_vendor:
     requests:
       memory: "50Mi"
       cpu: "100m"
+
+authProxy:
+  authHeaders:
+  - authorization
+  - cookie
+  - x-forwarded-access-token
+  - x-forwarded-host
+  - apikey-token
+  - x-server-name
+

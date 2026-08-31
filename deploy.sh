@@ -49,7 +49,7 @@ function include_config_and_defaults {
   APP_MANAGEMENT=${APP_MANAGEMENT:-false}
   ONPREM_FEDERATION=${ONPREM_FEDERATION:-true}
   GKE_SECRET_MANAGER_PLUGIN=${GKE_SECRET_MANAGER_PLUGIN:-false}
-  USE_ISTIO=${USE_ISTIO:-false}
+  USE_GATEWAY=${USE_GATEWAY:-false}
   USE_NGINX_SHIELD=${USE_NGINX_SHIELD:-false}
 
 
@@ -162,6 +162,7 @@ min_node_count = ${GKE_MIN_NODES}
 max_node_count = ${GKE_MAX_NODES}
 onprem_federation = ${ONPREM_FEDERATION}
 secret_manager_plugin = ${GKE_SECRET_MANAGER_PLUGIN}
+managed_config = ${CONFIG_MANAGED_BY_TERRAFORM:-false}
 EOF
 
   echo 'additional_regions = {' >> "${TERRAFORM_DIR}/terraform.tfvars"
@@ -301,7 +302,7 @@ function helm_region_shared {
     --set-string "oauth2_proxy.client_id=${CLOUD_ROBOTICS_OAUTH2_CLIENT_ID}"
     --set-string "oauth2_proxy.client_secret=${CLOUD_ROBOTICS_OAUTH2_CLIENT_SECRET}"
     --set-string "oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}"
-    --set-string "use_istio=${USE_ISTIO}"
+    --set-string "use_gateway=${USE_GATEWAY}"
     --set-string "use_nginx_shield=${USE_NGINX_SHIELD}"
     --set "use_tv_verbose=${CRC_USE_TV_VERBOSE}"
   )
@@ -338,8 +339,13 @@ function helm_region_shared {
 }
 
 function helm_main_region {
-  local INGRESS_IP
-  INGRESS_IP=$(terraform_exec output ingress-ip | tr -d '"')
+  local INGRESS_IP="${CLOUD_ROBOTICS_INGRESS_IP:-}"
+  if [[ -z "${INGRESS_IP}" ]]; then
+    if [[ "${CONFIG_MANAGED_BY_TERRAFORM:-}" == "true" ]]; then
+      die "CLOUD_ROBOTICS_INGRESS_IP is missing in Terraform-managed configuration, please update your terraform module to a supported version."
+    fi
+    INGRESS_IP=$(terraform_exec output ingress-ip | tr -d '"')
+  fi
 
   helm_region_shared \
     "${CLOUD_ROBOTICS_CTX}" \
@@ -368,7 +374,13 @@ function helm_additional_region {
   CLUSTER_NAME="${AR_NAME}-ar-cloud-robotics"
 
   local INGRESS_IP
-  INGRESS_IP=$(terraform_exec output -json ingress-ip-ar | jq -r ."\"${CLUSTER_NAME}\"")
+  INGRESS_IP=$(jq -r '.ingress_ip // ""' <<<"${ar_description}")
+  if [[ -z "${INGRESS_IP}" ]]; then
+    if [[ "${CONFIG_MANAGED_BY_TERRAFORM:-}" == "true" ]]; then
+      die "ingress_ip for ${AR_NAME} is missing in Terraform-managed configuration, please update your terraform module to a supported version."
+    fi
+    INGRESS_IP=$(terraform_exec output -json ingress-ip-ar | jq -r ."\"${CLUSTER_NAME}\"")
+  fi
 
   helm_region_shared \
     $(gke_context_name "${GCP_PROJECT_ID}" "${CLUSTER_NAME}" "${AR_REGION}" "${AR_ZONE}") \
@@ -419,7 +431,7 @@ function update {
   create "$@"
 }
 
-# This is a shortcut for skipping Terraform config checks if you know the config has not changed.
+# This is a shortcut for skipping Terraform config checks if you know the config has not changed, or if the config is managed by terraform module.
 function fast_push {
   include_config_and_defaults $1
   shift
@@ -429,7 +441,7 @@ function fast_push {
   helm_charts "$@"
 }
 
-# This is a shortcut for skipping building and applying Terraform configs if you know the build has not changed.
+# This is a shortcut for skipping building and only applying Terraform configs (if you know the build has not changed).
 function update_infra {
   include_config_and_defaults $1
   terraform_apply

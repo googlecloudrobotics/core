@@ -106,7 +106,7 @@ func NewForConfig(cfg *rest.Config) (*Synk, error) {
 // vanilla kubectl apply.
 type ApplyOptions struct {
 	name    string
-	version int32
+	version int
 
 	// Namespace that's set for all namespaced resources that have no
 	// other namespace set yet.
@@ -304,6 +304,7 @@ func IsTransientErr(err error) bool {
 	case k8serrors.IsServiceUnavailable(err):
 	// May happen shortly after CRD creation.
 	case discovery.IsGroupDiscoveryFailedError(err):
+	case meta.IsNoMatchError(err):
 	// May happen if a chart is deleted and immediately recreated.
 	// https://github.com/kubernetes/kubernetes/blob/d2a081c8e14e21e28fe5bdfa38a817ef9c0bb8e3/staging/src/k8s.io/apiserver/pkg/admission/plugin/namespace/lifecycle/admission.go#L173
 	case strings.Contains(err.Error(), "unable to create new content in namespace"):
@@ -421,7 +422,7 @@ func (s *Synk) applyAll(
 
 func validateNamespace(r *unstructured.Unstructured, optsNs string) error {
 	ns := r.GetNamespace()
-	allowed := []string{"", "kube-system", "default", optsNs}
+	allowed := []string{"", "kube-system", "default", "envoy-gateway-system", optsNs}
 	if slices.Contains(allowed, ns) {
 		return nil
 	}
@@ -1014,7 +1015,7 @@ func (s *Synk) updateResourceSetStatus(ctx context.Context, rs *apps.ResourceSet
 
 // deleteFailedResourceSets deletes all failed ResourceSets of the given name
 // that have a lower version.
-func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, version int32) error {
+func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, version int) error {
 	c := s.client.Resource(resourceSetGVR)
 
 	list, err := c.List(ctx, metav1.ListOptions{
@@ -1048,7 +1049,7 @@ func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, versio
 
 // deleteResourceSets deletes all ResourceSets of the given name that have a
 // lower version.
-func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int32) error {
+func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int) error {
 	c := s.client.Resource(resourceSetGVR)
 
 	list, err := c.List(ctx, metav1.ListOptions{
@@ -1074,12 +1075,12 @@ func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int3
 }
 
 // next returns the next version for the resources name.
-func (s *Synk) next(ctx context.Context, name string) (version int32, err error) {
+func (s *Synk) next(ctx context.Context, name string) (version int, err error) {
 	list, err := s.client.Resource(resourceSetGVR).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("list existing ResourceSets: %w", err)
 	}
-	var curVersion int32
+	var curVersion int
 	for _, r := range list.Items {
 		n, v, ok := decodeResourceSetName(r.GetName())
 		if !ok || n != name {
@@ -1123,22 +1124,22 @@ func filter(in []*unstructured.Unstructured, f func(*unstructured.Unstructured) 
 	return out
 }
 
-func resourceSetName(s string, v int32) string {
+func resourceSetName(s string, v int) string {
 	return fmt.Sprintf("%s.v%d", s, v)
 }
 
 var namePat = regexp.MustCompile(`^(.+)\.v([0-9]+)$`)
 
-func decodeResourceSetName(s string) (string, int32, bool) {
+func decodeResourceSetName(s string) (string, int, bool) {
 	res := namePat.FindStringSubmatch(s)
 	if len(res) == 0 {
 		return "", 0, false
 	}
 	version, err := strconv.Atoi(res[2])
 	if err != nil {
-		panic(err)
+		return "", 0, false
 	}
-	return res[1], int32(version), true
+	return res[1], version, true
 }
 
 func sortResources(res []*unstructured.Unstructured) {
