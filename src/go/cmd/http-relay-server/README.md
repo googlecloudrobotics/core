@@ -96,13 +96,10 @@ It has been tested with the following traffic:
 
 - HTTP 1.1 & 2 from web browsers (including bidirectional streaming with websockets)
 - HTTP 1.1 from kubectl, including streaming response bodies for `kubectl logs`
+- HTTP 1.1 chunked request bodies (`Transfer-Encoding: chunked` in the request header, buffered before relaying)
 - SPDY from kubectl (via HTTP 101 Switching Protocols) for `kubectl exec`
 - Unidirectional gRPC (HTTP2 cleartext and HTTP trailers)
 - Streaming gRPC (server, client, and bi-directional)
-
-The following has not been tested:
-
-- HTTP 1.1 streaming request body (`Transfer-Encoding: chunked` in the request header)
 
 ## Flags
 
