@@ -206,7 +206,7 @@
   {{- $formattedTolerations := toYaml $vmstorageTolerationsList | nindent 4 -}}
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_TOLERATIONS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedTolerations)) -}}
 {{- else }}
-  {{- $data = $data | replace "    tolerations:\n    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}}
 
 # Inject the nodeSelector and tolerations for vminsert
@@ -241,7 +241,7 @@
   {{- $formattedTolerations := toYaml $vminsertTolerationsList | nindent 4 -}}
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_TOLERATIONS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedTolerations)) -}}
 {{- else }}
-  {{- $data = $data | replace "    tolerations:\n    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}}
 
 # Inject the nodeSelector and tolerations for vmselect
@@ -276,7 +276,7 @@
   {{- $formattedTolerations := toYaml $vmselectTolerationsList | nindent 4 -}}
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_TOLERATIONS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedTolerations)) -}}
 {{- else }}
-  {{- $data = $data | replace "    tolerations:\n    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}}
 
 # Inject the nodeSelector and tolerations for vmagent
@@ -555,12 +555,10 @@
   {{- end }}
 {{- end }}
 {{- if $containersList }}
-  {{- $formattedContainersObject := toYaml $containersList | nindent 4 -}}
-  {{- $data = $data | replace "  - name: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_CONTAINERS_OBJECT}\"" (printf "\n%s" (trimPrefix "\n" $formattedContainersObject)) -}}
-  {{- $data = $data | replace "  - name: ${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_CONTAINERS_OBJECT}" (printf "\n%s" (trimPrefix "\n" $formattedContainersObject)) -}}
+  {{- $formattedContainersObject := toYaml $containersList | nindent 2 -}}
+  {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_CONTAINERS_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedContainersObject)) -}}
 {{- else }}
-  {{- $data = $data | replace "  containers:\n  - name: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_CONTAINERS_OBJECT}\"\n" "" -}}
-  {{- $data = $data | replace "  containers:\n  - name: ${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_CONTAINERS_OBJECT}\n" "" -}}
+  {{- $data = $data | replace "  - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_CONTAINERS_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject extra volumes
@@ -573,12 +571,10 @@
   {{- end }}
 {{- end }}
 {{- if $volumesList }}
-  {{- $formattedVolumesObject := toYaml $volumesList | nindent 4 -}}
-  {{- $data = $data | replace "  - name: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUMES_OBJECT}\"" (printf "\n%s" (trimPrefix "\n" $formattedVolumesObject)) -}}
-  {{- $data = $data | replace "  - name: ${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUMES_OBJECT}" (printf "\n%s" (trimPrefix "\n" $formattedVolumesObject)) -}}
+  {{- $formattedVolumesObject := toYaml $volumesList | nindent 2 -}}
+  {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUMES_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedVolumesObject)) -}}
 {{- else }}
-  {{- $data = $data | replace "  volumes:\n  - name: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUMES_OBJECT}\"\n" "" -}}
-  {{- $data = $data | replace "  volumes:\n  - name: ${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUMES_OBJECT}\n" "" -}}
+  {{- $data = $data | replace "  - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUMES_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject extra volumeMounts
@@ -591,12 +587,10 @@
   {{- end }}
 {{- end }}
 {{- if $volumeMountsList }}
-  {{- $formattedVolumeMountsObject := toYaml $volumeMountsList | nindent 4 -}}
-  {{- $data = $data | replace "  - name: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUME_MOUNTS_OBJECT}\"" (printf "\n%s" (trimPrefix "\n" $formattedVolumeMountsObject)) -}}
-  {{- $data = $data | replace "  - name: ${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUME_MOUNTS_OBJECT}" (printf "\n%s" (trimPrefix "\n" $formattedVolumeMountsObject)) -}}
+  {{- $formattedVolumeMountsObject := toYaml $volumeMountsList | nindent 2 -}}
+  {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUME_MOUNTS_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedVolumeMountsObject)) -}}
 {{- else }}
-  {{- $data = $data | replace "  volumeMounts:\n  - name: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUME_MOUNTS_OBJECT}\"\n" "" -}}
-  {{- $data = $data | replace "  volumeMounts:\n  - name: ${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUME_MOUNTS_OBJECT}\n" "" -}}
+  {{- $data = $data | replace "  - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUME_MOUNTS_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 ---

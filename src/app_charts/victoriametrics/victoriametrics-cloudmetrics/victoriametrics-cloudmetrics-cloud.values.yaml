@@ -119,6 +119,12 @@ vmagent:
       http.pathPrefix: "/victoriametrics/cloud/vmagent"
     resources:
       $CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_RESOURCES_OBJECT: REMOVE_ME
+    containers:
+      - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_CONTAINERS_OBJECT: REMOVE_ME
+    volumes:
+      - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_VOLUMES_OBJECT: REMOVE_ME
+    volumeMounts:
+      - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT: REMOVE_ME
 
 alertmanager:
   enabled: false
