@@ -33,6 +33,9 @@ import (
 	"golang.org/x/oauth2/jws"
 
 	"github.com/googlecloudrobotics/ilog"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -47,6 +50,13 @@ var (
 
 	logLevel = flag.Int("log-level", int(slog.LevelInfo),
 		"the log message level required to be logged")
+
+	legacyRequests = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "legacy_requests_total",
+			Help: "Number of requests that trigger the legacy credential path",
+		},
+	)
 )
 
 const (
@@ -148,6 +158,7 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 	encodedJWT := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if err := h.verifyJWT(encodedJWT); err != nil {
 		if *acceptLegacyCredentials {
+			legacyRequests.Inc()
 			// The request already has the necessary credentials, so preserve these.
 			w.Header().Add("Authorization", r.Header.Get("Authorization"))
 			w.WriteHeader(http.StatusOK)
@@ -196,6 +207,7 @@ func main() {
 	handlers := newHandlers()
 	http.HandleFunc("/healthz", handlers.health)
 	http.HandleFunc("/auth", handlers.auth)
+	http.Handle("/metrics", promhttp.Handler())
 
 	go func() {
 		slog.Info("Serving requests...")

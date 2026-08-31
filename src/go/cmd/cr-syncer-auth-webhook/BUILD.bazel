@@ -14,6 +14,9 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
         "@org_golang_x_oauth2//jws:go_default_library",
     ],
 )
@@ -38,7 +41,13 @@ oci_image(
 
 go_test(
     name = "go_default_test",
-    srcs = ["request_test.go"],
+    srcs = [
+        "main_test.go",
+        "request_test.go",
+    ],
     embed = [":go_default_library"],
-    deps = ["@com_github_google_go_cmp//cmp:go_default_library"],
+    deps = [
+        "@com_github_google_go_cmp//cmp:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
+    ],
 )

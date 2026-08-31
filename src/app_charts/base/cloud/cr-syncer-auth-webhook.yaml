@@ -66,4 +66,20 @@ spec:
   selector:
     app: cr-syncer-auth-webhook
   type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cr-syncer-auth-webhook
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+  - port: http
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+  selector:
+    matchLabels:
+      app: cr-syncer-auth-webhook
 {{ end }}
