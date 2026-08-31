@@ -385,30 +385,35 @@ func (r *broker) removeRequest(pr *pendingResponse) {
 }
 
 func (r *broker) ReapInactiveBackends(threshold time.Time) {
+	var expired []string
 	r.m.Lock()
-	defer r.m.Unlock()
 	for server, bs := range r.req {
 		if bs.lastActivity.Before(threshold) {
-			slog.Info("Timeout on inactive backend", slog.String("ServerName", server))
-			
-			// Delete metrics
-			brokerRequests.DeleteLabelValues("client", server)
-			brokerRequests.DeleteLabelValues("server_request", server)
-			brokerRequests.DeleteLabelValues("server_response", server)
-			
-			brokerResponses.DeleteLabelValues("client", "missing_message", server)
-			brokerResponses.DeleteLabelValues("client", "missing_header", server)
-			brokerResponses.DeleteLabelValues("client", "ok", server)
-			brokerResponses.DeleteLabelValues("server_request", "ok", server)
-			brokerResponses.DeleteLabelValues("server_request", "timeout", server)
-			brokerResponses.DeleteLabelValues("server_response", "ok", server)
-			brokerResponses.DeleteLabelValues("server_response", "not recognized or reaches the inactivity timeout", server)
-			
-			brokerResponseDurations.DeleteLabelValues("server_response", server)
-			brokerBackendResponseDurations.DeleteLabelValues("server_response", server)
-			brokerOverheadDurations.DeleteLabelValues("server_response", server)
-
 			delete(r.req, server)
+			expired = append(expired, server)
 		}
 	}
+	r.m.Unlock()
+
+	for _, server := range expired {
+		slog.Info("Timeout on inactive backend", slog.String("ServerName", server))
+
+		// Delete metrics
+		brokerRequests.DeleteLabelValues("client", server)
+		brokerRequests.DeleteLabelValues("server_request", server)
+		brokerRequests.DeleteLabelValues("server_response", server)
+
+		brokerResponses.DeleteLabelValues("client", "missing_message", server)
+		brokerResponses.DeleteLabelValues("client", "missing_header", server)
+		brokerResponses.DeleteLabelValues("client", "ok", server)
+		brokerResponses.DeleteLabelValues("server_request", "ok", server)
+		brokerResponses.DeleteLabelValues("server_request", "timeout", server)
+		brokerResponses.DeleteLabelValues("server_response", "ok", server)
+		brokerResponses.DeleteLabelValues("server_response", "not recognized or reaches the inactivity timeout", server)
+
+		brokerResponseDurations.DeleteLabelValues("server_response", server)
+		brokerBackendResponseDurations.DeleteLabelValues("server_response", server)
+		brokerOverheadDurations.DeleteLabelValues("server_response", server)
+	}
 }
+
