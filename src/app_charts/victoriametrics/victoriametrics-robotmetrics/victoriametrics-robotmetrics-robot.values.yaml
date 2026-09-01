@@ -72,6 +72,7 @@ vmagent:
       remoteWrite.tmpDataPath: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TMP_DATA_PATH}"
       remoteWrite.maxDiskUsagePerURL: "${VMAGENT_MAX_DISK_USAGE}"
       memory.allowedBytes: "${VMAGENT_ALLOWED_BYTES}"
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME
     resources:
       $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_RESOURCES_OBJECT: REMOVE_ME
     containers:
@@ -80,6 +81,9 @@ vmagent:
       - $CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_VOLUMES_OBJECT: REMOVE_ME
     volumeMounts:
       - $CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT: REMOVE_ME
+
+extraObjects:
+  - $CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_OBJECTS: REMOVE_ME
 
 # Disable extra exporters and operator as they are managed independently
 victoria-metrics-operator:
@@ -112,6 +116,7 @@ prometheus-node-exporter:
     # Ignore virtual network devices
     - --collector.netdev.device-exclude=^(bond|cilium|ip6tnl0|lo|lxc|tunl)
     - --collector.netclass.ignored-devices=^(bond|cilium|ip6tnl0|lo|lxc|tunl)
+    - $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_EXTRA_ARGS_OBJECT: REMOVE_ME
 
 kube-state-metrics:
   fullnameOverride: "vmr-kube-state-metrics"
