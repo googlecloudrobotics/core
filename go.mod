@@ -53,7 +53,7 @@ require (
 
 require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace v1.36.0
-	github.com/envoyproxy/go-control-plane/envoy v1.37.0
+	github.com/envoyproxy/go-control-plane/envoy v1.39.0
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible
 	github.com/google/go-cmp v0.7.0
 	github.com/google/nftables v0.3.0
