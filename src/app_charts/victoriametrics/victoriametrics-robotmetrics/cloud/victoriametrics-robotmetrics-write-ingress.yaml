@@ -10,7 +10,7 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
   annotations:
-    nginx.ingress.kubernetes.io/auth-url: "http://frontend.app-frontend.svc.cluster.local/auth-proxy/authorize?scopes=apikey"
+    nginx.ingress.kubernetes.io/auth-url: "http://frontend.app-frontend.svc.cluster.local/auth-proxy/authorize?scopes=apikey,tokenvendor,tvrobot"
     nginx.ingress.kubernetes.io/auth-response-headers: apikey-token
     nginx.ingress.kubernetes.io/backend-protocol: HTTP
     nginx.ingress.kubernetes.io/rewrite-target: /$2

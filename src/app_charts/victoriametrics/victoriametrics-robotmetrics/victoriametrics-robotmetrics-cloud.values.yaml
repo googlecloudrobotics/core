@@ -26,6 +26,7 @@ vmalert:
       - url: "${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}"
     extraArgs:
       http.pathPrefix: "/victoriametrics/robots/vmalert"
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME
 
 vmsingle:
   enabled: false
@@ -65,6 +66,7 @@ vmcluster:
         $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_RESOURCES_OBJECT: REMOVE_ME
       extraArgs:
         replicationFactor: "${VMINSERT_REPLICATION_FACTOR}"
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME
     vmselect:
       replicaCount: "${VMSELECT_REPLICA_COUNT}"
       port: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_PORT}"
@@ -76,6 +78,7 @@ vmcluster:
         $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_RESOURCES_OBJECT: REMOVE_ME
       extraArgs:
         http.pathPrefix: "/victoriametrics/robots"
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME
 
 vmagent:
   annotations:
@@ -116,6 +119,7 @@ vmagent:
     
     extraArgs:
       http.pathPrefix: "/victoriametrics/robots/vmagent"
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME
     
     resources:
       $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_RESOURCES_OBJECT: REMOVE_ME

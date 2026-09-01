@@ -21,6 +21,23 @@
 {{- $data = $data | replace "${VMAGENT_ALLOWED_BYTES}" (default "200MB" .Values.vmagent.allowed_bytes) -}}
 {{- $data = $data | replace "HELM-NAMESPACE" .Release.Namespace -}}
 
+# Inject extraArgs for vmagent
+{{- $vmagentExtraArgsMap := dict -}}
+{{- if .Values.vmagent -}}
+  {{- if .Values.vmagent.spec -}}
+    {{- if .Values.vmagent.spec.extraArgs -}}
+      {{- $vmagentExtraArgsMap = .Values.vmagent.spec.extraArgs -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if $vmagentExtraArgsMap }}
+  {{- $formattedExtraArgs := toYaml $vmagentExtraArgsMap | nindent 6 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedExtraArgs)) -}}
+{{- else }}
+  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
+{{- end }}
+
 # Inject the vmagent resources
 {{- $vmagentResourcesMap := dict -}}
 {{- if .Values.vmagent -}}
@@ -350,13 +367,36 @@
 
 {{- $data = $data | replace "HELM-NAMESPACE" .Release.Namespace -}}
 
+# Inject extraArgs for prometheus-node-exporter
+{{- $nodeExporterExtraArgsList := list -}}
+{{- if index .Values "prometheus-node-exporter" -}}
+  {{- if index (index .Values "prometheus-node-exporter") "extraArgs" -}}
+    {{- $nodeExporterExtraArgsList = index (index .Values "prometheus-node-exporter") "extraArgs" -}}
+  {{- end -}}
+{{- end -}}
+{{- if $nodeExporterExtraArgsList }}
+  {{- $formattedExtraArgs := toYaml $nodeExporterExtraArgsList | nindent 4 -}}
+  {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedExtraArgs)) -}}
+{{- else }}
+  {{- $data = $data | replace "    - $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "    - $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
+{{- end }}
+
+{{- if .Values.extraObjects }}
+  {{- $formattedExtraObjects := "" -}}
+  {{- range $index, $obj := .Values.extraObjects -}}
+    {{- if $index -}}
+      {{- $formattedExtraObjects = printf "%s\n---\n%s" $formattedExtraObjects (toYaml $obj | nindent 0) -}}
+    {{- else -}}
+      {{- $formattedExtraObjects = toYaml $obj | nindent 0 -}}
+    {{- end -}}
+  {{- end -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_OBJECTS: REMOVE_ME" (trimPrefix "\n" $formattedExtraObjects) -}}
+{{- else }}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_OBJECTS: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_EXTRA_OBJECTS: REMOVE_ME" "" -}}
+{{- end }}
+
 ---
 {{/* Emit rendered VM components */}}
 {{ $data }}
-
-{{- if .Values.extraObjects }}
-{{- range .Values.extraObjects }}
----
-{{ toYaml . }}
-{{- end }}
-{{- end }}

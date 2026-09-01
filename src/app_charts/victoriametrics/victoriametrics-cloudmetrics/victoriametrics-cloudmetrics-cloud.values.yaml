@@ -21,6 +21,7 @@ vmalert:
       - url: "${CR_VICTORIAMETRICS_CLOUDMETRICS_NOTIFIERS_OBJECT}"
     extraArgs:
       http.pathPrefix: "/victoriametrics/cloud/vmalert"
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME
 
 vmsingle:
   enabled: false
@@ -65,6 +66,7 @@ vmcluster:
         $CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_RESOURCES_OBJECT: REMOVE_ME
       extraArgs:
         replicationFactor: "${VMINSERT_REPLICATION_FACTOR}"
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME
     vmselect:
       replicaCount: "${VMSELECT_REPLICA_COUNT}"
       port: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_PORT}"
@@ -76,6 +78,7 @@ vmcluster:
         $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_RESOURCES_OBJECT: REMOVE_ME
       extraArgs:
         http.pathPrefix: "/victoriametrics/cloud"
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME
 
 vmagent:
   enabled: true
@@ -117,6 +120,7 @@ vmagent:
       remoteWrite.maxDiskUsagePerURL: "${VMAGENT_MAX_DISK_USAGE}"
       memory.allowedBytes: "${VMAGENT_ALLOWED_BYTES}"
       http.pathPrefix: "/victoriametrics/cloud/vmagent"
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME
     resources:
       $CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_RESOURCES_OBJECT: REMOVE_ME
     containers:
@@ -125,6 +129,9 @@ vmagent:
       - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_VOLUMES_OBJECT: REMOVE_ME
     volumeMounts:
       - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT: REMOVE_ME
+
+extraObjects:
+  - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME
 
 alertmanager:
   enabled: false
