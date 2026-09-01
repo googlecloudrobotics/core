@@ -35,10 +35,21 @@ helm_template(
     values = "victoriametrics-robotmetrics-robot.values.yaml",
 )
 
+helm_template(
+    name = "node-exporter-chart.robot",
+    chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-87.5.1.tgz",
+    helm_version = 3,
+    kube_version = "1.29.0",
+    namespace = "HELM-NAMESPACE",
+    release_name = "node-exporter",
+    values = "node-exporter.robot.values.yaml",
+)
+
 app_chart(
     name = "victoriametrics-robotmetrics-robot",
     extra_values = ["values-robot.yaml"],
     files = [
+        ":node-exporter-chart.robot",
         ":victoriametrics-robotmetrics-chart.robot",
     ],
 )
