@@ -1,0 +1,47 @@
+nameOverride: node-exporter
+fullnameOverride: node-exporter
+
+alertmanager:
+  enabled: false
+
+defaultRules:
+  create: false
+
+prometheus:
+  enabled: false
+
+prometheusOperator:
+  enabled: false
+
+kubeApiServer:
+  enabled: false
+
+kubelet:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+coreDns:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+kube-state-metrics:
+  enabled: false
+
+grafana:
+  enabled: false
+
+nodeExporter:
+  enabled: true
+
+prometheus-node-exporter:
+  enabled: true

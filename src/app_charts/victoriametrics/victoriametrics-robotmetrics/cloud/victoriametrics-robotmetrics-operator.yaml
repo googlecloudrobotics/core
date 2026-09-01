@@ -169,9 +169,19 @@
 {{- end }}
 {{- if $notifiersList }}
   {{- $formattedNotifiers := toYaml $notifiersList | nindent 4 -}}
+  {{- $data = $data | replace "  - url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"" (printf "\n%s" (trimPrefix "\n" $formattedNotifiers)) -}}
+  {{- $data = $data | replace "  - url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}" (printf "\n%s" (trimPrefix "\n" $formattedNotifiers)) -}}
+  {{- $data = $data | replace "    - url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"" (printf "\n%s" (trimPrefix "\n" $formattedNotifiers)) -}}
   {{- $data = $data | replace "    - url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}" (printf "\n%s" (trimPrefix "\n" $formattedNotifiers)) -}}
 {{- else }}
+  {{- $data = $data | replace "  - url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"\n" "" -}}
+  {{- $data = $data | replace "  - url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\n" "" -}}
+  {{- $data = $data | replace "  - url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"" "" -}}
+  {{- $data = $data | replace "  - url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}" "" -}}
+  {{- $data = $data | replace "    - url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"\n" "" -}}
   {{- $data = $data | replace "    - url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\n" "" -}}
+  {{- $data = $data | replace "    - url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"" "" -}}
+  {{- $data = $data | replace "    - url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}" "" -}}
 {{- end }}
 
 # Inject the nodeSelector and tolerations for vmstorage
@@ -207,7 +217,7 @@
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_TOLERATIONS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedTolerations)) -}}
 {{- else }}
   {{- $data = $data | replace "    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
-{{- end }}}
+{{- end }}
 
 # Inject the nodeSelector and tolerations for vminsert
 {{- $vminsertNodeSelectorMap := dict -}}
@@ -242,7 +252,7 @@
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_TOLERATIONS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedTolerations)) -}}
 {{- else }}
   {{- $data = $data | replace "    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
-{{- end }}}
+{{- end }}
 
 # Inject the nodeSelector and tolerations for vmselect
 {{- $vmselectNodeSelectorMap := dict -}}
@@ -277,7 +287,7 @@
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_TOLERATIONS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedTolerations)) -}}
 {{- else }}
   {{- $data = $data | replace "    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
-{{- end }}}
+{{- end }}
 
 # Inject the nodeSelector and tolerations for vmagent
 {{- $vmagentNodeSelectorMap := dict -}}
@@ -308,7 +318,7 @@
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TOLERATIONS_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedTolerations)) -}}
 {{- else }}
   {{- $data = $data | replace "  tolerations:\n  - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
-{{- end }}}
+{{- end }}
 
 # Inject extraArgs for vmalert
 {{- $vmalertExtraArgsMap := dict -}}
@@ -317,14 +327,81 @@
     {{- if .Values.vmalert.spec.extraArgs -}}
       {{- $vmalertExtraArgsMap = .Values.vmalert.spec.extraArgs -}}
     {{- end -}}
+  {{- else if .Values.vmalert.extraArgs -}}
+    {{- $vmalertExtraArgsMap = .Values.vmalert.extraArgs -}}
   {{- end -}}
 {{- end -}}
 {{- if $vmalertExtraArgsMap }}
-  {{- $formattedExtraArgs := toYaml $vmalertExtraArgsMap | nindent 6 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedExtraArgs)) -}}
+  {{- $formattedExtraArgs := toYaml $vmalertExtraArgsMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedExtraArgs)) -}}
 {{- else }}
   {{- $data = $data | replace "      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
-  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
+  {{- $data = $data | replace "    $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
+{{- end }}
+
+# Inject extraArgs for vminsert
+{{- $vminsertExtraArgsMap := dict -}}
+{{- if .Values.vmcluster -}}
+  {{- if .Values.vmcluster.spec -}}
+    {{- if .Values.vmcluster.spec.vminsert -}}
+      {{- if .Values.vmcluster.spec.vminsert.extraArgs -}}
+        {{- $vminsertExtraArgsMap = .Values.vmcluster.spec.vminsert.extraArgs -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if $vminsertExtraArgsMap }}
+  {{- $formattedExtraArgs := toYaml $vminsertExtraArgsMap | nindent 6 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedExtraArgs)) -}}
+{{- else }}
+  {{- $data = $data | replace "        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
+{{- end }}
+
+# Inject extraArgs for vmselect
+{{- $vmselectExtraArgsMap := dict -}}
+{{- if .Values.vmcluster -}}
+  {{- if .Values.vmcluster.spec -}}
+    {{- if .Values.vmcluster.spec.vmselect -}}
+      {{- if .Values.vmcluster.spec.vmselect.extraArgs -}}
+        {{- $vmselectExtraArgsMap = .Values.vmcluster.spec.vmselect.extraArgs -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if $vmselectExtraArgsMap }}
+  {{- $formattedExtraArgs := toYaml $vmselectExtraArgsMap | nindent 6 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedExtraArgs)) -}}
+{{- else }}
+  {{- $data = $data | replace "        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
+{{- end }}
+
+# Inject extraArgs for vmagent
+{{- $vmagentExtraArgsMap := dict -}}
+{{- if .Values.vmagent -}}
+  {{- if .Values.vmagent.spec -}}
+    {{- if .Values.vmagent.spec.extraArgs -}}
+      {{- $vmagentExtraArgsMap = .Values.vmagent.spec.extraArgs -}}
+    {{- end -}}
+  {{- else if .Values.vmagent.extraArgs -}}
+    {{- $vmagentExtraArgsMap = .Values.vmagent.extraArgs -}}
+  {{- end -}}
+{{- end -}}
+{{- if $vmagentExtraArgsMap }}
+  {{- $formattedExtraArgs := toYaml $vmagentExtraArgsMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedExtraArgs)) -}}
+{{- else }}
+  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "    $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
 {{- end }}
 
 # Inject the nodeSelector and tolerations for vmalert
@@ -356,7 +433,7 @@
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_TOLERATIONS_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedTolerations)) -}}
 {{- else }}
   {{- $data = $data | replace "  tolerations:\n  - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
-{{- end }}}
+{{- end }}
 
 # Inject externalLabels for vmagent
 {{- $externalLabelsMap := dict -}}
@@ -541,6 +618,20 @@
     {{- $saAnnotationsMap = .Values.serviceAccount.annotations -}}
   {{- end }}
 {{- end }}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.serviceAccount }}
+    {{- if .Values.vmagent.serviceAccount.annotations }}
+      {{- $saAnnotationsMap = .Values.vmagent.serviceAccount.annotations -}}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.managedMetadata }}
+      {{- if .Values.vmagent.spec.managedMetadata.annotations }}
+        {{- $saAnnotationsMap = .Values.vmagent.spec.managedMetadata.annotations -}}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
 {{- if $saAnnotationsMap }}
   {{- $formattedSAAnnotationsObject := toYaml $saAnnotationsMap | indent 4 -}}
   {{- $data = $data | replace "    ${CR_VICTORIAMETRICS_ROBOTMETRICS_SA_ANNOTATIONS}: \"\"" $formattedSAAnnotationsObject -}}
@@ -548,18 +639,45 @@
   {{- $data = $data | replace "  annotations:\n    ${CR_VICTORIAMETRICS_ROBOTMETRICS_SA_ANNOTATIONS}: \"\"\n" "" -}}
 {{- end }}
 
+# Inject VMAgent managedMetadata (for operator-managed ServiceAccount annotations) and serviceAccountName
+{{- $vmagentExtraSpec := "" -}}
+{{- if $saAnnotationsMap }}
+  {{- $formattedManagedMetadata := dict "managedMetadata" (dict "annotations" $saAnnotationsMap) | toYaml | nindent 2 -}}
+  {{- $vmagentExtraSpec = printf "\n%s" $formattedManagedMetadata -}}
+{{- end }}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.serviceAccountName }}
+      {{- $vmagentExtraSpec = printf "%s\n  serviceAccountName: %s" $vmagentExtraSpec .Values.vmagent.spec.serviceAccountName -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $vmagentExtraSpec }}
+  {{- $data = $data | replace "spec: \n  containers:" (printf "spec:%s\n  containers:" $vmagentExtraSpec) -}}
+  {{- $data = $data | replace "spec:\n  containers:" (printf "spec:%s\n  containers:" $vmagentExtraSpec) -}}
+{{- end }}
+
 # Inject remoteWrite
-{{- $remoteWriteList := dict -}}
+{{- $remoteWriteList := list -}}
 {{- if .Values.vmagent }}
   {{- if .Values.vmagent.additionalRemoteWrites }}
     {{- $remoteWriteList = .Values.vmagent.additionalRemoteWrites -}}
+  {{- else if and .Values.vmagent.spec .Values.vmagent.spec.remoteWrite }}
+    {{- range .Values.vmagent.spec.remoteWrite }}
+      {{- if not (contains "vminsert-vmr" .url) }}
+        {{- $remoteWriteList = append $remoteWriteList . -}}
+      {{- end }}
+    {{- end }}
   {{- end }}
 {{- end }}
+{{- $data = $data | replace "  - $CR_VICTORIAMETRICS_ROBOTMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT: REMOVE_ME\n" "" -}}
+{{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT: REMOVE_ME\n" "" -}}
+{{- $data = $data | replace "  - $CR_VICTORIAMETRICS_ROBOTMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT: REMOVE_ME" "" -}}
+{{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT: REMOVE_ME" "" -}}
 {{- if $remoteWriteList }}
   {{- $formattedRemoteWriteObject := toYaml $remoteWriteList | nindent 2 -}}
-  {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedRemoteWriteObject)) -}}
-{{- else }}
-  {{- $data = $data | replace "  - $CR_VICTORIAMETRICS_ROBOTMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $vminsertUrlPlaceholder := printf "- url: http://vminsert-vmr.%s.svc.cluster.local.:%s/insert/0/prometheus/api/v1/write" .Release.Namespace (toString $vminsertPort) -}}
+  {{- $data = $data | replace $vminsertUrlPlaceholder (printf "%s\n%s" $vminsertUrlPlaceholder (trimPrefix "\n" $formattedRemoteWriteObject)) -}}
 {{- end }}
 
 # Inject extra containers
@@ -620,4 +738,15 @@
 ---
 {{ toYaml . }}
 {{- end }}
+{{- end }}
+
+{{- if $saAnnotationsMap }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vmagent-vmr
+  namespace: {{ .Release.Namespace }}
+  annotations:
+{{ toYaml $saAnnotationsMap | indent 4 }}
 {{- end }}
