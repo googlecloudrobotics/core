@@ -310,6 +310,23 @@
   {{- $data = $data | replace "  tolerations:\n  - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}}
 
+# Inject extraArgs for vmalert
+{{- $vmalertExtraArgsMap := dict -}}
+{{- if .Values.vmalert -}}
+  {{- if .Values.vmalert.spec -}}
+    {{- if .Values.vmalert.spec.extraArgs -}}
+      {{- $vmalertExtraArgsMap = .Values.vmalert.spec.extraArgs -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if $vmalertExtraArgsMap }}
+  {{- $formattedExtraArgs := toYaml $vmalertExtraArgsMap | nindent 6 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedExtraArgs)) -}}
+{{- else }}
+  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
+{{- end }}
+
 # Inject the nodeSelector and tolerations for vmalert
 {{- $vmalertNodeSelectorMap := dict -}}
 {{- if .Values.vmalert -}}
