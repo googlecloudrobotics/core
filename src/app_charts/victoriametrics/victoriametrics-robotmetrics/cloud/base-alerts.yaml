@@ -1,11 +1,12 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
+  name: base-alerts
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
     prometheus: kube-prometheus
     role: alert-rules
-  name: base-alerts
 spec:
   groups:
   - name: base-alerts.rules

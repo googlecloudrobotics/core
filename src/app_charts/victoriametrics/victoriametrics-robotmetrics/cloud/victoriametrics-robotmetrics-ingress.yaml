@@ -2,6 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: victoriametrics-robotmetrics
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
   annotations:
@@ -22,7 +23,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: vmr-victoria-metrics-vmselect
+            name: vmselect-vmr
             port:
               number: 8481
       # Alerts Dashboard
@@ -30,7 +31,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: vmr-victoria-metrics-vmalert
+            name: vmalert-vmr
             port:
               number: 8880
       # Scraper Targets and Service Discovery Dashboard
@@ -38,6 +39,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: vmr-victoria-metrics-vmagent
+            name: vmagent-vmr
             port:
               number: 8429
