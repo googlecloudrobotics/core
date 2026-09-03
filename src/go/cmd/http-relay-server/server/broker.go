@@ -302,12 +302,11 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 		brokerResponses.WithLabelValues("server_response", "not recognized or reaches the inactivity timeout", backendName).Inc()
 		return fmt.Errorf("%w %s", ErrInvalidRequestID, id)
 	}
-	// hold `sendMutex` throughout the function to ensure that `responseStream` is not closed
+	// hold `sendMutex` while writing to ensure that `responseStream` is not closed
 	// while we are writing to it. We must acquire the lock while we are holding `r.m` to
 	// avoid `ReapInactiveRequests` closing `responseStream` between the time that we
 	// release `r.m` and lock `pr.sendMutex`.
 	pr.sendMutex.Lock()
-	defer pr.sendMutex.Unlock()
 	if resp.GetEof() {
 		// remove this request from the broker to prevent `ReapInactiveRequests` from processing (and closing `pr.responseStream`)
 		// a request that is about to be closed.
@@ -323,22 +322,30 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	// block other requests.
 	r.m.Unlock()
 
-	select {
-	// Writing to this channel will notify consumers which are waiting for data
-	// on the channel returned by RelayRequest(). Note that the rate that we can write
-	// is limited by the rate that the user client consumes the stream.
-	case pr.responseStream <- resp:
-		break
-	case <-pr.markReap:
-		return ErrClosedInactivity
+	sendChunk := func() error {
+		defer pr.sendMutex.Unlock()
+		select {
+		// Writing to this channel will notify consumers which are waiting for data
+		// on the channel returned by RelayRequest(). Note that the rate that we can write
+		// is limited by the rate that the user client consumes the stream.
+		case pr.responseStream <- resp:
+			if resp.GetEof() {
+				// this request is already removed from the broker earlier so `ReapInactiveRequests` will not
+				// process this and attempt to close the channel twice.
+				close(pr.responseStream)
+			}
+			return nil
+		case <-pr.markReap:
+			return ErrClosedInactivity
+		}
+	}
+	if err := sendChunk(); err != nil {
+		return err
 	}
 
 	brokerRequests.WithLabelValues("server_response", backendName).Inc()
 	brokerResponseDurations.WithLabelValues("server_response", backendName).Observe(duration)
 	if resp.GetEof() {
-		// this request is already removed from the broker earlier so `ReapInactiveRequests` will not
-		// process this and attempt to close the channel twice.
-		close(pr.responseStream)
 		backendDuration := (time.Duration(resp.GetBackendDurationMs()) * time.Millisecond).Seconds()
 		if backendDuration > 0.0 {
 			brokerBackendResponseDurations.WithLabelValues("server_response", backendName).Observe(backendDuration)
