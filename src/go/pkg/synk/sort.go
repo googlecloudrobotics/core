@@ -44,6 +44,11 @@ func newGvknn(group, version, kind, namespace, name string) *gvknn {
 		// We need ServiceAccount to be before Secret. The token controller removes
 		// Secrets with non existing ServiceAccount.
 		p = 3
+	case "ClusterRole", "Role":
+		// RBAC rules need to be in place before workloads using them start.
+		p = 4
+	case "ClusterRoleBinding", "RoleBinding":
+		p = 5
 	}
 	return &gvknn{p, group, version, kind, namespace, name}
 }
