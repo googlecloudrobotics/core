@@ -324,8 +324,58 @@ func (s *Synk) applyAll(
 ) (applyResults, error) {
 	results := applyResults{}
 
-	crds, regulars := separateCRDsFromResources(resources)
+	groups := groupResources(resources, isCustomResourceDefinition, isRBACResource)
+	crds := groups[0]
 
+	if err := s.applyCRDs(ctx, rs, opts, results, crds); err != nil {
+		return results, err
+	}
+
+	for _, group := range groups[1:] {
+		s.applyResources(ctx, rs, opts, results, group)
+	}
+	// The overall error we return is a transient error if all resource errors
+	// are transient. If there's at least one permanent failure, retrying
+	// will never make Apply overall successful.
+	allTransient := true
+	numErrors := 0
+	var firstFailure *applyResult
+	for _, r := range results {
+		if r.err != nil {
+			if !IsTransientErr(r.err) {
+				allTransient = false
+			}
+			if firstFailure == nil {
+				firstFailure = r
+			}
+			numErrors++
+		}
+	}
+	if numErrors == 0 {
+		return results, nil
+	}
+	err := fmt.Errorf("%d/%d resources failed to apply", numErrors, len(results))
+	if numErrors == 1 {
+		err = fmt.Errorf("%s: %s: %s", err, resourceKey(firstFailure.resource), firstFailure.err)
+	} else {
+		err = fmt.Errorf("%s, including %s: %s", err, resourceKey(firstFailure.resource), firstFailure.err)
+	}
+	if allTransient {
+		err = transientErr{err}
+	}
+	return results, err
+}
+
+func (s *Synk) applyCRDs(
+	ctx context.Context,
+	rs *apps.ResourceSet,
+	opts *ApplyOptions,
+	results applyResults,
+	crds []*unstructured.Unstructured,
+) error {
+	if len(crds) == 0 {
+		return nil
+	}
 	// Insert CRDs and wait for them to become available.
 	for _, crd := range crds {
 		// CRDs must never be replaced as deleting them will delete
@@ -353,11 +403,20 @@ func (s *Synk) applyAll(
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 60),
 	)
 	if err != nil {
-		return results, fmt.Errorf("wait for CRDs: %w", err)
+		return fmt.Errorf("wait for CRDs: %w", err)
 	}
 	// Reset all discovery and mapping once again.
 	s.resetMapper()
+	return nil
+}
 
+func (s *Synk) applyResources(
+	ctx context.Context,
+	rs *apps.ResourceSet,
+	opts *ApplyOptions,
+	results applyResults,
+	resources []*unstructured.Unstructured,
+) {
 	// Try applying until the errors stay the same between iterations. Put in
 	// an upper bound just in case of flapping errors.
 	prevFailures := 0
@@ -365,7 +424,7 @@ func (s *Synk) applyAll(
 	for i := 0; i < 10; i++ {
 		curFailures := 0
 
-		for _, r := range regulars {
+		for _, r := range resources {
 			// Don't retry resources that were applied successfully
 			// in the first iteration.
 			if i > 0 && !results.failed(r) {
@@ -388,36 +447,6 @@ func (s *Synk) applyAll(
 		}
 		prevFailures = curFailures
 	}
-	// The overall error we return is a transient error if all resource errors
-	// are transient. If there's at least one permanent failure, retrying
-	// will never make Apply overall successful.
-	allTransient := true
-	numErrors := 0
-	var firstFailure *applyResult
-	for _, r := range results {
-		if r.err != nil {
-			if !IsTransientErr(r.err) {
-				allTransient = false
-			}
-			if firstFailure == nil {
-				firstFailure = r
-			}
-			numErrors++
-		}
-	}
-	if numErrors == 0 {
-		return results, nil
-	}
-	err = fmt.Errorf("%d/%d resources failed to apply", numErrors, len(results))
-	if numErrors == 1 {
-		err = fmt.Errorf("%s: %s: %s", err, resourceKey(firstFailure.resource), firstFailure.err)
-	} else {
-		err = fmt.Errorf("%s, including %s: %s", err, resourceKey(firstFailure.resource), firstFailure.err)
-	}
-	if allTransient {
-		err = transientErr{err}
-	}
-	return results, err
 }
 
 func validateNamespace(r *unstructured.Unstructured, optsNs string) error {
@@ -1104,15 +1133,34 @@ func isCustomResourceDefinition(r *unstructured.Unstructured) bool {
 	return strings.HasPrefix(r.GetAPIVersion(), "apiextensions.k8s.io/") && r.GetKind() == "CustomResourceDefinition"
 }
 
-func separateCRDsFromResources(resources []*unstructured.Unstructured) (crds []*unstructured.Unstructured, regulars []*unstructured.Unstructured) {
+func isRBACResource(r *unstructured.Unstructured) bool {
+	gvk := r.GroupVersionKind()
+	return gvk.Group == "rbac.authorization.k8s.io" || (gvk.Group == "" && gvk.Kind == "ServiceAccount")
+}
+
+// groupResources partitions resources into groups according to matching predicates.
+// Resources that don't match any predicate are placed into the final group.
+func groupResources(resources []*unstructured.Unstructured, predicates ...func(*unstructured.Unstructured) bool) [][]*unstructured.Unstructured {
+	groups := make([][]*unstructured.Unstructured, len(predicates)+1)
 	for _, r := range resources {
-		if isCustomResourceDefinition(r) {
-			crds = append(crds, r)
-		} else {
-			regulars = append(regulars, r)
+		matched := false
+		for i, p := range predicates {
+			if p(r) {
+				groups[i] = append(groups[i], r)
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			groups[len(predicates)] = append(groups[len(predicates)], r)
 		}
 	}
-	return crds, regulars
+	return groups
+}
+
+func separateCRDsFromResources(resources []*unstructured.Unstructured) (crds []*unstructured.Unstructured, regulars []*unstructured.Unstructured) {
+	groups := groupResources(resources, isCustomResourceDefinition)
+	return groups[0], groups[1]
 }
 
 func filter(in []*unstructured.Unstructured, f func(*unstructured.Unstructured) bool) (out []*unstructured.Unstructured) {
