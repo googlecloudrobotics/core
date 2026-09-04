@@ -7,7 +7,18 @@
 #       need to be replaced last.
 {{- $data := .Files.Get "files/prometheus-operator-chart.cloud.yaml" -}}
 # Pre-process variables
-{{- $data = $data | replace "${CR_GF_SERVER_DOMAIN}" .Values.gf_server_domain | replace "${CR_GF_SERVER_ROOT_URL}" .Values.gf_server_root_url | replace "${CR_GF_CSRF_TRUSTED_ORIGINS}" .Values.gf_csrf_trusted_origins | replace "${CR_GF_SMTP_ENABLED}" .Values.gf_smtp_enabled | replace "${CR_GF_SMTP_HOST}" .Values.gf_smtp_host | replace "${CR_GF_SMTP_USER}" .Values.gf_smtp_user | replace "${CR_GF_SMTP_PASSWORD}" .Values.gf_smtp_password | replace "${CR_GF_SMTP_FROM_ADDRESS}" .Values.gf_smtp_from_address | replace "${CR_GF_SMTP_FROM_NAME}" .Values.gf_smtp_from_name | replace "${CR_GF_SMTP_SKIP_VERIFY}" .Values.gf_smtp_skip_verify | replace "${CR_GF_INGRESS_AUTH_URL}" .Values.gf_ingress_auth_url | replace "${CR_GF_INGRESS_AUTH_SIGNIN}" .Values.gf_ingress_auth_signin | replace "${CR_GF_INGRESS_ERROR_PAGE_403}" .Values.gf_ingress_error_page_403 | replace "${CR_PROM_INGRESS_AUTH_URL}" .Values.prom_ingress_auth_url | replace "${CR_PROM_INGRESS_AUTH_SIGNIN}" .Values.prom_ingress_auth_signin | replace "${CR_PROM_INGRESS_ERROR_PAGE_403}" .Values.prom_ingress_error_page_403 | replace "HELM-NAMESPACE" .Release.Namespace | replace "${LIMITS_MEMORY}" .Values.limits.memory | replace "${LIMITS_CPU}" .Values.limits.cpu | replace "${REQUESTS_STORAGE}" .Values.requests.storage | replace "${RETENTION_TIME}" .Values.retention.time | replace "${RETENTION_SIZE}" .Values.retention.size | replace "${EXTERNAL_URL}" .Values.prom_external_url | replace "${CLOUD_ROBOTICS_DOMAIN}" .Values.domain | replace "${GCP_PROJECT_ID}" .Values.project -}}
+{{- $data = $data | replace "${CR_PROM_INGRESS_AUTH_URL}" .Values.prom_ingress_auth_url -}}
+{{- $data = $data | replace "${CR_PROM_INGRESS_AUTH_SIGNIN}" .Values.prom_ingress_auth_signin -}}
+{{- $data = $data | replace "${CR_PROM_INGRESS_ERROR_PAGE_403}" .Values.prom_ingress_error_page_403 -}}
+{{- $data = $data | replace "HELM-NAMESPACE" .Release.Namespace -}}
+{{- $data = $data | replace "${LIMITS_MEMORY}" .Values.limits.memory -}}
+{{- $data = $data | replace "${LIMITS_CPU}" .Values.limits.cpu -}}
+{{- $data = $data | replace "${REQUESTS_STORAGE}" .Values.requests.storage -}}
+{{- $data = $data | replace "${RETENTION_TIME}" .Values.retention.time -}}
+{{- $data = $data | replace "${RETENTION_SIZE}" .Values.retention.size -}}
+{{- $data = $data | replace "${EXTERNAL_URL}" .Values.prom_external_url -}}
+{{- $data = $data | replace "${CLOUD_ROBOTICS_DOMAIN}" .Values.domain -}}
+{{- $data = $data | replace "${GCP_PROJECT_ID}" .Values.project -}}
 
 # Inject the nodeSelector as a pre-formatted YAML block to allow users to define multiple selectors in a dict within values-cloud.yaml while maintaining valid indentation in the output.
 {{- $prometheusNodeSelectorMap := .Values.prometheus.prometheusSpec.nodeSelector -}}
@@ -29,6 +40,37 @@
   {{- $data = $data | replace "${CR_PROMETHEUS_TOLERATIONS_OBJECT}" " []" -}}
 {{- end }}
 
+
+# Inject the serviceMonitorSelector and podMonitorSelector to allow users to override the universal matching default.
+{{- $prometheusServiceMonitorSelectorMap := dict -}}
+{{- if .Values.prometheus }}
+  {{- if .Values.prometheus.prometheusSpec }}
+    {{- if .Values.prometheus.prometheusSpec.serviceMonitorSelector }}
+      {{- $prometheusServiceMonitorSelectorMap = .Values.prometheus.prometheusSpec.serviceMonitorSelector -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $prometheusServiceMonitorSelectorMap }}
+  {{- $formattedPrometheusServiceMonitorSelectorObject := toYaml $prometheusServiceMonitorSelectorMap | nindent 6 -}}
+  {{- $data = $data | replace "$CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedPrometheusServiceMonitorSelectorObject)) -}}
+{{- else }}
+  {{- $data = $data | replace "$CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+{{- end }}
+
+{{- $prometheusPodMonitorSelectorMap := dict -}}
+{{- if .Values.prometheus }}
+  {{- if .Values.prometheus.prometheusSpec }}
+    {{- if .Values.prometheus.prometheusSpec.podMonitorSelector }}
+      {{- $prometheusPodMonitorSelectorMap = .Values.prometheus.prometheusSpec.podMonitorSelector -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $prometheusPodMonitorSelectorMap }}
+  {{- $formattedPrometheusPodMonitorSelectorObject := toYaml $prometheusPodMonitorSelectorMap | nindent 6 -}}
+  {{- $data = $data | replace "$CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedPrometheusPodMonitorSelectorObject)) -}}
+{{- else }}
+  {{- $data = $data | replace "$CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+{{- end }}
 
 # Inject the externalLabels as a pre-formatted YAML block to allow users to define multiple labels in a dict
 {{- $prometheusExternalLabelsMap := dict -}}
@@ -125,4 +167,22 @@
 {{- else }}
   {{- $data = $data | replace "  annotations:\n    ${CR_PROMETHEUS_SA_ANNOTATIONS}: \"\"\n" "" -}}
 {{- end }}
+
+{{- /* Filter out prometheus-node-exporter resources if disabled */ -}}
+{{- $nodeExporterEnabled := true }}
+{{- if .Values.nodeExporter }}
+  {{- if hasKey .Values.nodeExporter "enabled" }}
+    {{- $nodeExporterEnabled = .Values.nodeExporter.enabled }}
+  {{- end }}
+{{- end }}
+{{- $parts := splitList "\n---\n# Source: " (printf "\n%s" $data) -}}
+{{- $newData := "" -}}
+{{- range $part := $parts -}}
+{{- if (trim $part) }}
+{{- if not (and (not $nodeExporterEnabled) (contains "app.kubernetes.io/name: prometheus-node-exporter" $part)) }}
+{{- $newData = printf "%s\n---\n# Source: %s" $newData $part -}}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $data = trimPrefix "\n" $newData -}}
 {{ $data }}

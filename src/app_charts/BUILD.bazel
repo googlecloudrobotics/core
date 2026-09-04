@@ -7,8 +7,12 @@ APPS = [
     "k8s-relay",
     "mission-crd",
     "prometheus",
+    "grafana",
     "token-vendor",
     "akri",
+    "victoriametrics/victoriametrics-operator",
+    "victoriametrics/victoriametrics-robotmetrics",
+    "victoriametrics/victoriametrics-cloudmetrics",
 ]
 
 run_parallel(
@@ -18,7 +22,7 @@ run_parallel(
         "//src/app_charts/base:base-robot.push",
         "//src/app_charts/platform-apps:platform-apps-cloud.push",
     ] + [
-        "//src/app_charts/{app}:{app}.push".format(app = a)
+        "//src/app_charts/{path}:{app}.push".format(path = a, app = a.split("/")[-1])
         for a in APPS
     ],
 )
@@ -30,6 +34,6 @@ cache_gcr_credentials(
 
 filegroup(
     name = "app_resources",
-    srcs = ["//src/app_charts/{app}:{app}.yaml".format(app = a) for a in APPS],
+    srcs = ["//src/app_charts/{path}:{app}.yaml".format(path = a, app = a.split("/")[-1]) for a in APPS],
     visibility = ["//visibility:public"],
 )

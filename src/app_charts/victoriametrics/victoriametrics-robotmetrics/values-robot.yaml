@@ -1,0 +1,25 @@
+# App-chart-level values consumed by robot/victoriametrics-robotmetrics-operator.yaml's
+# pseudo-variable replace chain.
+#
+# Must be set per deployment under AppRollout spec.robots[].values.
+
+fullnameOverride: "vmr"
+
+vmagent:
+  spec:
+    serviceScrapeSelector: {}
+    serviceScrapeNamespaceSelector: {}
+    podScrapeSelector: {}
+    podScrapeNamespaceSelector: {}
+    nodeScrapeSelector: {}
+    nodeScrapeNamespaceSelector: {}
+    probeSelector: {}
+    probeNamespaceSelector: {}
+    staticScrapeSelector: {}
+    staticScrapeNamespaceSelector: {}
+  tmp_data_path: "/tmp/vmagent-remotewrite-data"
+  max_disk_usage: "5GB"
+  allowed_bytes: "200MB"
+  memory_request: "512Mi"
+  memory_limit: "512Mi"
+

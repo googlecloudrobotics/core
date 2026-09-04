@@ -1,0 +1,165 @@
+# Configuration for the victoria-metrics-k8s-stack chart for the cloud ingestion target.
+# Reference:
+# https://github.com/VictoriaMetrics/helm-charts/blob/victoria-metrics-k8s-stack-0.91.0/charts/victoria-metrics-k8s-stack/values.yaml
+#
+# This chart deploys the vmcluster (storage/query) and the vmagent (acting as the remoteWrite ingestion proxy)
+# for metrics streaming in from physical robots.
+#
+# WARNING: If you edit this file, run the following command to generate
+# the output with `helm template`, and verify that your changes have
+# the expected effect.
+#
+#   bazel build src/app_charts/victoriametrics/victoriametrics-robotmetrics:victoriametrics-robotmetrics-chart.cloud.yaml
+
+fullnameOverride: "vmr"
+
+vmalert:
+  annotations:
+    # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks
+    argocd.argoproj.io/sync-wave: "5"
+  spec:
+    nodeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_NODE_SELECTOR_OBJECT: REMOVE_ME
+    tolerations:
+      - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_TOLERATIONS_OBJECT: REMOVE_ME
+    notifiers:
+      - url: "${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}"
+    extraArgs:
+      http.pathPrefix: "/victoriametrics/robots/vmalert"
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME
+
+vmsingle:
+  enabled: false
+
+vmcluster:
+  annotations:
+    # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks
+    argocd.argoproj.io/sync-wave: "5"
+  enabled: true
+  spec:
+    retentionPeriod: "${VMCLUSTER_RETENTION_TIME}"
+    vmstorage:
+      replicaCount: "${VMSTORAGE_REPLICA_COUNT}"
+      nodeSelector:
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_NODE_SELECTOR_OBJECT: REMOVE_ME
+      tolerations:
+        - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_TOLERATIONS_OBJECT: REMOVE_ME
+      resources:
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_RESOURCES_OBJECT: REMOVE_ME
+      storage:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: victoriametrics-robotmetrics-cloud-ssd
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: "${VMSTORAGE_REQUESTS_STORAGE}"
+    vminsert:
+      replicaCount: "${VMINSERT_REPLICA_COUNT}"
+      port: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_PORT}"
+      nodeSelector:
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_NODE_SELECTOR_OBJECT: REMOVE_ME
+      tolerations:
+        - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_TOLERATIONS_OBJECT: REMOVE_ME
+      resources:
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_RESOURCES_OBJECT: REMOVE_ME
+      extraArgs:
+        replicationFactor: "${VMINSERT_REPLICATION_FACTOR}"
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME
+    vmselect:
+      replicaCount: "${VMSELECT_REPLICA_COUNT}"
+      port: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_PORT}"
+      nodeSelector:
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_NODE_SELECTOR_OBJECT: REMOVE_ME
+      tolerations:
+        - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_TOLERATIONS_OBJECT: REMOVE_ME
+      resources:
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_RESOURCES_OBJECT: REMOVE_ME
+      extraArgs:
+        http.pathPrefix: "/victoriametrics/robots"
+        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME
+
+vmagent:
+  annotations:
+    # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks
+    argocd.argoproj.io/sync-wave: "5"
+  enabled: true
+  additionalRemoteWrites:
+    - $CR_VICTORIAMETRICS_ROBOTMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT: REMOVE_ME
+  spec:
+    # Cloud ingestion proxy doesn't dynamically scrape cloud pods (that's what cloudmetrics is for)
+    selectAllByDefault: false
+    externalLabels:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_EXTERNAL_LABELS_OBJECT: REMOVE_ME
+    nodeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_NODE_SELECTOR_OBJECT: REMOVE_ME
+    tolerations:
+      - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TOLERATIONS_OBJECT: REMOVE_ME
+    serviceScrapeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    serviceScrapeNamespaceSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    podScrapeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    podScrapeNamespaceSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    nodeScrapeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    nodeScrapeNamespaceSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    probeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_SELECTOR_OBJECT: REMOVE_ME
+    probeNamespaceSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    staticScrapeSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    staticScrapeNamespaceSelector:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    
+    extraArgs:
+      http.pathPrefix: "/victoriametrics/robots/vmagent"
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME
+    
+    resources:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_RESOURCES_OBJECT: REMOVE_ME
+
+    containers:
+      - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_CONTAINERS_OBJECT: REMOVE_ME
+    volumes:
+      - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUMES_OBJECT: REMOVE_ME
+    volumeMounts:
+      - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUME_MOUNTS_OBJECT: REMOVE_ME
+
+serviceAccount:
+  annotations:
+    "${CR_VICTORIAMETRICS_ROBOTMETRICS_SA_ANNOTATIONS}": ""
+
+# Disable extra exporters as they are not needed on the robotmetrics proxy
+victoria-metrics-operator:
+  enabled: false
+
+grafana:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: false
+
+kube-state-metrics:
+  enabled: false
+
+# etcd, scheduler, and controller-manager are managed by GKE and hidden.
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+coreDns:
+  enabled: false
+
+# Throws an invalid namespace "kube-system" error during deployment, as this is
+# trying to install resources into the kube-system namespace, which synk does
+# not support.
+kubeProxy:
+  enabled: false
