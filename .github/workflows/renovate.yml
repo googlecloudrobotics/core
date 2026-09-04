@@ -1,0 +1,106 @@
+name: Renovate
+
+on:
+  # Testing changes via CI:
+  # - Trigger workflow_dispatch with dryRun: "full"
+  # - Or enable dryRun and check logs
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/renovate.yml
+      - .github/ci/renovate-config.js
+      - renovate.json
+  workflow_dispatch:
+    inputs:
+      repoCache:
+        description: "Reset or disable the cache?"
+        type: choice
+        default: enabled
+        options:
+          - enabled
+          - disabled
+          - reset
+      logLevel:
+        description: "Log level"
+        type: choice
+        default: info
+        options:
+          - info
+          - debug
+      dryRun:
+        description: "Dry run mode"
+        type: choice
+        default: "disabled"
+        options:
+          - disabled
+          - full
+          - lookup
+  schedule:
+    - cron: "0 * * * *"
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: github.event.inputs.repoCache != 'disabled'
+        with:
+          path: /tmp/renovate/cache/renovate/repository
+          key: renovate
+
+      # BUG https://github.com/renovatebot/github-action/issues/646
+      # user: ubuntu(12021), group: root(0)
+      - name: Fix cache permissions
+        run: |
+          sudo mkdir -p /tmp/renovate
+          sudo chown -R 12021:0 /tmp/renovate
+
+      - name: Generate app token
+        id: renovate-token
+        if: ${{ env.RENOVATE_APP_ID != '' }}
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RENOVATE_APP_ID || secrets.INTRINSIC_RENOVATE_APP_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY || secrets.INTRINSIC_RENOVATE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+        env:
+          RENOVATE_APP_ID: ${{ secrets.RENOVATE_APP_ID || secrets.INTRINSIC_RENOVATE_APP_ID }}
+
+      - name: Authenticate Renovate to GCP
+        id: gcp-auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          token_format: access_token
+          create_credentials_file: true # also sets GOOGLE_APPLICATION_CREDENTIALS
+          service_account: "github-automation-bot@gha-crc-dev.iam.gserviceaccount.com"
+          workload_identity_provider: "projects/1043719249528/locations/global/workloadIdentityPools/github-automation/providers/crc-dev"
+
+      - name: Set up JSON Credentials
+        shell: bash
+        # NOTE: Exported variables need to start with "RENOVATE_"!
+        run: |
+          echo "RENOVATE_GITHUB_ACTOR=${{ github.actor }}" >> "$GITHUB_ENV"
+          JSON_KEY_BASE64="$(echo -n "oauth2accesstoken:${{ steps.gcp-auth.outputs.access_token }}" | base64 -w 0)"
+          echo "RENOVATE_GCR_TOKEN=${JSON_KEY_BASE64}" >> "$GITHUB_ENV"
+
+      - name: Run Renovate to check for updated dependencies
+        uses: renovatebot/github-action@39b914146caeff8cd512e61c8992f1d5913af85c # v46.2.5
+        with:
+          configurationFile: .github/ci/renovate-config.js
+          token: "${{ steps.renovate-token.outputs.token || secrets.RENOVATE_TOKEN || github.token }}"
+          # renovate: datasource=docker dep_name=ghcr.io/renovatebot/renovate versioning=docker
+          renovate-version: 44.34.3
+        env:
+          RENOVATE_REPOSITORY_CACHE: ${{ github.event.inputs.repoCache || 'enabled' }}
+          LOG_LEVEL: "${{ github.event.inputs.logLevel || 'info' }}" # https://github.com/marketplace/actions/renovate-bot-github-action#debug-logging
+          RENOVATE_DRY_RUN: ${{ github.event.inputs.dryRun != 'disabled' && github.event.inputs.dryRun || '' }}
