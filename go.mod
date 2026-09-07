@@ -59,7 +59,7 @@ require (
 	github.com/google/nftables v0.3.0
 	github.com/googlecloudrobotics/ilog v0.0.0-20240112131211-2efd642f756e
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0
-	go.opentelemetry.io/contrib/propagators/b3 v1.44.0
+	go.opentelemetry.io/contrib/propagators/b3 v1.46.0
 	go.opentelemetry.io/contrib/propagators/opencensus v0.69.0
 	go.opentelemetry.io/contrib/zpages v0.70.0
 	go.opentelemetry.io/otel v1.46.0
