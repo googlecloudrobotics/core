@@ -403,8 +403,8 @@ go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.6
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0/go.mod h1:D7J12YRapIekYyPWgGPlA/23pRmpSEZC5xJC/TTLI9U=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0 h1:LMuyCAyfalSjDyjdC65nK6N0zoTT63+E/u95X0JovZI=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0/go.mod h1:085m8qbm4hgc8rZWGDEa4vmyyo2c3nPxUslYUKUIU04=
-go.opentelemetry.io/contrib/propagators/b3 v1.44.0 h1:1IFH4oFKK8KupzIelCl3u+bkxpGRps1oWRjQI2+TTWs=
-go.opentelemetry.io/contrib/propagators/b3 v1.44.0/go.mod h1:JqWFXsc7VDaqIyubFhEd2cPHqsrzqP0Lvn783SUwyro=
+go.opentelemetry.io/contrib/propagators/b3 v1.46.0 h1:OFVqWObn7xLIbOjE/koO0LS9fZJNgAyBD0msA+UQAoc=
+go.opentelemetry.io/contrib/propagators/b3 v1.46.0/go.mod h1:t/d64xy7xuuEDJN/4ThqohLgRhIuQxL9y7P1v02bYuM=
 go.opentelemetry.io/contrib/propagators/opencensus v0.69.0 h1:oTux2i7NdANhBqxgkLC7uCUI79174mYrnXngJhZyIfg=
 go.opentelemetry.io/contrib/propagators/opencensus v0.69.0/go.mod h1:OV+cGMagJP/dxjDQCeXW90lh7i1PIQPrriFwAc8N5+o=
 go.opentelemetry.io/contrib/zpages v0.70.0 h1:uBcclHekIrCRLO4KZfXiebDcWB52QQXaHGgvhUJ1K5I=
