@@ -120,6 +120,10 @@ function terraform_exec {
 }
 
 function terraform_init {
+  if [[ "${CONFIG_MANAGED_BY_TERRAFORM:-}" == "true" ]]; then
+    die "The Cloud Robotics configuration is managed by Terraform and cannot be modified directly. Please update your Terraform variables instead."
+  fi
+
   local ROBOT_IMAGE_DIGEST
   ROBOT_IMAGE_DIGEST=$(cat bazel-bin/src/bootstrap/cloud/setup-robot.digest)
 
