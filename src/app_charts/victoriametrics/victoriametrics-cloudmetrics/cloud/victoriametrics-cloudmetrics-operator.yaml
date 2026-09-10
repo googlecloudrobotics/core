@@ -589,11 +589,11 @@
   {{- end -}}
 {{- end -}}
 {{- if $vmalertExtraArgsMap }}
-  {{- $formattedExtraArgs := toYaml $vmalertExtraArgsMap | nindent 6 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedExtraArgs)) -}}
+  {{- $formattedExtraArgs := toYaml $vmalertExtraArgsMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedExtraArgs)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
+  {{- $data = $data | replace "    $CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "    $CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
 {{- end }}
 
 # Inject extraArgs for vminsert
@@ -608,11 +608,11 @@
   {{- end -}}
 {{- end -}}
 {{- if $vminsertExtraArgsMap }}
-  {{- $formattedExtraArgs := toYaml $vminsertExtraArgsMap | nindent 8 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "        " (trimPrefix "\n" $formattedExtraArgs)) -}}
+  {{- $formattedExtraArgs := toYaml $vminsertExtraArgsMap | nindent 6 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedExtraArgs)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
+  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
 {{- end }}
 
 # Inject extraArgs for vmselect
@@ -627,11 +627,11 @@
   {{- end -}}
 {{- end -}}
 {{- if $vmselectExtraArgsMap }}
-  {{- $formattedExtraArgs := toYaml $vmselectExtraArgsMap | nindent 8 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "        " (trimPrefix "\n" $formattedExtraArgs)) -}}
+  {{- $formattedExtraArgs := toYaml $vmselectExtraArgsMap | nindent 6 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedExtraArgs)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
+  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
 {{- end }}
 
 # Inject extraArgs for vmagent
@@ -644,11 +644,11 @@
   {{- end -}}
 {{- end -}}
 {{- if $vmagentExtraArgsMap }}
-  {{- $formattedExtraArgs := toYaml $vmagentExtraArgsMap | nindent 6 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedExtraArgs)) -}}
+  {{- $formattedExtraArgs := toYaml $vmagentExtraArgsMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedExtraArgs)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
+  {{- $data = $data | replace "    $CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "    $CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
 {{- end }}
 
 # Inject externalLabels
@@ -741,6 +741,8 @@
   {{- $formattedExtraObjects := toYaml .Values.extraObjects | nindent 0 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME" (trimPrefix "\n" $formattedExtraObjects) -}}
 {{- else }}
+  {{- $data = $data | replace "---\n# Source: victoria-metrics-k8s-stack/templates/extra-objects.yaml\n$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "---\n# Source: victoria-metrics-k8s-stack/templates/extra-objects.yaml\n$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME" "" -}}
   {{- $data = $data | replace "---\n$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME\n" "" -}}
   {{- $data = $data | replace "---\n$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME" "" -}}
 {{- end }}
