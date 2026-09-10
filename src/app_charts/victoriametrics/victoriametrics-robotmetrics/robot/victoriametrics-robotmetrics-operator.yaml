@@ -16,9 +16,28 @@
 {{- end -}}
 {{- $data = $data | replace (printf "\"${CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_PORT}\"") (toString $nodeExporterPort) -}}
 {{- $data = $data | replace "${CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_PORT}" (toString $nodeExporterPort) -}}
-{{- $data = $data | replace "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TMP_DATA_PATH}" (default "/tmp/vmagent-remotewrite-data" .Values.vmagent.tmp_data_path) -}}
-{{- $data = $data | replace "${VMAGENT_MAX_DISK_USAGE}" (default "5GB" .Values.vmagent.max_disk_usage) -}}
-{{- $data = $data | replace "${VMAGENT_ALLOWED_BYTES}" (default "200MB" .Values.vmagent.allowed_bytes) -}}
+{{- $tmpDataPath := "/tmp/vmagent-remotewrite-data" -}}
+{{- if .Values.vmagent -}}
+  {{- if hasKey .Values.vmagent "tmp_data_path" -}}
+    {{- $tmpDataPath = .Values.vmagent.tmp_data_path -}}
+  {{- end -}}
+{{- end -}}
+{{- $data = $data | replace "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TMP_DATA_PATH}" $tmpDataPath -}}
+{{- $data = $data | replace "${VMAGENT_TMP_DATA_PATH}" $tmpDataPath -}}
+{{- $maxDiskUsage := "5GB" -}}
+{{- if .Values.vmagent -}}
+  {{- if hasKey .Values.vmagent "max_disk_usage" -}}
+    {{- $maxDiskUsage = .Values.vmagent.max_disk_usage -}}
+  {{- end -}}
+{{- end -}}
+{{- $data = $data | replace "${VMAGENT_MAX_DISK_USAGE}" $maxDiskUsage -}}
+{{- $allowedBytes := "200MB" -}}
+{{- if .Values.vmagent -}}
+  {{- if hasKey .Values.vmagent "allowed_bytes" -}}
+    {{- $allowedBytes = .Values.vmagent.allowed_bytes -}}
+  {{- end -}}
+{{- end -}}
+{{- $data = $data | replace "${VMAGENT_ALLOWED_BYTES}" $allowedBytes -}}
 {{- $data = $data | replace "HELM-NAMESPACE" .Release.Namespace -}}
 
 # Inject extraArgs for vmagent

@@ -16,13 +16,26 @@ spec:
   - matches:
     - path:
         type: PathPrefix
+        value: /victoriametrics-robotmetrics-write/insert/0/prometheus/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /victoriametrics/robots/vmagent/
+    backendRefs:
+    - name: vmagent-vmr
+      port: 8429
+  - matches:
+    - path:
+        type: PathPrefix
         value: /victoriametrics-robotmetrics-write/
     filters:
     - type: URLRewrite
       urlRewrite:
         path:
           type: ReplacePrefixMatch
-          replacePrefixMatch: /
+          replacePrefixMatch: /victoriametrics/robots/vmagent/
     backendRefs:
     - name: vmagent-vmr
       port: 8429
@@ -35,7 +48,7 @@ spec:
       urlRewrite:
         path:
           type: ReplaceFullPath
-          replaceFullPath: /
+          replaceFullPath: /victoriametrics/robots/vmagent/
     backendRefs:
     - name: vmagent-vmr
       port: 8429
