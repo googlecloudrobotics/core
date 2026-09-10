@@ -16,7 +16,7 @@
 {{- end -}}
 {{- $data = $data | replace (printf "\"${CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_PORT}\"") (toString $nodeExporterPort) -}}
 {{- $data = $data | replace "${CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_PORT}" (toString $nodeExporterPort) -}}
-{{- $data = $data | replace "${VMAGENT_TMP_DATA_PATH}" (default "/tmp/vmagent-remotewrite-data" .Values.vmagent.tmp_data_path) -}}
+{{- $data = $data | replace "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_TMP_DATA_PATH}" (default "/tmp/vmagent-remotewrite-data" .Values.vmagent.tmp_data_path) -}}
 {{- $data = $data | replace "${VMAGENT_MAX_DISK_USAGE}" (default "5GB" .Values.vmagent.max_disk_usage) -}}
 {{- $data = $data | replace "${VMAGENT_ALLOWED_BYTES}" (default "200MB" .Values.vmagent.allowed_bytes) -}}
 {{- $data = $data | replace "HELM-NAMESPACE" .Release.Namespace -}}
@@ -31,11 +31,11 @@
   {{- end -}}
 {{- end -}}
 {{- if $vmagentExtraArgsMap }}
-  {{- $formattedExtraArgs := toYaml $vmagentExtraArgsMap | nindent 6 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedExtraArgs)) -}}
+  {{- $formattedExtraArgs := toYaml $vmagentExtraArgsMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedExtraArgs)) -}}
 {{- else }}
-  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
-  {{- $data = $data | replace "      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
+  {{- $data = $data | replace "    $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "    $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
 {{- end }}
 
 # Inject the vmagent resources
@@ -164,7 +164,8 @@
   {{- $formattedSelector := toYaml $serviceScrapeSelectorMap | nindent 2 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    serviceScrapeSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  serviceScrapeSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject serviceScrapeNamespaceSelector for vmagent
@@ -180,7 +181,8 @@
   {{- $formattedSelector := toYaml $serviceScrapeNamespaceSelectorMap | nindent 2 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    serviceScrapeNamespaceSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  serviceScrapeNamespaceSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject podScrapeSelector for vmagent
@@ -196,7 +198,8 @@
   {{- $formattedSelector := toYaml $podScrapeSelectorMap | nindent 2 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    podScrapeSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  podScrapeSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject podScrapeNamespaceSelector for vmagent
@@ -212,7 +215,8 @@
   {{- $formattedSelector := toYaml $podScrapeNamespaceSelectorMap | nindent 2 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    podScrapeNamespaceSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  podScrapeNamespaceSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the nodeScrapeSelector to allow users to filter scraping by node.
@@ -228,7 +232,8 @@
   {{- $formattedSelector := toYaml $nodeScrapeSelectorMap | nindent 2 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    nodeScrapeSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  nodeScrapeSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the nodeScrapeNamespaceSelector to allow users to filter scraping by namespace.
@@ -244,7 +249,8 @@
   {{- $formattedSelector := toYaml $nodeScrapeNamespaceSelectorMap | nindent 2 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    nodeScrapeNamespaceSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  nodeScrapeNamespaceSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the probeSelector to allow users to filter scraping by probe.
@@ -260,7 +266,8 @@
   {{- $formattedSelector := toYaml $probeSelectorMap | nindent 2 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    probeSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  probeSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the probeNamespaceSelector to allow users to filter scraping by namespace.
@@ -276,7 +283,8 @@
   {{- $formattedSelector := toYaml $probeNamespaceSelectorMap | nindent 2 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    probeNamespaceSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  probeNamespaceSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the staticScrapeSelector to allow users to filter scraping by staticScrape.
@@ -292,7 +300,8 @@
   {{- $formattedSelector := toYaml $staticScrapeSelectorMap | nindent 2 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    staticScrapeSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  staticScrapeSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the staticScrapeNamespaceSelector to allow users to filter scraping by namespace.
@@ -308,7 +317,8 @@
   {{- $formattedSelector := toYaml $staticScrapeNamespaceSelectorMap | nindent 2 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    staticScrapeNamespaceSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  staticScrapeNamespaceSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject remoteWrite
@@ -375,11 +385,11 @@
   {{- end -}}
 {{- end -}}
 {{- if $nodeExporterExtraArgsList }}
-  {{- $formattedExtraArgs := toYaml $nodeExporterExtraArgsList | nindent 4 -}}
-  {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedExtraArgs)) -}}
+  {{- $formattedExtraArgs := toYaml $nodeExporterExtraArgsList | nindent 12 -}}
+  {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_EXTRA_ARGS_OBJECT: REMOVE_ME" (trimPrefix "            " (trimPrefix "\n" $formattedExtraArgs)) -}}
 {{- else }}
-  {{- $data = $data | replace "    - $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
-  {{- $data = $data | replace "    - $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
+  {{- $data = $data | replace "            - $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_EXTRA_ARGS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "            - $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_EXPORTER_EXTRA_ARGS_OBJECT: REMOVE_ME" "" -}}
 {{- end }}
 
 {{- if .Values.extraObjects }}
