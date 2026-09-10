@@ -353,7 +353,7 @@
 {{- end -}}
 {{- if $vmalertNodeSelectorMap }}
   {{- $formattedNodeSelector := toYaml $vmalertNodeSelectorMap | nindent 4 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_NODE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedNodeSelector)) -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_NODE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedNodeSelector)) -}}
 {{- else }}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_NODE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
@@ -736,15 +736,20 @@
 
 {{- $data = $data | replace "HELM-NAMESPACE" .Release.Namespace -}}
 
-# Expand extra objects if anyT
+# Expand extra objects if any
 {{- if .Values.extraObjects }}
-  {{- $formattedExtraObjects := toYaml .Values.extraObjects | nindent 0 -}}
+  {{- $formattedExtraObjects := "" -}}
+  {{- range $index, $obj := .Values.extraObjects -}}
+    {{- if $index -}}
+      {{- $formattedExtraObjects = printf "%s\n---\n%s" $formattedExtraObjects (toYaml $obj | nindent 0) -}}
+    {{- else -}}
+      {{- $formattedExtraObjects = toYaml $obj | nindent 0 -}}
+    {{- end -}}
+  {{- end -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME" (trimPrefix "\n" $formattedExtraObjects) -}}
 {{- else }}
-  {{- $data = $data | replace "---\n# Source: victoria-metrics-k8s-stack/templates/extra-objects.yaml\n$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME\n" "" -}}
-  {{- $data = $data | replace "---\n# Source: victoria-metrics-k8s-stack/templates/extra-objects.yaml\n$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME" "" -}}
-  {{- $data = $data | replace "---\n$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME\n" "" -}}
-  {{- $data = $data | replace "---\n$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME" "" -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME" "" -}}
 {{- end }}
 
 {{ $data }}
