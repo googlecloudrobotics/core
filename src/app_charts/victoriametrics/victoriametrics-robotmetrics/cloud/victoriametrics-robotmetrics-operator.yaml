@@ -464,7 +464,8 @@
   {{- $formattedSelector := toYaml $serviceScrapeSelectorMap | nindent 4 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    serviceScrapeSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  serviceScrapeSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject serviceScrapeNamespaceSelector for vmagent
@@ -480,7 +481,8 @@
   {{- $formattedSelector := toYaml $serviceScrapeNamespaceSelectorMap | nindent 4 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    serviceScrapeNamespaceSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  serviceScrapeNamespaceSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject podScrapeSelector for vmagent
@@ -496,7 +498,8 @@
   {{- $formattedSelector := toYaml $podScrapeSelectorMap | nindent 4 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    podScrapeSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  podScrapeSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject podScrapeNamespaceSelector for vmagent
@@ -512,7 +515,8 @@
   {{- $formattedSelector := toYaml $podScrapeNamespaceSelectorMap | nindent 4 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    podScrapeNamespaceSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  podScrapeNamespaceSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the nodeScrapeSelector to allow users to filter scraping by node.
@@ -528,7 +532,8 @@
   {{- $formattedSelector := toYaml $nodeScrapeSelectorMap | nindent 4 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    nodeScrapeSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  nodeScrapeSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the nodeScrapeNamespaceSelector to allow users to filter scraping by namespace.
@@ -544,7 +549,8 @@
   {{- $formattedSelector := toYaml $nodeScrapeNamespaceSelectorMap | nindent 4 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    nodeScrapeNamespaceSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  nodeScrapeNamespaceSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_NODE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the probeSelector to allow users to filter scraping by probe.
@@ -560,7 +566,8 @@
   {{- $formattedSelector := toYaml $probeSelectorMap | nindent 4 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    probeSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  probeSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the probeNamespaceSelector to allow users to filter scraping by namespace.
@@ -576,7 +583,8 @@
   {{- $formattedSelector := toYaml $probeNamespaceSelectorMap | nindent 4 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    probeNamespaceSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  probeNamespaceSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_PROBE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the staticScrapeSelector to allow users to filter scraping by staticScrape.
@@ -592,7 +600,8 @@
   {{- $formattedSelector := toYaml $staticScrapeSelectorMap | nindent 4 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    staticScrapeSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  staticScrapeSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the staticScrapeNamespaceSelector to allow users to filter scraping by namespace.
@@ -608,7 +617,8 @@
   {{- $formattedSelector := toYaml $staticScrapeNamespaceSelectorMap | nindent 4 -}}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+  {{- $data = $data | replace "    staticScrapeNamespaceSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  staticScrapeNamespaceSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject Service Account Annotations
