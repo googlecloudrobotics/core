@@ -118,7 +118,7 @@ oci.pull(
 # gcloud container images describe gcr.io/distroless/cc:latest --format='value(image_summary.digest)'
 oci.pull(
     name = "distroless_cc",
-    digest = "sha256:8aad707f96620ee89e27febef51b01c6ff244277a3560fcfcfbe68633ef09193",
+    digest = "sha256:9b615fff20e1a4fad29c2b30562580b212c7dd5e2225236735cca0070ed11c78",
     image = "gcr.io/distroless/cc",
     platforms = ["linux/amd64"],
 )
