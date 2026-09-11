@@ -1,0 +1,44 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: victoriametrics-robotmetrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: "{{ tpl .Values.victoriametrics_robotmetrics_ingress_auth_url . }}"
+    nginx.ingress.kubernetes.io/auth-signin: "{{ tpl .Values.victoriametrics_robotmetrics_ingress_auth_signin . }}"
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      error_page 403 = {{ tpl .Values.victoriametrics_robotmetrics_ingress_error_page_403 . }};
+      rewrite ^/victoriametrics/robots/?$ /victoriametrics/robots/select/0/prometheus/vmui redirect;
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: {{ .Values.domain }}
+    http:
+      paths:
+      # Main VMUI and Prometheus Query API
+      - path: /victoriametrics/robots(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: vmselect-vmr
+            port:
+              number: 8481
+      # Alerts Dashboard
+      - path: /victoriametrics/robots/vmalert(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: vmalert-vmr
+            port:
+              number: 8880
+      # Scraper Targets and Service Discovery Dashboard
+      - path: /victoriametrics/robots/vmagent(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: vmagent-vmr
+            port:
+              number: 8429

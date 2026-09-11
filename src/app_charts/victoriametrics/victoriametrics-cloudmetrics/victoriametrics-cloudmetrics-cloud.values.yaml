@@ -1,0 +1,195 @@
+# Configuration for the second victoria-metrics-cluster chart that stores
+# cloud-cluster metrics.
+
+fullnameOverride: "vmc"
+
+vmalert:
+  enabled: true
+  annotations:
+    # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks
+    argocd.argoproj.io/sync-wave: "5"
+  spec:
+    ruleSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_RULE_SELECTOR_OBJECT: REMOVE_ME
+    ruleNamespaceSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_RULE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    nodeSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_NODE_SELECTOR_OBJECT: REMOVE_ME
+    tolerations:
+      - $CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_TOLERATIONS_OBJECT: REMOVE_ME
+    notifiers:
+      - url: "${CR_VICTORIAMETRICS_CLOUDMETRICS_NOTIFIERS_OBJECT}"
+    extraArgs:
+      http.pathPrefix: "/victoriametrics/cloud/vmalert"
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME
+
+vmsingle:
+  enabled: false
+
+vmcluster:
+  enabled: true
+  annotations:
+    # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks
+    argocd.argoproj.io/sync-wave: "5"
+  spec:
+    # Scalar strings use component-scoped names and are substituted directly (e.g. replace "${VMCLUSTER_RETENTION_TIME}").
+    # Note: replicaCount requires a toString cast during substitution because Helm evaluates it as a string, but the CRD expects an integer.
+    retentionPeriod: "${VMCLUSTER_RETENTION_TIME}"
+    replicationFactor: "${VMCLUSTER_REPLICATION_FACTOR}"
+    vmstorage:
+      replicaCount: "${VMSTORAGE_REPLICA_COUNT}"
+      # Complex objects (nodeSelector, tolerations) use the global CR_..._OBJECT suffix.
+      # They are injected via `toYaml | nindent` by the operator to prevent YAML indentation corruption.
+      nodeSelector:
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSTORAGE_NODE_SELECTOR_OBJECT: REMOVE_ME
+      tolerations:
+        - $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSTORAGE_TOLERATIONS_OBJECT: REMOVE_ME
+      resources:
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSTORAGE_RESOURCES_OBJECT: REMOVE_ME
+      storage:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: victoriametrics-cloudmetrics-cloud-ssd
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: "${VMSTORAGE_REQUESTS_STORAGE}"
+    vminsert:
+      replicaCount: "${VMINSERT_REPLICA_COUNT}"
+      port: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_PORT}"
+      nodeSelector:
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_NODE_SELECTOR_OBJECT: REMOVE_ME
+      tolerations:
+        - $CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_TOLERATIONS_OBJECT: REMOVE_ME
+      resources:
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_RESOURCES_OBJECT: REMOVE_ME
+      extraArgs:
+        replicationFactor: "${VMINSERT_REPLICATION_FACTOR}"
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME
+    vmselect:
+      replicaCount: "${VMSELECT_REPLICA_COUNT}"
+      port: "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_PORT}"
+      nodeSelector:
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_NODE_SELECTOR_OBJECT: REMOVE_ME
+      tolerations:
+        - $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_TOLERATIONS_OBJECT: REMOVE_ME
+      resources:
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_RESOURCES_OBJECT: REMOVE_ME
+      extraArgs:
+        http.pathPrefix: "/victoriametrics/cloud"
+        $CR_VICTORIAMETRICS_CLOUDMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME
+
+vmagent:
+  enabled: true
+  annotations:
+    # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks
+    argocd.argoproj.io/sync-wave: "5"
+  additionalRemoteWrites:
+    - $CR_VICTORIAMETRICS_CLOUDMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT: REMOVE_ME
+  spec:
+    selectAllByDefault: true
+    serviceScrapeSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    serviceScrapeNamespaceSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_SERVICE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    podScrapeSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    podScrapeNamespaceSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_POD_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    nodeScrapeSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_NODE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    nodeScrapeNamespaceSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_NODE_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    probeSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_PROBE_SELECTOR_OBJECT: REMOVE_ME
+    probeNamespaceSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_PROBE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    staticScrapeSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
+    staticScrapeNamespaceSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
+    externalLabels:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTERNAL_LABELS_OBJECT: REMOVE_ME
+    nodeSelector:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_NODE_SELECTOR_OBJECT: REMOVE_ME
+    tolerations:
+      - $CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_TOLERATIONS_OBJECT: REMOVE_ME
+    extraArgs:
+      remoteWrite.tmpDataPath: "${VMAGENT_TMP_DATA_PATH}"
+      remoteWrite.maxDiskUsagePerURL: "${VMAGENT_MAX_DISK_USAGE}"
+      memory.allowedBytes: "${VMAGENT_ALLOWED_BYTES}"
+      http.pathPrefix: "/victoriametrics/cloud/vmagent"
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME
+    resources:
+      $CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_RESOURCES_OBJECT: REMOVE_ME
+    containers:
+      - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_CONTAINERS_OBJECT: REMOVE_ME
+    volumes:
+      - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_VOLUMES_OBJECT: REMOVE_ME
+    volumeMounts:
+      - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT: REMOVE_ME
+
+extraObjects:
+  - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_OBJECTS: REMOVE_ME
+
+alertmanager:
+  enabled: false
+
+serviceAccount:
+  annotations:
+    "${CR_VICTORIAMETRICS_CLOUDMETRICS_SA_ANNOTATIONS}": ""
+
+# Subcharts
+
+# Disable extra exporters and operator as they are managed independently
+victoria-metrics-operator:
+  enabled: false
+
+grafana:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: ${CR_VICTORIAMETRICS_CLOUDMETRICS_NODE_EXPORTER_ENABLED}
+  service:
+    port: "${CR_VICTORIAMETRICS_CLOUDMETRICS_NODE_EXPORTER_PORT}"
+    targetPort: "${CR_VICTORIAMETRICS_CLOUDMETRICS_NODE_EXPORTER_PORT}"
+  prometheus:
+    monitor:
+      relabelings:
+      - sourceLabels: [__meta_kubernetes_pod_node_name]
+        targetLabel: instance
+
+kube-state-metrics:
+  fullnameOverride: "vmc-kube-state-metrics"
+  enabled: true
+  prometheus:
+    monitor:
+      relabelings:
+      - sourceLabels: [__meta_kubernetes_pod_node_name]
+        targetLabel: instance
+
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+coreDns:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+kubeApiServer:
+  serviceMonitor:
+    interval: 1m
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance
+
+kubelet:
+  serviceMonitor:
+    resourcePath: "/metrics/resource"
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: instance

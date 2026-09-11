@@ -1,0 +1,29 @@
+load("//bazel:build_rules/helm_template.bzl", "helm_template")
+load("//bazel:app_chart.bzl", "app_chart")
+load("//bazel:app.bzl", "app")
+
+helm_template(
+    name = "victoriametrics-cloudmetrics-chart.cloud",
+    chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
+    helm_version = 3,
+    namespace = "HELM-NAMESPACE",
+    release_name = "vmc",
+    values = "victoriametrics-cloudmetrics-cloud.values.yaml",
+)
+
+app_chart(
+    name = "victoriametrics-cloudmetrics-cloud",
+    extra_values = ["values-cloud.yaml"],
+    files = [
+        ":victoriametrics-cloudmetrics-chart.cloud",
+    ],
+    images = {},
+)
+
+app(
+    name = "victoriametrics-cloudmetrics",
+    charts = [
+        ":victoriametrics-cloudmetrics-cloud",
+    ],
+    visibility = ["//visibility:public"],
+)

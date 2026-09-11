@@ -1,0 +1,48 @@
+# This chart ONLY deploys the VictoriaMetrics Operator.
+# It acts as a cluster-wide singleton so that it has the necessary permissions
+# to read ServiceMonitors globally across all namespaces.
+
+victoria-metrics-operator:
+  enabled: true
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  fullnameOverride: "vm-operator"
+  crds:
+    cleanup:
+      enabled: false
+  admissionWebhooks:
+    certManager:
+      enabled: true
+      issuer:
+        name: "selfsigned-issuer"
+        kind: "ClusterIssuer"
+
+# Disable all components (they are deployed by the actual metric apps)
+vmalert:
+  enabled: false
+vmalertmanager:
+  enabled: false
+alertmanager:
+  enabled: false
+vmsingle:
+  enabled: false
+vmcluster:
+  enabled: false
+vmagent:
+  enabled: false
+grafana:
+  enabled: false
+prometheus-node-exporter:
+  enabled: false
+kube-state-metrics:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+coreDns:
+  enabled: false
+kubeProxy:
+  enabled: false
