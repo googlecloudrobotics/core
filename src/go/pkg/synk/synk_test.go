@@ -1027,3 +1027,108 @@ func Test_decodeResourceSetName(t *testing.T) {
 		}
 	}
 }
+
+func TestGroupResources(t *testing.T) {
+	crd := newUnstructured("apiextensions.k8s.io/v1", "CustomResourceDefinition", "", "crd1")
+	role := newUnstructured("rbac.authorization.k8s.io/v1", "Role", "ns1", "role1")
+	roleBinding := newUnstructured("rbac.authorization.k8s.io/v1", "RoleBinding", "ns1", "rb1")
+	clusterRole := newUnstructured("rbac.authorization.k8s.io/v1", "ClusterRole", "", "cr1")
+	clusterRoleBinding := newUnstructured("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", "crb1")
+	sa := newUnstructured("v1", "ServiceAccount", "ns1", "sa1")
+	deploy := newUnstructured("apps/v1", "Deployment", "ns1", "deploy1")
+	cm := newUnstructured("v1", "ConfigMap", "ns1", "cm1")
+	secret := newUnstructured("v1", "Secret", "ns1", "secret1")
+
+	resources := []*unstructured.Unstructured{deploy, crd, role, cm, sa, clusterRole, secret, roleBinding, clusterRoleBinding}
+
+	groups := groupResources(resources, isCustomResourceDefinition, isRBACResource)
+	if len(groups) != 3 {
+		t.Fatalf("expected 3 groups, got %d", len(groups))
+	}
+
+	wantCRDs := []*unstructured.Unstructured{crd}
+	if !reflect.DeepEqual(groups[0], wantCRDs) {
+		t.Errorf("group 0 (CRDs) mismatch: got %v, want %v", groups[0], wantCRDs)
+	}
+
+	wantRBAC := []*unstructured.Unstructured{role, sa, clusterRole, roleBinding, clusterRoleBinding}
+	if !reflect.DeepEqual(groups[1], wantRBAC) {
+		t.Errorf("group 1 (RBAC) mismatch: got %v, want %v", groups[1], wantRBAC)
+	}
+
+	wantRemaining := []*unstructured.Unstructured{deploy, cm, secret}
+	if !reflect.DeepEqual(groups[2], wantRemaining) {
+		t.Errorf("group 2 (Remaining) mismatch: got %v, want %v", groups[2], wantRemaining)
+	}
+}
+
+func TestIsRBACResource(t *testing.T) {
+	tests := []struct {
+		res  *unstructured.Unstructured
+		want bool
+	}{
+		{newUnstructured("rbac.authorization.k8s.io/v1", "Role", "ns", "r"), true},
+		{newUnstructured("rbac.authorization.k8s.io/v1", "RoleBinding", "ns", "rb"), true},
+		{newUnstructured("rbac.authorization.k8s.io/v1", "ClusterRole", "", "cr"), true},
+		{newUnstructured("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", "crb"), true},
+		{newUnstructured("rbac.authorization.k8s.io/v1beta1", "Role", "ns", "r"), true},
+		{newUnstructured("v1", "ServiceAccount", "ns", "sa"), true},
+		{newUnstructured("v1", "Pod", "ns", "p"), false},
+		{newUnstructured("v1", "Secret", "ns", "s"), false},
+		{newUnstructured("v1", "ConfigMap", "ns", "cm"), false},
+		{newUnstructured("apps/v1", "Deployment", "ns", "d"), false},
+		{newUnstructured("apiextensions.k8s.io/v1", "CustomResourceDefinition", "", "crd"), false},
+	}
+	for _, tc := range tests {
+		if got := isRBACResource(tc.res); got != tc.want {
+			t.Errorf("isRBACResource(%s/%s) = %v, want %v", tc.res.GetAPIVersion(), tc.res.GetKind(), got, tc.want)
+		}
+	}
+}
+
+func TestSynk_applyAllGroupOrder(t *testing.T) {
+	f := newFixture(t)
+
+	deploy := newUnstructured("apps/v1", "Deployment", "foo", "dp1")
+	role := newUnstructured("rbac.authorization.k8s.io/v1", "Role", "foo", "role1")
+	sa := newUnstructured("v1", "ServiceAccount", "foo", "sa1")
+
+	set := &apps.ResourceSet{}
+	set.Name = "test.v1"
+	set.UID = "deadbeef"
+
+	// Pass deploy first; applyAll should still apply RBAC resources (role, sa) before remaining (deploy).
+	results, err := f.newSynk().applyAll(t.Context(), set, &ApplyOptions{name: "test"},
+		deploy.DeepCopy(),
+		role.DeepCopy(),
+		sa.DeepCopy(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("expected 3 results, got %d", len(results))
+	}
+
+	ownerRef := metav1.OwnerReference{
+		APIVersion:         "apps.cloudrobotics.com/v1alpha1",
+		Kind:               "ResourceSet",
+		Name:               set.Name,
+		UID:                set.UID,
+		BlockOwnerDeletion: new(true),
+	}
+	for _, res := range []*unstructured.Unstructured{role, sa, deploy} {
+		res.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+		setAppliedAnnotation(res)
+	}
+
+	roleGVR := schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "roles"}
+	saGVR := schema.GroupVersionResource{Version: "v1", Resource: "serviceaccounts"}
+
+	f.expectActions(
+		k8stest.NewCreateAction(roleGVR, "foo", role),
+		k8stest.NewCreateAction(saGVR, "foo", sa),
+		k8stest.NewCreateAction(gvrs["deployments"], "foo", deploy),
+	)
+	f.verifyWriteActions()
+}
