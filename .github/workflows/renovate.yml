@@ -96,7 +96,7 @@ jobs:
           configurationFile: .github/ci/renovate-config.js
           token: "${{ steps.renovate-token.outputs.token }}"
           # renovate: datasource=docker dep_name=ghcr.io/renovatebot/renovate versioning=docker
-          renovate-version: 44.34.3
+          renovate-version: 44.82.5
         env:
           RENOVATE_REPOSITORY_CACHE: ${{ github.event.inputs.repoCache || 'enabled' }}
           LOG_LEVEL: "${{ github.event.inputs.logLevel || 'info' }}" # https://github.com/marketplace/actions/renovate-bot-github-action#debug-logging
