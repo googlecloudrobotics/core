@@ -245,6 +245,9 @@ data:
       # Limits the total size of buffers that can be busy sending responses to the client while the response is still being read.
       proxy_busy_buffers_size 64k;
 
+      # Hash table configuration for map directives (prevents map_hash overflow with long domain names)
+      map_hash_bucket_size 128;
+
       # Map WebSocket upgrades to connection upgrade header to support proxying WebSockets dynamically.
       map $http_upgrade $connection_upgrade {
           default upgrade;
