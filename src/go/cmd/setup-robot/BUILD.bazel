@@ -86,7 +86,5 @@ oci_image(
 oci_push(
     name = "setup-robot.push",
     image = ":setup-robot-image",
-    # repository is required, even in container_push
-    repository = "TODO-registry",
     visibility = ["//visibility:public"],
 )

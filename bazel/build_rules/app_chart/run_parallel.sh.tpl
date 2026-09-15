@@ -8,12 +8,12 @@ function guess_runfiles() {
     popd > /dev/null 2>&1
 }
 
-RUNFILES="${PYTHON_RUNFILES:-$(guess_runfiles)}"
+RUNFILES="${RUNFILES_DIR:-${PYTHON_RUNFILES:-$(guess_runfiles)}}"
 
 PIDS=()
 function async() {
     # Launch the command asynchronously and track its process id.
-    PYTHON_RUNFILES=${RUNFILES} "$@" &
+    PYTHON_RUNFILES=${RUNFILES} RUNFILES_DIR=${RUNFILES} "$@" &
     PIDS+=($!)
 }
 
