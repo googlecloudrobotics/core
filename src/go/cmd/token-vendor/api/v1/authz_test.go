@@ -25,37 +25,20 @@ import (
 	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
-	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/k8s"
+	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/memory"
 	"google.golang.org/grpc/codes"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 )
 
 func setupTestExtAuthzServer(t *testing.T, iamHandler RoundTripFunc) *ExtAuthzServer {
 	t.Helper()
-	ctx := context.Background()
+	ctx := t.Context()
 
-	cs := fake.NewSimpleClientset()
-	if err := populateK8sEnv(ctx, cs, "default",
-		[]*corev1.ConfigMap{
-			{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "ConfigMap",
-					APIVersion: "v1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "robot-dev-testuser",
-				},
-				Data: map[string]string{"pubKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvTGUksynbWhvZkHNJn8C2oXVD400jiK4T0JoyS/SwbBGwFr3OJGlPwXCsvAPAzmpTuZpge6T3pnIcO/s97sMgyld9ZYio7SQiiRV/nwYZittGf9/yfHSNDJUvT25yhuK2p3UqRCom1a3KljeXbxXvGuYG48IH0kqAQbYBI/0lAV3H5pkdXPFZC6PHltC3jySVIOg7qPXrNuxdxmg/gmzQ9+NmKvXWKATAPax1yYoESaZtc22aCZWouIdJr3baYlfBb4w8stoJPoONuyn4ard17gywb46HHGl2XoY+Y5pihwvctsFeZXLfYwUmFPfgncQHJ02lCV3+Xyk4AAZy3xDpwIDAQAB\n-----END PUBLIC KEY-----"},
-			},
-		}); err != nil {
-		t.Fatalf("failed to populate k8s env: %v", err)
-	}
-
-	repo, err := k8s.NewK8sRepository(ctx, cs, "default")
+	repo, err := memory.NewMemoryRepository(ctx)
 	if err != nil {
-		t.Fatalf("failed to create k8s repo: %v", err)
+		t.Fatalf("failed to create memory repo: %v", err)
+	}
+	if err := repo.PublishKey(ctx, "robot-dev-testuser", "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvTGUksynbWhvZkHNJn8C2oXVD400jiK4T0JoyS/SwbBGwFr3OJGlPwXCsvAPAzmpTuZpge6T3pnIcO/s97sMgyld9ZYio7SQiiRV/nwYZittGf9/yfHSNDJUvT25yhuK2p3UqRCom1a3KljeXbxXvGuYG48IH0kqAQbYBI/0lAV3H5pkdXPFZC6PHltC3jySVIOg7qPXrNuxdxmg/gmzQ9+NmKvXWKATAPax1yYoESaZtc22aCZWouIdJr3baYlfBb4w8stoJPoONuyn4ard17gywb46HHGl2XoY+Y5pihwvctsFeZXLfYwUmFPfgncQHJ02lCV3+Xyk4AAZy3xDpwIDAQAB\n-----END PUBLIC KEY-----"); err != nil {
+		t.Fatalf("failed to publish key: %v", err)
 	}
 
 	var httpClient *http.Client
