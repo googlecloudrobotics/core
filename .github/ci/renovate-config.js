@@ -17,6 +17,10 @@ export default {
       : []),
   ],
   repositories: ['googlecloudrobotics/core'],
+  allowedUnsafeExecutions: ['bazelModDeps'],
+  allowedCommands: [
+    '^install-tool bazelisk && bazel mod deps --lockfile_mode=update$',
+  ],
   enabledManagers: [
     'bazel-module',
     'bazelisk',
@@ -98,6 +102,17 @@ export default {
       matchDatasources: ['bazel-module'],
       matchDepNames: ['grpc'],
       groupName: 'gRPC',
+    },
+    {
+      matchManagers: ['custom.regex'],
+      matchFileNames: ['MODULE.bazel', 'non_module_deps.bzl'],
+      postUpgradeTasks: {
+        commands: [
+          'install-tool bazelisk && bazel mod deps --lockfile_mode=update',
+        ],
+        fileFilters: ['MODULE.bazel.lock'],
+        executionMode: 'branch',
+      },
     },
   ],
 
