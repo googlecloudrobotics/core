@@ -21,7 +21,10 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client"
@@ -96,6 +99,54 @@ func startRelay(t testing.TB, ctx context.Context, relayLn net.Listener, config 
 type RelayEnv struct {
 	RelayPort   int
 	BackendPort int
+}
+
+// InMemoryRelayEnv holds an in-memory relay test environment backed by httptest.NewTestServer.
+type InMemoryRelayEnv struct {
+	Client   *http.Client
+	RelayURL string
+}
+
+// SetupInMemoryRelay creates an in-memory relay environment using httptest.NewTestServer,
+// suitable for use with testing/synctest.
+func SetupInMemoryRelay(t testing.TB, config client.ClientConfig, backendHandler http.Handler) *InMemoryRelayEnv {
+	t.Helper()
+
+	relayServer := server.NewServer(server.Config{
+		BlockSize: 10 * 1024,
+	})
+	relayTS := httptest.NewTestServer(t, relayServer.Handler())
+	backendTS := httptest.NewTestServer(t, backendHandler)
+
+	// Calling Client() initializes URL on the unstarted in-memory test servers.
+	relayHTTPClient := relayTS.Client()
+	backendHTTPClient := *backendTS.Client()
+	backendHTTPClient.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	relayClient := client.NewClient(config)
+	ctx, cancel := context.WithCancel(t.Context())
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		relayClient.StartWithClients(ctx, relayHTTPClient, &backendHTTPClient)
+	})
+
+	t.Cleanup(func() {
+		synctest.Wait()
+		cancel()
+		relayTS.CloseClientConnections()
+		backendTS.CloseClientConnections()
+		wg.Wait()
+	})
+
+	// Wait until the relay client goroutine has registered its pending request with the in-memory relay server.
+	synctest.Wait()
+
+	return &InMemoryRelayEnv{
+		Client:   relayHTTPClient,
+		RelayURL: relayTS.URL,
+	}
 }
 
 // SetupRelay creates a new relay environment with a relay server and client.
