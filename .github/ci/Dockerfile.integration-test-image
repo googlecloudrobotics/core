@@ -1,6 +1,6 @@
 # Image used for integration_test.sh on Cloud Build.
 # Allows access to GKE and to run Bazel commands.
-FROM gcr.io/cloud-builders/kubectl@sha256:59c548f0f7d6504676919da371170f44f65bef8deb9cb078ba5c35acd11b3f59
+FROM gcr.io/cloud-builders/kubectl@sha256:37c65ac1458778582e6fec22f4d0f0dc978836eeb870be4e6e637ff2be1fd07b
 
 # Install Bazelisk
 RUN \
