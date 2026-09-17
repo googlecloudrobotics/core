@@ -24,6 +24,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -67,9 +68,12 @@ func NewK8sRepository(ctx context.Context, kcl kubernetes.Interface, ns string) 
 	)
 	go cmInformer.Run(ctx.Done())
 	// Wait for the cache to sync before returning so we don't serve requests
-	// until we're ready.
-	if !cache.WaitForCacheSync(ctx.Done(), cmInformer.HasSynced) {
-		return nil, fmt.Errorf("failed to sync configmap cache")
+	// until we're ready. Use a 1ms poll interval instead of cache.WaitForCacheSync
+	// (which hardcodes 100ms and slows down unit tests).
+	if err := wait.PollUntilContextCancel(ctx, time.Millisecond, true, func(ctx context.Context) (bool, error) {
+		return cmInformer.HasSynced(), nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to sync configmap cache: %w", err)
 	}
 	return &K8sRepository{kcl: kcl, ns: ns, cmInformer: cmInformer}, nil
 }
