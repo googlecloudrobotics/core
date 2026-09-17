@@ -42,6 +42,7 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/k8s"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/memory"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
+	"github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
 	"github.com/googlecloudrobotics/ilog"
 )
 
@@ -132,7 +133,12 @@ func main() {
 			slog.Error("Failed to make clientset", ilog.Err(err))
 			os.Exit(1)
 		}
-		if rep, err = k8s.NewK8sRepository(ctx, cs, *namespace); err != nil {
+		crcl, err := versioned.NewForConfig(config)
+		if err != nil {
+			slog.ErrorContext(ctx, "Failed to make CRD clientset", ilog.Err(err))
+			os.Exit(1)
+		}
+		if rep, err = k8s.NewK8sRepository(ctx, cs, crcl, *namespace); err != nil {
 			slog.Error("Failed to make k8s repository client", ilog.Err(err))
 			os.Exit(1)
 		}

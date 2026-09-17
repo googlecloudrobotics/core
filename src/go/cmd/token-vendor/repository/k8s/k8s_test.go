@@ -15,19 +15,25 @@
 package k8s
 
 import (
+	"context"
 	"errors"
 	"testing"
+	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository"
+	registryv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
+	crfake "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/fake"
 )
 
 // Publish a key, retrieve it again and check listing of all keys.
 func TestPublishListLookup(t *testing.T) {
 	ctx := t.Context()
 	cs := fake.NewSimpleClientset()
-	kcl, err := NewK8sRepository(ctx, cs, "default")
+	kcl, err := NewK8sRepository(ctx, cs, crfake.NewSimpleClientset(), "default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +58,7 @@ func TestPublishListLookup(t *testing.T) {
 func TestPublishKeyUpdate(t *testing.T) {
 	ctx := t.Context()
 	cs := fake.NewSimpleClientset()
-	kcl, err := NewK8sRepository(ctx, cs, "default")
+	kcl, err := NewK8sRepository(ctx, cs, crfake.NewSimpleClientset(), "default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +82,7 @@ func TestPublishKeyUpdate(t *testing.T) {
 func TestLookupDoesNotExist(t *testing.T) {
 	ctx := t.Context()
 	cs := fake.NewSimpleClientset()
-	kcl, err := NewK8sRepository(ctx, cs, "default")
+	kcl, err := NewK8sRepository(ctx, cs, crfake.NewSimpleClientset(), "default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +98,7 @@ func TestLookupDoesNotExist(t *testing.T) {
 func TestConfigure(t *testing.T) {
 	ctx := t.Context()
 	cs := fake.NewSimpleClientset()
-	kcl, err := NewK8sRepository(ctx, cs, "default")
+	kcl, err := NewK8sRepository(ctx, cs, crfake.NewSimpleClientset(), "default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +123,7 @@ func TestConfigure(t *testing.T) {
 func TestReConfigure(t *testing.T) {
 	ctx := t.Context()
 	cs := fake.NewSimpleClientset()
-	kcl, err := NewK8sRepository(ctx, cs, "default")
+	kcl, err := NewK8sRepository(ctx, cs, crfake.NewSimpleClientset(), "default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,3 +149,118 @@ func TestReConfigure(t *testing.T) {
 		t.Fatalf("LookupKey: got %q, expected %q", k.SAName, "svc@example.com")
 	}
 }
+
+func TestRobotCRDeletionDeletesConfigMap(t *testing.T) {
+	ctx := t.Context()
+	cs := fake.NewSimpleClientset()
+	robot := &registryv1alpha1.Robot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+	}
+	crcs := crfake.NewSimpleClientset(robot)
+	kcl, err := NewK8sRepository(ctx, cs, crcs, "app-token-vendor")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const matchedDeviceID = "robot-foo"
+	const unmatchedDeviceID = "robot-unmatched"
+
+	// Publish key for a device that has a matching Robot CR ("foo")
+	if err := kcl.PublishKey(ctx, matchedDeviceID, "testkey-foo"); err != nil {
+		t.Fatal(err)
+	}
+	// Publish key for a device that does NOT have a matching Robot CR
+	if err := kcl.PublishKey(ctx, unmatchedDeviceID, "testkey-unmatched"); err != nil {
+		t.Fatal(err)
+	}
+
+	cm, err := cs.CoreV1().ConfigMaps("app-token-vendor").Get(ctx, matchedDeviceID, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cm.Labels[labelRobotName]; got != "foo" {
+		t.Fatalf("matched ConfigMap label %q = %q, want %q", labelRobotName, got, "foo")
+	}
+
+	unmatchedCM, err := cs.CoreV1().ConfigMaps("app-token-vendor").Get(ctx, unmatchedDeviceID, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := unmatchedCM.Labels[labelRobotName]; got != "" {
+		t.Fatalf("unmatched ConfigMap label %q = %q, want empty", labelRobotName, got)
+	}
+
+	// Delete the Robot CR in default namespace
+	if err := crcs.RegistryV1alpha1().Robots("default").Delete(ctx, "foo", metav1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Wait for the ConfigMap to be automatically deleted
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond, 5*time.Second, true, func(ctx context.Context) (bool, error) {
+		_, lookupErr := kcl.LookupKey(ctx, matchedDeviceID)
+		return errors.Is(lookupErr, repository.ErrNotFound), nil
+	})
+	if err != nil {
+		t.Fatalf("expected ConfigMap %q to be deleted after Robot CR deletion: %v", matchedDeviceID, err)
+	}
+
+	// Unmatched ConfigMap should still exist
+	if _, err := kcl.LookupKey(ctx, unmatchedDeviceID); err != nil {
+		t.Fatalf("expected unmatched ConfigMap %q to still exist, got err: %v", unmatchedDeviceID, err)
+	}
+}
+
+func TestRobotCRCreatedAfterPublishKey(t *testing.T) {
+	ctx := t.Context()
+	cs := fake.NewSimpleClientset()
+	crcs := crfake.NewSimpleClientset()
+	kcl, err := NewK8sRepository(ctx, cs, crcs, "app-token-vendor")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const deviceID = "robot-bar"
+	if err := kcl.PublishKey(ctx, deviceID, "testkey-bar"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create the Robot CR after the key was published (e.g. setup-robot flow)
+	robot := &registryv1alpha1.Robot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "bar",
+			Namespace: "default",
+		},
+	}
+	if _, err := crcs.RegistryV1alpha1().Robots("default").Create(ctx, robot, metav1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Wait for the ConfigMap to receive the robot-name label
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond, 5*time.Second, true, func(ctx context.Context) (bool, error) {
+		cm, err := cs.CoreV1().ConfigMaps("app-token-vendor").Get(ctx, deviceID, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return cm.Labels[labelRobotName] == "bar", nil
+	})
+	if err != nil {
+		t.Fatalf("expected ConfigMap %q to be labeled with robot name: %v", deviceID, err)
+	}
+
+	// Delete the Robot CR and verify the ConfigMap is deleted
+	if err := crcs.RegistryV1alpha1().Robots("default").Delete(ctx, "bar", metav1.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond, 5*time.Second, true, func(ctx context.Context) (bool, error) {
+		_, lookupErr := kcl.LookupKey(ctx, deviceID)
+		return errors.Is(lookupErr, repository.ErrNotFound), nil
+	})
+	if err != nil {
+		t.Fatalf("expected ConfigMap %q to be deleted after Robot CR deletion: %v", deviceID, err)
+	}
+}
+
+

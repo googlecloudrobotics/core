@@ -111,7 +111,7 @@ func runPublicKeyConfigureHandlerWithK8sCase(t *testing.T, test *publicKeyConfig
 	if err := populateK8sEnv(ctx, cs, "default", test.configmaps); err != nil {
 		t.Fatal(err)
 	}
-	kcl, err := k8s.NewK8sRepository(ctx, cs, "default")
+	kcl, err := k8s.NewK8sRepository(ctx, cs, nil, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func runPublicKeyReadHandlerWithK8sCase(t *testing.T, test *publicKeyReadHandler
 	if err := populateK8sEnv(ctx, cs, "default", test.configmaps); err != nil {
 		t.Fatal(err)
 	}
-	kcl, err := k8s.NewK8sRepository(ctx, cs, "default")
+	kcl, err := k8s.NewK8sRepository(ctx, cs, nil, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -348,7 +348,7 @@ func runPublicKeyPublishHandlerWithK8sCase(t *testing.T, test *publicKeyPublishH
 	if err := populateK8sEnv(ctx, cs, "default", test.configmaps); err != nil {
 		t.Fatal(err)
 	}
-	kcl, err := k8s.NewK8sRepository(ctx, cs, "default")
+	kcl, err := k8s.NewK8sRepository(ctx, cs, nil, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -792,7 +792,7 @@ func runTokenOAuth2HandlerTestWithK8s(t *testing.T, test TokenOAuth2HandlerTest)
 		}); err != nil {
 		t.Fatal(err)
 	}
-	r, err := k8s.NewK8sRepository(ctx, cs, "default")
+	r, err := k8s.NewK8sRepository(ctx, cs, nil, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -887,7 +887,7 @@ func Test_verifyJWTHandler(t *testing.T) {
 		}); err != nil {
 		t.Fatal(err)
 	}
-	r, err := k8s.NewK8sRepository(ctx, cs, "default")
+	r, err := k8s.NewK8sRepository(ctx, cs, nil, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
