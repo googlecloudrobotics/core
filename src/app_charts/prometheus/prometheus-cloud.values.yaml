@@ -1,5 +1,5 @@
 # Configuration for the prometheus-operator chart.
-# Reference: 
+# Reference:
 # https://github.com/prometheus-community/helm-charts/blob/kube-prometheus-stack-41.5.1/charts/kube-prometheus-stack/values.yaml
 #
 # WARNING: the prometheus-operator chart is complicated and error-prone. If you
@@ -58,6 +58,15 @@ prometheus:
       matchExpressions:
       - key: "non-existent-label-for-universal-matching"
         operator: "DoesNotExist"
+
+    scrapeClasses:
+    - name: default
+      default: true
+      metricRelabelings:
+      - sourceLabels: [cluster]
+        regex: '^$'
+        targetLabel: cluster
+        replacement: "cloud"
 
     externalUrl: "${EXTERNAL_URL}"
     externalLabels:
