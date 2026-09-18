@@ -181,6 +181,9 @@ spec:
   - group: gateway.envoyproxy.io
     kind: SecurityPolicy
     namespace: app-prometheus
+  - group: gateway.envoyproxy.io
+    kind: SecurityPolicy
+    namespace: app-grafana
   to:
   - group: ""
     kind: Service
