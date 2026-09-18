@@ -18,18 +18,22 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository"
+	registryv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
+	"github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
 	"github.com/googlecloudrobotics/ilog"
 )
 
@@ -40,25 +44,42 @@ const resyncPeriod = 1 * time.Hour
 
 // K8sRepository uses Kubernetes configmaps as public key backend for devices.
 type K8sRepository struct {
-	kcl kubernetes.Interface // client-go Clientset
-	ns  string               // The namespace to use
+	kcl  kubernetes.Interface // client-go Clientset
+	crcl versioned.Interface  // Cloud Robotics CRD Clientset
+	ns   string               // The namespace to use
 
-	cmInformer cache.SharedIndexInformer
+	cmInformer    cache.SharedIndexInformer
+	robotInformer cache.SharedIndexInformer
 }
 
 // NewK8sRepository creates a new K8sRepository key repository.
 //
-// Use `ns` to specify an existing namespace to use for the device configmaps. Provide
-// either a k8s.io/client-go/kubernetes/fake.NewSimpleClientset() for `kcl`
-// for testing, or a real Interface from kubernetes.NewForConfig(..).
-func NewK8sRepository(ctx context.Context, kcl kubernetes.Interface, ns string) (*K8sRepository, error) {
+// Use `ns` to specify an existing namespace to use for the device configmaps, and
+// `migrateFromNS` (optional) to specify a legacy namespace from which device configmaps
+// should be migrated at startup. Provide either a k8s.io/client-go/kubernetes/fake.NewSimpleClientset()
+// for `kcl` for testing, or a real Interface from kubernetes.NewForConfig(..).
+func NewK8sRepository(ctx context.Context, kcl kubernetes.Interface, crcl versioned.Interface, ns, migrateFromNS string) (*K8sRepository, error) {
+	repo := &K8sRepository{kcl: kcl, crcl: crcl, ns: ns}
+
+	if migrateFromNS != "" && migrateFromNS != ns {
+		if errs := validation.IsDNS1123Label(migrateFromNS); len(errs) > 0 {
+			return nil, fmt.Errorf("invalid migrate-from-namespace %q: %s", migrateFromNS, strings.Join(errs, ", "))
+		}
+		if err := repo.migrateConfigMaps(ctx, migrateFromNS); err != nil {
+			slog.WarnContext(ctx, "failed to migrate configmaps from legacy namespace",
+				slog.String("FromNamespace", migrateFromNS), ilog.Err(err))
+		}
+	}
+
 	// The informer provides an in-memory cache and prevents us from hammering the apiserver.
 	cmInformer := cache.NewSharedIndexInformer(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (object runtime.Object, e error) {
+				options.LabelSelector = managedByLabel + "=" + managedByValue
 				return kcl.CoreV1().ConfigMaps(ns).List(ctx, options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (i watch.Interface, e error) {
+				options.LabelSelector = managedByLabel + "=" + managedByValue
 				return kcl.CoreV1().ConfigMaps(ns).Watch(ctx, options)
 			},
 		}, kcl),
@@ -66,6 +87,7 @@ func NewK8sRepository(ctx context.Context, kcl kubernetes.Interface, ns string) 
 		resyncPeriod,
 		cache.Indexers{},
 	)
+	repo.cmInformer = cmInformer
 	go cmInformer.Run(ctx.Done())
 	// Wait for the cache to sync before returning so we don't serve requests
 	// until we're ready. Use a 1ms poll interval instead of cache.WaitForCacheSync
@@ -75,7 +97,41 @@ func NewK8sRepository(ctx context.Context, kcl kubernetes.Interface, ns string) 
 	}); err != nil {
 		return nil, fmt.Errorf("failed to sync configmap cache: %w", err)
 	}
-	return &K8sRepository{kcl: kcl, ns: ns, cmInformer: cmInformer}, nil
+
+	if crcl != nil {
+		robotInformer := cache.NewSharedIndexInformer(
+			cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
+				ListFunc: func(options metav1.ListOptions) (object runtime.Object, e error) {
+					return crcl.RegistryV1alpha1().Robots(ns).List(ctx, options)
+				},
+				WatchFunc: func(options metav1.ListOptions) (i watch.Interface, e error) {
+					return crcl.RegistryV1alpha1().Robots(ns).Watch(ctx, options)
+				},
+			}, kcl),
+			&registryv1alpha1.Robot{},
+			resyncPeriod,
+			cache.Indexers{},
+		)
+		reg, err := robotInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj any) {
+				if robot, ok := obj.(*registryv1alpha1.Robot); ok {
+					repo.onRobotAdded(ctx, robot)
+				}
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to add robot event handler: %w", err)
+		}
+		repo.robotInformer = robotInformer
+		go robotInformer.Run(ctx.Done())
+		if err := wait.PollUntilContextCancel(ctx, time.Millisecond, true, func(ctx context.Context) (bool, error) {
+			return reg.HasSynced(), nil
+		}); err != nil {
+			return nil, fmt.Errorf("failed to sync robot cache: %w", err)
+		}
+	}
+
+	return repo, nil
 }
 
 const (
@@ -84,7 +140,138 @@ const (
 	serviceAccountAnnotation = "cloudrobotics.com/gcp-service-account"
 	// Configmap annotation specifies the intermediate service account delegate to use (optional)
 	serviceAccountDelegateAnnotation = "cloudrobotics.com/gcp-service-account-delegate"
+
+	managedByLabel = "app.kubernetes.io/managed-by"
+	managedByValue = "token-vendor"
+	robotPrefix    = "robot-"
 )
+
+func robotOwnerRef(robot *registryv1alpha1.Robot) *metav1.OwnerReference {
+	return &metav1.OwnerReference{
+		APIVersion:         registryv1alpha1.SchemeGroupVersion.String(),
+		Kind:               "Robot",
+		Name:               robot.GetName(),
+		UID:                robot.GetUID(),
+		BlockOwnerDeletion: new(true),
+		Controller:         new(true),
+	}
+}
+
+func setOwnerReference(om *metav1.ObjectMeta, ref *metav1.OwnerReference) bool {
+	for i, or := range om.OwnerReferences {
+		if or.Kind == ref.Kind && or.Name == ref.Name {
+			if or.UID == ref.UID && or.APIVersion == ref.APIVersion {
+				return false
+			}
+			om.OwnerReferences[i] = *ref
+			return true
+		}
+	}
+	om.OwnerReferences = append(om.OwnerReferences, *ref)
+	return true
+}
+
+// matchingRobotOwnerRef checks if deviceID has the "robot-" prefix and if a
+// matching Robot CR exists in the repository namespace. Returns an OwnerReference
+// to the Robot CR if found, or nil otherwise.
+func (k *K8sRepository) matchingRobotOwnerRef(ctx context.Context, deviceID string) *metav1.OwnerReference {
+	if k.crcl == nil || !strings.HasPrefix(deviceID, robotPrefix) {
+		return nil
+	}
+	robotName := strings.TrimPrefix(deviceID, robotPrefix)
+	if robotName == "" {
+		return nil
+	}
+	if k.robotInformer != nil {
+		if obj, exists, err := k.robotInformer.GetStore().GetByKey(k.ns + "/" + robotName); err == nil && exists {
+			if robot, ok := obj.(*registryv1alpha1.Robot); ok {
+				return robotOwnerRef(robot)
+			}
+		}
+	}
+	robot, err := k.crcl.RegistryV1alpha1().Robots(k.ns).Get(ctx, robotName, metav1.GetOptions{})
+	if err != nil {
+		return nil
+	}
+	if k.robotInformer != nil {
+		_ = k.robotInformer.GetStore().Add(robot)
+	}
+	return robotOwnerRef(robot)
+}
+
+func (k *K8sRepository) onRobotAdded(ctx context.Context, robot *registryv1alpha1.Robot) {
+	deviceID := robotPrefix + robot.GetName()
+	obj, exists, err := k.cmInformer.GetStore().GetByKey(k.ns + "/" + deviceID)
+	if err != nil || !exists {
+		return
+	}
+	cm, ok := obj.(*corev1.ConfigMap)
+	if !ok {
+		return
+	}
+	cmCopy := cm.DeepCopy()
+	if !setOwnerReference(&cmCopy.ObjectMeta, robotOwnerRef(robot)) {
+		return
+	}
+	updated, err := k.kcl.CoreV1().ConfigMaps(k.ns).Update(ctx, cmCopy, metav1.UpdateOptions{})
+	if err != nil {
+		slog.WarnContext(ctx, "failed to set owner reference on configmap for robot", slog.String("DeviceID", deviceID), ilog.Err(err))
+		return
+	}
+	if err := k.cmInformer.GetStore().Update(updated); err != nil {
+		slog.WarnContext(ctx, "failed to update informer store", slog.String("DeviceID", deviceID), ilog.Err(err))
+	}
+}
+
+// migrateConfigMaps moves device public key ConfigMaps from migrateFromNS
+// into k.ns (e.g. "default") at startup, attaching OwnerReferences to any
+// matching Robot CRs.
+func (k *K8sRepository) migrateConfigMaps(ctx context.Context, migrateFromNS string) error {
+	cms, err := k.kcl.CoreV1().ConfigMaps(migrateFromNS).List(ctx, metav1.ListOptions{
+		LabelSelector: managedByLabel + "=" + managedByValue,
+	})
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to list configmaps in %q: %w", migrateFromNS, err)
+	}
+	for _, oldCM := range cms.Items {
+		slog.InfoContext(ctx, "migrating device public key configmap",
+			slog.String("ConfigMap", oldCM.Name),
+			slog.String("FromNamespace", migrateFromNS),
+			slog.String("ToNamespace", k.ns))
+		labels := make(map[string]string, len(oldCM.Labels)+1)
+		for k, v := range oldCM.Labels {
+			labels[k] = v
+		}
+		labels[managedByLabel] = managedByValue
+		newCM := &corev1.ConfigMap{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ConfigMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        oldCM.Name,
+				Namespace:   k.ns,
+				Labels:      labels,
+				Annotations: oldCM.Annotations,
+			},
+			Data: oldCM.Data,
+		}
+		if ownerRef := k.matchingRobotOwnerRef(ctx, oldCM.Name); ownerRef != nil {
+			newCM.OwnerReferences = []metav1.OwnerReference{*ownerRef}
+		}
+		if _, err := k.kcl.CoreV1().ConfigMaps(k.ns).Create(ctx, newCM, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
+			slog.WarnContext(ctx, "failed to create migrated configmap", slog.String("DeviceID", oldCM.Name), ilog.Err(err))
+			continue
+		}
+		if err := k.kcl.CoreV1().ConfigMaps(migrateFromNS).Delete(ctx, oldCM.Name, metav1.DeleteOptions{}); err != nil && !kerrors.IsNotFound(err) {
+			slog.WarnContext(ctx, "failed to delete legacy configmap after migration", slog.String("DeviceID", oldCM.Name), ilog.Err(err))
+		}
+	}
+	return nil
+}
 
 // ListAllDeviceIDs returns a slice of all device identifiers found in the namespace.
 func (k *K8sRepository) ListAllDeviceIDs(ctx context.Context) ([]string, error) {
@@ -104,7 +291,7 @@ func (k *K8sRepository) ListAllDeviceIDs(ctx context.Context) ([]string, error) 
 // The public key is stored under a specific key in the configmap. Returns an
 // error if the configmap is not found or is not valid.
 func (k *K8sRepository) LookupKey(ctx context.Context, deviceID string) (*repository.Key, error) {
-	slog.Debug("looking up public key", slog.String("Namespace", k.ns), slog.String("ConfigMap", deviceID))
+	slog.DebugContext(ctx, "looking up public key", slog.String("Namespace", k.ns), slog.String("ConfigMap", deviceID))
 	obj, exists, err := k.cmInformer.GetStore().GetByKey(k.ns + "/" + deviceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve configmap %q/%q from cache: %w", k.ns, deviceID, err)
@@ -131,8 +318,9 @@ func (k *K8sRepository) LookupKey(ctx context.Context, deviceID string) (*reposi
 // If the configmap for a device does not exist yet it is created. If it exists
 // already the public key section of the configmap is updated.
 func (k *K8sRepository) PublishKey(ctx context.Context, deviceID, publicKey string) error {
-	slog.Debug("publishing key", slog.String("DeviceID", deviceID))
-	cm, err := createPubKeyDeviceConfig(deviceID, k.ns, publicKey)
+	slog.DebugContext(ctx, "publishing key", slog.String("DeviceID", deviceID))
+	ownerRef := k.matchingRobotOwnerRef(ctx, deviceID)
+	cm, err := createPubKeyDeviceConfig(deviceID, k.ns, publicKey, ownerRef)
 	if err != nil {
 		return fmt.Errorf("failed to init device configmap %q/%q: %w", k.ns, deviceID, err)
 	}
@@ -140,7 +328,7 @@ func (k *K8sRepository) PublishKey(ctx context.Context, deviceID, publicKey stri
 	if err == nil { // no error
 		// Add to the informer store so that LookupKey can be used immediately.
 		if err := k.cmInformer.GetStore().Add(cm); err != nil {
-			slog.Warn("failed to add to informer store", slog.String("DeviceID", deviceID), ilog.Err(err))
+			slog.WarnContext(ctx, "failed to add to informer store", slog.String("DeviceID", deviceID), ilog.Err(err))
 		}
 		return nil
 	}
@@ -155,7 +343,7 @@ func (k *K8sRepository) PublishKey(ctx context.Context, deviceID, publicKey stri
 	}
 	// Update the informer store so that LookupKey can be used immediately.
 	if err := k.cmInformer.GetStore().Update(cm); err != nil {
-		slog.Warn("failed to update informer store", slog.String("DeviceID", deviceID), ilog.Err(err))
+		slog.WarnContext(ctx, "failed to update informer store", slog.String("DeviceID", deviceID), ilog.Err(err))
 	}
 	return nil
 }
@@ -178,7 +366,7 @@ func (k *K8sRepository) ConfigureKey(ctx context.Context, deviceID string, opts 
 	}
 	// Update the informer store so that LookupKey can be used immediately.
 	if err := k.cmInformer.GetStore().Update(cm); err != nil {
-		slog.Warn("failed to update informer store", slog.String("DeviceID", deviceID), ilog.Err(err))
+		slog.WarnContext(ctx, "failed to update informer store", slog.String("DeviceID", deviceID), ilog.Err(err))
 	}
 	return nil
 }
@@ -187,8 +375,8 @@ func (k *K8sRepository) ConfigureKey(ctx context.Context, deviceID string, opts 
 //
 // This is used also during update of existing devices. Make sure no default values
 // are used here which could override a manually set key.
-func createPubKeyDeviceConfig(name, namespace, pk string) (*corev1.ConfigMap, error) {
-	return &corev1.ConfigMap{
+func createPubKeyDeviceConfig(name, namespace, pk string, ownerRef *metav1.OwnerReference) (*corev1.ConfigMap, error) {
+	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
 			APIVersion: "v1",
@@ -197,11 +385,15 @@ func createPubKeyDeviceConfig(name, namespace, pk string) (*corev1.ConfigMap, er
 			Namespace: namespace,
 			Name:      name,
 			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "token-vendor",
+				managedByLabel: managedByValue,
 			},
 		},
 		Data: map[string]string{pubKey: pk},
-	}, nil
+	}
+	if ownerRef != nil {
+		cm.OwnerReferences = []metav1.OwnerReference{*ownerRef}
+	}
+	return cm, nil
 }
 
 func mapSetOrDelete(m map[string]string, k, v string) {

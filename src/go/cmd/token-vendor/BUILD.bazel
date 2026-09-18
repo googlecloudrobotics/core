@@ -18,6 +18,7 @@ go_library(
         "//src/go/cmd/token-vendor/repository/k8s:go_default_library",
         "//src/go/cmd/token-vendor/repository/memory:go_default_library",
         "//src/go/cmd/token-vendor/tokensource:go_default_library",
+        "//src/go/pkg/client/versioned:go_default_library",
         "@com_github_envoyproxy_go_control_plane_envoy//service/auth/v3:go_default_library",
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",

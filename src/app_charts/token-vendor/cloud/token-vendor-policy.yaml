@@ -6,23 +6,27 @@ metadata:
     iam.gke.io/gcp-service-account: "token-vendor@{{ .Values.project }}.iam.gserviceaccount.com"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   name: token-vendor-key-mngmt
 rules:
 - apiGroups: [""]
   resources: ["configmaps"]
   verbs: ["*"]
+- apiGroups: ["registry.cloudrobotics.com"]
+  resources: ["robots", "robots/finalizers"]
+  verbs: ["get", "list", "watch", "update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   name: token-vendor-key-mngmt-binding
 subjects:
 - kind: ServiceAccount
   name: token-vendor
+  namespace: {{ .Release.Namespace }}
 roleRef:
-  kind: Role
+  kind: ClusterRole
   name: token-vendor-key-mngmt
   apiGroup: rbac.authorization.k8s.io
 ---
