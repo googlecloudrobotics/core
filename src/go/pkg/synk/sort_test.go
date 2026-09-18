@@ -73,7 +73,7 @@ func TestLessUnstructured(t *testing.T) {
 
 func TestLess(t *testing.T) {
 	for _, tc := range []struct {
-		a, b *gvknn
+		a, b gvknn
 	}{
 		{newGvknn("a", "v", "k", "ns", "n"), newGvknn("b", "v", "k", "ns", "n")},
 		{newGvknn("g", "a", "k", "ns", "n"), newGvknn("g", "b", "k", "ns", "n")},

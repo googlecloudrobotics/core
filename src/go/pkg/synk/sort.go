@@ -15,8 +15,6 @@
 package synk
 
 import (
-	"fmt"
-
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -31,7 +29,7 @@ type gvknn struct {
 	name      string
 }
 
-func newGvknn(group, version, kind, namespace, name string) *gvknn {
+func newGvknn(group, version, kind, namespace, name string) gvknn {
 	p := 999
 	switch kind {
 	case "Namespace":
@@ -50,25 +48,38 @@ func newGvknn(group, version, kind, namespace, name string) *gvknn {
 	case "ClusterRoleBinding", "RoleBinding":
 		p = 5
 	}
-	return &gvknn{p, group, version, kind, namespace, name}
+	return gvknn{p, group, version, kind, namespace, name}
 }
 
-func less(l, r *gvknn) bool {
-	ls := fmt.Sprintf("%03d/%s/%s/%s/%s/%s", l.priority, l.group, l.version, l.kind, l.namespace, l.name)
-	rs := fmt.Sprintf("%03d/%s/%s/%s/%s/%s", r.priority, r.group, r.version, r.kind, r.namespace, r.name)
-	return ls < rs
+func less(l, r gvknn) bool {
+	if l.priority != r.priority {
+		return l.priority < r.priority
+	}
+	if l.group != r.group {
+		return l.group < r.group
+	}
+	if l.version != r.version {
+		return l.version < r.version
+	}
+	if l.kind != r.kind {
+		return l.kind < r.kind
+	}
+	if l.namespace != r.namespace {
+		return l.namespace < r.namespace
+	}
+	return l.name < r.name
 }
 
-func gvknnUnstructured(u *unstructured.Unstructured) *gvknn {
+func gvknnUnstructured(u *unstructured.Unstructured) gvknn {
 	gvk := u.GroupVersionKind()
 	return newGvknn(gvk.Group, gvk.Version, gvk.Kind, u.GetNamespace(), u.GetName())
 }
 
-func gvknnRSpecG(r *apps.ResourceSetSpecGroup) *gvknn {
+func gvknnRSpecG(r *apps.ResourceSetSpecGroup) gvknn {
 	return newGvknn(r.Group, r.Version, r.Kind, "", "")
 }
 
-func gvknnRStatusG(r *apps.ResourceSetStatusGroup) *gvknn {
+func gvknnRStatusG(r *apps.ResourceSetStatusGroup) gvknn {
 	return newGvknn(r.Group, r.Version, r.Kind, "", "")
 }
 
