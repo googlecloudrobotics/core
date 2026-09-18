@@ -1,0 +1,52 @@
+load("//bazel:build_rules/helm_template.bzl", "helm_template")
+load("//bazel:app_chart.bzl", "app_chart")
+load("//bazel:app.bzl", "app")
+
+helm_template(
+    name = "victoriametrics-operator-chart.cloud",
+    chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
+    helm_version = 3,
+    namespace = "HELM-NAMESPACE",
+    release_name = "vm-operator",
+    values = "victoriametrics-operator-cloud.values.yaml",
+)
+
+helm_template(
+    name = "victoriametrics-operator-chart.robot",
+    chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
+    helm_version = 3,
+    namespace = "HELM-NAMESPACE",
+    release_name = "vm-operator",
+    values = "victoriametrics-operator-robot.values.yaml",
+)
+
+app_chart(
+    name = "victoriametrics-operator-cloud",
+    extra_templates = [
+        "//third_party/victoria-metrics-k8s-stack:00-crds.yaml",
+    ],
+    files = [
+        ":victoriametrics-operator-chart.cloud",
+    ],
+    images = {},
+)
+
+app_chart(
+    name = "victoriametrics-operator-robot",
+    extra_templates = [
+        "//third_party/victoria-metrics-k8s-stack:00-crds.yaml",
+    ],
+    files = [
+        ":victoriametrics-operator-chart.robot",
+    ],
+    images = {},
+)
+
+app(
+    name = "victoriametrics-operator",
+    charts = [
+        ":victoriametrics-operator-cloud",
+        ":victoriametrics-operator-robot",
+    ],
+    visibility = ["//visibility:public"],
+)

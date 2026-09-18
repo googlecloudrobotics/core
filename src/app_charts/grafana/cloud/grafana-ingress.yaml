@@ -23,6 +23,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: prom-grafana
+            name: grafana
             port:
               number: 80
