@@ -103,6 +103,7 @@ func (f *fixture) newSynk() *Synk {
 	)
 	s.mapper = testrestmapper.TestOnlyStaticRESTMapper(sc)
 	s.resetMapper = func() {}
+	s.workers = 1
 	f.fake = &client.Fake
 	return s
 }

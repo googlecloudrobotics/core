@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -62,7 +63,12 @@ const totalAnnotationSizeLimitB int = 256 * (1 << 10) // 256 kB
 // update its owner references so it does not get pruned.
 const AnnotationIgnore = "synk.cloudrobotics.com/ignore"
 
-var tracer = otel.Tracer("github.com/googlecloudrobotics/core/src/go/pkg/synk")
+const defaultWorkers = 16
+
+var (
+	tracer         = otel.Tracer("github.com/googlecloudrobotics/core/src/go/pkg/synk")
+	patchMetaCache sync.Map
+)
 
 // Synk allows to synchronize sets of resources with a fixed cluster.
 type Synk struct {
@@ -70,6 +76,7 @@ type Synk struct {
 	client      dynamic.Interface
 	mapper      meta.RESTMapper
 	resetMapper func()
+	workers     int
 }
 
 // New returns a new Synk object that acts against the cluster for the given configuration.
@@ -77,6 +84,7 @@ func New(client dynamic.Interface, discovery discovery.CachedDiscoveryInterface)
 	s := &Synk{
 		discovery: discovery,
 		client:    client,
+		workers:   defaultWorkers,
 	}
 	// Store reset function seperately to allow reasonable tests.
 	m := restmapper.NewDeferredDiscoveryRESTMapper(discovery)
@@ -190,12 +198,12 @@ func (s *Synk) Init(ctx context.Context) error {
 
 	err := backoff.Retry(
 		func() error {
-			s.discovery.Invalidate()
 			ok, err := s.crdAvailable(&u)
 			if err != nil {
 				return err
 			}
 			if !ok {
+				s.discovery.Invalidate()
 				return fmt.Errorf("CRD %q is not available", u.GetName())
 			}
 			return nil
@@ -323,70 +331,98 @@ func (s *Synk) applyAll(
 	resources ...*unstructured.Unstructured,
 ) (applyResults, error) {
 	results := applyResults{}
+	var mu sync.Mutex
+
+	workers := s.workers
+	if workers <= 0 {
+		workers = 1
+	}
 
 	crds, regulars := separateCRDsFromResources(resources)
 
-	// Insert CRDs and wait for them to become available.
-	for _, crd := range crds {
-		// CRDs must never be replaced as deleting them will delete
-		// all its current instances. Update conflicts must be resolved manually.
-		action, err := s.applyOne(ctx, crd, rs)
-		if err != nil {
-			opts.errorf(crd, action, "failed to apply: %s", err)
-		} else {
-			opts.logf(crd, action, "applied successfully")
-		}
-		results.set(crd, action, err)
-	}
-	err := backoff.Retry(
-		func() error {
-			s.discovery.Invalidate()
-			for _, crd := range crds {
-				if ok, err := s.crdAvailable(crd); err != nil {
-					return backoff.Permanent(err)
-				} else if !ok {
-					return fmt.Errorf("crd not yet available: %q", crd.GetName())
+	if len(crds) > 0 {
+		// Insert CRDs and wait for them to become available.
+		sem := make(chan struct{}, workers)
+		var wg sync.WaitGroup
+		for _, crd := range crds {
+			sem <- struct{}{}
+			wg.Go(func() {
+				defer func() { <-sem }()
+				// CRDs must never be replaced as deleting them will delete
+				// all its current instances. Update conflicts must be resolved manually.
+				action, err := s.applyOne(ctx, crd, rs)
+				mu.Lock()
+				if err != nil {
+					opts.errorf(crd, action, "failed to apply: %s", err)
+				} else {
+					opts.logf(crd, action, "applied successfully")
 				}
-			}
-			return nil
-		},
-		backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 60),
-	)
-	if err != nil {
-		return results, fmt.Errorf("wait for CRDs: %w", err)
+				results.set(crd, action, err)
+				mu.Unlock()
+			})
+		}
+		wg.Wait()
+
+		err := backoff.Retry(
+			func() error {
+				for _, crd := range crds {
+					if ok, err := s.crdAvailable(crd); err != nil {
+						return backoff.Permanent(err)
+					} else if !ok {
+						s.discovery.Invalidate()
+						s.resetMapper()
+						return fmt.Errorf("crd not yet available: %q", crd.GetName())
+					}
+				}
+				return nil
+			},
+			backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 60),
+		)
+		if err != nil {
+			return results, fmt.Errorf("wait for CRDs: %w", err)
+		}
 	}
-	// Reset all discovery and mapping once again.
-	s.resetMapper()
 
-	// Try applying until the errors stay the same between iterations. Put in
-	// an upper bound just in case of flapping errors.
-	prevFailures := 0
+	for _, tier := range groupByPriority(regulars) {
+		// Try applying until the errors stay the same between iterations. Put in
+		// an upper bound just in case of flapping errors.
+		prevFailures := 0
 
-	for i := 0; i < 10; i++ {
-		curFailures := 0
+		for i := 0; i < 10; i++ {
+			var curFailures int
+			sem := make(chan struct{}, workers)
+			var wg sync.WaitGroup
 
-		for _, r := range regulars {
-			// Don't retry resources that were applied successfully
-			// in the first iteration.
-			if i > 0 && !results.failed(r) {
-				continue
+			for _, r := range tier {
+				// Don't retry resources that were applied successfully
+				// in the first iteration.
+				if i > 0 && !results.failed(r) {
+					continue
+				}
+				sem <- struct{}{}
+				wg.Go(func() {
+					defer func() { <-sem }()
+					// Attach the ResourceSet as owner. CRDs are exempt since
+					// the risk of unintended deletion of all its instances is too high.
+					setOwnerRef(r, rs)
+					action, err := s.applyOne(ctx, r, rs)
+					mu.Lock()
+					if err != nil {
+						curFailures++
+						opts.errorf(r, action, "failed to apply, may retry: %s", err)
+					} else {
+						opts.logf(r, action, "applied successfully")
+					}
+					results.set(r, action, err)
+					mu.Unlock()
+				})
 			}
-			// Attach the ResourceSet as owner. CRDs are exempt since
-			// the risk of unintended deletion of all its instances is too high.
-			setOwnerRef(r, rs)
-			action, err := s.applyOne(ctx, r, rs)
-			if err != nil {
-				curFailures++
-				opts.errorf(r, action, "failed to apply, may retry: %s", err)
-			} else {
-				opts.logf(r, action, "applied successfully")
+			wg.Wait()
+			if curFailures == 0 || curFailures == prevFailures {
+				break
 			}
-			results.set(r, action, err)
+			prevFailures = curFailures
 		}
-		if curFailures == 0 || curFailures == prevFailures {
-			break
-		}
-		prevFailures = curFailures
 	}
 	// The overall error we return is a transient error if all resource errors
 	// are transient. If there's at least one permanent failure, retrying
@@ -408,7 +444,7 @@ func (s *Synk) applyAll(
 	if numErrors == 0 {
 		return results, nil
 	}
-	err = fmt.Errorf("%d/%d resources failed to apply", numErrors, len(results))
+	err := fmt.Errorf("%d/%d resources failed to apply", numErrors, len(results))
 	if numErrors == 1 {
 		err = fmt.Errorf("%s: %s: %s", err, resourceKey(firstFailure.resource), firstFailure.err)
 	} else {
@@ -418,6 +454,28 @@ func (s *Synk) applyAll(
 		err = transientErr{err}
 	}
 	return results, err
+}
+
+func groupByPriority(resources []*unstructured.Unstructured) [][]*unstructured.Unstructured {
+	if len(resources) == 0 {
+		return nil
+	}
+	var tiers [][]*unstructured.Unstructured
+	curPriority := gvknnUnstructured(resources[0]).priority
+	var curTier []*unstructured.Unstructured
+	for _, r := range resources {
+		p := gvknnUnstructured(r).priority
+		if p != curPriority {
+			tiers = append(tiers, curTier)
+			curTier = nil
+			curPriority = p
+		}
+		curTier = append(curTier, r)
+	}
+	if len(curTier) > 0 {
+		tiers = append(tiers, curTier)
+	}
+	return tiers
 }
 
 func validateNamespace(r *unstructured.Unstructured, optsNs string) error {
@@ -774,14 +832,24 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 			patchType types.PatchType
 			patch     []byte
 		)
-		obj, err := scheme.Scheme.New(mapping.GroupVersionKind)
-		if err == nil {
+		if cached, ok := patchMetaCache.Load(mapping.GroupVersionKind); ok {
+			patchMeta := cached.(strategicpatch.PatchMetaFromStruct)
+			patch, err = strategicpatch.CreateThreeWayMergePatch(
+				originalRaw, resourceRaw, currentRaw,
+				patchMeta, true,
+			)
+			if err != nil {
+				return apps.ResourceActionNone, fmt.Errorf("create strategic-merge-patch: %w", err)
+			}
+			patchType = types.StrategicMergePatchType
+		} else if obj, err := scheme.Scheme.New(mapping.GroupVersionKind); err == nil {
 			// TODO(ensonic): add option to dynamically load patch meta from discovery API
 			// for full kubectl compatibility.
 			patchMeta, err := strategicpatch.NewPatchMetaFromStruct(obj)
 			if err != nil {
 				return apps.ResourceActionNone, fmt.Errorf("lookup patch meta: %w", err)
 			}
+			patchMetaCache.Store(mapping.GroupVersionKind, patchMeta)
 			// TODO(ensonic): Make overwrite boolean configurable for full kubectl compatibility.
 			patch, err = strategicpatch.CreateThreeWayMergePatch(
 				originalRaw, resourceRaw, currentRaw,

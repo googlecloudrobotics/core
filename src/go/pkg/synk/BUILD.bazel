@@ -31,13 +31,14 @@ go_library(
         "@io_k8s_client_go//kubernetes/scheme:go_default_library",
         "@io_k8s_client_go//rest:go_default_library",
         "@io_k8s_client_go//restmapper:go_default_library",
-        "@io_opentelemetry_go_otel//:otel",
+        "@io_opentelemetry_go_otel//:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
+        "benchmark_test.go",
         "sort_test.go",
         "synk_test.go",
     ],
