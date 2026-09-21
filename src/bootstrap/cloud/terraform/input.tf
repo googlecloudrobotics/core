@@ -117,7 +117,7 @@ variable "enable_nginx_shield" {
   default = false
 }
 
-variable "use_envoy_gateway" {
+variable "use_gateway" {
   description = "Use envoy gateway in place of nginx ingress"
   type = bool
   default = false

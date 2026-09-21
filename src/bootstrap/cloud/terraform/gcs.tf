@@ -91,7 +91,7 @@ APP_MANAGEMENT=true
 ONPREM_FEDERATION=${var.onprem_federation}
 GKE_SECRET_MANAGER_PLUGIN=${var.secret_manager_plugin}
 USE_NGINX_SHIELD=${var.enable_nginx_shield}
-USE_GATEWAY=${var.use_envoy_gateway}
+USE_GATEWAY=${var.use_gateway}
 CONFIG_MANAGED_BY_TERRAFORM=true
 EOF
   bucket        = google_storage_bucket.config_store.name
