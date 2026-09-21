@@ -111,6 +111,12 @@ variable "max_node_count" {
   default     = 16
 }
 
+variable "enable_nginx_shield" {
+  description = "Enable nginx shield to defend against DOS attacks"
+  type = bool
+  default = false
+}
+
 variable "managed_config" {
   description = "Control whether CRC config is managed by terraform."
   type = bool
