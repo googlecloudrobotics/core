@@ -117,6 +117,12 @@ variable "enable_nginx_shield" {
   default = false
 }
 
+variable "use_gateway" {
+  description = "Use envoy gateway in place of nginx ingress"
+  type = bool
+  default = false
+}
+
 variable "managed_config" {
   description = "Control whether CRC config is managed by terraform."
   type = bool
