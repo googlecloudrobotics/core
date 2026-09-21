@@ -62,7 +62,7 @@ prometheus:
     scrapeClasses:
     - name: default
       default: true
-      metricRelabelings:
+      relabelings:
       - sourceLabels: [cluster]
         regex: '^$'
         targetLabel: cluster
