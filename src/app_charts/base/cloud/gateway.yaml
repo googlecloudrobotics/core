@@ -103,11 +103,21 @@ spec:
     alpnProtocols:
     - h2
     - http/1.1
-  http2:
-    initialStreamWindowSize: 1048576      # 1 MiB
-    initialConnectionWindowSize: 2097152  # 2 MiB
+  # Maintain Chunk (1 MiB) < Stream Window (2 MiB) < Connection Window (4 MiB) < Buffer Limit (5 MiB)
+  # so HTTP/2 flow control regulates high-BDP streams within the Linux kernel TCP receive buffer
+  # ceiling (~4.5 MiB) without triggering Envoy's per-connection high-watermark socket brake.
   connection:
-    bufferLimit: 1Mi
+    bufferLimit: 5Mi
+  http2:
+    initialStreamWindowSize: 2097152      # 2 MiB
+    initialConnectionWindowSize: 4194304  # 4 MiB
+    connectionKeepalive:
+      idleInterval: 60s
+      interval: 60s                       # Sends periodic HTTP/2 PING frames to prevent L4 load balancer 600s idle drops
+      timeout: 15s
+  timeout:
+    http:
+      streamIdleTimeout: 3600s            # Raise per-stream idle timeout from 5m default to 1h for long-running/idle streams
 ---
 # Align with NGINX default behavior: NGINX has no total request duration cap,
 # whereas Envoy Gateway defaults to a 15s requestTimeout. Setting requestTimeout
@@ -122,10 +132,18 @@ spec:
     kind: Gateway
     name: crc-gateway
   connection:
-    bufferLimit: 1Mi
+    bufferLimit: 5Mi
+  http2:
+    initialStreamWindowSize: 1048576      # 1 MiB (overrides 64 KiB default to prevent 16x WINDOW_UPDATE stalls on 1 MiB chunks)
+    initialConnectionWindowSize: 4194304  # 4 MiB
+    connectionKeepalive:
+      idleInterval: 60s
+      interval: 60s
+      timeout: 15s
   timeout:
     http:
       requestTimeout: 0s
+      streamIdleTimeout: 3600s
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
