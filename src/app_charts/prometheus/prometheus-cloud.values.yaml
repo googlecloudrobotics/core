@@ -109,9 +109,16 @@ prometheus:
     # https://github.com/prometheus-operator/prometheus-operator/issues/3587
     containers:
     - name: prometheus
-      readinessProbe:
-        initialDelaySeconds: 300
-        failureThreshold: 100000
+      startupProbe:
+          # Allow up to 1 hour for WAL replay before startupProbe considers Prometheus failed
+          failureThreshold: 240
+          httpGet:
+            path: /-/ready
+            port: http-web
+            scheme: HTTP
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 3
     - name: "${CR_PROMETHEUS_CONTAINERS_OBJECT}"
     remoteWrite:
     - url: "${CR_PROMETHEUS_REMOTE_WRITE_OBJECT}"
