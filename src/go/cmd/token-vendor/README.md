@@ -51,6 +51,11 @@ refuse eg. robots to register other robots.
 * Method: POST
 * URL Params:
   * device-id: unique device name (by default robot-<robot-id>)
+  * robot-name (optional): name of the Robot CR that owns the key. The key is
+    deleted when the Robot CR is deleted. Defaults to the device-id without the
+    robot- prefix. Set this if the device-id doesn't match a Robot CR, eg for a
+    device that registers under its node name but joins a cluster with another
+    name.
 * Body: application/x-pem-file
 * Response: only http status code
 

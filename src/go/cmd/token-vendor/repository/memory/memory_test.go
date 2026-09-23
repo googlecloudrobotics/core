@@ -28,10 +28,10 @@ func TestPublishAndLookup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := m.PublishKey(ctx, "a", "akey"); err != nil {
+	if err := m.PublishKey(ctx, "a", "akey", repository.PublishOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := m.PublishKey(ctx, "b", "bkey"); err != nil {
+	if err := m.PublishKey(ctx, "b", "bkey", repository.PublishOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	k, err := m.LookupKey(ctx, "a")
@@ -71,7 +71,7 @@ func TestConfigure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := m.PublishKey(ctx, "a", "akey"); err != nil {
+	if err := m.PublishKey(ctx, "a", "akey", repository.PublishOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	opts := repository.KeyOptions{"svc@example.com", ""}

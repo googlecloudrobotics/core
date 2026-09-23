@@ -35,7 +35,9 @@ func NewMemoryRepository(ctx context.Context) (*MemoryRepository, error) {
 	}, nil
 }
 
-func (m *MemoryRepository) PublishKey(ctx context.Context, deviceID, publicKey string) error {
+// PublishKey stores the public key. opts are ignored, as there are no Robot
+// CRs to own keys in memory.
+func (m *MemoryRepository) PublishKey(ctx context.Context, deviceID, publicKey string, opts repository.PublishOptions) error {
 	slog.Debug("PublishKey", slog.String("DeviceID", deviceID), slog.String("PublicKey", publicKey))
 	m.keys[deviceID] = publicKey
 	return nil

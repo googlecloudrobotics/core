@@ -85,7 +85,7 @@ func NewK8sRepository(ctx context.Context, kcl kubernetes.Interface, crcl versio
 		}, kcl),
 		&corev1.ConfigMap{},
 		resyncPeriod,
-		cache.Indexers{},
+		cache.Indexers{robotNameIndex: indexByRobotName},
 	)
 	repo.cmInformer = cmInformer
 	go cmInformer.Run(ctx.Done())
@@ -143,7 +143,14 @@ const (
 
 	managedByLabel = "app.kubernetes.io/managed-by"
 	managedByValue = "token-vendor"
+	// Configmap label specifies the Robot CR that owns the key, if it was
+	// named explicitly instead of being derived from the device ID (optional)
+	robotNameLabel = "cloudrobotics.com/robot-name"
 	robotPrefix    = "robot-"
+
+	// Configmap informer index from the name of a Robot CR to the configmaps
+	// it should own.
+	robotNameIndex = "robotName"
 )
 
 func robotOwnerRef(robot *registryv1alpha1.Robot) *metav1.OwnerReference {
@@ -171,17 +178,50 @@ func setOwnerReference(om *metav1.ObjectMeta, ref *metav1.OwnerReference) bool {
 	return true
 }
 
-// matchingRobotOwnerRef checks if deviceID has the "robot-" prefix and if a
-// matching Robot CR exists in the repository namespace. Returns an OwnerReference
-// to the Robot CR if found, or nil otherwise.
-func (k *K8sRepository) matchingRobotOwnerRef(ctx context.Context, deviceID string) *metav1.OwnerReference {
-	if k.crcl == nil || !strings.HasPrefix(deviceID, robotPrefix) {
+// robotNameFromDeviceID derives the name of the Robot CR from a device ID of the
+// form "robot-<robot-name>". Returns "" if deviceID doesn't have that form.
+func robotNameFromDeviceID(deviceID string) string {
+	if !strings.HasPrefix(deviceID, robotPrefix) {
+		return ""
+	}
+	return strings.TrimPrefix(deviceID, robotPrefix)
+}
+
+// robotNameForConfigMap returns the name of the Robot CR that should own cm:
+// the name from the robot name label if set, or else the name derived from the
+// device ID. Returns "" if neither applies.
+func robotNameForConfigMap(cm *corev1.ConfigMap) string {
+	if robotName := cm.Labels[robotNameLabel]; robotName != "" {
+		return robotName
+	}
+	return robotNameFromDeviceID(cm.GetName())
+}
+
+// indexByRobotName is a cache.IndexFunc that indexes configmaps by the name of
+// the Robot CR that should own them.
+func indexByRobotName(obj any) ([]string, error) {
+	cm, ok := obj.(*corev1.ConfigMap)
+	if !ok {
+		return nil, nil
+	}
+	if robotName := robotNameForConfigMap(cm); robotName != "" {
+		return []string{robotName}, nil
+	}
+	return nil, nil
+}
+
+// matchingRobotOwnerRef checks if a Robot CR called robotName exists in the
+// repository namespace. Returns an OwnerReference to the Robot CR if found, or
+// nil otherwise.
+func (k *K8sRepository) matchingRobotOwnerRef(ctx context.Context, robotName string) *metav1.OwnerReference {
+	if k.crcl == nil || robotName == "" {
 		return nil
 	}
-	robotName := strings.TrimPrefix(deviceID, robotPrefix)
-	if robotName == "" {
-		return nil
-	}
+	// TODO(rodrigoq): The cache can be stale if the Robot CR was just deleted
+	// and re-created, eg when the device-manager replaces a cluster. Then the
+	// owner reference has the old Robot's UID, and the garbage collector may
+	// delete the configmap before onRobotAdded fixes the owner. Consider always
+	// doing a live GET instead.
 	if k.robotInformer != nil {
 		if obj, exists, err := k.robotInformer.GetStore().GetByKey(k.ns + "/" + robotName); err == nil && exists {
 			if robot, ok := obj.(*registryv1alpha1.Robot); ok {
@@ -199,27 +239,32 @@ func (k *K8sRepository) matchingRobotOwnerRef(ctx context.Context, deviceID stri
 	return robotOwnerRef(robot)
 }
 
+// onRobotAdded sets an OwnerReference to robot on the configmaps it should own,
+// in case their keys were published before the Robot CR was created.
 func (k *K8sRepository) onRobotAdded(ctx context.Context, robot *registryv1alpha1.Robot) {
-	deviceID := robotPrefix + robot.GetName()
-	obj, exists, err := k.cmInformer.GetStore().GetByKey(k.ns + "/" + deviceID)
-	if err != nil || !exists {
-		return
-	}
-	cm, ok := obj.(*corev1.ConfigMap)
-	if !ok {
-		return
-	}
-	cmCopy := cm.DeepCopy()
-	if !setOwnerReference(&cmCopy.ObjectMeta, robotOwnerRef(robot)) {
-		return
-	}
-	updated, err := k.kcl.CoreV1().ConfigMaps(k.ns).Update(ctx, cmCopy, metav1.UpdateOptions{})
+	objs, err := k.cmInformer.GetIndexer().ByIndex(robotNameIndex, robot.GetName())
 	if err != nil {
-		slog.WarnContext(ctx, "failed to set owner reference on configmap for robot", slog.String("DeviceID", deviceID), ilog.Err(err))
+		slog.WarnContext(ctx, "failed to look up configmaps for robot", slog.String("RobotName", robot.GetName()), ilog.Err(err))
 		return
 	}
-	if err := k.cmInformer.GetStore().Update(updated); err != nil {
-		slog.WarnContext(ctx, "failed to update informer store", slog.String("DeviceID", deviceID), ilog.Err(err))
+	for _, obj := range objs {
+		cm, ok := obj.(*corev1.ConfigMap)
+		if !ok {
+			continue
+		}
+		deviceID := cm.GetName()
+		cmCopy := cm.DeepCopy()
+		if !setOwnerReference(&cmCopy.ObjectMeta, robotOwnerRef(robot)) {
+			continue
+		}
+		updated, err := k.kcl.CoreV1().ConfigMaps(k.ns).Update(ctx, cmCopy, metav1.UpdateOptions{})
+		if err != nil {
+			slog.WarnContext(ctx, "failed to set owner reference on configmap for robot", slog.String("DeviceID", deviceID), ilog.Err(err))
+			continue
+		}
+		if err := k.cmInformer.GetStore().Update(updated); err != nil {
+			slog.WarnContext(ctx, "failed to update informer store", slog.String("DeviceID", deviceID), ilog.Err(err))
+		}
 	}
 }
 
@@ -259,7 +304,7 @@ func (k *K8sRepository) migrateConfigMaps(ctx context.Context, migrateFromNS str
 			},
 			Data: oldCM.Data,
 		}
-		if ownerRef := k.matchingRobotOwnerRef(ctx, oldCM.Name); ownerRef != nil {
+		if ownerRef := k.matchingRobotOwnerRef(ctx, robotNameForConfigMap(newCM)); ownerRef != nil {
 			newCM.OwnerReferences = []metav1.OwnerReference{*ownerRef}
 		}
 		if _, err := k.kcl.CoreV1().ConfigMaps(k.ns).Create(ctx, newCM, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
@@ -317,10 +362,18 @@ func (k *K8sRepository) LookupKey(ctx context.Context, deviceID string) (*reposi
 //
 // If the configmap for a device does not exist yet it is created. If it exists
 // already the public key section of the configmap is updated.
-func (k *K8sRepository) PublishKey(ctx context.Context, deviceID, publicKey string) error {
-	slog.DebugContext(ctx, "publishing key", slog.String("DeviceID", deviceID))
-	ownerRef := k.matchingRobotOwnerRef(ctx, deviceID)
-	cm, err := createPubKeyDeviceConfig(deviceID, k.ns, publicKey, ownerRef)
+//
+// The configmap is owned by the Robot CR named by opts.RobotName (or else the
+// one derived from the device ID), so that it's deleted along with the Robot.
+// If the Robot CR doesn't exist yet, the owner is set once it's created.
+func (k *K8sRepository) PublishKey(ctx context.Context, deviceID, publicKey string, opts repository.PublishOptions) error {
+	slog.DebugContext(ctx, "publishing key", slog.String("DeviceID", deviceID), slog.String("RobotName", opts.RobotName))
+	robotName := opts.RobotName
+	if robotName == "" {
+		robotName = robotNameFromDeviceID(deviceID)
+	}
+	ownerRef := k.matchingRobotOwnerRef(ctx, robotName)
+	cm, err := createPubKeyDeviceConfig(deviceID, k.ns, publicKey, opts.RobotName, ownerRef)
 	if err != nil {
 		return fmt.Errorf("failed to init device configmap %q/%q: %w", k.ns, deviceID, err)
 	}
@@ -375,7 +428,10 @@ func (k *K8sRepository) ConfigureKey(ctx context.Context, deviceID string, opts 
 //
 // This is used also during update of existing devices. Make sure no default values
 // are used here which could override a manually set key.
-func createPubKeyDeviceConfig(name, namespace, pk string, ownerRef *metav1.OwnerReference) (*corev1.ConfigMap, error) {
+//
+// robotName is the explicitly requested owner (if any), which is stored in a
+// label so that the owner reference can be set if the Robot CR is created later.
+func createPubKeyDeviceConfig(name, namespace, pk, robotName string, ownerRef *metav1.OwnerReference) (*corev1.ConfigMap, error) {
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -389,6 +445,9 @@ func createPubKeyDeviceConfig(name, namespace, pk string, ownerRef *metav1.Owner
 			},
 		},
 		Data: map[string]string{pubKey: pk},
+	}
+	if robotName != "" {
+		cm.Labels[robotNameLabel] = robotName
 	}
 	if ownerRef != nil {
 		cm.OwnerReferences = []metav1.OwnerReference{*ownerRef}

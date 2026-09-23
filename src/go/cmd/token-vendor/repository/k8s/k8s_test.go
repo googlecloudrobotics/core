@@ -42,7 +42,7 @@ func TestPublishListLookup(t *testing.T) {
 	}
 	const id = "testdevice"
 	const key = "testkey"
-	if err = kcl.PublishKey(ctx, id, key); err != nil {
+	if err = kcl.PublishKey(ctx, id, key, repository.PublishOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = kcl.LookupKey(ctx, id); err != nil {
@@ -67,10 +67,10 @@ func TestPublishKeyUpdate(t *testing.T) {
 	}
 	const id = "testdevice"
 	const key2 = "testkey2"
-	if err = kcl.PublishKey(ctx, id, "testkey"); err != nil {
+	if err = kcl.PublishKey(ctx, id, "testkey", repository.PublishOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if err = kcl.PublishKey(ctx, id, key2); err != nil {
+	if err = kcl.PublishKey(ctx, id, key2, repository.PublishOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	k, err := kcl.LookupKey(ctx, id)
@@ -107,7 +107,7 @@ func TestConfigure(t *testing.T) {
 	}
 	const id = "testdevice"
 	const key = "testkey"
-	if err = kcl.PublishKey(ctx, id, key); err != nil {
+	if err = kcl.PublishKey(ctx, id, key, repository.PublishOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	opts := repository.KeyOptions{"svc@example.com", ""}
@@ -132,7 +132,7 @@ func TestReConfigure(t *testing.T) {
 	}
 	const id = "testdevice"
 	const key = "testkey"
-	if err = kcl.PublishKey(ctx, id, key); err != nil {
+	if err = kcl.PublishKey(ctx, id, key, repository.PublishOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	opts := repository.KeyOptions{"svc@example.com", ""}
@@ -172,10 +172,10 @@ func TestPublishKeySetsOwnerReferenceForMatchingRobotCR(t *testing.T) {
 	const matchedDeviceID = "robot-foo"
 	const unmatchedDeviceID = "robot-unmatched"
 
-	if err := kcl.PublishKey(ctx, matchedDeviceID, "testkey-foo"); err != nil {
+	if err := kcl.PublishKey(ctx, matchedDeviceID, "testkey-foo", repository.PublishOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := kcl.PublishKey(ctx, unmatchedDeviceID, "testkey-unmatched"); err != nil {
+	if err := kcl.PublishKey(ctx, unmatchedDeviceID, "testkey-unmatched", repository.PublishOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -209,7 +209,7 @@ func TestRobotCRCreatedAfterPublishKeySetsOwnerReference(t *testing.T) {
 	}
 
 	const deviceID = "robot-bar"
-	if err := kcl.PublishKey(ctx, deviceID, "testkey-bar"); err != nil {
+	if err := kcl.PublishKey(ctx, deviceID, "testkey-bar", repository.PublishOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -233,6 +233,110 @@ func TestRobotCRCreatedAfterPublishKeySetsOwnerReference(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("expected ConfigMap %q to receive OwnerReference after Robot CR creation: %v", deviceID, err)
+	}
+}
+
+// A key can be owned by a Robot CR that doesn't match its device ID, eg when a
+// device registers as robot-node-<uuid> but joins a cluster with another name.
+func TestPublishKeyWithRobotNameSetsOwnerReference(t *testing.T) {
+	ctx := t.Context()
+	cs := fake.NewSimpleClientset()
+	crcs := crfake.NewSimpleClientset(
+		&registryv1alpha1.Robot{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "node-1234",
+				Namespace: "default",
+				UID:       types.UID("node-1234-uid"),
+			},
+		},
+		&registryv1alpha1.Robot{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-cluster",
+				Namespace: "default",
+				UID:       types.UID("my-cluster-uid"),
+			},
+		},
+	)
+	kcl, err := NewK8sRepository(ctx, cs, crcs, "default", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const deviceID = "robot-node-1234"
+	opts := repository.PublishOptions{RobotName: "my-cluster"}
+	// Publish twice to cover both creating and updating the ConfigMap.
+	for _, key := range []string{"testkey", "testkey2"} {
+		if err := kcl.PublishKey(ctx, deviceID, key, opts); err != nil {
+			t.Fatal(err)
+		}
+
+		cm, err := cs.CoreV1().ConfigMaps("default").Get(ctx, deviceID, metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(cm.OwnerReferences) != 1 || cm.OwnerReferences[0].Name != "my-cluster" || cm.OwnerReferences[0].UID != "my-cluster-uid" {
+			t.Errorf("after publishing %q: ConfigMap OwnerReferences = %+v, want Name=my-cluster UID=my-cluster-uid", key, cm.OwnerReferences)
+		}
+		if got := cm.Labels[robotNameLabel]; got != "my-cluster" {
+			t.Errorf("after publishing %q: ConfigMap label %s = %q, want %q", key, robotNameLabel, got, "my-cluster")
+		}
+		if got := cm.Data[pubKey]; got != key {
+			t.Errorf("ConfigMap key = %q, want %q", got, key)
+		}
+	}
+}
+
+func TestRobotCRCreatedAfterPublishKeyWithRobotNameSetsOwnerReference(t *testing.T) {
+	ctx := t.Context()
+	cs := fake.NewSimpleClientset()
+	crcs := crfake.NewSimpleClientset()
+	kcl, err := NewK8sRepository(ctx, cs, crcs, "default", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const deviceID = "robot-node-5678"
+	if err := kcl.PublishKey(ctx, deviceID, "testkey", repository.PublishOptions{RobotName: "later-cluster"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// The Robot CR matching the device ID is created first, but must not become
+	// the owner, as the key names its owner explicitly.
+	for _, robot := range []*registryv1alpha1.Robot{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "node-5678",
+				Namespace: "default",
+				UID:       types.UID("node-5678-uid"),
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "later-cluster",
+				Namespace: "default",
+				UID:       types.UID("later-cluster-uid"),
+			},
+		},
+	} {
+		if _, err := crcs.RegistryV1alpha1().Robots("default").Create(ctx, robot, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var ownerRefs []metav1.OwnerReference
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond, 5*time.Second, true, func(ctx context.Context) (bool, error) {
+		cm, err := cs.CoreV1().ConfigMaps("default").Get(ctx, deviceID, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		ownerRefs = cm.OwnerReferences
+		return len(ownerRefs) > 0, nil
+	})
+	if err != nil {
+		t.Fatalf("expected ConfigMap %q to receive OwnerReference after Robot CR creation: %v", deviceID, err)
+	}
+	if len(ownerRefs) != 1 || ownerRefs[0].UID != "later-cluster-uid" {
+		t.Errorf("ConfigMap OwnerReferences = %+v, want UID=later-cluster-uid", ownerRefs)
 	}
 }
 
@@ -334,4 +438,3 @@ func TestMigrateConfigMapsFromLegacyNamespace(t *testing.T) {
 		t.Fatalf("expected unrelated ConfigMap kube-root-ca.crt to remain in app-token-vendor: %v", err)
 	}
 }
-

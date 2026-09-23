@@ -49,9 +49,9 @@ func NewTokenVendor(ctx context.Context, repo repository.PubKeyRepository, v *oa
 	return &TokenVendor{repo: repo, v: v, ts: ts, accAud: acceptedAudience, defaultSAName: defaultSAName}, nil
 }
 
-func (tv *TokenVendor) PublishPublicKey(ctx context.Context, deviceID, publicKey string) error {
-	slog.Info("Publishing public Key", slog.String("DeviceID", deviceID))
-	return tv.repo.PublishKey(ctx, deviceID, publicKey)
+func (tv *TokenVendor) PublishPublicKey(ctx context.Context, deviceID, publicKey string, opts repository.PublishOptions) error {
+	slog.Info("Publishing public Key", slog.String("DeviceID", deviceID), slog.String("RobotName", opts.RobotName))
+	return tv.repo.PublishKey(ctx, deviceID, publicKey, opts)
 }
 
 func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (string, error) {
@@ -311,4 +311,17 @@ func IsValidDeviceID(ID string) bool {
 		return false
 	}
 	return true
+}
+
+// IsValidRobotName validates the name of a Robot CR.
+//
+// Like device identifiers, Robot names are RFC 1123 subdomains. They are also
+// stored as a label value on the key's configmap, which limits their length.
+func IsValidRobotName(name string) bool {
+	const minLen, maxLen = 1, 63
+	l := len(name)
+	if l < minLen || l > maxLen {
+		return false
+	}
+	return isValidDeviceIDRegex(name)
 }
