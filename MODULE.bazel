@@ -16,6 +16,9 @@ use_repo(non_module_deps, "com_github_kubernetes_sigs_application")
 use_repo(non_module_deps, "ingress-nginx")
 # End of extension `non_module_deps`
 
+aspect_toolchains = use_extension("@aspect_bazel_lib//lib:extensions.bzl", "toolchains")
+use_repo(aspect_toolchains, "zstd_linux_amd64")
+
 #######
 # C++ #
 #######
