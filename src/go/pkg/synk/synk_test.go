@@ -766,10 +766,11 @@ data:
 
 func TestSynk_validateNamespace(t *testing.T) {
 	tests := []struct {
-		desc      string
-		namespace string
-		optsNs    string
-		wantErr   bool
+		desc        string
+		namespace   string
+		optsNs      string
+		annotations map[string]string
+		wantErr     bool
 	}{
 		{
 			desc:      "empty namespace is allowed",
@@ -808,6 +809,20 @@ func TestSynk_validateNamespace(t *testing.T) {
 			wantErr:   true,
 		},
 		{
+			desc:        "other namespace is allowed with allow-cross-namespace annotation",
+			namespace:   "other-ns",
+			optsNs:      "my-ns",
+			annotations: map[string]string{AnnotationAllowCrossNamespace: "true"},
+			wantErr:     false,
+		},
+		{
+			desc:        "other namespace is not allowed when allow-cross-namespace annotation is false",
+			namespace:   "other-ns",
+			optsNs:      "my-ns",
+			annotations: map[string]string{AnnotationAllowCrossNamespace: "false"},
+			wantErr:     true,
+		},
+		{
 			desc:      "custom ns not allowed-listed via optsNs",
 			namespace: "my-ns",
 			optsNs:    "",
@@ -818,6 +833,9 @@ func TestSynk_validateNamespace(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			r := newUnstructured("v1", "Pod", tc.namespace, "pod1")
+			if tc.annotations != nil {
+				r.SetAnnotations(tc.annotations)
+			}
 			err := validateNamespace(r, tc.optsNs)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("validateNamespace() error = %v, wantErr %v", err, tc.wantErr)
