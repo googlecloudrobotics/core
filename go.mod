@@ -3,7 +3,7 @@ module github.com/googlecloudrobotics/core
 go 1.27.1
 
 require (
-	cloud.google.com/go/compute/metadata v0.9.0
+	cloud.google.com/go/compute/metadata v0.9.1
 	cloud.google.com/go/storage v1.65.0
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace v1.38.0
 	github.com/cenkalti/backoff/v4 v4.3.0
