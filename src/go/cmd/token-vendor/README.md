@@ -53,9 +53,11 @@ refuse eg. robots to register other robots.
   * device-id: unique device name (by default robot-<robot-id>)
   * robot-name (optional): name of the Robot CR that owns the key. The key is
     deleted when the Robot CR is deleted. Defaults to the device-id without the
-    robot- prefix. Set this if the device-id doesn't match a Robot CR, eg for a
-    device that registers under its node name but joins a cluster with another
-    name.
+    robot- prefix. Set this if the device-id doesn't match the Robot's name.
+    For example, a user might set up a new device as lab-pc-01, but the device
+    only learns that name from its configuration. If it authenticates as
+    robot-node-1234 to download the configuration, publish that key with
+    device-id=robot-node-1234&robot-name=lab-pc-01.
 * Body: application/x-pem-file
 * Response: only http status code
 

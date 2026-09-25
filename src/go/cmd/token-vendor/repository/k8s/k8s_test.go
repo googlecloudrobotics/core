@@ -236,12 +236,15 @@ func TestRobotCRCreatedAfterPublishKeySetsOwnerReference(t *testing.T) {
 	}
 }
 
-// A key can be owned by a Robot CR that doesn't match its device ID, eg when a
-// device registers as robot-node-<uuid> but joins a cluster with another name.
+// A key can be owned by a Robot CR that doesn't match its device ID. For
+// example, a user might set up a new device as lab-pc-01, but the device
+// authenticates as robot-node-1234 until its configuration tells it that name.
 func TestPublishKeyWithRobotNameSetsOwnerReference(t *testing.T) {
 	ctx := t.Context()
 	cs := fake.NewSimpleClientset()
 	crcs := crfake.NewSimpleClientset(
+		// Matches the device ID, but mustn't own the key, as robot-name takes
+		// precedence.
 		&registryv1alpha1.Robot{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "node-1234",

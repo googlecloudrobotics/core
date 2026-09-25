@@ -218,10 +218,10 @@ func (k *K8sRepository) matchingRobotOwnerRef(ctx context.Context, robotName str
 		return nil
 	}
 	// TODO(rodrigoq): The cache can be stale if the Robot CR was just deleted
-	// and re-created, eg when the device-manager replaces a cluster. Then the
-	// owner reference has the old Robot's UID, and the garbage collector may
-	// delete the configmap before onRobotAdded fixes the owner. Consider always
-	// doing a live GET instead.
+	// and re-created, eg when a robot is re-registered under the same name.
+	// Then the owner reference has the old Robot's UID, and the garbage
+	// collector may delete the configmap before onRobotAdded fixes the owner.
+	// Consider always doing a live GET instead.
 	if k.robotInformer != nil {
 		if obj, exists, err := k.robotInformer.GetStore().GetByKey(k.ns + "/" + robotName); err == nil && exists {
 			if robot, ok := obj.(*registryv1alpha1.Robot); ok {
