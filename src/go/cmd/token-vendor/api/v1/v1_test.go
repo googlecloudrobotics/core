@@ -417,6 +417,84 @@ func runPublicKeyPublishHandlerWithK8sCase(t *testing.T, test *publicKeyPublishH
 	}
 }
 
+func TestPublicKeyPublishHandlerRobotName(t *testing.T) {
+	const deviceID = "robot-node-1234"
+	var cases = []struct {
+		desc           string
+		robotNames     []string
+		wantStatusCode int
+		wantLabel      string
+	}{
+		{
+			desc:           "no robot-name",
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			desc:           "valid robot-name",
+			robotNames:     []string{"my-cluster"},
+			wantStatusCode: http.StatusOK,
+			wantLabel:      "my-cluster",
+		},
+		{
+			desc:           "invalid robot-name",
+			robotNames:     []string{"My_Cluster"},
+			wantStatusCode: http.StatusBadRequest,
+		},
+		{
+			desc:           "robot-name too long for a label",
+			robotNames:     []string{strings.Repeat("a", 64)},
+			wantStatusCode: http.StatusBadRequest,
+		},
+		{
+			desc:           "multiple robot-names",
+			robotNames:     []string{"cluster-a", "cluster-b"},
+			wantStatusCode: http.StatusBadRequest,
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.desc, func(t *testing.T) {
+			ctx := t.Context()
+			cs := fake.NewSimpleClientset()
+			kcl, err := k8s.NewK8sRepository(ctx, cs, nil, "default", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			tv, err := app.NewTokenVendor(ctx, kcl, nil, nil, "aud", saName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			h := HandlerContext{tv: tv}
+
+			rr := httptest.NewRecorder()
+			req := mustNewRequest(t, http.MethodPost, "/anything", mustFileOpen(t, testPubKey))
+			q := req.URL.Query()
+			q.Add("device-id", deviceID)
+			for _, robotName := range test.robotNames {
+				q.Add("robot-name", robotName)
+			}
+			req.URL.RawQuery = q.Encode()
+			h.publicKeyPublishHandler(rr, req)
+
+			if rr.Code != test.wantStatusCode {
+				t.Fatalf("publicKeyPublishHandler(..): wrong status code %d, want %d", rr.Code, test.wantStatusCode)
+			}
+			cm, err := cs.CoreV1().ConfigMaps("default").Get(ctx, deviceID, metav1.GetOptions{})
+			if rr.Code != http.StatusOK {
+				if err == nil {
+					t.Errorf("ConfigMap %q was created despite status code %d", deviceID, rr.Code)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := cm.Labels["cloudrobotics.com/robot-name"]; got != test.wantLabel {
+				t.Errorf("ConfigMap robot-name label = %q, want %q", got, test.wantLabel)
+			}
+		})
+	}
+}
+
 type isValidPublicKeyTest struct {
 	desc    string
 	pk      []byte

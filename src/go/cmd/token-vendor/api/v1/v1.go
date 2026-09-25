@@ -36,10 +36,11 @@ import (
 )
 
 const (
-	headerRobots  = "x-crc-tv-robots"
-	paramDeviceID = "device-id"
-	contentType   = "content-type"
-	pemFile       = "application/x-pem-file"
+	headerRobots   = "x-crc-tv-robots"
+	paramDeviceID  = "device-id"
+	paramRobotName = "robot-name"
+	contentType    = "content-type"
+	pemFile        = "application/x-pem-file"
 )
 
 // Options configures the behavior of the API V1 handlers.
@@ -76,6 +77,22 @@ func getQueryParam(u *url.URL, param string) (string, error) {
 		return "", err
 	}
 	return values[0], nil
+}
+
+// getOptionalQueryParam extracts an optional query parameter from the request URL.
+//
+// Returns "" if the parameter is missing. Multiple parameters with the same key
+// are considered undefined and will result in error.
+func getOptionalQueryParam(u *url.URL, param string) (string, error) {
+	values := u.Query()[param]
+	switch len(values) {
+	case 0:
+		return "", nil
+	case 1:
+		return values[0], nil
+	default:
+		return "", fmt.Errorf("multiple query parameter %s", param)
+	}
 }
 
 // Handle requests to configure optional properties of the device registration.
@@ -169,6 +186,9 @@ func (h *HandlerContext) publicKeyReadHandler(w http.ResponseWriter, r *http.Req
 //
 // Method: POST
 // URL parameter: device-id, the identifier of the device
+// URL parameter (optional): robot-name, the name of the Robot CR that owns the
+// key, so that the key is deleted along with the Robot. Defaults to device-id
+// without the "robot-" prefix.
 // Request body: a single public key to publish
 // Response code: 200 if publish succeeded
 func (h *HandlerContext) publicKeyPublishHandler(w http.ResponseWriter, r *http.Request) {
@@ -187,6 +207,15 @@ func (h *HandlerContext) publicKeyPublishHandler(w http.ResponseWriter, r *http.
 		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid device id", slog.String("DeviceID", deviceID))
 		return
 	}
+	robotName, err := getOptionalQueryParam(r.URL, paramRobotName)
+	if err != nil {
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, err.Error(), slog.String("DeviceID", deviceID))
+		return
+	}
+	if robotName != "" && !app.IsValidRobotName(robotName) {
+		api.ErrResponse(r.Context(), w, http.StatusBadRequest, "invalid robot name", slog.String("DeviceID", deviceID), slog.String("RobotName", robotName))
+		return
+	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "failed to read request body", ilog.Err(err), slog.String("DeviceID", deviceID))
@@ -198,7 +227,7 @@ func (h *HandlerContext) publicKeyPublishHandler(w http.ResponseWriter, r *http.
 		return
 	}
 	// publish the key
-	err = h.tv.PublishPublicKey(r.Context(), deviceID, string(body))
+	err = h.tv.PublishPublicKey(r.Context(), deviceID, string(body), repository.PublishOptions{RobotName: robotName})
 	if err != nil {
 		api.ErrResponse(r.Context(), w, http.StatusInternalServerError, "publish key failed", ilog.Err(err), slog.String("DeviceID", deviceID))
 		return

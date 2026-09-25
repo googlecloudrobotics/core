@@ -33,6 +33,7 @@ go_test(
     deps = [
         "//src/go/cmd/token-vendor/app:go_default_library",
         "//src/go/cmd/token-vendor/oauth:go_default_library",
+        "//src/go/cmd/token-vendor/repository:go_default_library",
         "//src/go/cmd/token-vendor/repository/k8s:go_default_library",
         "//src/go/cmd/token-vendor/repository/memory:go_default_library",
         "//src/go/cmd/token-vendor/tokensource:go_default_library",
