@@ -7,6 +7,7 @@ APPS = [
     "k8s-relay",
     "mission-crd",
     "prometheus",
+    "grafana",
     "token-vendor",
     "akri",
 ]
