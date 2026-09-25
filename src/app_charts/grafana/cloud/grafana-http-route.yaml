@@ -23,7 +23,7 @@ spec:
           type: ReplacePrefixMatch
           replacePrefixMatch: /
     backendRefs:
-    - name: prom-grafana
+    - name: grafana
       port: 80
   - matches:
     - path:
@@ -36,7 +36,7 @@ spec:
           type: ReplaceFullPath
           replaceFullPath: /
     backendRefs:
-    - name: prom-grafana
+    - name: grafana
       port: 80
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
