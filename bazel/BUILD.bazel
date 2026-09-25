@@ -1,9 +1,18 @@
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 exports_files([
     "app.bzl",
     "app_chart.bzl",
     "container_push.bzl",
+    "crc_image_layer.bzl",
     "repositories.bzl",
 ])
+
+sh_binary(
+    name = "zstd",
+    srcs = ["@zstd_linux_amd64//:zstd"],
+    visibility = ["//visibility:public"],
+)
 
 platform(
     name = "linux_x86_64",

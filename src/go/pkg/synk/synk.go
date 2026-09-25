@@ -63,6 +63,11 @@ const totalAnnotationSizeLimitB int = 256 * (1 << 10) // 256 kB
 // update its owner references so it does not get pruned.
 const AnnotationIgnore = "synk.cloudrobotics.com/ignore"
 
+// AnnotationAllowCrossNamespace is an annotation that, when set to "true" on a
+// resource, allows it to be deployed into a namespace other than the target
+// namespace configured in ApplyOptions.
+const AnnotationAllowCrossNamespace = "synk.cloudrobotics.com/allow-cross-namespace"
+
 const defaultWorkers = 16
 
 var (
@@ -481,6 +486,9 @@ func validateNamespace(r *unstructured.Unstructured, optsNs string) error {
 	ns := r.GetNamespace()
 	allowed := []string{"", "kube-system", "default", "envoy-gateway-system", optsNs}
 	if slices.Contains(allowed, ns) {
+		return nil
+	}
+	if r.GetAnnotations()[AnnotationAllowCrossNamespace] == "true" {
 		return nil
 	}
 	return fmt.Errorf("invalid namespace %q on %q, expected one of %v", ns, resourceKey(r), allowed)
