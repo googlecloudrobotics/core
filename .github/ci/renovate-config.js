@@ -3,7 +3,7 @@
  * @type {import("renovate/dist/config/types").RenovateConfig}
  */
 export default {
-  extends: ['config:best-practices'],
+  extends: ['config:best-practices', 'schedule:weekly'],
   hostRules: [
     ...(process.env.RENOVATE_GCR_TOKEN
       ? [
