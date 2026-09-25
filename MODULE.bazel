@@ -23,7 +23,7 @@ use_repo(aspect_toolchains, "zstd_linux_amd64")
 # C++ #
 #######
 
-bazel_dep(name = "toolchains_llvm", version = "1.9.1")
+bazel_dep(name = "toolchains_llvm", version = "1.10.0")
 
 # Inspect supported toolchains at https://github.com/bazel-contrib/toolchains_llvm/blob/master/toolchain/internal/llvm_distributions.bzl
 llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
