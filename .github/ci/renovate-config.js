@@ -75,20 +75,8 @@ export default {
       datasourceTemplate: 'golang-version',
       depNameTemplate: 'go',
     },
-    {
-      customType: 'regex',
-      managerFilePatterns: ['go.mod'],
-      matchStrings: ['\\ngo\\s+(?<currentValue>[0-9.]+)'],
-      datasourceTemplate: 'golang-version',
-      depNameTemplate: 'go',
-    },
   ],
   packageRules: [
-    {
-      matchDatasources: ['golang-version'],
-      matchDepNames: ['go'],
-      groupName: 'golang',
-    },
     {
       groupName: 'renovate',
       matchDepNames: ['renovate', 'ghcr.io/renovatebot/renovate'],
