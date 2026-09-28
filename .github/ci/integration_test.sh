@@ -3,13 +3,11 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${DIR}/common.sh"
 source "./scripts/common.sh"
+source <(gcloud storage cat "gs://robco-integration-test-cloud-robotics-config/config.sh")
 
 # Because the format from common.sh is not recognized by Cloud Build.
 export 'PS4='
 
-# Need to source the project config from here
-PROJECT_DIR="${DIR}/deployments/robco-integration-test"
-source "${PROJECT_DIR}/config.sh"
 gcloud config set project ${GCP_PROJECT_ID}
 gke_get_credentials "${GCP_PROJECT_ID}" "cloud-robotics" "${GCP_REGION}" "${GCP_ZONE}"
 

@@ -37,6 +37,9 @@ import (
 	"golang.org/x/oauth2/jws"
 
 	"github.com/googlecloudrobotics/ilog"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -60,6 +63,13 @@ var (
 
 	k8sCAPath = flag.String("k8s-ca-path", "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
 		"Path to Kubernetes CA certificate")
+
+	legacyRequests = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "legacy_requests_total",
+			Help: "Number of requests that trigger the legacy credential path",
+		},
+	)
 )
 
 const (
@@ -231,6 +241,7 @@ func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "No valid credentials provided", http.StatusUnauthorized)
 			return
 		}
+		legacyRequests.Inc()
 	}
 
 	robotName, err := h.extractRobotName(r.Context(), encodedJWT)
@@ -256,6 +267,7 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 	encodedJWT := strings.TrimPrefix(r.Header.Get("Authorization"), bearerPrefix)
 	if err := h.verifyJWT(encodedJWT); err != nil {
 		if *acceptLegacyCredentials {
+			legacyRequests.Inc()
 			// The request already has the necessary credentials, so preserve these.
 			w.Header().Add("Authorization", r.Header.Get("Authorization"))
 			w.WriteHeader(http.StatusOK)
@@ -313,6 +325,7 @@ func main() {
 	http.HandleFunc("/healthz", handlers.health)
 	http.HandleFunc("/auth", handlers.auth)
 	http.HandleFunc("/apis/core.kubernetes/", handlers.proxyKubernetes)
+	http.Handle("/metrics", promhttp.Handler())
 
 	go func() {
 		slog.Info("Serving requests...")

@@ -8,7 +8,7 @@ function guess_runfiles() {
     popd > /dev/null 2>&1
 }
 
-RUNFILES="${PYTHON_RUNFILES:-$(guess_runfiles)}"
+RUNFILES="${RUNFILES_DIR:-${PYTHON_RUNFILES:-$(guess_runfiles)}}"
 
 # app() uses run_parallel() to push images to GCR, which relies on
 # gcloud to get credentials. That, however, has a race condition:

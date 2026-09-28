@@ -62,30 +62,45 @@ var (
 type relay struct {
 	rs, rc *exec.Cmd
 	rsPort string
+	logPW  *io.PipeWriter
 }
 
 // start brings up the relay processes
 func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 	// run relay server exposing the relay client
-	var rsOut bytes.Buffer
+	pr, pw := io.Pipe()
+	r.logPW = pw
+	portCh := make(chan string, 1)
+	connectedCh := make(chan struct{}, 1)
+	go func() {
+		scanner := bufio.NewScanner(pr)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if m := rsPortMatcher.FindStringSubmatch(line); m != nil {
+				select {
+				case portCh <- m[1]:
+				default:
+				}
+			}
+			if strings.Contains(line, "Relay client connected") {
+				select {
+				case connectedCh <- struct{}{}:
+				default:
+				}
+			}
+		}
+	}()
+
 	r.rs = exec.Command(RelayServerPath, RelayServerArgs...)
 	r.rs.Stdout = os.Stdout
-	r.rs.Stderr = io.MultiWriter(os.Stderr, &rsOut)
+	r.rs.Stderr = io.MultiWriter(os.Stderr, pw)
 	if err := r.rs.Start(); err != nil {
 		return fmt.Errorf("failed to start relay-server: %w", err)
 	}
-	r.rsPort = ""
-	for i := 0; i < 100; i++ {
-		slog.Info("Output", slog.String("Output", rsOut.String()))
-		if m := rsPortMatcher.FindStringSubmatch(rsOut.String()); m != nil {
-			r.rsPort = m[1]
-			slog.Info("Server port", slog.String("Port", r.rsPort))
-			break
-		}
-		slog.Info("Waiting for relay to be up-and-running ...")
-		time.Sleep(100 * time.Millisecond)
-	}
-	if r.rsPort == "" {
+	select {
+	case r.rsPort = <-portCh:
+		slog.Info("Server port", slog.String("Port", r.rsPort))
+	case <-time.After(10 * time.Second):
 		return errors.New("timeout waiting for relay-server to launch")
 	}
 
@@ -104,16 +119,9 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 		return fmt.Errorf("failed to start relay-client: %w", err)
 	}
 
-	connected := false
-	for i := 0; i < 100; i++ {
-		if strings.Contains(rsOut.String(), "Relay client connected") {
-			connected = true
-			break
-		}
-		slog.Info("Waiting for relay to be up-and-running ...")
-		time.Sleep(100 * time.Millisecond)
-	}
-	if !connected {
+	select {
+	case <-connectedCh:
+	case <-time.After(10 * time.Second):
 		return errors.New("timeout waiting for relay-client to connect to relay-server")
 	}
 	return nil
@@ -121,6 +129,9 @@ func (r *relay) start(backendAddress string, extraClientArgs ...string) error {
 
 // stop tears down the relay processes
 func (r *relay) stop() error {
+	if r.logPW != nil {
+		r.logPW.Close()
+	}
 	if err := r.rs.Process.Kill(); err != nil {
 		return fmt.Errorf("failed to kill relay-server: %w", err)
 	}
@@ -219,6 +230,9 @@ func TestDroppedUserClientFreesRelayChannel(t *testing.T) {
 			select {
 			case <-finishServer:
 				return
+			case <-r.Context().Done():
+				connClosed <- r.Context().Err()
+				return
 			default:
 				if _, err := fmt.Fprintln(w, "DEADBEEF"); err != nil {
 					connClosed <- err
@@ -229,7 +243,7 @@ func TestDroppedUserClientFreesRelayChannel(t *testing.T) {
 				} else {
 					t.Fatal("cannot flush")
 				}
-				time.Sleep(time.Second)
+				time.Sleep(10 * time.Millisecond)
 			}
 		}
 	}))
@@ -237,7 +251,7 @@ func TestDroppedUserClientFreesRelayChannel(t *testing.T) {
 
 	backendAddress := strings.TrimPrefix(ts.URL, "http://")
 	r := &relay{}
-	if err := r.start(backendAddress); err != nil {
+	if err := r.start(backendAddress, "--max_chunk_size=1"); err != nil {
 		t.Fatal("failed to start relay: ", err)
 	}
 	defer r.stop()
@@ -298,7 +312,7 @@ func TestDroppedBidiStreamFreesRelayChannel(t *testing.T) {
 
 	backendAddress := strings.TrimPrefix(ts.URL, "http://")
 	r := &relay{}
-	if err := r.start(backendAddress); err != nil {
+	if err := r.start(backendAddress, "--max_chunk_size=1"); err != nil {
 		t.Fatal("failed to start relay: ", err)
 	}
 	defer r.stop()

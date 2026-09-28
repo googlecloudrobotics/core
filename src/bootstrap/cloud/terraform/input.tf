@@ -29,6 +29,17 @@ variable "shared_owner_group" {
   default     = ""
 }
 
+variable "oauth2_client_id" {
+  description = "Client id created via clickops for oauth2_proxy"
+  default = ""
+}
+
+variable "oauth2_secret" {
+  description = "Oauth2 secret created via clickops for oauth2_proxy"
+  sensitive = true
+  default = ""
+}
+
 variable "robot_image_reference" {
   description = "Reference to the Docker image installed by the setup-robot script"
 }
@@ -98,4 +109,22 @@ variable "max_node_count" {
   description = "Maximum number of nodes in the GKE node pool"
   type        = number
   default     = 16
+}
+
+variable "enable_nginx_shield" {
+  description = "Enable nginx shield to defend against DOS attacks"
+  type = bool
+  default = false
+}
+
+variable "use_gateway" {
+  description = "Use envoy gateway in place of nginx ingress"
+  type = bool
+  default = false
+}
+
+variable "managed_config" {
+  description = "Control whether CRC config is managed by terraform."
+  type = bool
+  default = true
 }

@@ -43,7 +43,7 @@ release_binary "${GCP_BUCKET}" "crc-${VERSION}/crc-${VERSION}+${SHA}" ${LABELS}
 # - BUILD_VERSION is used by `bazel --stamp`.
 # - HELM_* are used by the push-chart script to auth to GAR.
 echo "Pushing Helm chart to GAR..."
-export BUILD_VERSION="${VERSION}-${SHA}"
+export BUILD_VERSION="${VERSION}-g${SHA}"
 export HELM_REGISTRY_USERNAME="oauth2accesstoken"
 export HELM_REGISTRY_PASSWORD=$(gcloud auth print-access-token)
 bazel_ci run //src/app_charts/chart-assignment-controller:push-chart

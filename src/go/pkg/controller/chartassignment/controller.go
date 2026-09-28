@@ -157,7 +157,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 const (
 	// The finalizer that's applied to assignments to block their garbage collection
 	// until the Synk ResourceSet is deleted.
-	finalizer = "helm.apps.cloudrobotics.com"
+	finalizer = "helm.apps.cloudrobotics.com/chartassignment"
+	// Deprecated finalizer name without a path. Kept for migration of existing assignments.
+	deprecatedFinalizer = "helm.apps.cloudrobotics.com"
 	// Requeue interval when the underlying Synk ResourceSet is not in a stable state yet.
 	requeueFast = 3 * time.Second
 	// Requeue interval after the underlying Synk ResourceSete reached a stable state.
@@ -328,10 +330,21 @@ func (r *Reconciler) reconcile(ctx context.Context, as *apps.ChartAssignment) (r
 	}
 	// Ensure a finalizer on the ChartAssignment so we don't get deleted before
 	// we've properly deleted the associated Synk ResourceSet.
+	updateFinalizers := false
 	if !stringsContain(as.Finalizers, finalizer) {
 		as.Finalizers = append(as.Finalizers, finalizer)
+		updateFinalizers = true
+	}
+	if stringsContain(as.Finalizers, deprecatedFinalizer) {
+		as.Finalizers = stringsDelete(as.Finalizers, deprecatedFinalizer)
+		updateFinalizers = true
+	}
+	if updateFinalizers {
 		if err := r.kube.Update(ctx, as); err != nil {
-			return reconcile.Result{}, fmt.Errorf("add finalizer: %w", err)
+			if k8serrors.IsConflict(err) {
+				return reconcile.Result{Requeue: true}, nil
+			}
+			return reconcile.Result{}, fmt.Errorf("update finalizers: %w", err)
 		}
 	}
 
@@ -440,10 +453,11 @@ func (r *Reconciler) ensureDeleted(ctx context.Context, as *apps.ChartAssignment
 		// Deletion still in progress, check again later.
 		return nil
 	}
-	if !stringsContain(as.Finalizers, finalizer) {
+	if !stringsContain(as.Finalizers, finalizer) && !stringsContain(as.Finalizers, deprecatedFinalizer) {
 		return nil
 	}
 	as.Finalizers = stringsDelete(as.Finalizers, finalizer)
+	as.Finalizers = stringsDelete(as.Finalizers, deprecatedFinalizer)
 	if err := r.kube.Update(ctx, as); err != nil {
 		return fmt.Errorf("update failed: %s", err)
 	}

@@ -111,7 +111,7 @@ func runPublicKeyConfigureHandlerWithK8sCase(t *testing.T, test *publicKeyConfig
 	if err := populateK8sEnv(ctx, cs, "default", test.configmaps); err != nil {
 		t.Fatal(err)
 	}
-	kcl, err := k8s.NewK8sRepository(ctx, cs, "default")
+	kcl, err := k8s.NewK8sRepository(ctx, cs, nil, "default", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,6 +204,10 @@ func TestPublicKeyReadHandlerWithK8s(t *testing.T) {
 
 func populateK8sEnv(ctx context.Context, env kubernetes.Interface, ns string, maps []*corev1.ConfigMap) error {
 	for _, m := range maps {
+		if m.Labels == nil {
+			m.Labels = make(map[string]string)
+		}
+		m.Labels["app.kubernetes.io/managed-by"] = "token-vendor"
 		if _, err := env.CoreV1().ConfigMaps(ns).Create(ctx, m, metav1.CreateOptions{}); err != nil {
 			return err
 		}
@@ -219,7 +223,7 @@ func runPublicKeyReadHandlerWithK8sCase(t *testing.T, test *publicKeyReadHandler
 	if err := populateK8sEnv(ctx, cs, "default", test.configmaps); err != nil {
 		t.Fatal(err)
 	}
-	kcl, err := k8s.NewK8sRepository(ctx, cs, "default")
+	kcl, err := k8s.NewK8sRepository(ctx, cs, nil, "default", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -348,7 +352,7 @@ func runPublicKeyPublishHandlerWithK8sCase(t *testing.T, test *publicKeyPublishH
 	if err := populateK8sEnv(ctx, cs, "default", test.configmaps); err != nil {
 		t.Fatal(err)
 	}
-	kcl, err := k8s.NewK8sRepository(ctx, cs, "default")
+	kcl, err := k8s.NewK8sRepository(ctx, cs, nil, "default", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -410,6 +414,84 @@ func runPublicKeyPublishHandlerWithK8sCase(t *testing.T, test *publicKeyPublishH
 	if gotKey != test.wantKey {
 		t.Errorf("after update,publicKeyReadHandler(..): wrong key, got %v, want %v",
 			gotKey, test.wantKey)
+	}
+}
+
+func TestPublicKeyPublishHandlerRobotName(t *testing.T) {
+	const deviceID = "robot-node-1234"
+	var cases = []struct {
+		desc           string
+		robotNames     []string
+		wantStatusCode int
+		wantLabel      string
+	}{
+		{
+			desc:           "no robot-name",
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			desc:           "valid robot-name",
+			robotNames:     []string{"my-cluster"},
+			wantStatusCode: http.StatusOK,
+			wantLabel:      "my-cluster",
+		},
+		{
+			desc:           "invalid robot-name",
+			robotNames:     []string{"My_Cluster"},
+			wantStatusCode: http.StatusBadRequest,
+		},
+		{
+			desc:           "robot-name too long for a label",
+			robotNames:     []string{strings.Repeat("a", 64)},
+			wantStatusCode: http.StatusBadRequest,
+		},
+		{
+			desc:           "multiple robot-names",
+			robotNames:     []string{"cluster-a", "cluster-b"},
+			wantStatusCode: http.StatusBadRequest,
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.desc, func(t *testing.T) {
+			ctx := t.Context()
+			cs := fake.NewSimpleClientset()
+			kcl, err := k8s.NewK8sRepository(ctx, cs, nil, "default", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			tv, err := app.NewTokenVendor(ctx, kcl, nil, nil, "aud", saName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			h := HandlerContext{tv: tv}
+
+			rr := httptest.NewRecorder()
+			req := mustNewRequest(t, http.MethodPost, "/anything", mustFileOpen(t, testPubKey))
+			q := req.URL.Query()
+			q.Add("device-id", deviceID)
+			for _, robotName := range test.robotNames {
+				q.Add("robot-name", robotName)
+			}
+			req.URL.RawQuery = q.Encode()
+			h.publicKeyPublishHandler(rr, req)
+
+			if rr.Code != test.wantStatusCode {
+				t.Fatalf("publicKeyPublishHandler(..): wrong status code %d, want %d", rr.Code, test.wantStatusCode)
+			}
+			cm, err := cs.CoreV1().ConfigMaps("default").Get(ctx, deviceID, metav1.GetOptions{})
+			if rr.Code != http.StatusOK {
+				if err == nil {
+					t.Errorf("ConfigMap %q was created despite status code %d", deviceID, rr.Code)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := cm.Labels["cloudrobotics.com/robot-name"]; got != test.wantLabel {
+				t.Errorf("ConfigMap robot-name label = %q, want %q", got, test.wantLabel)
+			}
+		})
 	}
 }
 
@@ -792,7 +874,7 @@ func runTokenOAuth2HandlerTestWithK8s(t *testing.T, test TokenOAuth2HandlerTest)
 		}); err != nil {
 		t.Fatal(err)
 	}
-	r, err := k8s.NewK8sRepository(ctx, cs, "default")
+	r, err := k8s.NewK8sRepository(ctx, cs, nil, "default", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -887,7 +969,7 @@ func Test_verifyJWTHandler(t *testing.T) {
 		}); err != nil {
 		t.Fatal(err)
 	}
-	r, err := k8s.NewK8sRepository(ctx, cs, "default")
+	r, err := k8s.NewK8sRepository(ctx, cs, nil, "default", "")
 	if err != nil {
 		t.Fatal(err)
 	}

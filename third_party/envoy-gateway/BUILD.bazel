@@ -8,7 +8,17 @@ exports_files(
             "*.yaml",
             "*.py",
             "*.sh",
+            "dashboards/*.json",
         ],
+        allow_empty = True,
+    ),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "envoy-gateway-dashboards",
+    srcs = glob(
+        ["dashboards/*.json"],
         allow_empty = True,
     ),
     visibility = ["//visibility:public"],

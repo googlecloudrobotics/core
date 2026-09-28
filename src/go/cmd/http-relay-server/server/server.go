@@ -548,7 +548,7 @@ func (s *Server) Start(ctx context.Context) {
 	s.StartOnListener(ctx, ln)
 }
 
-func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
+func (s *Server) Handler() http.Handler {
 	h := http.NewServeMux()
 	h.HandleFunc("/healthz", s.health)
 	h.HandleFunc("/", s.userClientRequest)
@@ -559,14 +559,17 @@ func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 
 	h2s := &http2.Server{}
 	h2h := h2c.NewHandler(h, h2s)
-	otelHandler := otelhttp.NewHandler(h2h, "",
+	return otelhttp.NewHandler(h2h, "",
 		otelhttp.WithPropagators(telemetry.HTTPPropagator),
 		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
 			return r.URL.Path
 		}),
 	)
+}
+
+func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 	h1s := &http.Server{
-		Handler: otelHandler,
+		Handler: s.Handler(),
 		BaseContext: func(l net.Listener) context.Context {
 			return ctx
 		},

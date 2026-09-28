@@ -247,12 +247,91 @@ func TestReconciler_Reconcile(t *testing.T) {
 			},
 		},
 		{
+			name:    "DeleteDeprecatedFinalizer",
+			reqName: asName,
+			as: &apps.ChartAssignment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              asName,
+					DeletionTimestamp: &now,
+					Finalizers:        []string{deprecatedFinalizer},
+				},
+				Spec: apps.ChartAssignmentSpec{
+					NamespaceName: nsName,
+				},
+			},
+			mockReleases: func(ctx context.Context, ctrl *gomock.Controller) *releases {
+				mockSynk := NewMockInterface(ctrl)
+				mockSynk.EXPECT().Delete(gomock.Any(), asName).Return(nil).AnyTimes()
+				return &releases{
+					ctx: ctx,
+					m: map[string]*release{
+						asName: {
+							ctx:    ctx,
+							status: releaseStatus{phase: apps.ChartAssignmentPhaseDeleted},
+						},
+					},
+					synk: mockSynk,
+				}
+			},
+			wantResult: reconcile.Result{Requeue: true, RequeueAfter: requeueFast},
+			verify: func(t *testing.T, client kclient.Client) {
+				var updatedAs apps.ChartAssignment
+				err := client.Get(t.Context(), kclient.ObjectKey{Name: asName}, &updatedAs)
+				if !k8serrors.IsNotFound(err) {
+					t.Errorf("Expected ChartAssignment to be deleted, but found: %v", updatedAs)
+				}
+			},
+		},
+		{
 			name:    "Success",
 			reqName: asName,
 			as: &apps.ChartAssignment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       asName,
 					Generation: 1,
+				},
+				Spec: apps.ChartAssignmentSpec{
+					NamespaceName: nsName,
+					Chart: apps.AssignedChart{
+						Inline: "abc",
+					},
+				},
+			},
+			mockReleases: func(ctx context.Context, ctrl *gomock.Controller) *releases {
+				return &releases{
+					ctx: ctx,
+					m: map[string]*release{
+						asName: {
+							ctx:    ctx,
+							status: releaseStatus{phase: apps.ChartAssignmentPhaseSettled},
+							gen:    1,
+						},
+					},
+				}
+			},
+			wantResult: reconcile.Result{Requeue: true, RequeueAfter: requeueSlow},
+			verify: func(t *testing.T, client kclient.Client) {
+				var updatedAs apps.ChartAssignment
+				err := client.Get(t.Context(), kclient.ObjectKey{Name: asName}, &updatedAs)
+				if err != nil {
+					t.Fatalf("Failed to get ChartAssignment: %v", err)
+				}
+				if updatedAs.Status.Phase != apps.ChartAssignmentPhaseReady {
+					t.Errorf("Expected phase Ready, got %q", updatedAs.Status.Phase)
+				}
+				if len(updatedAs.Finalizers) != 1 || updatedAs.Finalizers[0] != finalizer {
+					t.Errorf("Expected finalizer %q, got %v", finalizer, updatedAs.Finalizers)
+				}
+			},
+		},
+		{
+			name:    "SuccessMigrateDeprecatedFinalizer",
+			reqName: asName,
+			as: &apps.ChartAssignment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       asName,
+					Generation: 1,
+					Finalizers: []string{deprecatedFinalizer},
 				},
 				Spec: apps.ChartAssignmentSpec{
 					NamespaceName: nsName,

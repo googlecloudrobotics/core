@@ -25,6 +25,8 @@ import (
 	"github.com/google/nftables/expr"
 )
 
+const tableName = "metadata_server_nat"
+
 var metadataRule = []byte("metadata-nat")
 
 func addNATRule(listenIP string, listenPort int) error {
@@ -33,7 +35,7 @@ func addNATRule(listenIP string, listenPort int) error {
 		return fmt.Errorf("nftables new: %v", err)
 	}
 	table := con.AddTable(&nftables.Table{
-		Name:   "nat",
+		Name:   tableName,
 		Family: nftables.TableFamilyIPv4,
 	})
 	accept := nftables.ChainPolicyAccept
@@ -148,7 +150,7 @@ func removeNATRule() {
 		log.Printf("Warning: nftables invocation failed: %v", err)
 	}
 	table := con.AddTable(&nftables.Table{
-		Name:   "nat",
+		Name:   tableName,
 		Family: nftables.TableFamilyIPv4,
 	})
 	accept := nftables.ChainPolicyAccept

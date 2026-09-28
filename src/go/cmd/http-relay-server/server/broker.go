@@ -204,9 +204,14 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 // with the relay id to not be recognized, resulting in the relay server returning an error.
 func (r *broker) StopRelayRequest(requestId string) {
 	r.m.Lock()
-	defer r.m.Unlock()
-	if pr, ok := r.resp[requestId]; ok {
-		r.removeRequest(requestId, pr)
+	pr, ok := r.resp[requestId]
+	if ok {
+		delete(r.resp, requestId)
+	}
+	r.m.Unlock()
+
+	if ok {
+		r.removeRequest(pr)
 	}
 }
 
@@ -297,12 +302,11 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 		brokerResponses.WithLabelValues("server_response", "not recognized or reaches the inactivity timeout", backendName).Inc()
 		return fmt.Errorf("%w %s", ErrInvalidRequestID, id)
 	}
-	// hold `sendMutex` throughout the function to ensure that `responseStream` is not closed
+	// hold `sendMutex` while writing to ensure that `responseStream` is not closed
 	// while we are writing to it. We must acquire the lock while we are holding `r.m` to
 	// avoid `ReapInactiveRequests` closing `responseStream` between the time that we
 	// release `r.m` and lock `pr.sendMutex`.
 	pr.sendMutex.Lock()
-	defer pr.sendMutex.Unlock()
 	if resp.GetEof() {
 		// remove this request from the broker to prevent `ReapInactiveRequests` from processing (and closing `pr.responseStream`)
 		// a request that is about to be closed.
@@ -318,22 +322,30 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 	// block other requests.
 	r.m.Unlock()
 
-	select {
-	// Writing to this channel will notify consumers which are waiting for data
-	// on the channel returned by RelayRequest(). Note that the rate that we can write
-	// is limited by the rate that the user client consumes the stream.
-	case pr.responseStream <- resp:
-		break
-	case <-pr.markReap:
-		return ErrClosedInactivity
+	sendChunk := func() error {
+		defer pr.sendMutex.Unlock()
+		select {
+		// Writing to this channel will notify consumers which are waiting for data
+		// on the channel returned by RelayRequest(). Note that the rate that we can write
+		// is limited by the rate that the user client consumes the stream.
+		case pr.responseStream <- resp:
+			if resp.GetEof() {
+				// this request is already removed from the broker earlier so `ReapInactiveRequests` will not
+				// process this and attempt to close the channel twice.
+				close(pr.responseStream)
+			}
+			return nil
+		case <-pr.markReap:
+			return ErrClosedInactivity
+		}
+	}
+	if err := sendChunk(); err != nil {
+		return err
 	}
 
 	brokerRequests.WithLabelValues("server_response", backendName).Inc()
 	brokerResponseDurations.WithLabelValues("server_response", backendName).Observe(duration)
 	if resp.GetEof() {
-		// this request is already removed from the broker earlier so `ReapInactiveRequests` will not
-		// process this and attempt to close the channel twice.
-		close(pr.responseStream)
 		backendDuration := (time.Duration(resp.GetBackendDurationMs()) * time.Millisecond).Seconds()
 		if backendDuration > 0.0 {
 			brokerBackendResponseDurations.WithLabelValues("server_response", backendName).Observe(backendDuration)
@@ -348,17 +360,23 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 }
 
 func (r *broker) ReapInactiveRequests(threshold time.Time) {
+	var toReap []*pendingResponse
 	r.m.Lock()
-	defer r.m.Unlock()
 	for id, pr := range r.resp {
 		if pr.lastActivity.Before(threshold) {
 			slog.Info("Timeout on inactive request", slog.String("ID", id))
-			r.removeRequest(id, pr)
+			delete(r.resp, id)
+			toReap = append(toReap, pr)
 		}
+	}
+	r.m.Unlock()
+
+	for _, pr := range toReap {
+		r.removeRequest(pr)
 	}
 }
 
-func (r *broker) removeRequest(id string, pr *pendingResponse) {
+func (r *broker) removeRequest(pr *pendingResponse) {
 	// Closing `pr.markReap` tells `SendResponse` and `PutRequestStream` to stop.
 	close(pr.markReap)
 
@@ -371,35 +389,38 @@ func (r *broker) removeRequest(id string, pr *pendingResponse) {
 	pr.sendMutex.Lock()
 	close(pr.responseStream)
 	pr.sendMutex.Unlock()
-
-	delete(r.resp, id)
 }
 
 func (r *broker) ReapInactiveBackends(threshold time.Time) {
+	var expired []string
 	r.m.Lock()
-	defer r.m.Unlock()
 	for server, bs := range r.req {
 		if bs.lastActivity.Before(threshold) {
-			slog.Info("Timeout on inactive backend", slog.String("ServerName", server))
-			
-			// Delete metrics
-			brokerRequests.DeleteLabelValues("client", server)
-			brokerRequests.DeleteLabelValues("server_request", server)
-			brokerRequests.DeleteLabelValues("server_response", server)
-			
-			brokerResponses.DeleteLabelValues("client", "missing_message", server)
-			brokerResponses.DeleteLabelValues("client", "missing_header", server)
-			brokerResponses.DeleteLabelValues("client", "ok", server)
-			brokerResponses.DeleteLabelValues("server_request", "ok", server)
-			brokerResponses.DeleteLabelValues("server_request", "timeout", server)
-			brokerResponses.DeleteLabelValues("server_response", "ok", server)
-			brokerResponses.DeleteLabelValues("server_response", "not recognized or reaches the inactivity timeout", server)
-			
-			brokerResponseDurations.DeleteLabelValues("server_response", server)
-			brokerBackendResponseDurations.DeleteLabelValues("server_response", server)
-			brokerOverheadDurations.DeleteLabelValues("server_response", server)
-
 			delete(r.req, server)
+			expired = append(expired, server)
 		}
 	}
+	r.m.Unlock()
+
+	for _, server := range expired {
+		slog.Info("Timeout on inactive backend", slog.String("ServerName", server))
+
+		// Delete metrics
+		brokerRequests.DeleteLabelValues("client", server)
+		brokerRequests.DeleteLabelValues("server_request", server)
+		brokerRequests.DeleteLabelValues("server_response", server)
+
+		brokerResponses.DeleteLabelValues("client", "missing_message", server)
+		brokerResponses.DeleteLabelValues("client", "missing_header", server)
+		brokerResponses.DeleteLabelValues("client", "ok", server)
+		brokerResponses.DeleteLabelValues("server_request", "ok", server)
+		brokerResponses.DeleteLabelValues("server_request", "timeout", server)
+		brokerResponses.DeleteLabelValues("server_response", "ok", server)
+		brokerResponses.DeleteLabelValues("server_response", "not recognized or reaches the inactivity timeout", server)
+
+		brokerResponseDurations.DeleteLabelValues("server_response", server)
+		brokerBackendResponseDurations.DeleteLabelValues("server_response", server)
+		brokerOverheadDurations.DeleteLabelValues("server_response", server)
+	}
 }
+

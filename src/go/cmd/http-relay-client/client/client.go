@@ -149,6 +149,7 @@ func DefaultClientConfig() ClientConfig {
 
 type Client struct {
 	config ClientConfig
+	wg     sync.WaitGroup
 }
 
 func NewClient(config ClientConfig) *Client {
@@ -259,17 +260,20 @@ func (c *Client) Start(ctx context.Context) {
 		),
 	}
 
-	wg := new(sync.WaitGroup)
+	c.StartWithClients(ctx, remote, local)
+}
+
+func (c *Client) StartWithClients(ctx context.Context, remote, local *http.Client) {
 	for i := 0; i < c.config.NumPendingRequests; i++ {
-		wg.Go(func() {
+		c.wg.Go(func() {
 			c.localProxyWorker(ctx, remote, local)
 		})
 	}
 	// Wait for context to be done or all workers to finish
-	wg.Go(func() {
+	c.wg.Go(func() {
 		<-ctx.Done()
 	})
-	wg.Wait()
+	c.wg.Wait()
 }
 
 func (c *Client) getRequest(ctx context.Context, remote *http.Client, relayURL string) (*pb.HttpRequest, error) {
@@ -605,7 +609,7 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 	}
 }
 
-func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *pb.HttpRequest) {
+func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *http.Client, pbreq *pb.HttpRequest) {
 	ts := time.Now()
 	id := *pbreq.Id
 	req, err := c.createBackendRequest(pbreq)
@@ -614,7 +618,6 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 		return
 	}
 	// Measure edge processing time.
-	ctx := req.Context()
 	extractedCtx := telemetry.HTTPPropagator.Extract(ctx, propagation.HeaderCarrier(req.Header))
 	ctx, span := tracer.Start(extractedCtx, "Recv."+req.URL.Path)
 	defer span.End()
@@ -700,7 +703,7 @@ func (c *Client) handleRequest(remote *http.Client, local *http.Client, pbreq *p
 				}
 				return c.postResponse(remote, resp)
 			},
-			backoff.WithMaxRetries(&exponentialBackoff, 10),
+			backoff.WithContext(backoff.WithMaxRetries(&exponentialBackoff, 10), ctx),
 			func(err error, _ time.Duration) {
 				slog.Error("Failed to post response to relay",
 					slog.String("ID", *resp.Id), ilog.Err(err))
@@ -764,7 +767,9 @@ func (c *Client) localProxy(ctx context.Context, remote, local *http.Client) err
 	}
 
 	// Forward the request to the backend.
-	go c.handleRequest(remote, local, req)
+	c.wg.Go(func() {
+		c.handleRequest(ctx, remote, local, req)
+	})
 	return nil
 }
 

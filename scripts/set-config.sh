@@ -123,6 +123,9 @@ if gcloud storage cp "${CLOUD_BUCKET}/config.sh" "${CONFIG_FILE}" 2>/dev/null; t
     exit 0
   fi
   source ${CONFIG_FILE}
+  if [[ "${CONFIG_MANAGED_BY_TERRAFORM}" == "true" ]]; then
+    die "ERROR: The Cloud Robotics configuration is managed by Terraform and cannot be modified directly. Please update your Terraform variables instead."
+  fi
 else
   if [[ -n "${FLAG_EDIT_OAUTH}" ]]; then
     die "You have to create a config before you can enable OAuth."

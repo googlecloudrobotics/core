@@ -73,6 +73,8 @@ pkg_tar(
         ":core-files-755",
         ":install-from-binary",
     ],
+    compressor = "//bazel:zstd",
+    compressor_args = "--format=gzip -6 -q",
     extension = "tar.gz",
     package_dir = "/cloud-robotics-core",
 )

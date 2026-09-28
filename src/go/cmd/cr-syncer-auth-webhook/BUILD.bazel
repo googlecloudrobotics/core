@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 load("@rules_oci//oci:defs.bzl", "oci_image")
-load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("//bazel:crc_image_layer.bzl", "crc_image_layer")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -14,6 +14,9 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
         "@org_golang_x_oauth2//jws:go_default_library",
     ],
 )
@@ -23,10 +26,9 @@ go_binary(
     embed = [":go_default_library"],
 )
 
-pkg_tar(
+crc_image_layer(
     name = "cr-syncer-auth-webhook-layer",
     srcs = [":cr-syncer-auth-webhook-app"],
-    extension = "tar.gz",
 )
 
 oci_image(
@@ -43,5 +45,8 @@ go_test(
         "request_test.go",
     ],
     embed = [":go_default_library"],
-    deps = ["@com_github_google_go_cmp//cmp:go_default_library"],
+    deps = [
+        "@com_github_google_go_cmp//cmp:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
+    ],
 )

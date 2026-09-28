@@ -35,7 +35,8 @@ spec:
         - --key-store=IN_MEMORY
 {{- else }}
         - --key-store=KUBERNETES
-        - --namespace=app-token-vendor
+        - --namespace=default
+        - --migrate-from-namespace=app-token-vendor
 {{- end }}
         resources:
 {{- toYaml .Values.token_vendor.resources | nindent 10 }}

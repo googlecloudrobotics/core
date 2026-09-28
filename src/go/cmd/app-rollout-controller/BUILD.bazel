@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@rules_oci//oci:defs.bzl", "oci_image")
-load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("//bazel:crc_image_layer.bzl", "crc_image_layer")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -35,10 +35,9 @@ go_binary(
     visibility = ["//visibility:private"],
 )
 
-pkg_tar(
+crc_image_layer(
     name = "app-rollout-controller-image-layer",
     srcs = [":app-rollout-controller-app"],
-    extension = "tar.gz",
 )
 
 oci_image(

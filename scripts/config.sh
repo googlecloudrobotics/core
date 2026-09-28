@@ -39,6 +39,11 @@ function save_variable {
   local name="$2"
   local value="$3"
 
+  if ( source "${config_file}" 2>/dev/null; [[ "${CONFIG_MANAGED_BY_TERRAFORM:-}" == "true" ]] ); then
+    echo "ERROR: The Cloud Robotics configuration is managed by Terraform and cannot be modified directly. Please update your Terraform variables instead." >&2
+    exit 1
+  fi
+
   if [[ -z "${value}" ]]; then
     sed -i "s/^\(${name}=.*\)$/#\1/" "${config_file}"
   elif grep -q "^\(# *\)\{0,1\}${name}=" "${config_file}"; then

@@ -262,7 +262,7 @@ func TestTokenVendor_ValidateJWT(t *testing.T) {
 
 func getInMemoryRepo(ctx context.Context, deviceId, key string) repository.PubKeyRepository {
 	repo, _ := memory.NewMemoryRepository(ctx)
-	_ = repo.PublishKey(ctx, deviceId, key)
+	_ = repo.PublishKey(ctx, deviceId, key, repository.PublishOptions{})
 	return repo
 }
 

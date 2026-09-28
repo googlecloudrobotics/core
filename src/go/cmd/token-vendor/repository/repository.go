@@ -41,13 +41,22 @@ type KeyOptions struct {
 	ServiceAccountDelegate string `json:"service-account-delegate"`
 }
 
+// PublishOptions contain optional settings for publishing a key
+type PublishOptions struct {
+	// RobotName is the name of the Robot CR that owns the key, so that the key
+	// is deleted together with the Robot. If empty, the Robot's name is
+	// derived from the device identifier (robot-<robot-name>).
+	RobotName string
+}
+
 // PubKeyRepository defines the api for the pub key stores
 type PubKeyRepository interface {
 	// LookupKey retrieves the public key of a device from the repository.
 	// An empty string return indicates that no key exists for the given identifier or
 	// that the device is blocked.
 	LookupKey(ctx context.Context, deviceID string) (*Key, error)
-	PublishKey(ctx context.Context, deviceID, publicKey string) error
+	// PublishKey adds or updates the public key of a device.
+	PublishKey(ctx context.Context, deviceID, publicKey string, opts PublishOptions) error
 	// ConfigureKey applies the given opts to the key store.
 	ConfigureKey(ctx context.Context, deviceID string, opts KeyOptions) error
 }

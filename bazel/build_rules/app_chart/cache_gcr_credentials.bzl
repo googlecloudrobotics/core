@@ -10,7 +10,7 @@ def _impl(ctx):
     runfiles.append(ctx.attr.target.files_to_run.executable)
     runfiles.extend(ctx.attr.target.default_runfiles.files.to_list())
 
-    variables = "PYTHON_RUNFILES=\"${RUNFILES}\" "
+    variables = "PYTHON_RUNFILES=\"${RUNFILES}\" RUNFILES_DIR=\"${RUNFILES}\" "
     ctx.actions.expand_template(
         template = ctx.file._sh_tpl,
         substitutions = {

@@ -102,11 +102,6 @@ func newSynk() (*synk.Synk, error) {
 		return nil, fmt.Errorf("create dynamic client: %w", err)
 	}
 	s := synk.New(client, discovery)
-
-	// Invalidate to be safe. It seems that a persistent discovery cache
-	// likes to stay out of sync way too often.
-	discovery.Invalidate()
-
 	return s, nil
 }
 

@@ -42,6 +42,7 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/k8s"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/memory"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
+	"github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
 	"github.com/googlecloudrobotics/ilog"
 )
 
@@ -90,6 +91,8 @@ var (
 	// Kubernetes backend options
 	namespace = flag.String("namespace", "default",
 		"The namespace where to store the device keys. (Kubernetes)")
+	migrateFromNamespace = flag.String("migrate-from-namespace", "app-token-vendor",
+		"The namespace to migrate device keys from at startup, if set. (Kubernetes)")
 
 	// Authentication / JWT options
 	acceptedAudience = flag.String("accepted_audience",
@@ -122,18 +125,23 @@ func main() {
 	case Kubernetes:
 		config, err := rest.InClusterConfig()
 		if err != nil {
-			slog.Error("Failed to get config", ilog.Err(err))
+			slog.ErrorContext(ctx, "Failed to get config", ilog.Err(err))
 			os.Exit(1)
 		}
 		config.QPS = float32(*k8sQPS)
 		config.Burst = *k8sBurst
 		cs, err := kubernetes.NewForConfig(config)
 		if err != nil {
-			slog.Error("Failed to make clientset", ilog.Err(err))
+			slog.ErrorContext(ctx, "Failed to make clientset", ilog.Err(err))
 			os.Exit(1)
 		}
-		if rep, err = k8s.NewK8sRepository(ctx, cs, *namespace); err != nil {
-			slog.Error("Failed to make k8s repository client", ilog.Err(err))
+		crcl, err := versioned.NewForConfig(config)
+		if err != nil {
+			slog.ErrorContext(ctx, "Failed to make CRD clientset", ilog.Err(err))
+			os.Exit(1)
+		}
+		if rep, err = k8s.NewK8sRepository(ctx, cs, crcl, *namespace, *migrateFromNamespace); err != nil {
+			slog.ErrorContext(ctx, "Failed to make k8s repository client", ilog.Err(err))
 			os.Exit(1)
 		}
 	case Memory:

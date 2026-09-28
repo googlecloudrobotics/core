@@ -190,6 +190,49 @@ func TestClientHandlerWithChunkedResponse(t *testing.T) {
 	}
 }
 
+func TestClientHandlerWithChunkedRequest(t *testing.T) {
+	pr, pw := io.Pipe()
+	req := httptest.NewRequest("POST", "/client/foo/upload", pr)
+	respRecorder := httptest.NewRecorder()
+	server := NewServer(Config{})
+	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		server.userClientRequest(respRecorder, req)
+	}()
+
+	// Concurrently write chunks into the pipe
+	go func() {
+		pw.Write([]byte("chunk1-"))
+		pw.Write([]byte("chunk2-"))
+		pw.Write([]byte("chunk3"))
+		pw.Close()
+	}()
+
+	relayRequest, err := server.b.GetRequest(t.Context(), "foo", "/")
+	if err != nil {
+		t.Fatalf("Error when getting request: %v", err)
+	}
+
+	if got, want := string(relayRequest.Body), "chunk1-chunk2-chunk3"; got != want {
+		t.Errorf("Wrong request body; got %q; want %q", got, want)
+	}
+
+	server.b.SendResponse(&pb.HttpResponse{
+		Id:         relayRequest.Id,
+		StatusCode: proto.Int32(200),
+		Body:       []byte("ok"),
+		Eof:        proto.Bool(true),
+	})
+
+	wg.Wait()
+	resp := respRecorder.Result()
+	checkResponse(t, resp, 200, "ok")
+}
+
 func TestHeaderMarshaling(t *testing.T) {
 	h := http.Header{}
 	h.Add("X-Test", "value1")

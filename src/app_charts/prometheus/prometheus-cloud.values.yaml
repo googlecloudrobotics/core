@@ -1,5 +1,5 @@
 # Configuration for the prometheus-operator chart.
-# Reference: 
+# Reference:
 # https://github.com/prometheus-community/helm-charts/blob/kube-prometheus-stack-41.5.1/charts/kube-prometheus-stack/values.yaml
 #
 # WARNING: the prometheus-operator chart is complicated and error-prone. If you
@@ -59,6 +59,15 @@ prometheus:
       - key: "non-existent-label-for-universal-matching"
         operator: "DoesNotExist"
 
+    scrapeClasses:
+    - name: default
+      default: true
+      relabelings:
+      - sourceLabels: [cluster]
+        regex: '^$'
+        targetLabel: cluster
+        replacement: "cloud-robotics"
+
     externalUrl: "${EXTERNAL_URL}"
     externalLabels:
       $PROMETHEUS_EXTERNAL_LABELS: REMOVE_ME
@@ -100,9 +109,16 @@ prometheus:
     # https://github.com/prometheus-operator/prometheus-operator/issues/3587
     containers:
     - name: prometheus
-      readinessProbe:
-        initialDelaySeconds: 300
-        failureThreshold: 100000
+      startupProbe:
+          # Allow up to 1 hour for WAL replay before startupProbe considers Prometheus failed
+          failureThreshold: 240
+          httpGet:
+            path: /-/ready
+            port: http-web
+            scheme: HTTP
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 3
     - name: "${CR_PROMETHEUS_CONTAINERS_OBJECT}"
     remoteWrite:
     - url: "${CR_PROMETHEUS_REMOTE_WRITE_OBJECT}"

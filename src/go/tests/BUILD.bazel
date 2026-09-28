@@ -1,25 +1,30 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
+# gazelle:go_test file
+
 go_test(
-    name = "go_default_test",
+    name = "k8s_check_test",
+    size = "small",
+    srcs = ["k8s_check_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
+        "@io_k8s_api//core/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_client_go//rest:go_default_library",
+    ],
+)
+
+go_test(
+    name = "k8s_integration_test",
     size = "large",
     timeout = "long",
     srcs = ["k8s_integration_test.go"],
     embed = [":go_default_library"],
     tags = ["external"],
     deps = [
-        "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
         "//src/go/pkg/kubeutils:go_default_library",
-        "@com_github_googlecloudrobotics_ilog//:go_default_library",
-        "@io_k8s_api//core/v1:go_default_library",
-        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
-        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
-        "@io_k8s_apimachinery//pkg/runtime:go_default_library",
-        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
-        "@io_k8s_client_go//kubernetes:go_default_library",
-        "@io_k8s_client_go//kubernetes/scheme:go_default_library",
-        "@io_k8s_sigs_controller_runtime//pkg/client:go_default_library",
     ],
 )
 
@@ -34,14 +39,29 @@ sh_test(
 
 go_library(
     name = "go_default_library",
-    srcs = ["k8s_integration_test_auth_helper.go"],
+    srcs = [
+        "k8s_check.go",
+        "k8s_integration_test_auth_helper.go",
+    ],
     importpath = "github.com/googlecloudrobotics/core/src/go/tests",
     visibility = ["//visibility:public"],
     deps = [
+        "//src/go/pkg/apis/apps/v1alpha1:go_default_library",
+        "//src/go/pkg/kubeutils:go_default_library",
+        "@com_github_googlecloudrobotics_ilog//:go_default_library",
+        "@io_k8s_api//core/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
         "@io_k8s_apimachinery//pkg/util/net:go_default_library",
+        "@io_k8s_apimachinery//pkg/util/wait:go_default_library",
         "@io_k8s_apimachinery//pkg/util/yaml:go_default_library",
+        "@io_k8s_client_go//kubernetes:go_default_library",
+        "@io_k8s_client_go//kubernetes/scheme:go_default_library",
         "@io_k8s_client_go//rest:go_default_library",
         "@io_k8s_client_go//util/jsonpath:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/client:go_default_library",
         "@org_golang_x_oauth2//:go_default_library",
         "@org_golang_x_oauth2//google:go_default_library",
     ],

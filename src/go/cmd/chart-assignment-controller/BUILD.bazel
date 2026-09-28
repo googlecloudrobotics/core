@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
-load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("//bazel:crc_image_layer.bzl", "crc_image_layer")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -48,9 +48,8 @@ oci_image(
     tars = [":helm-image-layer"],
 )
 
-pkg_tar(
+crc_image_layer(
     name = "helm-image-layer",
-    extension = "tar.gz",
     package_dir = "/home/nonroot/",
     deps = [":helm-config"],
 )
@@ -60,10 +59,9 @@ go_binary(
     embed = [":go_default_library"],
 )
 
-pkg_tar(
+crc_image_layer(
     name = "chart-assignment-controller-layer",
     srcs = [":chart-assignment-controller-app"],
-    extension = "tar.gz",
 )
 
 oci_image(
