@@ -16,6 +16,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      serviceAccount: chart-assignment-controller
       serviceAccountName: chart-assignment-controller
       securityContext:
         runAsNonRoot: true
