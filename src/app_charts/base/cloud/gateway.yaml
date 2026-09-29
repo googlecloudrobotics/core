@@ -53,6 +53,9 @@ metadata:
   name: crc-gateway
 spec:
   gatewayClassName: eg
+  allowedListeners:
+    namespaces:
+      from: All
   listeners:
   - name: http
     # hostname: {{ .Values.domain }} # Uncomment to restrict this listener to the configured domain. Required if multiple Gateways share the same IP.
