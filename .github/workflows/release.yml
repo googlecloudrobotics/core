@@ -5,6 +5,13 @@ on:
     - cron: "0 5 * * *" # Once a day at 5am.
   # Manual runs through Actions tab in the UI
   workflow_dispatch:
+    inputs:
+      commit:
+        description: >-
+          Optional commit SHA to release. If omitted, the latest green commit
+          from postsubmit.yml on the main branch will be read from GCS.
+        required: false
+        type: string
 
 permissions:
   actions: read
@@ -21,23 +28,22 @@ jobs:
   create_release:
     runs-on: ubuntu-26.04
     steps:
-      # Check out repo at latest green postsubmit commit on the main branch.
+      # Check out repo at specified commit, or latest green postsubmit commit on the main branch.
+      # The SHA is written by integration_test.sh to a public GCS object.
       - name: Get latest passing commit
         id: latest-green
-        env:
-          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          output=$(curl --fail-with-body -sS \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/$REPO/actions/workflows/postsubmit.yml/runs?per_page=10&branch=main&status=success")
-          latest_run=$(jq '.workflow_runs | sort_by(.created_at) | last' <<< "$output")
-          repo_id=$(jq -r '.head_repository.id' <<< "$latest_run")
-          if [[ "${repo_id}" != "${{ github.repository_id }}" ]] ; then
-            echo >&2 "Unexpected head repository ID: ${repo_id} - check postsubmit.yml configuration"
+          sha="${{ inputs.commit }}"
+          if [[ -z "${sha}" ]]; then
+            sha=$(curl --fail-with-body -sS --retry 5 --retry-all-errors \
+              "https://storage.googleapis.com/robco-ci-binary-builds/latest-sha")
+            sha=$(tr -d '[:space:]' <<< "$sha")
+          fi
+          if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Invalid latest green SHA: '${sha}'"
             exit 1
           fi
-          sha=$(jq -r '.head_sha' <<< "$latest_run")
           echo "latest_green=$sha" >> $GITHUB_OUTPUT
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # tag=v7.0.1

@@ -24,6 +24,9 @@ jobs:
     uses: ./.github/workflows/check-bazel.yml
 
   integration-test:
+    # Run after the Bazel checks so that the green-SHA marker written by
+    # integration_test.sh is only updated if the whole postsubmit passes.
+    needs: call-bazel
     runs-on: ubuntu-26.04
     steps:
       - name: Checkout repository
