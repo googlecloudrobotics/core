@@ -125,18 +125,10 @@ oci.pull(
     image = "gcr.io/distroless/cc",
     platforms = ["linux/amd64"],
 )
-oci.pull(
-    name = "iptables_base",
-    digest = "sha256:656e45c00083359107b1d6ae0411ff3894ba23011a8533e229937a71be84e063",
-    image = "gcr.io/google-containers/debian-iptables",
-    platforms = ["linux/amd64"],
-)
 use_repo(
     oci,
     "distroless_base",
     "distroless_base_linux_amd64",
     "distroless_cc",
     "distroless_cc_linux_amd64",
-    "iptables_base",
-    "iptables_base_linux_amd64",
 )
