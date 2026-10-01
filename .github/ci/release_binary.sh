@@ -33,6 +33,14 @@ else
     echo "Previous release is $PREVIOUS_RELEASE_NAME"
 fi
 
+if curl --fail -sS -o /dev/null \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: token $GITHUB_TOKEN" \
+  "https://api.github.com/repos/$REPO/releases/tags/$RELEASE_NAME"; then
+    echo >&2 "Release $RELEASE_NAME already exists (latest is $PREVIOUS_RELEASE_NAME). Refusing to re-release an old commit."
+    exit 1
+fi
+
 CLOUD_ROBOTICS_CONTAINER_REGISTRY="gcr.io/cloud-robotics-releases"
 # DOCKER_TAG is a global variable that is used in release_binary.
 DOCKER_TAG=${DOCKER_TAG:-"crc-${VERSION}-${SHA}"}
