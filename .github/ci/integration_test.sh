@@ -49,4 +49,10 @@ bazel_ci test \
 # binary.
 if [[ "$MANUAL_RUN" == "false" ]] ; then
   release_binary "robco-ci-binary-builds" "crc-${BUILD_IDENTIFIER}" "latest"
+  # Record the full SHA of this green commit. This is read by the release
+  # workflow to find the last successful postsubmit.
+  echo "${GITHUB_SHA}" | gcloud storage cp \
+      --predefined-acl=publicRead \
+      --cache-control="private, max-age=0, no-transform" \
+      - "gs://robco-ci-binary-builds/latest-sha"
 fi
