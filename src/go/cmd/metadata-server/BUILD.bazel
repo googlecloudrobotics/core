@@ -62,7 +62,7 @@ crc_image_layer(
 
 oci_image(
     name = "metadata-server-image",
-    base = "@iptables_base",
+    base = "@distroless_base",
     entrypoint = ["/metadata-server-app"],
     tars = [":metadata-server-image-layer"],
     visibility = ["//visibility:public"],

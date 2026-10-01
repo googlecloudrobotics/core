@@ -20,10 +20,6 @@ spec:
           items:
           - key: json
             path: robot-id.json
-      # Mounting /etc/ssl is necessary if ca-certificates is not installed in the container image.
-      - name: ssl
-        hostPath:
-          path: /etc/ssl
       containers:
       - name: metadata-server
         image: {{ .Values.registry }}{{ .Values.images.metadata_server }}
@@ -45,8 +41,6 @@ spec:
         volumeMounts:
         - mountPath: /credentials
           name: robot-id
-        - mountPath: /etc/ssl
-          name: ssl
       # This daemon-set need to run on all nodes for auth to work.
       tolerations:
       - operator: "Exists"
