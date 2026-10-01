@@ -18,28 +18,32 @@ RELEASE_NAME="v$VERSION-$SHA"
 export TAG="crc-${VERSION}-${SHA}"
 LABELS=${LABELS:-"latest crc-${VERSION}/crc-${VERSION}+latest"}
 
-# Get the last release. We only create a new release if the main branch has moved since
-# as trying to re-create an existing release is an error.
+# Check whether this commit has already been released (not just as the latest
+# release), as trying to re-create an existing release is an error.
+http_code=$(curl -sS -o /dev/null -w '%{http_code}' \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: token $GITHUB_TOKEN" \
+  "https://api.github.com/repos/$REPO/releases/tags/$RELEASE_NAME")
+case "$http_code" in
+  200)
+    echo "::error::Release $RELEASE_NAME already exists. Refusing to re-release commit $SHA."
+    exit 1
+    ;;
+  404)
+    ;;
+  *)
+    echo "::error::Failed to check for existing release $RELEASE_NAME (HTTP $http_code)."
+    exit 1
+    ;;
+esac
+
+# Get the last release, used as the base for generating release notes.
 output=$(curl --fail-with-body -sS \
   -H "Accept: application/vnd.github+json" \
   -H "Authorization: token $GITHUB_TOKEN" \
   https://api.github.com/repos/$REPO/releases/latest)
 PREVIOUS_RELEASE_NAME="$(jq -r '.tag_name'   <<< $output)"
-
-if [ "$RELEASE_NAME" = "$PREVIOUS_RELEASE_NAME" ]; then
-    echo "Release $RELEASE_NAME already exists. Nothing more to do."
-    exit 0
-else
-    echo "Previous release is $PREVIOUS_RELEASE_NAME"
-fi
-
-if curl --fail -sS -o /dev/null \
-  -H "Accept: application/vnd.github+json" \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  "https://api.github.com/repos/$REPO/releases/tags/$RELEASE_NAME"; then
-    echo >&2 "Release $RELEASE_NAME already exists (latest is $PREVIOUS_RELEASE_NAME). Refusing to re-release an old commit."
-    exit 1
-fi
+echo "Previous release is $PREVIOUS_RELEASE_NAME"
 
 CLOUD_ROBOTICS_CONTAINER_REGISTRY="gcr.io/cloud-robotics-releases"
 # DOCKER_TAG is a global variable that is used in release_binary.
