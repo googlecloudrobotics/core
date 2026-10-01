@@ -30,13 +30,14 @@ jobs:
           set -euo pipefail
           output=$(curl --fail-with-body -sS \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/$REPO/actions/workflows/postsubmit.yml/runs?per_page=1&branch=main&status=success")
-          repo_id=$(jq -r '.workflow_runs[0].head_repository.id' <<< $output)
+            "https://api.github.com/repos/$REPO/actions/workflows/postsubmit.yml/runs?per_page=10&branch=main&status=success")
+          latest_run=$(jq '.workflow_runs | sort_by(.created_at) | last' <<< "$output")
+          repo_id=$(jq -r '.head_repository.id' <<< "$latest_run")
           if [[ "${repo_id}" != "${{ github.repository_id }}" ]] ; then
             echo >&2 "Unexpected head repository ID: ${repo_id} - check postsubmit.yml configuration"
             exit 1
           fi
-          sha=$(jq -r '.workflow_runs[0].head_sha' <<< $output)
+          sha=$(jq -r '.head_sha' <<< "$latest_run")
           echo "latest_green=$sha" >> $GITHUB_OUTPUT
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # tag=v7.0.1
