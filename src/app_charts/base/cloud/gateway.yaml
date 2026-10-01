@@ -5,6 +5,7 @@ metadata:
   name: crc-gateway-proxy-config
   namespace: envoy-gateway-system
 spec:
+  concurrency: 2
   provider:
     type: Kubernetes
     kubernetes:
@@ -13,6 +14,7 @@ spec:
         externalTrafficPolicy: Local
         loadBalancerIP: {{ .Values.ingress_ip }}
       envoyDeployment:
+        replicas: 2
         pod:
           affinity:
             podAntiAffinity:
@@ -26,8 +28,8 @@ spec:
         container:
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 1000m
+              memory: 512Mi
             limits:
               cpu: 2000m
               memory: 2Gi
@@ -115,6 +117,7 @@ spec:
   connection:
     bufferLimit: 5Mi
   http2:
+    maxConcurrentStreams: 100
     initialStreamWindowSize: 2097152      # 2 MiB
     initialConnectionWindowSize: 4194304  # 4 MiB
     connectionKeepalive:
