@@ -2,7 +2,7 @@ name: Create release
 
 on:
   schedule:
-    - cron: "0 5 * * *" # Once a day at 5am.
+    - cron: "0 23 * * *" # Once a day at 11pm UTC.
   # Manual runs through Actions tab in the UI
   workflow_dispatch:
     inputs:
