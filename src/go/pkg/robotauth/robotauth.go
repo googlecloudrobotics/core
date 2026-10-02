@@ -255,6 +255,7 @@ func (ts *robotJWTSource) Token() (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("Metadata-Flavor", "Google")
 	resp, err := ts.client.Do(req)
 	if err != nil {
 		return nil, err

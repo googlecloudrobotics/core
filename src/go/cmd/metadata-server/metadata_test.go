@@ -39,18 +39,48 @@ func bodyOrDie(r *http.Response) string {
 	return string(body)
 }
 
-func TestConstHandler(t *testing.T) {
-	req := httptest.NewRequest("GET", "/url", strings.NewReader("body"))
-	respRecorder := httptest.NewRecorder()
-	ch := ConstHandler{[]byte("response")}
-	ch.ServeHTTP(respRecorder, req)
+func enableFlavorEnforcement(t *testing.T) {
+	t.Helper()
+	old := *enforceMetadataFlavor
+	*enforceMetadataFlavor = true
+	t.Cleanup(func() { *enforceMetadataFlavor = old })
+}
 
-	if want, got := 200, respRecorder.Result().StatusCode; want != got {
-		t.Errorf("Wrong response code; want %d; got %d", want, got)
-	}
-	if want, got := "response", bodyOrDie(respRecorder.Result()); want != got {
-		t.Errorf("Wrong response body; want %s; got %s", want, got)
-	}
+func TestConstHandler(t *testing.T) {
+	ch := ConstHandler{[]byte("response")}
+
+	t.Run("success", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/url", strings.NewReader("body"))
+		req.Header.Set("Metadata-Flavor", "Google")
+		respRecorder := httptest.NewRecorder()
+		ch.ServeHTTP(respRecorder, req)
+
+		if want, got := 200, respRecorder.Result().StatusCode; want != got {
+			t.Errorf("Wrong response code; want %d; got %d", want, got)
+		}
+		if want, got := "response", bodyOrDie(respRecorder.Result()); want != got {
+			t.Errorf("Wrong response body; want %s; got %s", want, got)
+		}
+	})
+	t.Run("missing-header-unforced", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/url", strings.NewReader("body"))
+		respRecorder := httptest.NewRecorder()
+		ch.ServeHTTP(respRecorder, req)
+
+		if want, got := http.StatusOK, respRecorder.Result().StatusCode; want != got {
+			t.Errorf("Wrong response code; want %d; got %d", want, got)
+		}
+	})
+	t.Run("missing-header", func(t *testing.T) {
+		enableFlavorEnforcement(t)
+		req := httptest.NewRequest("GET", "/url", strings.NewReader("body"))
+		respRecorder := httptest.NewRecorder()
+		ch.ServeHTTP(respRecorder, req)
+
+		if want, got := http.StatusForbidden, respRecorder.Result().StatusCode; want != got {
+			t.Errorf("Wrong response code; want %d; got %d", want, got)
+		}
+	})
 }
 
 type fakeJWTSource struct {
@@ -64,15 +94,14 @@ func (s *fakeJWTSource) CreateJWT(_ context.Context, d time.Duration) (string, e
 }
 
 func TestIdentityHandlerServeHTTP(t *testing.T) {
-	t.Parallel()
 	h := IdentityHandler{
 		AllowedSources: &net.IPNet{net.IPv4(192, 168, 0, 0), net.CIDRMask(24, 32)},
 		robotAuth:      &fakeJWTSource{val: "value"},
 	}
 
 	t.Run("simple", func(t *testing.T) {
-		t.Parallel()
 		req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/identity", nil)
+		req.Header.Set("Metadata-Flavor", "Google")
 		req.RemoteAddr = "192.168.0.101:8001"
 		respRecorder := httptest.NewRecorder()
 		h.ServeHTTP(respRecorder, req)
@@ -85,9 +114,20 @@ func TestIdentityHandlerServeHTTP(t *testing.T) {
 		}
 	})
 	t.Run("outside-addr", func(t *testing.T) {
-		t.Parallel()
 		req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/identity", nil)
+		req.Header.Set("Metadata-Flavor", "Google")
 		req.RemoteAddr = "192.168.1.101:8001"
+		respRecorder := httptest.NewRecorder()
+		h.ServeHTTP(respRecorder, req)
+
+		if want, got := http.StatusForbidden, respRecorder.Result().StatusCode; want != got {
+			t.Errorf("Wrong response code; want %d; got %d", want, got)
+		}
+	})
+	t.Run("missing-header", func(t *testing.T) {
+		enableFlavorEnforcement(t)
+		req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/identity", nil)
+		req.RemoteAddr = "192.168.0.101:8001"
 		respRecorder := httptest.NewRecorder()
 		h.ServeHTTP(respRecorder, req)
 
@@ -103,6 +143,7 @@ func TestTokenHandlerServesToken(t *testing.T) {
 	t.Cleanup(func() { *minTokenExpiry = oldMinTokenExpiry })
 	testTime := time.Unix(1531319123, 0)
 	req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/token", strings.NewReader("body"))
+	req.Header.Set("Metadata-Flavor", "Google")
 	req.RemoteAddr = "192.168.0.101:8001"
 	respRecorder := httptest.NewRecorder()
 	th := TokenHandler{
@@ -144,6 +185,7 @@ func TestTokenHandlerServesLastingToken(t *testing.T) {
 	t.Cleanup(func() { *minTokenExpiry = oldMinTokenExpiry })
 	testTime := time.Unix(1531319123, 0)
 	req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/token", strings.NewReader("body"))
+	req.Header.Set("Metadata-Flavor", "Google")
 	req.RemoteAddr = "192.168.0.101:8001"
 	respRecorder := httptest.NewRecorder()
 	th := TokenHandler{
@@ -166,6 +208,7 @@ func TestTokenHandlerServesLastingToken(t *testing.T) {
 
 func TestTokenHandlerDeniesWrongAddress(t *testing.T) {
 	req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/token", strings.NewReader("body"))
+	req.Header.Set("Metadata-Flavor", "Google")
 	req.RemoteAddr = "192.168.1.101:8001"
 	respRecorder := httptest.NewRecorder()
 	th := TokenHandler{
@@ -179,24 +222,53 @@ func TestTokenHandlerDeniesWrongAddress(t *testing.T) {
 	}
 }
 
-func TestServiceAccountHandlerReturnsMinimalJSON(t *testing.T) {
-	req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/?recursive=true", strings.NewReader("body"))
-	req.RemoteAddr = "192.168.1.101:8001"
+func TestTokenHandlerDeniesMissingMetadataFlavor(t *testing.T) {
+	enableFlavorEnforcement(t)
+	req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/token", strings.NewReader("body"))
+	req.RemoteAddr = "192.168.0.101:8001"
 	respRecorder := httptest.NewRecorder()
-	sh := ServiceAccountHandler{}
-	sh.ServeHTTP(respRecorder, req)
-
-	if want, got := 200, respRecorder.Result().StatusCode; want != got {
-		t.Errorf("Wrong response code; want %d; got %d", want, got)
+	th := TokenHandler{
+		AllowedSources: &net.IPNet{net.IPv4(192, 168, 0, 0), net.CIDRMask(24, 32)},
+		TokenSource:    oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "mytoken"}),
 	}
-	if want, got := "{\"aliases\":[],\"email\":\"default\",\"scopes\":[]}", bodyOrDie(respRecorder.Result()); want != got {
-		t.Errorf("Wrong response body; want %s; got %s", want, got)
+	th.ServeHTTP(respRecorder, req)
+
+	if want, got := 403, respRecorder.Result().StatusCode; want != got {
+		t.Errorf("Wrong response code; want %d; got %d", want, got)
 	}
 }
 
+func TestServiceAccountHandlerReturnsMinimalJSON(t *testing.T) {
+	sh := ServiceAccountHandler{}
+
+	t.Run("success", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/?recursive=true", strings.NewReader("body"))
+		req.Header.Set("Metadata-Flavor", "Google")
+		req.RemoteAddr = "192.168.1.101:8001"
+		respRecorder := httptest.NewRecorder()
+		sh.ServeHTTP(respRecorder, req)
+
+		if want, got := 200, respRecorder.Result().StatusCode; want != got {
+			t.Errorf("Wrong response code; want %d; got %d", want, got)
+		}
+		if want, got := "{\"aliases\":[],\"email\":\"default\",\"scopes\":[]}", bodyOrDie(respRecorder.Result()); want != got {
+			t.Errorf("Wrong response body; want %s; got %s", want, got)
+		}
+	})
+	t.Run("missing-header", func(t *testing.T) {
+		enableFlavorEnforcement(t)
+		req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/service-accounts/default/?recursive=true", strings.NewReader("body"))
+		req.RemoteAddr = "192.168.1.101:8001"
+		respRecorder := httptest.NewRecorder()
+		sh.ServeHTTP(respRecorder, req)
+
+		if want, got := http.StatusForbidden, respRecorder.Result().StatusCode; want != got {
+			t.Errorf("Wrong response code; want %d; got %d", want, got)
+		}
+	})
+}
+
 func TestMetadataHandlerReturnsZone(t *testing.T) {
-	req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/zone", strings.NewReader("body"))
-	respRecorder := httptest.NewRecorder()
 	mh := MetadataHandler{
 		ClusterName:   "28",
 		ProjectId:     "foo",
@@ -204,14 +276,30 @@ func TestMetadataHandlerReturnsZone(t *testing.T) {
 		RobotName:     "28",
 		Zone:          "edge",
 	}
-	mh.ServeHTTP(respRecorder, req)
 
-	if want, got := 200, respRecorder.Result().StatusCode; want != got {
-		t.Errorf("Wrong response code; want %d; got %d", want, got)
-	}
-	if want, got := "projects/512/zones/edge", bodyOrDie(respRecorder.Result()); want != got {
-		t.Errorf("Wrong response body; want %s; got %s", want, got)
-	}
+	t.Run("success", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/zone", strings.NewReader("body"))
+		req.Header.Set("Metadata-Flavor", "Google")
+		respRecorder := httptest.NewRecorder()
+		mh.ServeHTTP(respRecorder, req)
+
+		if want, got := 200, respRecorder.Result().StatusCode; want != got {
+			t.Errorf("Wrong response code; want %d; got %d", want, got)
+		}
+		if want, got := "projects/512/zones/edge", bodyOrDie(respRecorder.Result()); want != got {
+			t.Errorf("Wrong response body; want %s; got %s", want, got)
+		}
+	})
+	t.Run("missing-header", func(t *testing.T) {
+		enableFlavorEnforcement(t)
+		req := httptest.NewRequest("GET", "/computeMetadata/v1/instance/zone", strings.NewReader("body"))
+		respRecorder := httptest.NewRecorder()
+		mh.ServeHTTP(respRecorder, req)
+
+		if want, got := http.StatusForbidden, respRecorder.Result().StatusCode; want != got {
+			t.Errorf("Wrong response code; want %d; got %d", want, got)
+		}
+	})
 }
 
 var errToken = errors.New("failed to get token")

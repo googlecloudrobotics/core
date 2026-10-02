@@ -95,12 +95,28 @@ func (s *rateLimitTokenSource) updateBackoff(err error) {
 	}
 }
 
+func hasMetadataFlavorHeader(w http.ResponseWriter, r *http.Request) bool {
+	if flavor := r.Header.Get("Metadata-Flavor"); flavor != "Google" {
+		if !*enforceMetadataFlavor {
+			slog.Error("Invalid request with missing or wrong Metadata-Flavor header", slog.String("Flavor", flavor), slog.String("URL", r.URL.Path))
+			return true
+		}
+		slog.Error("Rejected request with missing or wrong Metadata-Flavor header", slog.String("Flavor", flavor), slog.String("URL", r.URL.Path))
+		http.Error(w, "Missing required header \"Metadata-Flavor\": \"Google\"", http.StatusForbidden)
+		return false
+	}
+	return true
+}
+
 // ConstHandler serves OK responses with static body content.
 type ConstHandler struct {
 	Body []byte
 }
 
 func (ch ConstHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !hasMetadataFlavorHeader(w, r) {
+		return
+	}
 	w.Header().Set("Metadata-Flavor", "Google")
 	w.Header().Set("Content-Type", "application/text")
 	w.WriteHeader(http.StatusOK)
@@ -150,7 +166,7 @@ func fromAcceptedIP(w http.ResponseWriter, r *http.Request, allowedSources *net.
 }
 
 func (h *IdentityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !fromAcceptedIP(w, r, h.AllowedSources) {
+	if !fromAcceptedIP(w, r, h.AllowedSources) || !hasMetadataFlavorHeader(w, r) {
 		return
 	}
 
@@ -277,7 +293,7 @@ func (th *TokenHandler) NewMetadataHandler(ctx context.Context) *MetadataHandler
 // The query might also contain a 'scopes' query param, which we currently don't handle
 // (e.g.: scopes=https://www.googleapis.com/auth/devstorage.full_control,https://www.googleapis.com/auth/cloud-platform HTTP/1.1)
 func (th *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !fromAcceptedIP(w, r, th.AllowedSources) {
+	if !fromAcceptedIP(w, r, th.AllowedSources) || !hasMetadataFlavorHeader(w, r) {
 		return
 	}
 
@@ -408,6 +424,10 @@ type ServiceAccountResponse struct {
 }
 
 func (sh ServiceAccountHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !hasMetadataFlavorHeader(w, r) {
+		return
+	}
+
 	serviceAccountResponse := ServiceAccountResponse{
 		Aliases: []string{},
 		Email:   "default",
@@ -439,6 +459,10 @@ type MetadataHandler struct {
 }
 
 func (mh MetadataHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !hasMetadataFlavorHeader(w, r) {
+		return
+	}
+
 	w.Header().Set("Metadata-Flavor", "Google")
 	w.Header().Set("Content-Type", "application/text")
 

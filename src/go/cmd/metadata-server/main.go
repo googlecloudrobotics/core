@@ -47,8 +47,9 @@ var (
 	minTokenExpiry = flag.Int("min_token_expiry", 300, "Minimum time a token needs to be valid for in seconds")
 	logPeerDetails = flag.Bool("log_peer_details", false, "When enabled details about the peer that requests ADC are logged on the expense of some extra latency")
 	logLevel       = flag.Int("log_level", int(slog.LevelInfo), "the log message level required to be logged")
-	runningOnGKE   = flag.Bool("running_on_gke", false, "If running on GKE, skip setup steps that are unnecessary and will fail.")
-	robotSAName    = flag.String("service_account", "robot-service", "Robot default service account name, default: robot-service")
+	runningOnGKE          = flag.Bool("running_on_gke", false, "If running on GKE, skip setup steps that are unnecessary and will fail.")
+	robotSAName           = flag.String("service_account", "robot-service", "Robot default service account name, default: robot-service")
+	enforceMetadataFlavor = flag.Bool("enforce_metadata_flavor", false, "Reject requests without 'Metadata-Flavor: Google' header with 403 Forbidden")
 )
 
 func detectChangesToFile(filename string) <-chan struct{} {
