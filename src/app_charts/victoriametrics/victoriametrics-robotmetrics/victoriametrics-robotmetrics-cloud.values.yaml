@@ -31,6 +31,9 @@ vmalert:
 vmsingle:
   enabled: false
 
+alertmanager:
+  enabled: false
+
 vmcluster:
   annotations:
     # Ensure CRDs are deleted before the operator during GitOps teardowns to avoid finalizer deadlocks

@@ -167,21 +167,20 @@
     {{- end }}
   {{- end }}
 {{- end }}
+{{- if not $notifiersList }}
+  {{- if .Values.alertmanager_url }}
+    {{- $notifiersList = list (dict "url" .Values.alertmanager_url) -}}
+  {{- end }}
+{{- end }}
 {{- if $notifiersList }}
-  {{- $formattedNotifiers := toYaml $notifiersList | nindent 4 -}}
-  {{- $data = $data | replace "  - url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"" (printf "\n%s" (trimPrefix "\n" $formattedNotifiers)) -}}
-  {{- $data = $data | replace "  - url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}" (printf "\n%s" (trimPrefix "\n" $formattedNotifiers)) -}}
-  {{- $data = $data | replace "    - url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"" (printf "\n%s" (trimPrefix "\n" $formattedNotifiers)) -}}
-  {{- $data = $data | replace "    - url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}" (printf "\n%s" (trimPrefix "\n" $formattedNotifiers)) -}}
+  {{- $formattedNotifiers := toYaml $notifiersList | nindent 2 -}}
+  {{- $data = $data | replace "- url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"" (trimPrefix "  " (trimPrefix "\n" $formattedNotifiers)) -}}
+  {{- $data = $data | replace "- url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}" (trimPrefix "  " (trimPrefix "\n" $formattedNotifiers)) -}}
 {{- else }}
+  {{- $data = $data | replace "  notifiers:\n  - url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"\n" "" -}}
+  {{- $data = $data | replace "  notifiers:\n  - url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\n" "" -}}
   {{- $data = $data | replace "  - url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"\n" "" -}}
   {{- $data = $data | replace "  - url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\n" "" -}}
-  {{- $data = $data | replace "  - url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"" "" -}}
-  {{- $data = $data | replace "  - url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}" "" -}}
-  {{- $data = $data | replace "    - url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"\n" "" -}}
-  {{- $data = $data | replace "    - url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\n" "" -}}
-  {{- $data = $data | replace "    - url: \"${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}\"" "" -}}
-  {{- $data = $data | replace "    - url: ${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}" "" -}}
 {{- end }}
 
 # Inject the nodeSelector and tolerations for vmstorage
@@ -216,7 +215,7 @@
   {{- $formattedTolerations := toYaml $vmstorageTolerationsList | nindent 4 -}}
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_TOLERATIONS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedTolerations)) -}}
 {{- else }}
-  {{- $data = $data | replace "    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "    tolerations:\n    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the nodeSelector and tolerations for vminsert
@@ -251,7 +250,7 @@
   {{- $formattedTolerations := toYaml $vminsertTolerationsList | nindent 4 -}}
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_TOLERATIONS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedTolerations)) -}}
 {{- else }}
-  {{- $data = $data | replace "    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "    tolerations:\n    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the nodeSelector and tolerations for vmselect
@@ -286,7 +285,7 @@
   {{- $formattedTolerations := toYaml $vmselectTolerationsList | nindent 4 -}}
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_TOLERATIONS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedTolerations)) -}}
 {{- else }}
-  {{- $data = $data | replace "    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "    tolerations:\n    - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_TOLERATIONS_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject the nodeSelector and tolerations for vmagent
@@ -300,7 +299,7 @@
 {{- end -}}
 {{- if $vmagentNodeSelectorMap }}
   {{- $formattedNodeSelector := toYaml $vmagentNodeSelectorMap | nindent 4 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_NODE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedNodeSelector)) -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_NODE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedNodeSelector)) -}}
 {{- else }}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_NODE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
@@ -415,7 +414,7 @@
 {{- end -}}
 {{- if $vmalertNodeSelectorMap }}
   {{- $formattedNodeSelector := toYaml $vmalertNodeSelectorMap | nindent 4 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_NODE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedNodeSelector)) -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_NODE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedNodeSelector)) -}}
 {{- else }}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_NODE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
@@ -446,7 +445,7 @@
 {{- end -}}
 {{- if $externalLabelsMap }}
   {{- $formattedExternalLabels := toYaml $externalLabelsMap | nindent 4 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_EXTERNAL_LABELS_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedExternalLabels)) -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_EXTERNAL_LABELS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedExternalLabels)) -}}
 {{- else }}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_EXTERNAL_LABELS_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
@@ -462,7 +461,7 @@
 {{- end -}}
 {{- if $serviceScrapeSelectorMap }}
   {{- $formattedSelector := toYaml $serviceScrapeSelectorMap | nindent 4 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedSelector)) -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
   {{- $data = $data | replace "    serviceScrapeSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
   {{- $data = $data | replace "  serviceScrapeSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
@@ -496,7 +495,7 @@
 {{- end -}}
 {{- if $podScrapeSelectorMap }}
   {{- $formattedSelector := toYaml $podScrapeSelectorMap | nindent 4 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedSelector)) -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedSelector)) -}}
 {{- else }}
   {{- $data = $data | replace "    podScrapeSelector:\n      $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
   {{- $data = $data | replace "  podScrapeSelector:\n    $CR_VICTORIAMETRICS_ROBOTMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME\n" "" -}}
@@ -703,7 +702,7 @@
   {{- $formattedContainersObject := toYaml $containersList | nindent 2 -}}
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_CONTAINERS_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedContainersObject)) -}}
 {{- else }}
-  {{- $data = $data | replace "  - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_CONTAINERS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  containers:\n  - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_CONTAINERS_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject extra volumes
@@ -719,7 +718,7 @@
   {{- $formattedVolumesObject := toYaml $volumesList | nindent 2 -}}
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUMES_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedVolumesObject)) -}}
 {{- else }}
-  {{- $data = $data | replace "  - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUMES_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  volumes:\n  - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUMES_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject extra volumeMounts
@@ -735,7 +734,7 @@
   {{- $formattedVolumeMountsObject := toYaml $volumeMountsList | nindent 2 -}}
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUME_MOUNTS_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedVolumeMountsObject)) -}}
 {{- else }}
-  {{- $data = $data | replace "  - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUME_MOUNTS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  volumeMounts:\n  - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_VOLUME_MOUNTS_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 ---

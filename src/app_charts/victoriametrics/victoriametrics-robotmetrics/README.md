@@ -119,9 +119,8 @@ These natively-authored YAMLs reside in the `robot/` directory and are bundled i
 * `robot/smartctl-exporter.yaml`: Hardware exporter DaemonSet deployed to robots to read S.M.A.R.T. disk stats.
 ### Accessing the Robotmetrics UI
 
-You can securely access the edge robot telemetry metrics and dashboards through the authenticated Ingress endpoints:
+You can securely access the edge robot telemetry metrics and dashboards through the authenticated Ingress / Gateway endpoints:
 
-* **VMUI (Query Dashboard):** `https://<domain>/victoriametrics/robots`  
-  *(Automatically redirects to the main `vmselect` Prometheus-compatible querying interface)*
-* **Active Alerts Dashboard:** `https://<domain>/victoriametrics/robots/vmalert/`
-* **Scraper Targets & Service Discovery:** `https://<domain>/victoriametrics/robots/vmagent/targets`
+* **VMUI (Query Dashboard):** `https://<domain>/victoriametrics/robots/select/0/vmui/`
+* **Active Alerts Dashboard:** `https://<domain>/victoriametrics/robots/vmalert/` (Web UI tabs at `/victoriametrics/robots/vmalert/vmalert/groups` and `/victoriametrics/robots/vmalert/vmalert/alerts`)
+* **Scraper Targets & Service Discovery:** `https://<domain>/victoriametrics/robots/vmagent/` and `https://<domain>/victoriametrics/robots/vmagent/targets`

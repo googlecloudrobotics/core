@@ -1,7 +1,18 @@
+{{- $vmselectPort := 8481 -}}
+{{- if .Values.vmcluster }}
+  {{- if .Values.vmcluster.spec }}
+    {{- if .Values.vmcluster.spec.vmselect }}
+      {{- if .Values.vmcluster.spec.vmselect.port }}
+        {{- $vmselectPort = .Values.vmcluster.spec.vmselect.port -}}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: victoriametrics-cloudmetrics
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
 spec:
@@ -15,34 +26,30 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /victoriametrics-cloudmetrics/
-    filters:
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplacePrefixMatch
-          replacePrefixMatch: /
+        value: /victoriametrics/cloud/vmalert
     backendRefs:
-    - name: vmselect-vmc
-      port: {{ .Values.vmselect_port | default 8481 }}
+    - name: vmalert-vmc
+      port: 8080
   - matches:
     - path:
-        type: Exact
-        value: /victoriametrics-cloudmetrics
-    filters:
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplaceFullPath
-          replaceFullPath: /
+        type: PathPrefix
+        value: /victoriametrics/cloud/vmagent
+    backendRefs:
+    - name: vmagent-vmc
+      port: 8429
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /victoriametrics/cloud
     backendRefs:
     - name: vmselect-vmc
-      port: {{ .Values.vmselect_port | default 8481 }}
+      port: {{ $vmselectPort }}
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
   name: victoriametrics-cloudmetrics-auth
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
 spec:

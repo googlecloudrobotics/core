@@ -1,7 +1,16 @@
+{{- $vmselectPort := 8481 -}}
+{{- if .Values.vmcluster -}}
+  {{- if .Values.vmcluster.spec -}}
+    {{- if .Values.vmcluster.spec.vmselect -}}
+      {{- $vmselectPort = .Values.vmcluster.spec.vmselect.port | default 8481 -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: victoriametrics-cloudmetrics
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
   annotations:
@@ -18,26 +27,26 @@ spec:
     http:
       paths:
       # Main VMUI and Prometheus Query API
-      - path: /victoriametrics/cloud(/|$)(.*)
+      - path: /victoriametrics/cloud
         pathType: Prefix
         backend:
           service:
-            name: vmc-victoria-metrics-vmselect
+            name: vmselect-vmc
             port:
-              number: 8481
+              number: {{ $vmselectPort }}
       # Alerts Dashboard
-      - path: /victoriametrics/cloud/vmalert(/|$)(.*)
+      - path: /victoriametrics/cloud/vmalert
         pathType: Prefix
         backend:
           service:
-            name: vmc-victoria-metrics-vmalert
+            name: vmalert-vmc
             port:
-              number: 8880
+              number: 8080
       # Scraper Targets and Service Discovery Dashboard
-      - path: /victoriametrics/cloud/vmagent(/|$)(.*)
+      - path: /victoriametrics/cloud/vmagent
         pathType: Prefix
         backend:
           service:
-            name: vmc-victoria-metrics-vmagent
+            name: vmagent-vmc
             port:
               number: 8429
