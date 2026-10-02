@@ -31,13 +31,13 @@ variable "shared_owner_group" {
 
 variable "oauth2_client_id" {
   description = "Client id created via clickops for oauth2_proxy"
-  default = ""
+  default     = ""
 }
 
 variable "oauth2_secret" {
   description = "Oauth2 secret created via clickops for oauth2_proxy"
-  sensitive = true
-  default = ""
+  sensitive   = true
+  default     = ""
 }
 
 variable "robot_image_reference" {
@@ -70,7 +70,7 @@ variable "datapath_provider" {
   type        = string
   default     = "DATAPATH_PROVIDER_UNSPECIFIED"
   validation {
-    condition = contains(["DATAPATH_PROVIDER_UNSPECIFIED", "ADVANCED_DATAPATH"], var.datapath_provider)
+    condition     = contains(["DATAPATH_PROVIDER_UNSPECIFIED", "ADVANCED_DATAPATH"], var.datapath_provider)
     error_message = "Must be either \"DATAPATH_PROVIDER_UNSPECIFIED\" or \"ADVANCED_DATAPATH\"."
   }
 }
@@ -113,18 +113,20 @@ variable "max_node_count" {
 
 variable "enable_nginx_shield" {
   description = "Enable nginx shield to defend against DOS attacks"
-  type = bool
-  default = false
+  type        = bool
+  default     = false
 }
 
 variable "use_gateway" {
-  description = "Use envoy gateway in place of nginx ingress"
-  type = bool
-  default = false
+  # Note: Envoy Gateway is only supported on GKE >= 1.35. On GKE <= 1.34, Kube Addon Manager
+  # manages Gateway API CRDs in Reconcile mode, continuously overwriting user-installed CRDs.
+  description = "Use envoy gateway in place of nginx ingress. Only valid for GKE >= 1.35."
+  type        = bool
+  default     = false
 }
 
 variable "managed_config" {
   description = "Control whether CRC config is managed by terraform."
-  type = bool
-  default = true
+  type        = bool
+  default     = true
 }
