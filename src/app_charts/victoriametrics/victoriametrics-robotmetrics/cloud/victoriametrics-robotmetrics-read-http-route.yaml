@@ -26,26 +26,21 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /victoriametrics-robotmetrics/
-    filters:
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplacePrefixMatch
-          replacePrefixMatch: /
+        value: /victoriametrics/robots/vmalert
     backendRefs:
-    - name: vmselect-vmr
-      port: {{ $vmselectPort }}
+    - name: vmalert-vmr
+      port: 8080
   - matches:
     - path:
-        type: Exact
-        value: /victoriametrics-robotmetrics
-    filters:
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplaceFullPath
-          replaceFullPath: /
+        type: PathPrefix
+        value: /victoriametrics/robots/vmagent
+    backendRefs:
+    - name: vmagent-vmr
+      port: 8429
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /victoriametrics/robots
     backendRefs:
     - name: vmselect-vmr
       port: {{ $vmselectPort }}

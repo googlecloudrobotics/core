@@ -1,3 +1,11 @@
+{{- $vmselectPort := 8481 -}}
+{{- if .Values.vmcluster -}}
+  {{- if .Values.vmcluster.spec -}}
+    {{- if .Values.vmcluster.spec.vmselect -}}
+      {{- $vmselectPort = .Values.vmcluster.spec.vmselect.port | default 8481 -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -19,23 +27,23 @@ spec:
     http:
       paths:
       # Main VMUI and Prometheus Query API
-      - path: /victoriametrics/robots(/|$)(.*)
+      - path: /victoriametrics/robots
         pathType: Prefix
         backend:
           service:
             name: vmselect-vmr
             port:
-              number: 8481
+              number: {{ $vmselectPort }}
       # Alerts Dashboard
-      - path: /victoriametrics/robots/vmalert(/|$)(.*)
+      - path: /victoriametrics/robots/vmalert
         pathType: Prefix
         backend:
           service:
             name: vmalert-vmr
             port:
-              number: 8880
+              number: 8080
       # Scraper Targets and Service Discovery Dashboard
-      - path: /victoriametrics/robots/vmagent(/|$)(.*)
+      - path: /victoriametrics/robots/vmagent
         pathType: Prefix
         backend:
           service:

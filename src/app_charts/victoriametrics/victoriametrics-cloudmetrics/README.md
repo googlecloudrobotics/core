@@ -85,9 +85,8 @@ These natively authored YAMLs reside in the `cloud/` directory and are bundled i
 * `cloud/base-alerts.yaml`: Prometheus alerting rules specific to cloud infrastructure.
 ### Accessing the Cloudmetrics UI
 
-You can securely access the internal cluster metrics and dashboards through the authenticated Ingress endpoints:
+You can securely access the internal cluster metrics and dashboards through the authenticated Ingress / Gateway endpoints:
 
-* **VMUI (Query Dashboard):** `https://<domain>/cloudmetrics`  
-  *(Automatically redirects to the main `vmselect` Prometheus-compatible querying interface)*
-* **Active Alerts Dashboard:** `https://<domain>/cloudmetrics/vmalert/`
-* **Scrape Targets & Service Discovery:** `https://<domain>/cloudmetrics/vmagent/targets`
+* **VMUI (Query Dashboard):** `https://<domain>/victoriametrics/cloud/select/0/vmui/`
+* **Active Alerts Dashboard:** `https://<domain>/victoriametrics/cloud/vmalert/` (Web UI tabs at `/victoriametrics/cloud/vmalert/vmalert/groups` and `/victoriametrics/cloud/vmalert/vmalert/alerts`)
+* **VMAgent Dashboard & Scrape Targets:** `https://<domain>/victoriametrics/cloud/vmagent/` and `https://<domain>/victoriametrics/cloud/vmagent/targets`

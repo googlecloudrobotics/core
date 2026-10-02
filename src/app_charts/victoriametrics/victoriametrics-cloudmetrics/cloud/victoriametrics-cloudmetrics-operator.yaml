@@ -183,13 +183,18 @@
     {{- end }}
   {{- end }}
 {{- end }}
+{{- if not $notifiersList }}
+  {{- if .Values.alertmanager_url }}
+    {{- $notifiersList = list (dict "url" .Values.alertmanager_url) -}}
+  {{- end }}
+{{- end }}
 {{- if $notifiersList }}
-  {{- $formattedNotifiers := toYaml $notifiersList | nindent 4 -}}
-  {{- $data = $data | replace "  - url: \"${CR_VICTORIAMETRICS_CLOUDMETRICS_NOTIFIERS_OBJECT}\"" (printf "\n%s" (trimPrefix "\n" $formattedNotifiers)) -}}
-  {{- $data = $data | replace "  - url: ${CR_VICTORIAMETRICS_CLOUDMETRICS_NOTIFIERS_OBJECT}" (printf "\n%s" (trimPrefix "\n" $formattedNotifiers)) -}}
+  {{- $formattedNotifiers := toYaml $notifiersList | nindent 2 -}}
+  {{- $data = $data | replace "  - url: \"${CR_VICTORIAMETRICS_CLOUDMETRICS_NOTIFIERS_OBJECT}\"" (printf "  %s" (trimPrefix "  " (trimPrefix "\n" $formattedNotifiers))) -}}
+  {{- $data = $data | replace "  - url: ${CR_VICTORIAMETRICS_CLOUDMETRICS_NOTIFIERS_OBJECT}" (printf "  %s" (trimPrefix "  " (trimPrefix "\n" $formattedNotifiers))) -}}
 {{- else }}
-  {{- $data = $data | replace "  - url: \"${CR_VICTORIAMETRICS_CLOUDMETRICS_NOTIFIERS_OBJECT}\"\n" "" -}}
-  {{- $data = $data | replace "  - url: ${CR_VICTORIAMETRICS_CLOUDMETRICS_NOTIFIERS_OBJECT}\n" "" -}}
+  {{- $data = $data | replace "  notifiers:\n  - url: \"${CR_VICTORIAMETRICS_CLOUDMETRICS_NOTIFIERS_OBJECT}\"\n" "" -}}
+  {{- $data = $data | replace "  notifiers:\n  - url: ${CR_VICTORIAMETRICS_CLOUDMETRICS_NOTIFIERS_OBJECT}\n" "" -}}
 {{- end }}
 
 # Inject Service Account Annotations
@@ -322,7 +327,7 @@
 {{- end -}}
 {{- if $vmagentNodeSelectorMap }}
   {{- $formattedNodeSelector := toYaml $vmagentNodeSelectorMap | nindent 4 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_NODE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedNodeSelector)) -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_NODE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedNodeSelector)) -}}
 {{- else }}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_VMAGENT_NODE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
@@ -384,7 +389,7 @@
 {{- end }}
 {{- if $serviceScrapeSelectorMap }}
   {{- $formattedServiceMonitorSelectorObject := toYaml $serviceScrapeSelectorMap | nindent 4 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedServiceMonitorSelectorObject)) -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedServiceMonitorSelectorObject)) -}}
 {{- else }}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_SERVICE_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
@@ -416,7 +421,7 @@
 {{- end }}
 {{- if $podScrapeSelectorMap }}
   {{- $formattedPodMonitorSelectorObject := toYaml $podScrapeSelectorMap | nindent 4 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedPodMonitorSelectorObject)) -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedPodMonitorSelectorObject)) -}}
 {{- else }}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_POD_SCRAPE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
@@ -662,7 +667,7 @@
 {{- end }}
 {{- if $externalLabelsMap }}
   {{- $formattedExternalLabelsObject := toYaml $externalLabelsMap | nindent 4 -}}
-  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTERNAL_LABELS_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedExternalLabelsObject)) -}}
+  {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTERNAL_LABELS_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedExternalLabelsObject)) -}}
 {{- else }}
   {{- $data = $data | replace "$CR_VICTORIAMETRICS_CLOUDMETRICS_EXTERNAL_LABELS_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
@@ -680,7 +685,7 @@
   {{- $formattedContainersObject := toYaml $containersList | nindent 2 -}}
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_CONTAINERS_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedContainersObject)) -}}
 {{- else }}
-  {{- $data = $data | replace "  - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_CONTAINERS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  containers:\n  - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_CONTAINERS_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject extra volumes
@@ -696,7 +701,7 @@
   {{- $formattedVolumesObject := toYaml $volumesList | nindent 2 -}}
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_VOLUMES_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedVolumesObject)) -}}
 {{- else }}
-  {{- $data = $data | replace "  - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_VOLUMES_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  volumes:\n  - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_VOLUMES_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 # Inject extra volumeMounts
@@ -712,7 +717,7 @@
   {{- $formattedVolumeMountsObject := toYaml $volumeMountsList | nindent 2 -}}
   {{- $data = $data | replace "- $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedVolumeMountsObject)) -}}
 {{- else }}
-  {{- $data = $data | replace "  - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT: REMOVE_ME\n" "" -}}
+  {{- $data = $data | replace "  volumeMounts:\n  - $CR_VICTORIAMETRICS_CLOUDMETRICS_EXTRA_VOLUME_MOUNTS_OBJECT: REMOVE_ME\n" "" -}}
 {{- end }}
 
 {{/* Emit rendered VM components */}}
