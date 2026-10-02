@@ -44,7 +44,7 @@ resource "google_container_cluster" "cloud-robotics" {
   }
 
   gateway_api_config {
-    channel = "CHANNEL_DISABLED"
+    channel = "CHANNEL_STANDARD"
   }
 
   ip_allocation_policy {}
@@ -106,7 +106,7 @@ resource "google_container_cluster" "cloud-robotics-ar" {
   initial_node_count = 1
 
   gateway_api_config {
-    channel = "CHANNEL_DISABLED"
+    channel = "CHANNEL_STANDARD"
   }
 
   timeouts {
