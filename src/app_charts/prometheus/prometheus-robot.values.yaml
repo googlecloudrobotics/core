@@ -180,7 +180,9 @@ kubelet:
 # Subcharts
 
 nodeExporter:
-  enabled: true
+  enabled: "${CR_PROM_NODE_EXPORTER_ENABLED}"
+  service:
+    port: "${CR_PROM_NODE_EXPORTER_PORT}"
   serviceMonitor:
     metricRelabelings:
     # Drop high cardinality metrics from node exporter.
