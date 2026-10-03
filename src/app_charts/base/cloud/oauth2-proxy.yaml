@@ -184,6 +184,12 @@ spec:
   - group: gateway.envoyproxy.io
     kind: SecurityPolicy
     namespace: app-grafana
+  - group: gateway.envoyproxy.io
+    kind: SecurityPolicy
+    namespace: app-victoriametrics-robotmetrics
+  - group: gateway.envoyproxy.io
+    kind: SecurityPolicy
+    namespace: app-victoriametrics-cloudmetrics
   to:
   - group: ""
     kind: Service
