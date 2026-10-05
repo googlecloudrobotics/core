@@ -39,8 +39,9 @@ type RobotList struct {
 }
 
 type RobotSpec struct {
-	Type    string `json:"type,omitempty"`
-	Project string `json:"project,omitempty"`
+	Type        string `json:"type,omitempty"`
+	Project     string `json:"project,omitempty"`
+	DisplayName string `json:"displayName,omitempty"`
 }
 
 type RobotStatus struct {
