@@ -41,8 +41,6 @@ use_repo(llvm, "llvm_toolchain")
 
 register_toolchains("@llvm_toolchain//:all")
 
-bazel_dep(name = "rules_cc", version = "0.2.25")
-
 ######
 # Go #
 ######
