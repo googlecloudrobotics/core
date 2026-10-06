@@ -17,25 +17,54 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	apisappsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	internalinterfaces "github.com/googlecloudrobotics/core/src/go/pkg/client/informers/internalinterfaces"
-	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/listers/apps/v1alpha1"
+	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/listers/apps/v1alpha1"
 	versioned "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
 )
 
 // ResourceSetInformer provides access to a shared informer and lister for
-// ResourceSets.
+// ResourceSets. Prefer using the type-safe variant (see [TypedResourceSetInformer]).
 type ResourceSetInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ResourceSetLister
+	Lister() appsv1alpha1.ResourceSetLister
 }
+
+// TypedResourceSetInformer provides access to a shared informer and lister for
+// ResourceSets, including the type-safe TypedInformer variant.
+// It is a superset of ResourceSetInformer.
+type TypedResourceSetInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() ResourceSetIndexInformer
+	Lister() appsv1alpha1.ResourceSetLister
+}
+
+// ResourceSetIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type ResourceSetIndexInformer cache.TypedSharedIndexInformer[*apisappsv1alpha1.ResourceSet]
+
+// ResourceSetHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for ResourceSet.
+type ResourceSetHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisappsv1alpha1.ResourceSet]
+
+// ResourceSetDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for ResourceSet.
+type ResourceSetDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisappsv1alpha1.ResourceSet]
+
+// ResourceSetFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for ResourceSet.
+type ResourceSetFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisappsv1alpha1.ResourceSet]
+
+// ResourceSetIndexers is a specialization of [cache.TypedIndexers] for ResourceSet.
+type ResourceSetIndexers = cache.TypedIndexers[*apisappsv1alpha1.ResourceSet]
+
+// DeletedResourceSet is a specialization of [cache.DeletedObject] for ResourceSet.
+type DeletedResourceSet = cache.DeletedObject[*apisappsv1alpha1.ResourceSet]
 
 type resourceSetInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -45,43 +74,132 @@ type resourceSetInformer struct {
 // NewResourceSetInformer constructs a new informer for ResourceSet type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedResourceSetInformer]).
 func NewResourceSetInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredResourceSetInformer(client, resyncPeriod, indexers, nil)
+	return NewResourceSetInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedResourceSetInformer constructs a new informer for ResourceSet type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedResourceSetInformer(client versioned.Interface, resyncPeriod time.Duration, indexers ResourceSetIndexers) ResourceSetIndexInformer {
+	return NewTypedResourceSetInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredResourceSetInformer constructs a new informer for ResourceSet type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredResourceSetInformer]).
 func NewFilteredResourceSetInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
+	return NewTypedResourceSetInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredResourceSetInformer constructs a new informer for ResourceSet type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredResourceSetInformer(client versioned.Interface, resyncPeriod time.Duration, indexers ResourceSetIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) ResourceSetIndexInformer {
+	return NewTypedResourceSetInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
+}
+
+// NewResourceSetInformerWithOptions constructs a new informer for ResourceSet type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedResourceSetInformerWithOptions]).
+func NewResourceSetInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedResourceSetInformerWithOptions(client, options)
+}
+
+// NewTypedResourceSetInformerWithOptions constructs a new informer for ResourceSet type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedResourceSetInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) ResourceSetIndexInformer {
+	gvr := schema.GroupVersionResource{Group: "apps.cloudrobotics.com", Version: "v1alpha1", Resource: "resourcesets"}
+	identifier := options.InformerName.WithResource(gvr)
+	tweakListOptions := options.TweakListOptions
+	return cache.NewTypedSharedIndexInformer[*apisappsv1alpha1.ResourceSet](cache.NewSharedIndexInformerWithOptions(
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
+			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.AppsV1alpha1().ResourceSets().List(context.TODO(), options)
+				return client.AppsV1alpha1().ResourceSets().List(context.Background(), opts)
 			},
-			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
+			WatchFunc: func(opts v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.AppsV1alpha1().ResourceSets().Watch(context.TODO(), options)
+				return client.AppsV1alpha1().ResourceSets().Watch(context.Background(), opts)
 			},
+			ListWithContextFunc: func(ctx context.Context, opts v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&opts)
+				}
+				return client.AppsV1alpha1().ResourceSets().List(ctx, opts)
+			},
+			WatchFuncWithContext: func(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&opts)
+				}
+				return client.AppsV1alpha1().ResourceSets().Watch(ctx, opts)
+			},
+		}, client),
+		&apisappsv1alpha1.ResourceSet{},
+		cache.SharedIndexInformerOptions{
+			ResyncPeriod: options.ResyncPeriod,
+			Indexers:     options.Indexers,
+			Identifier:   identifier,
 		},
-		&appsv1alpha1.ResourceSet{},
-		resyncPeriod,
-		indexers,
-	)
+	))
 }
 
 func (f *resourceSetInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredResourceSetInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+	return NewTypedResourceSetInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *resourceSetInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&appsv1alpha1.ResourceSet{}, f.defaultInformer)
+	return f.TypedInformer()
 }
 
-func (f *resourceSetInformer) Lister() v1alpha1.ResourceSetLister {
-	return v1alpha1.NewResourceSetLister(f.Informer().GetIndexer())
+func (f *resourceSetInformer) TypedInformer() ResourceSetIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisappsv1alpha1.ResourceSet](f.factory.InformerFor(&apisappsv1alpha1.ResourceSet{}, f.defaultInformer))
+}
+
+func (f *resourceSetInformer) Lister() appsv1alpha1.ResourceSetLister {
+	return appsv1alpha1.NewResourceSetLister(f.Informer().GetIndexer())
+}
+
+// ToTypedResourceSetInformer converts an untyped informer into a TypedResourceSetInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *ResourceSet. If that is not the case, calling type-safe methods of the returned
+// TypedResourceSetInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedResourceSetInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedResourceSetInformer(informer ResourceSetInformer) TypedResourceSetInformer {
+	if informer, ok := informer.(TypedResourceSetInformer); ok {
+		return informer
+	}
+	return &resourceSetTypedInformerAdapter{informer}
+}
+
+type resourceSetTypedInformerAdapter struct {
+	ResourceSetInformer
+}
+
+func (a *resourceSetTypedInformerAdapter) TypedInformer() ResourceSetIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisappsv1alpha1.ResourceSet](a.Informer())
+}
+
+// ToResourceSetIndexInformer converts an untyped informer into a ResourceSetIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *ResourceSet. If that is not the case, calling type-safe methods of the returned
+// ResourceSetIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a ResourceSetIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToResourceSetIndexInformer(informer cache.SharedIndexInformer) ResourceSetIndexInformer {
+	if informer, ok := informer.(ResourceSetIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisappsv1alpha1.ResourceSet](informer)
 }

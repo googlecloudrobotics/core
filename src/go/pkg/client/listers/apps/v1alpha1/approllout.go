@@ -17,10 +17,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // AppRolloutLister helps list AppRollouts.
@@ -28,39 +28,19 @@ import (
 type AppRolloutLister interface {
 	// List lists all AppRollouts in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.AppRollout, err error)
+	List(selector labels.Selector) (ret []*appsv1alpha1.AppRollout, err error)
 	// Get retrieves the AppRollout from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.AppRollout, error)
+	Get(name string) (*appsv1alpha1.AppRollout, error)
 	AppRolloutListerExpansion
 }
 
 // appRolloutLister implements the AppRolloutLister interface.
 type appRolloutLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*appsv1alpha1.AppRollout]
 }
 
 // NewAppRolloutLister returns a new AppRolloutLister.
 func NewAppRolloutLister(indexer cache.Indexer) AppRolloutLister {
-	return &appRolloutLister{indexer: indexer}
-}
-
-// List lists all AppRollouts in the indexer.
-func (s *appRolloutLister) List(selector labels.Selector) (ret []*v1alpha1.AppRollout, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.AppRollout))
-	})
-	return ret, err
-}
-
-// Get retrieves the AppRollout from the index for a given name.
-func (s *appRolloutLister) Get(name string) (*v1alpha1.AppRollout, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("approllout"), name)
-	}
-	return obj.(*v1alpha1.AppRollout), nil
+	return &appRolloutLister{listers.New[*appsv1alpha1.AppRollout](indexer, appsv1alpha1.Resource("approllout"))}
 }

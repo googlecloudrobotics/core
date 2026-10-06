@@ -23,7 +23,7 @@ import (
 // Interface provides access to all the informers in this group version.
 type Interface interface {
 	// Robots returns a RobotInformer.
-	Robots() RobotInformer
+	Robots() TypedRobotInformer
 }
 
 type version struct {
@@ -37,7 +37,7 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// Robots returns a RobotInformer.
-func (v *version) Robots() RobotInformer {
+// Robots returns a TypedRobotInformer.
+func (v *version) Robots() TypedRobotInformer {
 	return &robotInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
