@@ -80,3 +80,8 @@ curl --fail-with-body -sS \
   "body": "$BODY"
 }
 EOF
+
+# Record container image sizes in BigQuery (non-fatal so telemetry issues do not
+# fail a completed release).
+publish_release_size_metrics "${CLOUD_ROBOTICS_CONTAINER_REGISTRY}" "${DOCKER_TAG}" \
+  || echo >&2 "Warning: Failed to publish release size metrics for ${DOCKER_TAG}"
