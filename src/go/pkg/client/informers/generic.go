@@ -17,7 +17,7 @@
 package informers
 
 import (
-	"fmt"
+	fmt "fmt"
 
 	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registryv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"

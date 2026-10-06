@@ -17,25 +17,54 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	apisappsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	internalinterfaces "github.com/googlecloudrobotics/core/src/go/pkg/client/informers/internalinterfaces"
-	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/listers/apps/v1alpha1"
+	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/listers/apps/v1alpha1"
 	versioned "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
 )
 
 // AppRolloutInformer provides access to a shared informer and lister for
-// AppRollouts.
+// AppRollouts. Prefer using the type-safe variant (see [TypedAppRolloutInformer]).
 type AppRolloutInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.AppRolloutLister
+	Lister() appsv1alpha1.AppRolloutLister
 }
+
+// TypedAppRolloutInformer provides access to a shared informer and lister for
+// AppRollouts, including the type-safe TypedInformer variant.
+// It is a superset of AppRolloutInformer.
+type TypedAppRolloutInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() AppRolloutIndexInformer
+	Lister() appsv1alpha1.AppRolloutLister
+}
+
+// AppRolloutIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type AppRolloutIndexInformer cache.TypedSharedIndexInformer[*apisappsv1alpha1.AppRollout]
+
+// AppRolloutHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for AppRollout.
+type AppRolloutHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisappsv1alpha1.AppRollout]
+
+// AppRolloutDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for AppRollout.
+type AppRolloutDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisappsv1alpha1.AppRollout]
+
+// AppRolloutFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for AppRollout.
+type AppRolloutFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisappsv1alpha1.AppRollout]
+
+// AppRolloutIndexers is a specialization of [cache.TypedIndexers] for AppRollout.
+type AppRolloutIndexers = cache.TypedIndexers[*apisappsv1alpha1.AppRollout]
+
+// DeletedAppRollout is a specialization of [cache.DeletedObject] for AppRollout.
+type DeletedAppRollout = cache.DeletedObject[*apisappsv1alpha1.AppRollout]
 
 type appRolloutInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -45,43 +74,132 @@ type appRolloutInformer struct {
 // NewAppRolloutInformer constructs a new informer for AppRollout type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedAppRolloutInformer]).
 func NewAppRolloutInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredAppRolloutInformer(client, resyncPeriod, indexers, nil)
+	return NewAppRolloutInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedAppRolloutInformer constructs a new informer for AppRollout type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedAppRolloutInformer(client versioned.Interface, resyncPeriod time.Duration, indexers AppRolloutIndexers) AppRolloutIndexInformer {
+	return NewTypedAppRolloutInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredAppRolloutInformer constructs a new informer for AppRollout type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredAppRolloutInformer]).
 func NewFilteredAppRolloutInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
+	return NewTypedAppRolloutInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredAppRolloutInformer constructs a new informer for AppRollout type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredAppRolloutInformer(client versioned.Interface, resyncPeriod time.Duration, indexers AppRolloutIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) AppRolloutIndexInformer {
+	return NewTypedAppRolloutInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
+}
+
+// NewAppRolloutInformerWithOptions constructs a new informer for AppRollout type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedAppRolloutInformerWithOptions]).
+func NewAppRolloutInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedAppRolloutInformerWithOptions(client, options)
+}
+
+// NewTypedAppRolloutInformerWithOptions constructs a new informer for AppRollout type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedAppRolloutInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) AppRolloutIndexInformer {
+	gvr := schema.GroupVersionResource{Group: "apps.cloudrobotics.com", Version: "v1alpha1", Resource: "approllouts"}
+	identifier := options.InformerName.WithResource(gvr)
+	tweakListOptions := options.TweakListOptions
+	return cache.NewTypedSharedIndexInformer[*apisappsv1alpha1.AppRollout](cache.NewSharedIndexInformerWithOptions(
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
+			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.AppsV1alpha1().AppRollouts().List(context.TODO(), options)
+				return client.AppsV1alpha1().AppRollouts().List(context.Background(), opts)
 			},
-			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
+			WatchFunc: func(opts v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.AppsV1alpha1().AppRollouts().Watch(context.TODO(), options)
+				return client.AppsV1alpha1().AppRollouts().Watch(context.Background(), opts)
 			},
+			ListWithContextFunc: func(ctx context.Context, opts v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&opts)
+				}
+				return client.AppsV1alpha1().AppRollouts().List(ctx, opts)
+			},
+			WatchFuncWithContext: func(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&opts)
+				}
+				return client.AppsV1alpha1().AppRollouts().Watch(ctx, opts)
+			},
+		}, client),
+		&apisappsv1alpha1.AppRollout{},
+		cache.SharedIndexInformerOptions{
+			ResyncPeriod: options.ResyncPeriod,
+			Indexers:     options.Indexers,
+			Identifier:   identifier,
 		},
-		&appsv1alpha1.AppRollout{},
-		resyncPeriod,
-		indexers,
-	)
+	))
 }
 
 func (f *appRolloutInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredAppRolloutInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+	return NewTypedAppRolloutInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *appRolloutInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&appsv1alpha1.AppRollout{}, f.defaultInformer)
+	return f.TypedInformer()
 }
 
-func (f *appRolloutInformer) Lister() v1alpha1.AppRolloutLister {
-	return v1alpha1.NewAppRolloutLister(f.Informer().GetIndexer())
+func (f *appRolloutInformer) TypedInformer() AppRolloutIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisappsv1alpha1.AppRollout](f.factory.InformerFor(&apisappsv1alpha1.AppRollout{}, f.defaultInformer))
+}
+
+func (f *appRolloutInformer) Lister() appsv1alpha1.AppRolloutLister {
+	return appsv1alpha1.NewAppRolloutLister(f.Informer().GetIndexer())
+}
+
+// ToTypedAppRolloutInformer converts an untyped informer into a TypedAppRolloutInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *AppRollout. If that is not the case, calling type-safe methods of the returned
+// TypedAppRolloutInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedAppRolloutInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedAppRolloutInformer(informer AppRolloutInformer) TypedAppRolloutInformer {
+	if informer, ok := informer.(TypedAppRolloutInformer); ok {
+		return informer
+	}
+	return &appRolloutTypedInformerAdapter{informer}
+}
+
+type appRolloutTypedInformerAdapter struct {
+	AppRolloutInformer
+}
+
+func (a *appRolloutTypedInformerAdapter) TypedInformer() AppRolloutIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisappsv1alpha1.AppRollout](a.Informer())
+}
+
+// ToAppRolloutIndexInformer converts an untyped informer into a AppRolloutIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *AppRollout. If that is not the case, calling type-safe methods of the returned
+// AppRolloutIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a AppRolloutIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToAppRolloutIndexInformer(informer cache.SharedIndexInformer) AppRolloutIndexInformer {
+	if informer, ok := informer.(AppRolloutIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisappsv1alpha1.AppRollout](informer)
 }

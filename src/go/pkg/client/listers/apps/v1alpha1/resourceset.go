@@ -17,10 +17,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ResourceSetLister helps list ResourceSets.
@@ -28,39 +28,19 @@ import (
 type ResourceSetLister interface {
 	// List lists all ResourceSets in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.ResourceSet, err error)
+	List(selector labels.Selector) (ret []*appsv1alpha1.ResourceSet, err error)
 	// Get retrieves the ResourceSet from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.ResourceSet, error)
+	Get(name string) (*appsv1alpha1.ResourceSet, error)
 	ResourceSetListerExpansion
 }
 
 // resourceSetLister implements the ResourceSetLister interface.
 type resourceSetLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*appsv1alpha1.ResourceSet]
 }
 
 // NewResourceSetLister returns a new ResourceSetLister.
 func NewResourceSetLister(indexer cache.Indexer) ResourceSetLister {
-	return &resourceSetLister{indexer: indexer}
-}
-
-// List lists all ResourceSets in the indexer.
-func (s *resourceSetLister) List(selector labels.Selector) (ret []*v1alpha1.ResourceSet, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ResourceSet))
-	})
-	return ret, err
-}
-
-// Get retrieves the ResourceSet from the index for a given name.
-func (s *resourceSetLister) Get(name string) (*v1alpha1.ResourceSet, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("resourceset"), name)
-	}
-	return obj.(*v1alpha1.ResourceSet), nil
+	return &resourceSetLister{listers.New[*appsv1alpha1.ResourceSet](indexer, appsv1alpha1.Resource("resourceset"))}
 }
