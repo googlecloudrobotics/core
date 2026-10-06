@@ -117,18 +117,8 @@ oci.pull(
     image = "gcr.io/distroless/base",
     platforms = ["linux/amd64"],
 )
-
-# gcloud container images describe gcr.io/distroless/cc:latest --format='value(image_summary.digest)'
-oci.pull(
-    name = "distroless_cc",
-    digest = "sha256:159783207c2cd44c2aa5715961d13c8612368ac9bd450f887e3f08fc8ea461e3",
-    image = "gcr.io/distroless/cc",
-    platforms = ["linux/amd64"],
-)
 use_repo(
     oci,
     "distroless_base",
     "distroless_base_linux_amd64",
-    "distroless_cc",
-    "distroless_cc_linux_amd64",
 )

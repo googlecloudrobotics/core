@@ -58,7 +58,7 @@ crc_image_layer(
 
 oci_image(
     name = "base_image_with_files",
-    base = "@distroless_cc",
+    base = "@distroless_base",
     tars = [":base_image_with_files_layer"],
 )
 
