@@ -23,7 +23,7 @@ use_repo(aspect_toolchains, "zstd_linux_amd64")
 # C++ #
 #######
 
-bazel_dep(name = "toolchains_llvm", version = "1.10.0")
+bazel_dep(name = "toolchains_llvm", version = "1.11.1")
 
 # Inspect supported toolchains at https://github.com/bazel-contrib/toolchains_llvm/blob/master/toolchain/internal/llvm_distributions.bzl
 llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
@@ -41,13 +41,11 @@ use_repo(llvm, "llvm_toolchain")
 
 register_toolchains("@llvm_toolchain//:all")
 
-bazel_dep(name = "rules_cc", version = "0.2.25")
-
 ######
 # Go #
 ######
 
-bazel_dep(name = "rules_go", version = "0.63.0", repo_name = "io_bazel_rules_go")
+bazel_dep(name = "rules_go", version = "0.64.1", repo_name = "io_bazel_rules_go")
 
 go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(version = "1.27.1")
@@ -113,22 +111,12 @@ oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 # gcloud container images describe gcr.io/distroless/base:latest --format='value(image_summary.digest)'
 oci.pull(
     name = "distroless_base",
-    digest = "sha256:0ebad3510af52aefe45045cc01b07564570be4feecf8d9f93d3a05d1b5f2f93b",
+    digest = "sha256:389cad21f73e4c37b94ffe5b13736d5a92bd5bd3c6c6b38c2be1c881e14ba2bd",
     image = "gcr.io/distroless/base",
-    platforms = ["linux/amd64"],
-)
-
-# gcloud container images describe gcr.io/distroless/cc:latest --format='value(image_summary.digest)'
-oci.pull(
-    name = "distroless_cc",
-    digest = "sha256:4594d59540d1948417f6ca2829ddd9294493a7c68b7528f4dd459de7f203a750",
-    image = "gcr.io/distroless/cc",
     platforms = ["linux/amd64"],
 )
 use_repo(
     oci,
     "distroless_base",
     "distroless_base_linux_amd64",
-    "distroless_cc",
-    "distroless_cc_linux_amd64",
 )

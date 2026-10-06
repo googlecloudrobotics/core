@@ -52,6 +52,10 @@ spec:
       storage: true
       subresources:
         status: {}
+      additionalPrinterColumns:
+      - jsonPath: .spec.displayName
+        name: Display Name
+        type: string
       schema:
         openAPIV3Schema:
           type: object
@@ -63,6 +67,8 @@ spec:
                 type:
                   type: string
                 project:
+                  type: string
+                displayName:
                   type: string
             status:
               type: object

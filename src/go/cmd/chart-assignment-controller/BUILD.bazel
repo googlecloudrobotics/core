@@ -44,7 +44,7 @@ genrule(
 
 oci_image(
     name = "helm-image",
-    base = "@distroless_cc",
+    base = "@distroless_base",
     tars = [":helm-image-layer"],
 )
 
