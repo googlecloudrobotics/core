@@ -117,10 +117,12 @@ func TestCreateJWT(t *testing.T) {
 }
 
 type mockRoundTripper struct {
+	lastReq  *http.Request
 	response *http.Response
 }
 
 func (rt *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	rt.lastReq = req
 	return rt.response, nil
 }
 
@@ -154,6 +156,9 @@ func TestCreateJWTSource(t *testing.T) {
 		t.Fatalf("ts.Token() failed unexpectedly: %v", err)
 	}
 
+	if got, want := mockRT.lastReq.Header.Get("Metadata-Flavor"), "Google"; got != want {
+		t.Errorf("Metadata-Flavor header = %q, want %q", got, want)
+	}
 	if want := "Bearer"; token.TokenType != want {
 		t.Errorf("token.TokenType = %q, want %q", token.TokenType, want)
 	}

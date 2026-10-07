@@ -17,15 +17,14 @@
 package v1alpha1
 
 import (
-	"context"
-	"time"
+	context "context"
 
-	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	scheme "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 )
 
 // ChartAssignmentsGetter has a method to return a ChartAssignmentInterface.
@@ -36,147 +35,34 @@ type ChartAssignmentsGetter interface {
 
 // ChartAssignmentInterface has methods to work with ChartAssignment resources.
 type ChartAssignmentInterface interface {
-	Create(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.CreateOptions) (*v1alpha1.ChartAssignment, error)
-	Update(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.UpdateOptions) (*v1alpha1.ChartAssignment, error)
-	UpdateStatus(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.UpdateOptions) (*v1alpha1.ChartAssignment, error)
+	Create(ctx context.Context, chartAssignment *appsv1alpha1.ChartAssignment, opts v1.CreateOptions) (*appsv1alpha1.ChartAssignment, error)
+	Update(ctx context.Context, chartAssignment *appsv1alpha1.ChartAssignment, opts v1.UpdateOptions) (*appsv1alpha1.ChartAssignment, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, chartAssignment *appsv1alpha1.ChartAssignment, opts v1.UpdateOptions) (*appsv1alpha1.ChartAssignment, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ChartAssignment, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ChartAssignmentList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*appsv1alpha1.ChartAssignment, error)
+	List(ctx context.Context, opts v1.ListOptions) (*appsv1alpha1.ChartAssignmentList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ChartAssignment, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *appsv1alpha1.ChartAssignment, err error)
 	ChartAssignmentExpansion
 }
 
 // chartAssignments implements ChartAssignmentInterface
 type chartAssignments struct {
-	client rest.Interface
+	*gentype.ClientWithList[*appsv1alpha1.ChartAssignment, *appsv1alpha1.ChartAssignmentList]
 }
 
 // newChartAssignments returns a ChartAssignments
 func newChartAssignments(c *AppsV1alpha1Client) *chartAssignments {
 	return &chartAssignments{
-		client: c.RESTClient(),
+		gentype.NewClientWithList[*appsv1alpha1.ChartAssignment, *appsv1alpha1.ChartAssignmentList](
+			"chartassignments",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			"",
+			func() *appsv1alpha1.ChartAssignment { return &appsv1alpha1.ChartAssignment{} },
+			func() *appsv1alpha1.ChartAssignmentList { return &appsv1alpha1.ChartAssignmentList{} },
+		),
 	}
-}
-
-// Get takes name of the chartAssignment, and returns the corresponding chartAssignment object, and an error if there is any.
-func (c *chartAssignments) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ChartAssignment, err error) {
-	result = &v1alpha1.ChartAssignment{}
-	err = c.client.Get().
-		Resource("chartassignments").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of ChartAssignments that match those selectors.
-func (c *chartAssignments) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ChartAssignmentList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha1.ChartAssignmentList{}
-	err = c.client.Get().
-		Resource("chartassignments").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested chartAssignments.
-func (c *chartAssignments) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Resource("chartassignments").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a chartAssignment and creates it.  Returns the server's representation of the chartAssignment, and an error, if there is any.
-func (c *chartAssignments) Create(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.CreateOptions) (result *v1alpha1.ChartAssignment, err error) {
-	result = &v1alpha1.ChartAssignment{}
-	err = c.client.Post().
-		Resource("chartassignments").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(chartAssignment).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a chartAssignment and updates it. Returns the server's representation of the chartAssignment, and an error, if there is any.
-func (c *chartAssignments) Update(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.UpdateOptions) (result *v1alpha1.ChartAssignment, err error) {
-	result = &v1alpha1.ChartAssignment{}
-	err = c.client.Put().
-		Resource("chartassignments").
-		Name(chartAssignment.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(chartAssignment).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *chartAssignments) UpdateStatus(ctx context.Context, chartAssignment *v1alpha1.ChartAssignment, opts v1.UpdateOptions) (result *v1alpha1.ChartAssignment, err error) {
-	result = &v1alpha1.ChartAssignment{}
-	err = c.client.Put().
-		Resource("chartassignments").
-		Name(chartAssignment.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(chartAssignment).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the chartAssignment and deletes it. Returns an error if one occurs.
-func (c *chartAssignments) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Resource("chartassignments").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *chartAssignments) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Resource("chartassignments").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched chartAssignment.
-func (c *chartAssignments) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ChartAssignment, err error) {
-	result = &v1alpha1.ChartAssignment{}
-	err = c.client.Patch(pt).
-		Resource("chartassignments").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

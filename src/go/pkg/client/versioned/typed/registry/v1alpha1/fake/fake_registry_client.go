@@ -27,7 +27,7 @@ type FakeRegistryV1alpha1 struct {
 }
 
 func (c *FakeRegistryV1alpha1) Robots(namespace string) v1alpha1.RobotInterface {
-	return &FakeRobots{c, namespace}
+	return newFakeRobots(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

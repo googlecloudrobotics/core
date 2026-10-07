@@ -21,3 +21,4 @@ For an overview of the end-to-end authentication flow, see [Device Identity](../
 - `--log_level`: Minimum log message level required to be logged (default: `0` / `INFO`).
 - `--running_on_gke`: Skip CoreDNS patching steps that are unnecessary when running on GKE (default: `false`).
 - `--service_account`: Default robot GCP service account name (default: `"robot-service"`).
+- `--enforce_metadata_flavor`: Reject requests without the `Metadata-Flavor: Google` header with `403 Forbidden` instead of only logging an error (default: `false`).

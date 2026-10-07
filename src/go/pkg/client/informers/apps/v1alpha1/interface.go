@@ -23,13 +23,13 @@ import (
 // Interface provides access to all the informers in this group version.
 type Interface interface {
 	// Apps returns a AppInformer.
-	Apps() AppInformer
+	Apps() TypedAppInformer
 	// AppRollouts returns a AppRolloutInformer.
-	AppRollouts() AppRolloutInformer
+	AppRollouts() TypedAppRolloutInformer
 	// ChartAssignments returns a ChartAssignmentInformer.
-	ChartAssignments() ChartAssignmentInformer
+	ChartAssignments() TypedChartAssignmentInformer
 	// ResourceSets returns a ResourceSetInformer.
-	ResourceSets() ResourceSetInformer
+	ResourceSets() TypedResourceSetInformer
 }
 
 type version struct {
@@ -43,22 +43,22 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// Apps returns a AppInformer.
-func (v *version) Apps() AppInformer {
+// Apps returns a TypedAppInformer.
+func (v *version) Apps() TypedAppInformer {
 	return &appInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// AppRollouts returns a AppRolloutInformer.
-func (v *version) AppRollouts() AppRolloutInformer {
+// AppRollouts returns a TypedAppRolloutInformer.
+func (v *version) AppRollouts() TypedAppRolloutInformer {
 	return &appRolloutInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// ChartAssignments returns a ChartAssignmentInformer.
-func (v *version) ChartAssignments() ChartAssignmentInformer {
+// ChartAssignments returns a TypedChartAssignmentInformer.
+func (v *version) ChartAssignments() TypedChartAssignmentInformer {
 	return &chartAssignmentInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// ResourceSets returns a ResourceSetInformer.
-func (v *version) ResourceSets() ResourceSetInformer {
+// ResourceSets returns a TypedResourceSetInformer.
+func (v *version) ResourceSets() TypedResourceSetInformer {
 	return &resourceSetInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
