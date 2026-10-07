@@ -133,9 +133,6 @@ spec:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /server
-    timeouts:
-      request: 86400s
-      backendRequest: 86400s
     backendRefs:
     - name: prometheus-relay-server
       port: 80

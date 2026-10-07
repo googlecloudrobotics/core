@@ -21,8 +21,8 @@ spec:
           type: ReplacePrefixMatch
           replacePrefixMatch: /client
     timeouts:
-      request: 86400s
-      backendRequest: 86400s
+      request: 3600s
+      backendRequest: 3600s
     backendRefs:
     - name: kubernetes-relay-server
       port: 80
@@ -49,9 +49,6 @@ spec:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /server
-    timeouts:
-      request: 86400s
-      backendRequest: 86400s
     backendRefs:
     - name: kubernetes-relay-server
       port: 80

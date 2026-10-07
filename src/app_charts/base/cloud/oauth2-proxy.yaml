@@ -123,6 +123,7 @@ spec:
           type: ReplacePrefixMatch
           replacePrefixMatch: /apis
     timeouts:
+      request: 600s
       backendRequest: 600s
     backendRefs:
     - name: oauth2-proxy
