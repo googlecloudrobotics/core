@@ -732,11 +732,24 @@ func canReplace(resource *unstructured.Unstructured, patchErr error) bool {
 	return false
 }
 
+func isHeadlessService(u *unstructured.Unstructured) bool {
+	if ip, _, _ := unstructured.NestedString(u.Object, "spec", "clusterIP"); ip == corev1.ClusterIPNone {
+		return true
+	}
+	if ips, _, _ := unstructured.NestedStringSlice(u.Object, "spec", "clusterIPs"); len(ips) > 0 && ips[0] == corev1.ClusterIPNone {
+		return true
+	}
+	return false
+}
+
 func replace(ctx context.Context, client dynamic.ResourceInterface, resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	// Foreground deletion means that the new job can't be created until the old
-	// pods are gone, so updates to a currently-running job are safer.
-	policy := metav1.DeletePropagationForeground
-	deleteOpts := metav1.DeleteOptions{PropagationPolicy: &policy}
+	deleteOpts := metav1.DeleteOptions{}
+	if resource.GetKind() != "Service" {
+		// Foreground deletion means that the new job can't be created until the old
+		// pods are gone, so updates to a currently-running job are safer.
+		policy := metav1.DeletePropagationForeground
+		deleteOpts.PropagationPolicy = &policy
+	}
 	if err := client.Delete(ctx, resource.GetName(), deleteOpts); err != nil {
 		return nil, fmt.Errorf("delete: %w", err)
 	}
@@ -816,6 +829,17 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		}
 		*resource = *res
 		return apps.ResourceActionIgnored, nil
+	}
+
+	if resource.GetKind() == "Service" && isHeadlessService(current) != isHeadlessService(resource) {
+		_, replaceSpan := tracer.Start(ctx, "Replace "+resource.GetName())
+		res, err := replace(ctx, client, resource)
+		replaceSpan.End()
+		if err != nil {
+			return apps.ResourceActionReplace, fmt.Errorf("replace: %w", err)
+		}
+		*resource = *res
+		return apps.ResourceActionReplace, nil
 	}
 
 	// Get what is running, what was installed and what we want to run.
