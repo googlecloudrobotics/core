@@ -44,8 +44,8 @@ spec:
               cpu: 2000m
               memory: 4Gi
   shutdown:
-    drainTimeout: 60s
-    minDrainDuration: 15s
+    drainTimeout: 90s
+    minDrainDuration: 35s
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
