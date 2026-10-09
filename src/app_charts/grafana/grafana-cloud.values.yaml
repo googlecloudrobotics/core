@@ -10,6 +10,9 @@ kubeTargetVersionOverride: "1.23.8"
 # enabled, we get a fully configured standalone Grafana with all the rich Kubernetes 
 # observability dashboards maintained for us out of the box.
 grafana:
+  serviceAccount:
+    annotations:
+      iam.gke.io/gcp-service-account: "grafana@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
   # default password used by old releases, deployed behind auth-proxy so this
   # is not a secret.
   # we could also use "auth proxy authentication" but the second login defends
@@ -49,6 +52,8 @@ grafana:
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: instance
+  plugins:
+    - googlecloud-trace-datasource@1.4.0
 
 gf_ingress_auth_url: "${CR_GF_INGRESS_AUTH_URL}"
 gf_ingress_auth_signin: "${CR_GF_INGRESS_AUTH_SIGNIN}"

@@ -62,3 +62,32 @@ resource "google_project_iam_member" "cert_manager_dns_reader" {
   member  = google_service_account.cert_manager.member
 }
 
+# grafana
+##############
+
+resource "google_service_account" "grafana" {
+  account_id   = "grafana"
+  display_name = "grafana"
+  project      = data.google_project.project.project_id
+}
+
+data "google_iam_policy" "grafana" {
+  binding {
+    role = "roles/iam.workloadIdentityUser"
+    members = [
+      "serviceAccount:${data.google_project.project.project_id}.svc.id.goog[app-grafana/grafana]",
+    ]
+  }
+}
+
+resource "google_service_account_iam_policy" "grafana" {
+  service_account_id = google_service_account.grafana.id
+  policy_data        = data.google_iam_policy.grafana.policy_data
+  depends_on         = [google_container_cluster.cloud-robotics]
+}
+
+resource "google_project_iam_member" "grafana_roles" {
+  project = data.google_project.project.project_id
+  role    = "roles/cloudtrace.user"
+  member  = google_service_account.grafana.member
+}
