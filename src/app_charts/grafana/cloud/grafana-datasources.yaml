@@ -8,15 +8,21 @@ metadata:
 data:
   datasources.yaml: |
     apiVersion: 1
-    {{- if .Values.datasources }}
     datasources:
+    {{- if .Values.datasources }}
 {{ toYaml .Values.datasources | indent 4 }}
     {{- else }}
-    datasources:
     - name: Prometheus
       type: prometheus
       uid: prometheus
       url: http://kube-prometheus.{{ .Values.prometheusNamespace | default "app-prometheus" }}.svc.cluster.local:9090
       access: proxy
       isDefault: true
-{{- end }}
+    {{- end }}
+    - name: Google Cloud Trace
+      type: googlecloud-trace-datasource
+      uid: cloudtrace
+      access: proxy
+      jsonData:
+        authenticationType: gce
+        defaultProject: {{ .Values.project }}
