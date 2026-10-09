@@ -17,25 +17,54 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	apisappsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	internalinterfaces "github.com/googlecloudrobotics/core/src/go/pkg/client/informers/internalinterfaces"
-	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/listers/apps/v1alpha1"
+	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/listers/apps/v1alpha1"
 	versioned "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
 )
 
 // ChartAssignmentInformer provides access to a shared informer and lister for
-// ChartAssignments.
+// ChartAssignments. Prefer using the type-safe variant (see [TypedChartAssignmentInformer]).
 type ChartAssignmentInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ChartAssignmentLister
+	Lister() appsv1alpha1.ChartAssignmentLister
 }
+
+// TypedChartAssignmentInformer provides access to a shared informer and lister for
+// ChartAssignments, including the type-safe TypedInformer variant.
+// It is a superset of ChartAssignmentInformer.
+type TypedChartAssignmentInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() ChartAssignmentIndexInformer
+	Lister() appsv1alpha1.ChartAssignmentLister
+}
+
+// ChartAssignmentIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type ChartAssignmentIndexInformer cache.TypedSharedIndexInformer[*apisappsv1alpha1.ChartAssignment]
+
+// ChartAssignmentHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for ChartAssignment.
+type ChartAssignmentHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisappsv1alpha1.ChartAssignment]
+
+// ChartAssignmentDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for ChartAssignment.
+type ChartAssignmentDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisappsv1alpha1.ChartAssignment]
+
+// ChartAssignmentFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for ChartAssignment.
+type ChartAssignmentFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisappsv1alpha1.ChartAssignment]
+
+// ChartAssignmentIndexers is a specialization of [cache.TypedIndexers] for ChartAssignment.
+type ChartAssignmentIndexers = cache.TypedIndexers[*apisappsv1alpha1.ChartAssignment]
+
+// DeletedChartAssignment is a specialization of [cache.DeletedObject] for ChartAssignment.
+type DeletedChartAssignment = cache.DeletedObject[*apisappsv1alpha1.ChartAssignment]
 
 type chartAssignmentInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -45,43 +74,132 @@ type chartAssignmentInformer struct {
 // NewChartAssignmentInformer constructs a new informer for ChartAssignment type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedChartAssignmentInformer]).
 func NewChartAssignmentInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredChartAssignmentInformer(client, resyncPeriod, indexers, nil)
+	return NewChartAssignmentInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedChartAssignmentInformer constructs a new informer for ChartAssignment type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedChartAssignmentInformer(client versioned.Interface, resyncPeriod time.Duration, indexers ChartAssignmentIndexers) ChartAssignmentIndexInformer {
+	return NewTypedChartAssignmentInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredChartAssignmentInformer constructs a new informer for ChartAssignment type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredChartAssignmentInformer]).
 func NewFilteredChartAssignmentInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
+	return NewTypedChartAssignmentInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredChartAssignmentInformer constructs a new informer for ChartAssignment type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredChartAssignmentInformer(client versioned.Interface, resyncPeriod time.Duration, indexers ChartAssignmentIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) ChartAssignmentIndexInformer {
+	return NewTypedChartAssignmentInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
+}
+
+// NewChartAssignmentInformerWithOptions constructs a new informer for ChartAssignment type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedChartAssignmentInformerWithOptions]).
+func NewChartAssignmentInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedChartAssignmentInformerWithOptions(client, options)
+}
+
+// NewTypedChartAssignmentInformerWithOptions constructs a new informer for ChartAssignment type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedChartAssignmentInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) ChartAssignmentIndexInformer {
+	gvr := schema.GroupVersionResource{Group: "apps.cloudrobotics.com", Version: "v1alpha1", Resource: "chartassignments"}
+	identifier := options.InformerName.WithResource(gvr)
+	tweakListOptions := options.TweakListOptions
+	return cache.NewTypedSharedIndexInformer[*apisappsv1alpha1.ChartAssignment](cache.NewSharedIndexInformerWithOptions(
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
+			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.AppsV1alpha1().ChartAssignments().List(context.TODO(), options)
+				return client.AppsV1alpha1().ChartAssignments().List(context.Background(), opts)
 			},
-			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
+			WatchFunc: func(opts v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.AppsV1alpha1().ChartAssignments().Watch(context.TODO(), options)
+				return client.AppsV1alpha1().ChartAssignments().Watch(context.Background(), opts)
 			},
+			ListWithContextFunc: func(ctx context.Context, opts v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&opts)
+				}
+				return client.AppsV1alpha1().ChartAssignments().List(ctx, opts)
+			},
+			WatchFuncWithContext: func(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&opts)
+				}
+				return client.AppsV1alpha1().ChartAssignments().Watch(ctx, opts)
+			},
+		}, client),
+		&apisappsv1alpha1.ChartAssignment{},
+		cache.SharedIndexInformerOptions{
+			ResyncPeriod: options.ResyncPeriod,
+			Indexers:     options.Indexers,
+			Identifier:   identifier,
 		},
-		&appsv1alpha1.ChartAssignment{},
-		resyncPeriod,
-		indexers,
-	)
+	))
 }
 
 func (f *chartAssignmentInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredChartAssignmentInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+	return NewTypedChartAssignmentInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *chartAssignmentInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&appsv1alpha1.ChartAssignment{}, f.defaultInformer)
+	return f.TypedInformer()
 }
 
-func (f *chartAssignmentInformer) Lister() v1alpha1.ChartAssignmentLister {
-	return v1alpha1.NewChartAssignmentLister(f.Informer().GetIndexer())
+func (f *chartAssignmentInformer) TypedInformer() ChartAssignmentIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisappsv1alpha1.ChartAssignment](f.factory.InformerFor(&apisappsv1alpha1.ChartAssignment{}, f.defaultInformer))
+}
+
+func (f *chartAssignmentInformer) Lister() appsv1alpha1.ChartAssignmentLister {
+	return appsv1alpha1.NewChartAssignmentLister(f.Informer().GetIndexer())
+}
+
+// ToTypedChartAssignmentInformer converts an untyped informer into a TypedChartAssignmentInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *ChartAssignment. If that is not the case, calling type-safe methods of the returned
+// TypedChartAssignmentInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedChartAssignmentInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedChartAssignmentInformer(informer ChartAssignmentInformer) TypedChartAssignmentInformer {
+	if informer, ok := informer.(TypedChartAssignmentInformer); ok {
+		return informer
+	}
+	return &chartAssignmentTypedInformerAdapter{informer}
+}
+
+type chartAssignmentTypedInformerAdapter struct {
+	ChartAssignmentInformer
+}
+
+func (a *chartAssignmentTypedInformerAdapter) TypedInformer() ChartAssignmentIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisappsv1alpha1.ChartAssignment](a.Informer())
+}
+
+// ToChartAssignmentIndexInformer converts an untyped informer into a ChartAssignmentIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *ChartAssignment. If that is not the case, calling type-safe methods of the returned
+// ChartAssignmentIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a ChartAssignmentIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToChartAssignmentIndexInformer(informer cache.SharedIndexInformer) ChartAssignmentIndexInformer {
+	if informer, ok := informer.(ChartAssignmentIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisappsv1alpha1.ChartAssignment](informer)
 }

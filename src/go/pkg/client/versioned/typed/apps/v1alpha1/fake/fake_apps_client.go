@@ -27,19 +27,19 @@ type FakeAppsV1alpha1 struct {
 }
 
 func (c *FakeAppsV1alpha1) Apps() v1alpha1.AppInterface {
-	return &FakeApps{c}
+	return newFakeApps(c)
 }
 
 func (c *FakeAppsV1alpha1) AppRollouts() v1alpha1.AppRolloutInterface {
-	return &FakeAppRollouts{c}
+	return newFakeAppRollouts(c)
 }
 
 func (c *FakeAppsV1alpha1) ChartAssignments() v1alpha1.ChartAssignmentInterface {
-	return &FakeChartAssignments{c}
+	return newFakeChartAssignments(c)
 }
 
 func (c *FakeAppsV1alpha1) ResourceSets() v1alpha1.ResourceSetInterface {
-	return &FakeResourceSets{c}
+	return newFakeResourceSets(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

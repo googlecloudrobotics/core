@@ -17,25 +17,54 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	registryv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
+	apisregistryv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	internalinterfaces "github.com/googlecloudrobotics/core/src/go/pkg/client/informers/internalinterfaces"
-	v1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/listers/registry/v1alpha1"
+	registryv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/listers/registry/v1alpha1"
 	versioned "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
 )
 
 // RobotInformer provides access to a shared informer and lister for
-// Robots.
+// Robots. Prefer using the type-safe variant (see [TypedRobotInformer]).
 type RobotInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.RobotLister
+	Lister() registryv1alpha1.RobotLister
 }
+
+// TypedRobotInformer provides access to a shared informer and lister for
+// Robots, including the type-safe TypedInformer variant.
+// It is a superset of RobotInformer.
+type TypedRobotInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() RobotIndexInformer
+	Lister() registryv1alpha1.RobotLister
+}
+
+// RobotIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type RobotIndexInformer cache.TypedSharedIndexInformer[*apisregistryv1alpha1.Robot]
+
+// RobotHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for Robot.
+type RobotHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisregistryv1alpha1.Robot]
+
+// RobotDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for Robot.
+type RobotDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisregistryv1alpha1.Robot]
+
+// RobotFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for Robot.
+type RobotFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisregistryv1alpha1.Robot]
+
+// RobotIndexers is a specialization of [cache.TypedIndexers] for Robot.
+type RobotIndexers = cache.TypedIndexers[*apisregistryv1alpha1.Robot]
+
+// DeletedRobot is a specialization of [cache.DeletedObject] for Robot.
+type DeletedRobot = cache.DeletedObject[*apisregistryv1alpha1.Robot]
 
 type robotInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -46,43 +75,132 @@ type robotInformer struct {
 // NewRobotInformer constructs a new informer for Robot type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedRobotInformer]).
 func NewRobotInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredRobotInformer(client, namespace, resyncPeriod, indexers, nil)
+	return NewRobotInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedRobotInformer constructs a new informer for Robot type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedRobotInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers RobotIndexers) RobotIndexInformer {
+	return NewTypedRobotInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredRobotInformer constructs a new informer for Robot type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredRobotInformer]).
 func NewFilteredRobotInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
+	return NewTypedRobotInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredRobotInformer constructs a new informer for Robot type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredRobotInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers RobotIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) RobotIndexInformer {
+	return NewTypedRobotInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
+}
+
+// NewRobotInformerWithOptions constructs a new informer for Robot type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedRobotInformerWithOptions]).
+func NewRobotInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedRobotInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedRobotInformerWithOptions constructs a new informer for Robot type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedRobotInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) RobotIndexInformer {
+	gvr := schema.GroupVersionResource{Group: "registry.cloudrobotics.com", Version: "v1alpha1", Resource: "robots"}
+	identifier := options.InformerName.WithResource(gvr)
+	tweakListOptions := options.TweakListOptions
+	return cache.NewTypedSharedIndexInformer[*apisregistryv1alpha1.Robot](cache.NewSharedIndexInformerWithOptions(
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
+			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.RegistryV1alpha1().Robots(namespace).List(context.TODO(), options)
+				return client.RegistryV1alpha1().Robots(namespace).List(context.Background(), opts)
 			},
-			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
+			WatchFunc: func(opts v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.RegistryV1alpha1().Robots(namespace).Watch(context.TODO(), options)
+				return client.RegistryV1alpha1().Robots(namespace).Watch(context.Background(), opts)
 			},
+			ListWithContextFunc: func(ctx context.Context, opts v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&opts)
+				}
+				return client.RegistryV1alpha1().Robots(namespace).List(ctx, opts)
+			},
+			WatchFuncWithContext: func(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&opts)
+				}
+				return client.RegistryV1alpha1().Robots(namespace).Watch(ctx, opts)
+			},
+		}, client),
+		&apisregistryv1alpha1.Robot{},
+		cache.SharedIndexInformerOptions{
+			ResyncPeriod: options.ResyncPeriod,
+			Indexers:     options.Indexers,
+			Identifier:   identifier,
 		},
-		&registryv1alpha1.Robot{},
-		resyncPeriod,
-		indexers,
-	)
+	))
 }
 
 func (f *robotInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredRobotInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+	return NewTypedRobotInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *robotInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&registryv1alpha1.Robot{}, f.defaultInformer)
+	return f.TypedInformer()
 }
 
-func (f *robotInformer) Lister() v1alpha1.RobotLister {
-	return v1alpha1.NewRobotLister(f.Informer().GetIndexer())
+func (f *robotInformer) TypedInformer() RobotIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisregistryv1alpha1.Robot](f.factory.InformerFor(&apisregistryv1alpha1.Robot{}, f.defaultInformer))
+}
+
+func (f *robotInformer) Lister() registryv1alpha1.RobotLister {
+	return registryv1alpha1.NewRobotLister(f.Informer().GetIndexer())
+}
+
+// ToTypedRobotInformer converts an untyped informer into a TypedRobotInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *Robot. If that is not the case, calling type-safe methods of the returned
+// TypedRobotInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedRobotInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedRobotInformer(informer RobotInformer) TypedRobotInformer {
+	if informer, ok := informer.(TypedRobotInformer); ok {
+		return informer
+	}
+	return &robotTypedInformerAdapter{informer}
+}
+
+type robotTypedInformerAdapter struct {
+	RobotInformer
+}
+
+func (a *robotTypedInformerAdapter) TypedInformer() RobotIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisregistryv1alpha1.Robot](a.Informer())
+}
+
+// ToRobotIndexInformer converts an untyped informer into a RobotIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *Robot. If that is not the case, calling type-safe methods of the returned
+// RobotIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a RobotIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToRobotIndexInformer(informer cache.SharedIndexInformer) RobotIndexInformer {
+	if informer, ok := informer.(RobotIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisregistryv1alpha1.Robot](informer)
 }

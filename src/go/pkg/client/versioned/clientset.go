@@ -17,8 +17,8 @@
 package versioned
 
 import (
-	"fmt"
-	"net/http"
+	fmt "fmt"
+	http "net/http"
 
 	appsv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/typed/apps/v1alpha1"
 	registryv1alpha1 "github.com/googlecloudrobotics/core/src/go/pkg/client/versioned/typed/registry/v1alpha1"
@@ -28,7 +28,7 @@ import (
 )
 
 type Interface interface {
-	Discovery() discovery.DiscoveryInterface
+	Discovery() discovery.DiscoveryInterfaces
 	AppsV1alpha1() appsv1alpha1.AppsV1alpha1Interface
 	RegistryV1alpha1() registryv1alpha1.RegistryV1alpha1Interface
 }
@@ -51,7 +51,7 @@ func (c *Clientset) RegistryV1alpha1() registryv1alpha1.RegistryV1alpha1Interfac
 }
 
 // Discovery retrieves the DiscoveryClient
-func (c *Clientset) Discovery() discovery.DiscoveryInterface {
+func (c *Clientset) Discovery() discovery.DiscoveryInterfaces {
 	if c == nil {
 		return nil
 	}

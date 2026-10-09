@@ -47,6 +47,7 @@ spec:
         type: PathPrefix
         value: /apis/core.kubernetes/
     timeouts:
+      request: 600s
       backendRequest: 600s
     backendRefs:
     - name: cr-syncer-auth-webhook

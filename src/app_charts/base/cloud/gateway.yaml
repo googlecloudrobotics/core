@@ -13,6 +13,16 @@ spec:
         type: LoadBalancer
         externalTrafficPolicy: Local
         loadBalancerIP: {{ .Values.ingress_ip }}
+      envoyHpa:
+        minReplicas: 2
+        maxReplicas: 5
+        metrics:
+        - type: Resource
+          resource:
+            name: cpu
+            target:
+              type: Utilization
+              averageUtilization: 80
       envoyDeployment:
         replicas: 2
         pod:
@@ -29,10 +39,10 @@ spec:
           resources:
             requests:
               cpu: 1000m
-              memory: 512Mi
+              memory: 1Gi
             limits:
               cpu: 2000m
-              memory: 2Gi
+              memory: 4Gi
   shutdown:
     drainTimeout: 60s
     minDrainDuration: 15s
@@ -111,26 +121,29 @@ spec:
     alpnProtocols:
     - h2
     - http/1.1
-  # Maintain Chunk (1 MiB) < Stream Window (2 MiB) < Connection Window (4 MiB) < Buffer Limit (5 MiB)
-  # so HTTP/2 flow control regulates high-BDP streams within the Linux kernel TCP receive buffer
-  # ceiling (~4.5 MiB) without triggering Envoy's per-connection high-watermark socket brake.
+  # Client-to-Envoy Traffic Policy:
+  # - 5 MiB stream window / 8 MiB connection window & buffer limit allows high-RTT
+  #   uploads (e.g. 130 ms RTT) to reach ~38.5 MB/s (~308 Mbit/s) per stream while bounding
+  #   worst-case memory per stalled connection to 8 MiB (capped by Envoy's overload_manager
+  #   at 80% of the 4 GiB pod memory limit).
+  # - Omitting streamIdleTimeout keeps Envoy's 300s listener default while allowing
+  #   Envoy Gateway's translator to auto-scale per-route idleTimeout when HTTPRoute.timeouts
+  #   exceeds 300s.
   connection:
-    bufferLimit: 5Mi
+    bufferLimit: 8Mi
   http2:
     maxConcurrentStreams: 100
-    initialStreamWindowSize: 2097152      # 2 MiB
-    initialConnectionWindowSize: 4194304  # 4 MiB
+    initialStreamWindowSize: 5242880      # 5 MiB
+    initialConnectionWindowSize: 8388608  # 8 MiB
     connectionKeepalive:
       idleInterval: 60s
       interval: 60s                       # Sends periodic HTTP/2 PING frames to prevent L4 load balancer 600s idle drops
       timeout: 15s
-  timeout:
-    http:
-      streamIdleTimeout: 3600s            # Raise per-stream idle timeout from 5m default to 1h for long-running/idle streams
 ---
-# Align with NGINX default behavior: NGINX has no total request duration cap,
-# whereas Envoy Gateway defaults to a 15s requestTimeout. Setting requestTimeout
-# to 0s disables the 15s cap and allows infinite total request duration by default.
+# Default Gateway BackendTrafficPolicy:
+# - Matches NGINX's 60s default timeout for standard unary RPCs and web APIs.
+# - 1 MiB stream window / 4 MiB connection window & buffer limit matches in-cluster
+#   backend gRPC defaults (1 MiB chunk < 1 MiB stream < 4 MiB conn = 4 MiB buffer).
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: BackendTrafficPolicy
 metadata:
@@ -141,7 +154,7 @@ spec:
     kind: Gateway
     name: crc-gateway
   connection:
-    bufferLimit: 5Mi
+    bufferLimit: 4Mi
   http2:
     initialStreamWindowSize: 1048576      # 1 MiB (overrides 64 KiB default to prevent 16x WINDOW_UPDATE stalls on 1 MiB chunks)
     initialConnectionWindowSize: 4194304  # 4 MiB
@@ -151,8 +164,7 @@ spec:
       timeout: 15s
   timeout:
     http:
-      requestTimeout: 0s
-      streamIdleTimeout: 3600s
+      requestTimeout: 60s
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
