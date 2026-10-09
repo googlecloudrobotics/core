@@ -23,6 +23,9 @@ grafana:
     GF_AUTH_ANONYMOUS_ENABLED: "true"
   # Load dashboards from configmaps with a given label across all namespaces.
   sidecar:
+    datasources:
+      enabled: true
+      defaultDatasourceEnabled: false
     dashboards:
       enabled: true
       label: grafana # Label our own legacy grafana-operator uses.
