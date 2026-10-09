@@ -35,6 +35,8 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/ilog"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -743,6 +745,12 @@ func isHeadlessService(u *unstructured.Unstructured) bool {
 }
 
 func replace(ctx context.Context, client dynamic.ResourceInterface, resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	_, span := tracer.Start(ctx, "Replace resource", trace.WithAttributes(
+		attribute.String("name", resource.GetName()),
+		attribute.String("namespace", resource.GetNamespace()),
+	))
+	defer span.End()
+
 	deleteOpts := metav1.DeleteOptions{}
 	if resource.GetKind() != "Service" {
 		// Foreground deletion means that the new job can't be created until the old
@@ -761,6 +769,10 @@ func replace(ctx context.Context, client dynamic.ResourceInterface, resource *un
 		return nil, fmt.Errorf("create: %w", err)
 	}
 	return res, nil
+}
+
+func mustReplace(resource *unstructured.Unstructured, current *unstructured.Unstructured) bool {
+	return resource.GetKind() == "Service" && isHeadlessService(current) != isHeadlessService(resource)
 }
 
 func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured, set *apps.ResourceSet) (apps.ResourceAction, error) {
@@ -831,10 +843,8 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		return apps.ResourceActionIgnored, nil
 	}
 
-	if resource.GetKind() == "Service" && isHeadlessService(current) != isHeadlessService(resource) {
-		_, replaceSpan := tracer.Start(ctx, "Replace "+resource.GetName())
+	if mustReplace(resource, current) {
 		res, err := replace(ctx, client, resource)
-		replaceSpan.End()
 		if err != nil {
 			return apps.ResourceActionReplace, fmt.Errorf("replace: %w", err)
 		}
