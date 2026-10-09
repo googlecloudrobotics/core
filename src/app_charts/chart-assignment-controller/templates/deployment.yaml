@@ -33,6 +33,7 @@ spec:
             - --cloud-cluster={{ .Values.cloudCluster }}
             - --webhook-enabled={{ .Values.webhook.enabled }}
             - --webhook-port=9876
+            - --trace-stackdriver-project-id={{ .Values.project }}
             {{- if .Values.webhook.enabled }}
             - --cert-dir=/tls
             {{- end }}

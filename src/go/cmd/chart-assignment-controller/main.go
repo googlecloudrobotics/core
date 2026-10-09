@@ -48,7 +48,7 @@ var (
 	webhookEnabled       = flag.Bool("webhook-enabled", true, "Whether the webhook should be served")
 	webhookPort          = flag.Int("webhook-port", 9876, "Listening port of the custom resource webhook")
 	certDir              = flag.String("cert-dir", "", "Directory for TLS certificates")
-	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "", "If not empty, traces will be uploaded to this Google Cloud Project. Not relevant for cloud cluster")
+	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "", "If not empty, traces will be uploaded to this Google Cloud Project.")
 	maxQPS               = flag.Int("apiserver-max-qps", 50, "Maximum number of calls to the API server per second.")
 	logLevel             = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
 )
@@ -59,7 +59,7 @@ func main() {
 	slog.SetDefault(slog.New(logHandler))
 
 	ctx := signals.SetupSignalHandler()
-	if *stackdriverProjectID != "" && !*cloudCluster {
+	if *stackdriverProjectID != "" {
 		tp, err := telemetry.SetupCloudTracing(
 			ctx,
 			*stackdriverProjectID,
