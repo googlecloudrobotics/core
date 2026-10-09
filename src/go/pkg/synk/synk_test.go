@@ -329,6 +329,7 @@ status:
 // setting up a full RestMapper.
 var gvrs = map[string]schema.GroupVersionResource{
 	"configmaps":  {Version: "v1", Resource: "configmaps"},
+	"services":    {Version: "v1", Resource: "services"},
 	"deployments": {Group: "apps", Version: "v1", Resource: "deployments"},
 	"approllouts": {Group: "apps.cloudrobotics.com", Version: "v1alpha1", Resource: "approllouts"},
 }
@@ -392,6 +393,71 @@ data:
 
 	f.expectActions(
 		k8stest.NewUpdateAction(gvrs["configmaps"], "foo1", cm),
+	)
+	f.verifyWriteActions()
+}
+
+func TestSynk_applyAllReplacesHeadlessToHeadedService(t *testing.T) {
+	var svcBefore, svcUpdate corev1.Service
+	unmarshalYAML(t, &svcBefore, `
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: foo1
+  name: svc1
+spec:
+  clusterIP: None
+  ports:
+  - port: 8080`)
+	svcBeforeUnstructured := toUnstructured(t, &svcBefore)
+	setAppliedAnnotation(svcBeforeUnstructured)
+
+	f := newFixture(t)
+	f.addObjects(svcBeforeUnstructured)
+
+	unmarshalYAML(t, &svcUpdate, `
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: foo1
+  name: svc1
+spec:
+  ports:
+  - port: 8080`)
+	svc := toUnstructured(t, &svcUpdate)
+
+	set := &apps.ResourceSet{}
+	set.Name = "test.v1"
+	set.UID = "deadbeef"
+
+	results, err := f.newSynk().applyAll(t.Context(), set, &ApplyOptions{name: "test"},
+		svc.DeepCopy(),
+	)
+	if err != nil {
+		t.Fatalf("applyAll() failed: %v", err)
+	}
+
+	res, ok := results["/v1/Service/foo1/svc1"]
+	if !ok {
+		t.Fatalf("result for svc1 not found")
+	}
+	if res.action != apps.ResourceActionReplace {
+		t.Errorf("expected action %q, got %q", apps.ResourceActionReplace, res.action)
+	}
+
+	ownerRef := metav1.OwnerReference{
+		APIVersion:         "apps.cloudrobotics.com/v1alpha1",
+		Kind:               "ResourceSet",
+		Name:               set.Name,
+		UID:                set.UID,
+		BlockOwnerDeletion: new(true),
+	}
+	svc.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+	setAppliedAnnotation(svc)
+
+	f.expectActions(
+		k8stest.NewDeleteAction(gvrs["services"], "foo1", "svc1"),
+		k8stest.NewCreateAction(gvrs["services"], "foo1", svc),
 	)
 	f.verifyWriteActions()
 }

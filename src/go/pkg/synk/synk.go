@@ -35,6 +35,8 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/ilog"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -732,11 +734,30 @@ func canReplace(resource *unstructured.Unstructured, patchErr error) bool {
 	return false
 }
 
+func isHeadlessService(u *unstructured.Unstructured) bool {
+	if ip, _, _ := unstructured.NestedString(u.Object, "spec", "clusterIP"); ip == corev1.ClusterIPNone {
+		return true
+	}
+	if ips, _, _ := unstructured.NestedStringSlice(u.Object, "spec", "clusterIPs"); len(ips) > 0 && ips[0] == corev1.ClusterIPNone {
+		return true
+	}
+	return false
+}
+
 func replace(ctx context.Context, client dynamic.ResourceInterface, resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	// Foreground deletion means that the new job can't be created until the old
-	// pods are gone, so updates to a currently-running job are safer.
-	policy := metav1.DeletePropagationForeground
-	deleteOpts := metav1.DeleteOptions{PropagationPolicy: &policy}
+	_, span := tracer.Start(ctx, "Replace resource", trace.WithAttributes(
+		attribute.String("name", resource.GetName()),
+		attribute.String("namespace", resource.GetNamespace()),
+	))
+	defer span.End()
+
+	deleteOpts := metav1.DeleteOptions{}
+	if resource.GetKind() != "Service" {
+		// Foreground deletion means that the new job can't be created until the old
+		// pods are gone, so updates to a currently-running job are safer.
+		policy := metav1.DeletePropagationForeground
+		deleteOpts.PropagationPolicy = &policy
+	}
 	if err := client.Delete(ctx, resource.GetName(), deleteOpts); err != nil {
 		return nil, fmt.Errorf("delete: %w", err)
 	}
@@ -748,6 +769,10 @@ func replace(ctx context.Context, client dynamic.ResourceInterface, resource *un
 		return nil, fmt.Errorf("create: %w", err)
 	}
 	return res, nil
+}
+
+func mustReplace(resource *unstructured.Unstructured, current *unstructured.Unstructured) bool {
+	return resource.GetKind() == "Service" && isHeadlessService(current) != isHeadlessService(resource)
 }
 
 func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured, set *apps.ResourceSet) (apps.ResourceAction, error) {
@@ -816,6 +841,15 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		}
 		*resource = *res
 		return apps.ResourceActionIgnored, nil
+	}
+
+	if mustReplace(resource, current) {
+		res, err := replace(ctx, client, resource)
+		if err != nil {
+			return apps.ResourceActionReplace, fmt.Errorf("replace: %w", err)
+		}
+		*resource = *res
+		return apps.ResourceActionReplace, nil
 	}
 
 	// Get what is running, what was installed and what we want to run.
