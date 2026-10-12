@@ -3,6 +3,7 @@ image:
   digest: '{{ splitList `@` .Values.images.chart_assignment_controller | last }}'
 cloudCluster: true
 robotName: ""
+project: '{{ .Values.project }}'
 webhook:
   enabled: true
 rbac:

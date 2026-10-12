@@ -1,3 +1,10 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubernetes-relay-server
+  annotations:
+    iam.gke.io/gcp-service-account: "crc-relay-server@{{ .Values.project }}.iam.gserviceaccount.com"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -12,12 +19,14 @@ spec:
       labels:
         app: kubernetes-relay-server
     spec:
+      serviceAccountName: kubernetes-relay-server
       containers:
       - name: kubernetes-relay-server
         image: {{ .Values.registry }}{{ .Values.images.http_relay_server }}
         args:
         - --log_level=4 # WARN
         - --port=8080
+        - --trace-stackdriver-project-id={{ .Values.project }}
         env:
         # Enable tracebacks for debugging deadlocks or hanging requests.
         - name: GOTRACEBACK

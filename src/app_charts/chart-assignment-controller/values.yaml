@@ -8,6 +8,7 @@ imagePullSecrets: []
 
 cloudCluster: false
 robotName: "test-robot"
+project: ""
 
 # Enable the validation webhook. Requires cert-manager to be installed in the
 # cluster to generate TLS certificates. Disable this if you do not have
