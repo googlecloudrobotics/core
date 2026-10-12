@@ -66,13 +66,7 @@ func extractParentSpanContext(ctx context.Context, as *apps.ChartAssignment) con
 		if err != nil {
 			slog.Error("decoding TraceID", slog.String("TraceID", tid), ilog.Err(err))
 		} else {
-			spanContext := trace.NewSpanContext(trace.SpanContextConfig{
-				TraceID:    traceID,
-				SpanID:     trace.SpanID{0x01},
-				TraceFlags: trace.FlagsSampled,
-				Remote:     true,
-			})
-			return trace.ContextWithRemoteSpanContext(ctx, spanContext)
+            return trace.ContextWithRemoteSpanContext(ctx, trace.SpanContext{}.WithTraceID(traceID))
 		}
 	}
 	return ctx
