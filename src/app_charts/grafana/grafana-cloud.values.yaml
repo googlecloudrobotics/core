@@ -38,6 +38,9 @@ grafana:
   grafana.ini:
     analytics:
       check_for_updates: false
+    plugins:
+      disable_plugins: grafana-exploretraces-app
+      preinstall_disabled: true
     security:
       csrf_trusted_origins: "${CR_GF_CSRF_TRUSTED_ORIGINS}"
     smtp:
