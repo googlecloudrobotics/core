@@ -28,7 +28,6 @@ import (
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
-	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"github.com/googlecloudrobotics/ilog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
@@ -51,13 +50,13 @@ import (
 var tracer = otel.Tracer("github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment")
 
 // extractParentSpanContext extracts a parent trace context from ChartAssignment annotations,
-// preferring standard W3C traceparent/B3 headers and falling back to cloudrobotics.com/trace-id.
+// preferring standard W3C traceparent headers and falling back to cloudrobotics.com/trace-id.
 func extractParentSpanContext(ctx context.Context, as *apps.ChartAssignment) context.Context {
 	annotations := as.GetAnnotations()
 	if len(annotations) == 0 {
 		return ctx
 	}
-	extracted := telemetry.HTTPPropagator.Extract(ctx, propagation.MapCarrier(annotations))
+	extracted := (propagation.TraceContext{}).Extract(ctx, propagation.MapCarrier(annotations))
 	if trace.SpanContextFromContext(extracted).IsValid() {
 		return extracted
 	}
@@ -66,7 +65,7 @@ func extractParentSpanContext(ctx context.Context, as *apps.ChartAssignment) con
 		if err != nil {
 			slog.Error("decoding TraceID", slog.String("TraceID", tid), ilog.Err(err))
 		} else {
-            return trace.ContextWithRemoteSpanContext(ctx, trace.SpanContext{}.WithTraceID(traceID))
+			return trace.ContextWithRemoteSpanContext(ctx, trace.SpanContext{}.WithTraceID(traceID))
 		}
 	}
 	return ctx
