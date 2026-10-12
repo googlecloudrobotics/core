@@ -14,8 +14,9 @@ Plain `kubectl port-forward` alone will fail to load frontend JS/CSS assets (`40
 To access the full Grafana web UI locally via `kubectl port-forward`, temporarily override `GF_SERVER_ROOT_URL` on the deployment before forwarding:
 
 ```bash
-kubectl --context <context> -n app-grafana  set env deploy/grafana GF_SERVER_ROOT_URL=http://localhost:3000
-kubectl --context <context> -n app-grafana port-forward svc/grafana 3000:80
+source <(gcloud storage cat "gs://<project>-cloud-robotics-config/config.sh")
+kubectl --context "${CLOUD_ROBOTICS_CTX}" -n app-grafana set env deploy/grafana GF_SERVER_ROOT_URL=http://localhost:3000
+kubectl --context "${CLOUD_ROBOTICS_CTX}" -n app-grafana port-forward svc/grafana 3000:80
 xdg-open http://localhost:3000
 ```
 
