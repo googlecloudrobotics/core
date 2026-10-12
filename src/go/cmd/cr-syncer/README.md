@@ -19,7 +19,7 @@ The synchronization behavior is configured per CustomResourceDefinition (CRD) us
 
 The `cr-syncer` listens on `--listen-address` (default `:80`) and serves:
 
-- `/health`: Health check endpoint that verifies connectivity to the remote Kubernetes API server.
+- `/healthz`: Health check endpoint that verifies connectivity to the remote Kubernetes API server.
 - `/metrics`: Prometheus metrics endpoint (including OpenTelemetry HTTP client metrics labeled by `location="local"` and `location="remote"`).
 - `/debug`: OpenTelemetry zPages trace debugging handler.
 

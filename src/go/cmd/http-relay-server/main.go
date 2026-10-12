@@ -36,7 +36,6 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server/server"
 	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"github.com/googlecloudrobotics/ilog"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 var (
@@ -45,6 +44,8 @@ var (
 		"Size of i/o buffer in bytes")
 	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "",
 		"If not empty, traces will be uploaded to this Google Cloud Project.")
+	traceProbability = flag.Float64("trace-probability", 1e-4,
+		"Probability of sampling a root trace span (0.0 to 1.0).")
 	logLevel = flag.Int("log_level", int(slog.LevelInfo),
 		"the log message level required to be logged")
 	inactiveRequestTimeout = flag.Duration("inactive_request_timeout", server.DefaultInactiveRequestTimeout,
@@ -74,9 +75,7 @@ func main() {
 			ctx,
 			*stackdriverProjectID,
 			"http-relay-server",
-			sdktrace.ParentBased(
-				sdktrace.TraceIDRatioBased(1e-4),
-			),
+			*traceProbability,
 		)
 		if err != nil {
 			slog.Error("Failed to setup Cloud Tracing", slog.String("Project", *stackdriverProjectID), ilog.Err(err))

@@ -29,7 +29,6 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
 	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"github.com/googlecloudrobotics/ilog"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -49,6 +48,7 @@ var (
 	webhookPort          = flag.Int("webhook-port", 9876, "Listening port of the custom resource webhook")
 	certDir              = flag.String("cert-dir", "", "Directory for TLS certificates")
 	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "", "If not empty, traces will be uploaded to this Google Cloud Project.")
+	traceProbability     = flag.Float64("trace-probability", 1.0, "Probability of sampling a root trace span (0.0 to 1.0).")
 	maxQPS               = flag.Int("apiserver-max-qps", 50, "Maximum number of calls to the API server per second.")
 	logLevel             = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
 )
@@ -64,7 +64,7 @@ func main() {
 			ctx,
 			*stackdriverProjectID,
 			"chart-assignment-controller",
-			sdktrace.AlwaysSample(),
+			*traceProbability,
 		)
 		if err != nil {
 			slog.Error("Failed to setup Cloud Tracing", ilog.Err(err))

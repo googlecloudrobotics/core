@@ -28,8 +28,11 @@ import (
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"github.com/googlecloudrobotics/ilog"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -46,6 +49,34 @@ import (
 )
 
 var tracer = otel.Tracer("github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment")
+
+// extractParentSpanContext extracts a parent trace context from ChartAssignment annotations,
+// preferring standard W3C traceparent/B3 headers and falling back to cloudrobotics.com/trace-id.
+func extractParentSpanContext(ctx context.Context, as *apps.ChartAssignment) context.Context {
+	annotations := as.GetAnnotations()
+	if len(annotations) == 0 {
+		return ctx
+	}
+	extracted := telemetry.HTTPPropagator.Extract(ctx, propagation.MapCarrier(annotations))
+	if trace.SpanContextFromContext(extracted).IsValid() {
+		return extracted
+	}
+	if tid, found := annotations["cloudrobotics.com/trace-id"]; found {
+		traceID, err := trace.TraceIDFromHex(tid)
+		if err != nil {
+			slog.Error("decoding TraceID", slog.String("TraceID", tid), ilog.Err(err))
+		} else {
+			spanContext := trace.NewSpanContext(trace.SpanContextConfig{
+				TraceID:    traceID,
+				SpanID:     trace.SpanID{0x01},
+				TraceFlags: trace.FlagsSampled,
+				Remote:     true,
+			})
+			return trace.ContextWithRemoteSpanContext(ctx, spanContext)
+		}
+	}
+	return ctx
+}
 
 // releases is a cache of releases currently handled.
 type releases struct {
@@ -235,9 +266,16 @@ func (r *release) delete(as *apps.ChartAssignment) {
 	r.setPhase(apps.ChartAssignmentPhaseDeleting)
 	r.recorder.Event(as, core.EventTypeNormal, "DeleteChart", "deleting chart")
 
-	if err := r.synk.Delete(r.ctx, as.Name); err != nil {
+	ctx, span := tracer.Start(extractParentSpanContext(r.ctx, as), "Delete "+as.Name)
+	err := r.synk.Delete(ctx, as.Name)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		span.End()
 		r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
 		r.setFailed(fmt.Errorf("delete release: %w", err), synk.IsTransientErr(err))
+	} else {
+		span.End()
 	}
 	r.recorder.Event(as, core.EventTypeNormal, "Success", "chart deleted successfully")
 	r.setPhase(apps.ChartAssignmentPhaseDeleted)
@@ -274,23 +312,17 @@ func (r *release) update(as *apps.ChartAssignment) {
 				slog.String("Note", msg))
 		},
 	}
-	spanContext := trace.SpanContext{}
-	if tid, found := as.GetAnnotations()["cloudrobotics.com/trace-id"]; found {
-		traceID, err := trace.TraceIDFromHex(tid)
-		if err != nil {
-			slog.Error("decoding TraceID", slog.String("TraceID", tid), ilog.Err(err))
-		} else {
-			spanContext = spanContext.WithTraceID(traceID)
-		}
-	}
-	ctx, span := tracer.Start(trace.ContextWithRemoteSpanContext(r.ctx, spanContext), "Apply "+as.Name)
+	ctx, span := tracer.Start(extractParentSpanContext(r.ctx, as), "Apply "+as.Name)
 	_, err = r.synk.Apply(ctx, as.Name, opts, resources...)
-	span.End()
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		span.End()
 		r.recorder.Event(as, core.EventTypeWarning, "Failure", err.Error())
 		r.setFailed(err, synk.IsTransientErr(err))
 		return
 	}
+	span.End()
 	r.recorder.Event(as, core.EventTypeNormal, "Success", "chart updated successfully")
 	r.setPhase(apps.ChartAssignmentPhaseSettled)
 }

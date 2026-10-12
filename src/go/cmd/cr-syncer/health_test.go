@@ -45,7 +45,7 @@ func TestHealthyForBadRequest(t *testing.T) {
 	ts := httptest.NewServer(h)
 	defer ts.Close()
 
-	res, err := http.Get(ts.URL + "/health")
+	res, err := http.Get(ts.URL + "/healthz")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestUnhealthy(t *testing.T) {
 	ts := httptest.NewServer(h)
 	defer ts.Close()
 
-	res, err := http.Get(ts.URL + "/health")
+	res, err := http.Get(ts.URL + "/healthz")
 	if err != nil {
 		t.Fatal(err)
 	}

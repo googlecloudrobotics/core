@@ -100,3 +100,25 @@ func TestGRPCPropagator_InjectAndExtract(t *testing.T) {
 		t.Errorf("GRPCPropagator.Extract SpanID mismatch: got %v, want %v", extractedSC.SpanID(), spanID)
 	}
 }
+
+func TestIgnoreHealthAndMetrics(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{path: "/healthz", want: false},
+		{path: "/readyz", want: false},
+		{path: "/metrics", want: false},
+		{path: "/server/request", want: true},
+		{path: "/apis/core.token-vendor/v1/jwt.verify", want: true},
+	}
+	for _, tc := range tests {
+		req, err := http.NewRequest(http.MethodGet, "http://example.com"+tc.path, nil)
+		if err != nil {
+			t.Fatalf("http.NewRequest(%q) failed: %v", tc.path, err)
+		}
+		if got := IgnoreHealthAndMetrics(req); got != tc.want {
+			t.Errorf("IgnoreHealthAndMetrics(%q) = %v, want %v", tc.path, got, tc.want)
+		}
+	}
+}
