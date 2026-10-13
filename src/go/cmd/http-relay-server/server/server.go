@@ -416,6 +416,21 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	_, forwardingResponseSpan := tracer.Start(ctx, "Forwarding backend response to user-client")
 	defer forwardingResponseSpan.End()
 
+	// gRPC status trailers (e.g. Grpc-Status, Grpc-Message) must be
+	// single-valued; proxies such as Envoy coalesce repeated values into
+	// comma-separated strings (e.g. "0,0"), which gRPC clients reject.
+	setGrpcTrailer := func(name, value string) {
+		key := http.TrailerPrefix + name
+		if prev := w.Header().Get(key); prev != "" && prev != value {
+			slog.ErrorContext(ctx, "Overwriting trailer with different value",
+				slog.String("ID", backendCtx.Id),
+				slog.String("Name", name),
+				slog.String("PreviousValue", prev),
+				slog.String("Value", value))
+		}
+		w.Header().Set(key, value)
+	}
+
 	// This code here will block until we have actually received a response from the backend,
 	// i.e. this will block until
 	numBytes := 0
@@ -429,10 +444,18 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		numBytes += len(responseChunk.Body)
 
-		// Only the last chunk will actually contain trailers.
+		// Only the last chunk should contain trailers, but an older client or retry
+		// could send them on multiple chunks.
 		for _, h := range responseChunk.Trailers {
-			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
-			slog.Info("Adding real trailer", slog.String("ID", backendCtx.Id), slog.String("Name", *h.Name), slog.String("Value", *h.Value))
+			name := http.CanonicalHeaderKey(*h.Name)
+			if strings.HasPrefix(name, "Grpc-") {
+				setGrpcTrailer(name, *h.Value)
+			} else {
+				// Non-gRPC HTTP trailers may legitimately contain multiple values
+				// for the same header name per RFC 9110.
+				w.Header().Add(http.TrailerPrefix+name, *h.Value)
+			}
+			slog.Info("Adding real trailer", slog.String("ID", backendCtx.Id), slog.String("Name", name), slog.String("Value", *h.Value))
 		}
 	}
 
@@ -449,9 +472,10 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	// To ensure clients receive the error correctly, we duplicate all "Grpc-"
 	// prefixed headers into the HTTP Trailers.
 	for _, h := range header {
-		if strings.HasPrefix(*h.Name, "Grpc-") {
-			w.Header().Add(http.TrailerPrefix+*h.Name, *h.Value)
-			slog.Info("Adding trailer from header", slog.String("ID", backendCtx.Id), slog.String("Name", *h.Name), slog.String("Value", *h.Value))
+		name := http.CanonicalHeaderKey(*h.Name)
+		if strings.HasPrefix(name, "Grpc-") {
+			setGrpcTrailer(name, *h.Value)
+			slog.Info("Adding trailer from header", slog.String("ID", backendCtx.Id), slog.String("Name", name), slog.String("Value", *h.Value))
 		}
 	}
 

@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -187,6 +188,80 @@ func TestClientHandlerWithChunkedResponse(t *testing.T) {
 	}
 	if want, got := "trailer value", resp.Trailer.Get("Some-Trailer"); want != got {
 		t.Errorf("Wrong trailer value; want %s; got %s", want, got)
+	}
+}
+
+func TestClientHandlerDeduplicatesTrailersAcrossChunks(t *testing.T) {
+	req := httptest.NewRequest("POST", "/client/foo/grpc.Service/Method", strings.NewReader("body"))
+	respRecorder := httptest.NewRecorder()
+	server := NewServer(Config{})
+	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		server.userClientRequest(respRecorder, req)
+	}()
+	relayRequest, err := server.b.GetRequest(t.Context(), "foo", "/")
+	if err != nil {
+		t.Fatalf("Error when getting request: %v", err)
+	}
+
+	server.b.SendResponse(&pb.HttpResponse{
+		Id:         relayRequest.Id,
+		StatusCode: proto.Int32(200),
+		Header: []*pb.HttpHeader{
+			{
+				Name:  proto.String("Grpc-Status"),
+				Value: proto.String("0"),
+			},
+			{
+				Name:  proto.String("Grpc-Message"),
+				Value: proto.String("ok"),
+			},
+		},
+		Body: []byte("chunk1-"),
+		Trailer: []*pb.HttpHeader{{
+			Name:  proto.String("Grpc-Status"),
+			Value: proto.String("0"),
+		}},
+	})
+
+	server.b.SendResponse(&pb.HttpResponse{
+		Id:   relayRequest.Id,
+		Body: []byte("chunk2"),
+		Trailer: []*pb.HttpHeader{
+			{
+				Name:  proto.String("Grpc-Status"),
+				Value: proto.String("0"),
+			},
+			{
+				Name:  proto.String("Grpc-Message"),
+				Value: proto.String("ok"),
+			},
+			{
+				Name:  proto.String("X-Multi"),
+				Value: proto.String("v1"),
+			},
+			{
+				Name:  proto.String("X-Multi"),
+				Value: proto.String("v2"),
+			},
+		},
+		Eof: proto.Bool(true),
+	})
+
+	wg.Wait()
+	resp := respRecorder.Result()
+	checkResponse(t, resp, 200, "chunk1-chunk2")
+	if got, want := resp.Trailer.Values("Grpc-Status"), []string{"0"}; !slices.Equal(got, want) {
+		t.Errorf("resp.Trailer.Values(%q) = %q, want %q", "Grpc-Status", got, want)
+	}
+	if got, want := resp.Trailer.Values("Grpc-Message"), []string{"ok"}; !slices.Equal(got, want) {
+		t.Errorf("resp.Trailer.Values(%q) = %q, want %q", "Grpc-Message", got, want)
+	}
+	if got, want := resp.Trailer.Values("X-Multi"), []string{"v1", "v2"}; !slices.Equal(got, want) {
+		t.Errorf("resp.Trailer.Values(%q) = %q, want %q", "X-Multi", got, want)
 	}
 }
 
