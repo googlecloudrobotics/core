@@ -88,8 +88,12 @@ resource "google_service_account_iam_policy" "grafana" {
 
 resource "google_project_iam_member" "grafana_roles" {
   project = data.google_project.project.project_id
-  role    = "roles/cloudtrace.user"
   member  = google_service_account.grafana.member
+  for_each = toset([
+    "roles/cloudtrace.user",
+    "roles/logging.viewer",
+  ])
+  role = each.key
 }
 
 # crc-relay-server
