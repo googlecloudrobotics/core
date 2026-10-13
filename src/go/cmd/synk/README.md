@@ -6,16 +6,22 @@ It takes set of fully populated Kubernetes resources (files or in-process object
 
 It has a similar intent to [Mortar](https://github.com/kontena/mortar), but synk is usable as a Golang library and has first-class support for CRDs.
 
-To be compatible with some of the existing charts, we allow charts to install resources to "kube-system" as the only allowed namespace outside of the chart namespace.
+To be compatible with some of the existing charts, we allow charts to install resources to only a few allowed namespaces outside of the chart namespace (`default`, `kube-system` and `envoy-gateway-system`), or when annotated with `synk.cloudrobotics.com/allow-cross-namespace: "true"`.
 
 ## Examples
 
-```
+```bash
 # Apply my-chart.
 helm template my-chart.tgz ... | synk apply my-chart -n default -f -
 
 # Remove my-chart.
 synk delete my-chart.v1 -n default
+```
+
+Outside of the repository one can use `go run`:
+
+```bash
+go run github.com/googlecloudrobotics/core/src/go/cmd/synk@main apply --help
 ```
 
 ## Behavior
@@ -25,22 +31,27 @@ synk's `apply` command works as follows:
 1. Resources are parsed from the input. Any namespaced resources that don't
    specify a namespace already are updated with the value of the `--namespace`
    (`-n`) flag.
-1. Any resources that specify a namespace other than `kube-system` or the given
-   namespace will cause synk to fail.
+1. Any resources that specify a namespace other than the allowlisted ones or the
+   given namespace (without `synk.cloudrobotics.com/allow-cross-namespace: "true"`)
+   will cause synk to fail.
 1. synk creates a new `ResourceSet`, listing the resources that are to be
    applied. If reapplying a previously applied set, it creates a new
    ResourceSet with an incremented version number (eg `my-chart.v2`).
 1. The resources are split into two groups: CRDs and non-CRDs ("regular
    resources").
-1. All CRDs are applied to the cluster. synk then waits for these to become
-   available.
-1. Next, regular resources are applied to the cluster.
+1. All CRDs are applied concurrently to the cluster. synk then waits for these
+   to become available.
+1. Next, regular resources are grouped into priority tiers and applied
+   tier-by-tier (concurrently within each tier).
 
   - Updates: most resources are updated with PATCH requests, which reduces the
     risk of resource version conflicts. Resources larger than 256kB, which can't
     use an annotation to store the last-applied-configuration, are updated with
-    POST requests. Resources that can't be updated (eg Jobs, PersistentVolumes)
-    are deleted and recreated according to the `canReplace()` heuristic.
+    POST requests. Resources that can't be updated (eg Jobs, PersistentVolumes,
+    or Services changing between headless and headed) are deleted and recreated
+    according to the `mustReplace()` and `canReplace()` heuristics. Existing
+    in-cluster resources annotated with `synk.cloudrobotics.com/ignore: "true"`
+    are skipped except for updating their `ownerReferences`.
 
   - Ownership: all resources specify the ResourceSet as via ownerReferences.
     This means that the Kubernetes garbage collector will delete the resources
@@ -49,12 +60,9 @@ synk's `apply` command works as follows:
     would also delete all corresponding CRs.
 
   - Retries: if a transient error is encountered when applying any regular
-    resource, synk retries the failed resources until the number of failed
-    resources is stable. This retry loop exists to handle constraints of the
-    resource creation order: for example, a Pod must be created after the
-    ServiceAccount that it uses. This isn't relevant when using Deployments
-    instead of bare Pods, so in practice this retry loop is not essential,
-    although it could be useful when using CRDs and validation webhooks.
+    resource in a tier, synk retries the failed resources until the number of
+    failed resources is stable. This retry loop handles remaining ordering
+    constraints within a tier (for example, with CRDs and validation webhooks).
 
 1. The ResourceSet status is updated, describing for each resource whether it
    was successfully applied or not.
