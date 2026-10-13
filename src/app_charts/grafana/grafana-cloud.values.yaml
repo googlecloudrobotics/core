@@ -56,6 +56,7 @@ grafana:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: instance
   plugins:
+    - googlecloud-logging-datasource@1.8.1
     - googlecloud-trace-datasource@1.4.0
 
 gf_ingress_auth_url: "${CR_GF_INGRESS_AUTH_URL}"
