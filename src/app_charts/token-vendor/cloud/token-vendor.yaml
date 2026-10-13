@@ -18,6 +18,7 @@ spec:
         args:
         - --log-level=4 # WARN
         - --project={{ .Values.project }}
+        - --trace-probability=0.01
         - --accepted_audience=https://{{ .Values.domain }}/apis/core.token-vendor/v1/token.oauth2
         - --service_account=robot-service
         # This scope is for token vendor and for access to GCS/GCR.

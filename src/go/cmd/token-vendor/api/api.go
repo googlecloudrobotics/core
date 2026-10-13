@@ -20,7 +20,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 const (
@@ -47,12 +49,20 @@ func Register() error {
 
 // Setup and serve. Never returns. Handlers need to be registered before.
 func SetupAndServe(addr string) error {
+	handler := otelhttp.NewHandler(
+		http.TimeoutHandler(LoggingMiddleware(http.DefaultServeMux), httpTimeoutHandler, "handler timeout"),
+		"",
+		otelhttp.WithPropagators(telemetry.HTTPPropagator),
+		otelhttp.WithFilter(telemetry.IgnoreHealthAndMetrics),
+		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+			return r.URL.Path
+		}),
+	)
 	srv := &http.Server{
 		Addr:         addr,
 		ReadTimeout:  httpTimeoutRead,
 		WriteTimeout: httpTimeoutWrite,
-		Handler: http.TimeoutHandler(LoggingMiddleware(http.DefaultServeMux),
-			httpTimeoutHandler, "handler timeout"),
+		Handler:      handler,
 	}
 	slog.Info("API listening", slog.String("Address", addr))
 	return srv.ListenAndServe()
