@@ -561,6 +561,7 @@ func (s *Server) Handler() http.Handler {
 	h2h := h2c.NewHandler(h, h2s)
 	return otelhttp.NewHandler(h2h, "",
 		otelhttp.WithPropagators(telemetry.HTTPPropagator),
+		otelhttp.WithFilter(telemetry.IgnoreHealthAndMetrics),
 		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
 			return r.URL.Path
 		}),

@@ -18,6 +18,7 @@ package telemetry
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	traceexporter "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace"
 	b3prop "go.opentelemetry.io/contrib/propagators/b3"
@@ -46,8 +47,19 @@ var (
 	)
 )
 
+// IgnoreHealthAndMetrics filters out health/readiness check and metrics scraping paths
+// so they do not pollute distributed trace backends.
+func IgnoreHealthAndMetrics(r *http.Request) bool {
+	switch r.URL.Path {
+	case "/healthz", "/readyz", "/metrics":
+		return false
+	default:
+		return true
+	}
+}
+
 // SetupCloudTracing initializes OpenTelemetry tracing with Google Cloud Trace exporter.
-func SetupCloudTracing(ctx context.Context, projectID, serviceName string, sampler sdktrace.Sampler) (*sdktrace.TracerProvider, error) {
+func SetupCloudTracing(ctx context.Context, projectID, serviceName string, traceProbability float64) (*sdktrace.TracerProvider, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("projectID must be specified")
 	}
@@ -72,7 +84,7 @@ func SetupCloudTracing(ctx context.Context, projectID, serviceName string, sampl
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
-		sdktrace.WithSampler(sampler),
+		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(traceProbability))),
 	)
 	otel.SetTracerProvider(tp)
 	return tp, nil

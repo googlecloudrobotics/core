@@ -302,7 +302,7 @@ func main() {
 
 	http.Handle("/debug", zpages.NewTracezHandler(spanProcessor))
 	http.Handle("/metrics", promhttp.Handler())
-	http.Handle("/health", newHealthHandler(ctx, remote))
+	http.Handle("/healthz", newHealthHandler(ctx, remote))
 
 	go func() {
 		if err := http.ListenAndServe(*listenAddr, nil); err != nil {

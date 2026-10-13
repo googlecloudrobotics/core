@@ -34,6 +34,7 @@ spec:
             - --webhook-enabled={{ .Values.webhook.enabled }}
             - --webhook-port=9876
             - --trace-stackdriver-project-id={{ .Values.project }}
+            - --trace-probability=1.0
             {{- if .Values.webhook.enabled }}
             - --cert-dir=/tls
             {{- end }}

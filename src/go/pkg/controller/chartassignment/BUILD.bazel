@@ -41,6 +41,8 @@ go_library(
         "@io_k8s_sigs_controller_runtime//pkg/source:go_default_library",
         "@io_k8s_sigs_controller_runtime//pkg/webhook/admission:go_default_library",
         "@io_opentelemetry_go_otel//:go_default_library",
+        "@io_opentelemetry_go_otel//codes:go_default_library",
+        "@io_opentelemetry_go_otel//propagation:go_default_library",
         "@io_opentelemetry_go_otel_trace//:go_default_library",
     ],
 )
