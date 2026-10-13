@@ -1,12 +1,14 @@
 # This chart ONLY deploys the VictoriaMetrics Operator.
-# It acts as a cluster-wide singleton so that it has the necessary permissions
-# to read ServiceMonitors globally across all namespaces.
+# It runs as a cluster-wide singleton watching all namespaces so it can see
+# VictoriaMetrics CRs and ServiceMonitors across namespaces and create
+# ClusterRole permissions for VMAgent instances.
 
 victoria-metrics-operator:
   enabled: true
-  annotations:
-    argocd.argoproj.io/sync-wave: "-1"
   fullnameOverride: "vm-operator"
+  # Watch all namespaces so the operator can see CRs cluster-wide and create
+  # ClusterRole permissions for VMAgent instances at runtime.
+  watchNamespaces: []
   crds:
     cleanup:
       enabled: false
