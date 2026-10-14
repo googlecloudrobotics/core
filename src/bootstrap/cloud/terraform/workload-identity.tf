@@ -163,4 +163,34 @@ resource "google_project_iam_member" "chart_assignment_controller_roles" {
   member  = google_service_account.chart_assignment_controller.member
 }
 
+# cr-syncer-auth-webhook
+########################
+
+resource "google_service_account" "cr_syncer_auth_webhook" {
+  account_id   = "cr-syncer-auth-webhook"
+  display_name = "cr-syncer-auth-webhook"
+  project      = data.google_project.project.project_id
+}
+
+data "google_iam_policy" "cr_syncer_auth_webhook" {
+  binding {
+    role = "roles/iam.workloadIdentityUser"
+    members = [
+      "serviceAccount:${data.google_project.project.project_id}.svc.id.goog[default/cr-syncer-auth-webhook]",
+    ]
+  }
+}
+
+resource "google_service_account_iam_policy" "cr_syncer_auth_webhook" {
+  service_account_id = google_service_account.cr_syncer_auth_webhook.id
+  policy_data        = data.google_iam_policy.cr_syncer_auth_webhook.policy_data
+  depends_on         = [google_container_cluster.cloud-robotics]
+}
+
+resource "google_project_iam_member" "cr_syncer_auth_webhook_roles" {
+  project = data.google_project.project.project_id
+  role    = "roles/cloudtrace.agent"
+  member  = google_service_account.cr_syncer_auth_webhook.member
+}
+
 

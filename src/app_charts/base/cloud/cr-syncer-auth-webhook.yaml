@@ -21,6 +21,8 @@ spec:
         - --port=8080
         - --accept-legacy-service-account-credentials
         - --token-vendor=http://token-vendor.app-token-vendor.svc.cluster.local
+        - --trace-stackdriver-project-id={{ .Values.project }}
+        - --trace-probability=0.01
         ports:
         - name: webhook
           containerPort: 8080
@@ -50,6 +52,8 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: cr-syncer-auth-webhook
+  annotations:
+    iam.gke.io/gcp-service-account: "cr-syncer-auth-webhook@{{ .Values.project }}.iam.gserviceaccount.com"
 ---
 apiVersion: v1
 kind: Service
