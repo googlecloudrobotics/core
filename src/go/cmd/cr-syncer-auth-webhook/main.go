@@ -36,10 +36,14 @@ import (
 
 	"golang.org/x/oauth2/jws"
 
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"github.com/googlecloudrobotics/ilog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -54,6 +58,11 @@ var (
 
 	logLevel = flag.Int("log-level", int(slog.LevelInfo),
 		"the log message level required to be logged")
+
+	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "",
+		"If not empty, traces will be uploaded to this Google Cloud Project.")
+	traceProbability = flag.Float64("trace-probability", 0.01,
+		"Probability of sampling a root trace span (0.0 to 1.0).")
 
 	k8sTarget = flag.String("k8s-target", "https://kubernetes.default.svc:443",
 		"Target URL for Kubernetes API server reverse proxy")
@@ -103,7 +112,12 @@ func newHandlers() (*handlers, error) {
 	}
 
 	h := &handlers{
-		client: &http.Client{},
+		client: &http.Client{
+			Transport: otelhttp.NewTransport(
+				http.DefaultTransport,
+				otelhttp.WithPropagators(telemetry.HTTPPropagator),
+			),
+		},
 	}
 
 	h.k8sProxy = &httputil.ReverseProxy{
@@ -124,7 +138,10 @@ func newHandlers() (*handlers, error) {
 				r.Out.Header.Set("Authorization", bearerPrefix+k8sToken)
 			}
 		},
-		Transport:     transport,
+		Transport: otelhttp.NewTransport(
+			transport,
+			otelhttp.WithPropagators(telemetry.HTTPPropagator),
+		),
 		FlushInterval: -1, // Why: Flush immediately to prevent buffering on long-lived K8s API Watch streams.
 	}
 
@@ -145,14 +162,14 @@ func (h *handlers) health(w http.ResponseWriter, r *http.Request) {
 
 // verifyJWT delegates to the token-vendor to verify the signature of the JWT
 // matches the public key of the robot.
-func (h *handlers) verifyJWT(encodedJWT string) error {
+func (h *handlers) verifyJWT(ctx context.Context, encodedJWT string) error {
 	if strings.HasPrefix(encodedJWT, legacyTokenPrefix) {
 		// We can avoid the unnecessary request when the client is using a GCP
 		// access token.
 		return errors.New("legacy token format")
 	}
 
-	req, err := http.NewRequest("GET", *tokenVendor+verifyJWTEndpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", *tokenVendor+verifyJWTEndpoint, nil)
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
@@ -236,7 +253,7 @@ func (h *handlers) extractRobotName(ctx context.Context, encodedJWT string) (str
 // https://kubernetes.default.svc:443 without header collisions or Istio listener constraints.
 func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 	encodedJWT := strings.TrimPrefix(r.Header.Get("Authorization"), bearerPrefix)
-	if err := h.verifyJWT(encodedJWT); err != nil {
+	if err := h.verifyJWT(r.Context(), encodedJWT); err != nil {
 		if !*acceptLegacyCredentials || !strings.HasPrefix(encodedJWT, legacyTokenPrefix) {
 			http.Error(w, "No valid credentials provided", http.StatusUnauthorized)
 			return
@@ -248,6 +265,9 @@ func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Credentials could not be parsed", http.StatusInternalServerError)
 		return
+	}
+	if robotName != "" {
+		trace.SpanFromContext(r.Context()).SetAttributes(attribute.String("robot.name", robotName))
 	}
 
 	// For reverse proxy requests, validate r.URL.String() directly to guarantee 100% path alignment.
@@ -265,7 +285,7 @@ func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 // bodies itself.
 func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 	encodedJWT := strings.TrimPrefix(r.Header.Get("Authorization"), bearerPrefix)
-	if err := h.verifyJWT(encodedJWT); err != nil {
+	if err := h.verifyJWT(r.Context(), encodedJWT); err != nil {
 		if *acceptLegacyCredentials {
 			legacyRequests.Inc()
 			// The request already has the necessary credentials, so preserve these.
@@ -282,6 +302,9 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Credentials could not be parsed", http.StatusInternalServerError)
 		return
+	}
+	if robotName != "" {
+		trace.SpanFromContext(r.Context()).SetAttributes(attribute.String("robot.name", robotName))
 	}
 
 	urlStr, err := extractSubrequestURL(r)
@@ -314,8 +337,32 @@ func main() {
 	logHandler := ilog.NewLogHandler(slog.Level(*logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))
 
+	ctx := context.Background()
+	if *stackdriverProjectID != "" {
+		tp, err := telemetry.SetupCloudTracing(
+			ctx,
+			*stackdriverProjectID,
+			"cr-syncer-auth-webhook",
+			*traceProbability,
+		)
+		if err != nil {
+			slog.Error("Failed to setup Cloud Tracing", slog.String("Project", *stackdriverProjectID), ilog.Err(err))
+			os.Exit(1)
+		}
+		defer tp.Shutdown(ctx)
+	}
+
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%d", *port),
+		Handler: otelhttp.NewHandler(
+			http.DefaultServeMux,
+			"",
+			otelhttp.WithPropagators(telemetry.HTTPPropagator),
+			otelhttp.WithFilter(telemetry.IgnoreHealthAndMetrics),
+			otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+				return r.URL.Path
+			}),
+		),
 	}
 	handlers, err := newHandlers()
 	if err != nil {
@@ -340,7 +387,7 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
