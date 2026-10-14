@@ -26,6 +26,12 @@ data "google_iam_policy" "token_vendor" {
   }
 }
 
+resource "google_project_iam_member" "token_vendor_roles" {
+  project = data.google_project.project.project_id
+  role    = "roles/cloudtrace.agent"
+  member  = google_service_account.token_vendor.member
+}
+
 # Note: the policy in service-account.tf allows the token-vendor to create
 # new tokens for the robot-service@ service account.
 

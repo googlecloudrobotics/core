@@ -29,6 +29,8 @@ import (
 	"syscall"
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -43,6 +45,7 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/memory"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
 	"github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"github.com/googlecloudrobotics/ilog"
 )
 
@@ -86,7 +89,9 @@ var (
 		"Base path where the API will be mounted to.")
 
 	// GCP Cloud options
-	project = flag.String("project", "", "The cloud project")
+	project          = flag.String("project", "", "The cloud project")
+	traceProbability = flag.Float64("trace-probability", 0.0,
+		"Probability of sampling a root trace span (0.0 to 1.0). When > 0, traces are uploaded to the configured --project.")
 
 	// Kubernetes backend options
 	namespace = flag.String("namespace", "default",
@@ -118,6 +123,23 @@ func main() {
 	// init components
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	if *project != "" && *traceProbability > 0 {
+		tp, err := telemetry.SetupCloudTracing(
+			ctx,
+			*project,
+			"token-vendor",
+			*traceProbability,
+		)
+		if err != nil {
+			slog.Error("Failed to setup Cloud Tracing", slog.String("Project", *project), ilog.Err(err))
+			os.Exit(1)
+		}
+		go func() {
+			<-ctx.Done()
+			tp.Shutdown(context.Background())
+		}()
+	}
 
 	var rep repository.PubKeyRepository
 	var err error
@@ -155,7 +177,13 @@ func main() {
 	}
 	slog.Info("Set up key store", slog.String("KeyStore", *keyStore))
 
-	verifier, err := oauth.NewTokenVerifier(ctx, &http.Client{}, *project)
+	httpClient := &http.Client{
+		Transport: otelhttp.NewTransport(
+			http.DefaultTransport,
+			otelhttp.WithPropagators(telemetry.HTTPPropagator),
+		),
+	}
+	verifier, err := oauth.NewTokenVerifier(ctx, httpClient, *project)
 	if err != nil {
 		slog.Error("Failed to make verifier", ilog.Err(err))
 		os.Exit(1)
@@ -189,7 +217,11 @@ func main() {
 		slog.Error("Failed to listen for gRPC", slog.String("Address", grpcAddr), ilog.Err(err))
 		os.Exit(1)
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler(
+			otelgrpc.WithPropagators(telemetry.GRPCPropagator),
+		)),
+	)
 	authv3.RegisterAuthorizationServer(grpcServer, apiv1.NewExtAuthzServer(tv))
 
 	go func() {
