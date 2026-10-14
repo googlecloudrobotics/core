@@ -33,6 +33,7 @@ kubectl --context <context> -n app-grafana exec deploy/grafana -c grafana -- gra
 # List configured datasources
 kubectl --context <context> -n app-grafana exec deploy/grafana -c grafana -- curl -s -u <user:pw> http://localhost:3000/api/datasources
 
-# Run backend health check for Google Cloud Trace
+# Run backend health check for Google Cloud Logging and Trace
+kubectl --context <context> -n app-grafana exec deploy/grafana -c grafana -- curl -s -u <user:pw> http://localhost:3000/api/datasources/uid/cloudlogging/health
 kubectl --context <context> -n app-grafana exec deploy/grafana -c grafana -- curl -s -u <user:pw> http://localhost:3000/api/datasources/uid/cloudtrace/health
 ```

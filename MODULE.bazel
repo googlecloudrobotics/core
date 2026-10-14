@@ -82,6 +82,7 @@ use_repo(
     "io_k8s_sigs_controller_runtime",
     "io_k8s_sigs_kind",
     "io_k8s_sigs_yaml",
+    "io_opentelemetry_go_contrib_instrumentation_google_golang_org_grpc_otelgrpc",
     "io_opentelemetry_go_contrib_instrumentation_net_http_otelhttp",
     "io_opentelemetry_go_contrib_propagators_b3",
     "io_opentelemetry_go_contrib_propagators_opencensus",

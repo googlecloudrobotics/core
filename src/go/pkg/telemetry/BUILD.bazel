@@ -16,6 +16,7 @@ go_library(
         "@io_opentelemetry_go_otel//semconv/v1.41.0:go_default_library",
         "@io_opentelemetry_go_otel_sdk//resource:go_default_library",
         "@io_opentelemetry_go_otel_sdk//trace:go_default_library",
+        "@org_golang_google_api//option:go_default_library",
     ],
 )
 

@@ -26,6 +26,10 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth/jwt"
@@ -33,6 +37,8 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/tokensource"
 	"github.com/googlecloudrobotics/ilog"
 )
+
+var tracer = otel.Tracer("github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/app")
 
 type TokenVendor struct {
 	repo          repository.PubKeyRepository
@@ -50,26 +56,61 @@ func NewTokenVendor(ctx context.Context, repo repository.PubKeyRepository, v *oa
 }
 
 func (tv *TokenVendor) PublishPublicKey(ctx context.Context, deviceID, publicKey string, opts repository.PublishOptions) error {
+	ctx, span := tracer.Start(ctx, "PublishPublicKey",
+		trace.WithAttributes(
+			attribute.String("device.id", deviceID),
+			attribute.String("robot.name", opts.RobotName),
+		),
+	)
+	defer span.End()
 	slog.Info("Publishing public Key", slog.String("DeviceID", deviceID), slog.String("RobotName", opts.RobotName))
-	return tv.repo.PublishKey(ctx, deviceID, publicKey, opts)
+	if err := tv.repo.PublishKey(ctx, deviceID, publicKey, opts); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+	return nil
 }
 
 func (tv *TokenVendor) ReadPublicKey(ctx context.Context, deviceID string) (string, error) {
+	ctx, span := tracer.Start(ctx, "ReadPublicKey",
+		trace.WithAttributes(attribute.String("device.id", deviceID)),
+	)
+	defer span.End()
 	slog.Debug("Returning public Key", slog.String("DeviceID", deviceID))
 	key, err := tv.repo.LookupKey(ctx, deviceID)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return "", err
+	}
 	if key != nil {
 		return key.PublicKey, nil
 	}
-	return "", err
+	return "", nil
 }
 
 func (tv *TokenVendor) ConfigurePublicKey(ctx context.Context, deviceID string, opts repository.KeyOptions) error {
+	ctx, span := tracer.Start(ctx, "ConfigurePublicKey",
+		trace.WithAttributes(
+			attribute.String("device.id", deviceID),
+			attribute.String("service_account", opts.ServiceAccount),
+		),
+	)
+	defer span.End()
 	if err := validateKeyOptions(opts); err != nil {
 		slog.Error("Configuring public Key", ilog.Err(err))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 	slog.Debug("Configuring public Key", slog.String("DeviceID", deviceID))
-	return tv.repo.ConfigureKey(ctx, deviceID, opts)
+	if err := tv.repo.ConfigureKey(ctx, deviceID, opts); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+	return nil
 }
 
 func validateKeyOptions(opts repository.KeyOptions) error {
@@ -138,7 +179,15 @@ type DeviceAuth struct {
 // used for testing
 var jwtVerifySignature = jwt.VerifySignature
 
-func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (*DeviceAuth, error) {
+func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (auth *DeviceAuth, err error) {
+	ctx, span := tracer.Start(ctx, "ValidateJWT")
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 	p, err := jwt.PayloadUnsafe(jwtk)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract JWT payload: %w", err)
@@ -155,6 +204,7 @@ func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (*DeviceAut
 		return nil, fmt.Errorf("missing or invalid device identifier (`iss`: %q)", p.Iss)
 	}
 	deviceID := p.Iss
+	span.SetAttributes(attribute.String("device.id", deviceID))
 	k, err := tv.repo.LookupKey(ctx, deviceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve public Key for device %q: %w", deviceID, err)
@@ -173,6 +223,9 @@ func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (*DeviceAut
 		// which cannot represent service accounts.
 		effectiveSub = ""
 	}
+	if effectiveSub != "" {
+		span.SetAttributes(attribute.String("service_account", effectiveSub))
+	}
 
 	return &DeviceAuth{
 		DeviceID:   deviceID,
@@ -181,7 +234,15 @@ func (tv *TokenVendor) ValidateJWT(ctx context.Context, jwtk string) (*DeviceAut
 	}, nil
 }
 
-func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokensource.TokenResponse, error) {
+func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (resp *tokensource.TokenResponse, err error) {
+	ctx, span := tracer.Start(ctx, "GetOAuth2Token")
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
 	authInfo, err := tv.ValidateJWT(ctx, jwtk)
 	if err != nil {
 		return nil, err
@@ -208,6 +269,10 @@ func (tv *TokenVendor) getOAuth2Token(ctx context.Context, jwtk string) (*tokens
 		delegate = saName
 		saName = authInfo.ServiceAcc
 	}
+	span.SetAttributes(
+		attribute.String("device.id", authInfo.DeviceID),
+		attribute.String("service_account", saName),
+	)
 	cloudToken, err := tv.ts.Token(ctx, saName, delegate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve a cloud token for device %q: %w", authInfo.DeviceID, err)
@@ -277,12 +342,18 @@ func (tv *TokenVendor) VerifyToken(ctx context.Context, token oauth.Token, robot
 	} else {
 		acl = "human-acl"
 	}
+	ctx, span := tracer.Start(ctx, "VerifyToken",
+		trace.WithAttributes(attribute.String("acl", acl)),
+	)
+	defer span.End()
 	slog.Debug("Verifying token", slog.String("ACL", acl))
 	ts := time.Now()
 	err := tv.v.Verify(ctx, token, acl)
 	var state string
 	if err != nil {
 		state = "failed"
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 	} else {
 		state = "success"
 	}

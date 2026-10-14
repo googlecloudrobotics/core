@@ -26,6 +26,12 @@ data "google_iam_policy" "token_vendor" {
   }
 }
 
+resource "google_project_iam_member" "token_vendor_roles" {
+  project = data.google_project.project.project_id
+  role    = "roles/cloudtrace.agent"
+  member  = google_service_account.token_vendor.member
+}
+
 # Note: the policy in service-account.tf allows the token-vendor to create
 # new tokens for the robot-service@ service account.
 
@@ -88,8 +94,12 @@ resource "google_service_account_iam_policy" "grafana" {
 
 resource "google_project_iam_member" "grafana_roles" {
   project = data.google_project.project.project_id
-  role    = "roles/cloudtrace.user"
   member  = google_service_account.grafana.member
+  for_each = toset([
+    "roles/cloudtrace.user",
+    "roles/logging.viewer",
+  ])
+  role = each.key
 }
 
 # crc-relay-server

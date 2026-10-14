@@ -29,6 +29,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
+	"google.golang.org/api/option"
 )
 
 var (
@@ -63,7 +64,12 @@ func SetupCloudTracing(ctx context.Context, projectID, serviceName string, trace
 	if projectID == "" {
 		return nil, fmt.Errorf("projectID must be specified")
 	}
-	exporter, err := traceexporter.New(traceexporter.WithProjectID(projectID))
+	exporter, err := traceexporter.New(
+		traceexporter.WithProjectID(projectID),
+		traceexporter.WithTraceClientOptions([]option.ClientOption{
+			option.WithTelemetryDisabled(),
+		}),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("create trace exporter: %w", err)
 	}

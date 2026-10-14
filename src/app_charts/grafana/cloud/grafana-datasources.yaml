@@ -19,6 +19,13 @@ data:
       access: proxy
       isDefault: true
     {{- end }}
+    - name: Google Cloud Logging
+      type: googlecloud-logging-datasource
+      uid: cloudlogging
+      access: proxy
+      jsonData:
+        authenticationType: gce
+        defaultProject: {{ .Values.project }}
     - name: Google Cloud Trace
       type: googlecloud-trace-datasource
       uid: cloudtrace
