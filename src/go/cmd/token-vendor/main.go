@@ -135,7 +135,10 @@ func main() {
 			slog.Error("Failed to setup Cloud Tracing", slog.String("Project", *project), ilog.Err(err))
 			os.Exit(1)
 		}
-		defer tp.Shutdown(context.Background())
+		go func() {
+			<-ctx.Done()
+			tp.Shutdown(context.Background())
+		}()
 	}
 
 	var rep repository.PubKeyRepository
