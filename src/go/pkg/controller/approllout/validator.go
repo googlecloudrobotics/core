@@ -21,6 +21,8 @@ import (
 	"strings"
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -65,12 +67,20 @@ func newAppValidator(sc *runtime.Scheme) *appValidator {
 	}
 }
 
-func (v *appValidator) Handle(_ context.Context, req admission.Request) admission.Response {
+func (v *appValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
+	_, span := tracer.Start(ctx, "ValidateApp")
+	defer span.End()
+
 	cur := &apps.App{}
 	if err := runtime.DecodeInto(v.decoder, req.AdmissionRequest.Object.Raw, cur); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return admission.Errored(http.StatusBadRequest, err)
 	}
+	span.SetAttributes(attribute.String("app.name", cur.Name))
 	if err := appValidate(cur); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return admission.Denied(err.Error())
 	}
 	return admission.Allowed("")
@@ -114,13 +124,24 @@ func newAppRolloutValidator(sc *runtime.Scheme) *appRolloutValidator {
 	}
 }
 
-func (v *appRolloutValidator) Handle(_ context.Context, req admission.Request) admission.Response {
+func (v *appRolloutValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
+	_, span := tracer.Start(ctx, "ValidateAppRollout")
+	defer span.End()
+
 	cur := &apps.AppRollout{}
 
 	if err := runtime.DecodeInto(v.decoder, req.AdmissionRequest.Object.Raw, cur); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return admission.Errored(http.StatusBadRequest, err)
 	}
+	span.SetAttributes(
+		attribute.String("app.rollout.name", cur.Name),
+		attribute.String("app.name", cur.Spec.AppName),
+	)
 	if err := appRolloutValidate(cur); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return admission.Denied(err.Error())
 	}
 	return admission.Allowed("")

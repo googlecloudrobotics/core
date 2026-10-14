@@ -193,4 +193,35 @@ resource "google_project_iam_member" "cr_syncer_auth_webhook_roles" {
   member  = google_service_account.cr_syncer_auth_webhook.member
 }
 
+# app-rollout-controller
+########################
+
+resource "google_service_account" "app_rollout_controller" {
+  account_id   = "app-rollout-controller"
+  display_name = "app-rollout-controller"
+  project      = data.google_project.project.project_id
+}
+
+data "google_iam_policy" "app_rollout_controller" {
+  binding {
+    role = "roles/iam.workloadIdentityUser"
+    members = [
+      "serviceAccount:${data.google_project.project.project_id}.svc.id.goog[default/app-rollout-controller]",
+    ]
+  }
+}
+
+resource "google_service_account_iam_policy" "app_rollout_controller" {
+  service_account_id = google_service_account.app_rollout_controller.id
+  policy_data        = data.google_iam_policy.app_rollout_controller.policy_data
+  depends_on         = [google_container_cluster.cloud-robotics]
+}
+
+resource "google_project_iam_member" "app_rollout_controller_roles" {
+  project = data.google_project.project.project_id
+  role    = "roles/cloudtrace.agent"
+  member  = google_service_account.app_rollout_controller.member
+}
+
+
 

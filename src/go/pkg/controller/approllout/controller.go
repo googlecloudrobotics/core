@@ -27,6 +27,11 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	"github.com/googlecloudrobotics/ilog"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +48,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/yaml"
 )
+
+var tracer = otel.Tracer("github.com/googlecloudrobotics/core/src/go/pkg/controller/approllout")
 
 type workQueue = workqueue.TypedRateLimitingInterface[reconcile.Request]
 
@@ -219,7 +226,22 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return r.reconcile(ctx, &ar)
 }
 
-func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconcile.Result, error) {
+func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (res reconcile.Result, err error) {
+	ctx, span := tracer.Start(extractParentSpanContext(ctx, ar), "Reconcile "+ar.Name,
+		trace.WithAttributes(
+			attribute.String("app.rollout.name", ar.Name),
+			attribute.String("app.name", ar.Spec.AppName),
+			attribute.Int64("generation", ar.Generation),
+		),
+	)
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
+
 	slog.Info("Reconcile AppRollout",
 		slog.String("Name", ar.Name),
 		slog.String("Version", ar.ResourceVersion))
@@ -240,7 +262,7 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 	// TODO(coconutruben): consider moving these into a testable function.
 	// Moving them into generateChartAssignments requires rewriting the
 	// existing tests.
-	err := r.kube.List(ctx, &curCAs, kclient.MatchingFields(map[string]string{fieldIndexOwners: string(ar.UID)}))
+	err = r.kube.List(ctx, &curCAs, kclient.MatchingFields(map[string]string{fieldIndexOwners: string(ar.UID)}))
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("list ChartAssignments for owner UID %s: %w", ar.UID, err)
 	}
@@ -316,6 +338,7 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 		delete(dropCAs, ca.Name)
 
 		if !exists {
+			injectTraceContext(ctx, ca)
 			if err := r.kube.Create(ctx, ca); err != nil {
 				return reconcile.Result{}, fmt.Errorf("create ChartAssignment %q: %w", ca.Name, err)
 			}
@@ -327,6 +350,7 @@ func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (reconc
 		} else if !changed {
 			continue
 		}
+		injectTraceContext(ctx, ca)
 		ca.ResourceVersion = prev.ResourceVersion
 		if err := r.kube.Update(ctx, ca); err != nil {
 			return reconcile.Result{}, fmt.Errorf("update ChartAssignment %q: %w", ca.Name, err)
@@ -416,12 +440,68 @@ func setCondition(ar *apps.AppRollout, t apps.AppRolloutConditionType, s core.Co
 	})
 }
 
+func extractParentSpanContext(ctx context.Context, m metav1.Object) context.Context {
+	annotations := m.GetAnnotations()
+	if len(annotations) == 0 {
+		return ctx
+	}
+	extracted := (propagation.TraceContext{}).Extract(ctx, propagation.MapCarrier(annotations))
+	if trace.SpanContextFromContext(extracted).IsValid() {
+		return extracted
+	}
+	if tid, found := annotations["cloudrobotics.com/trace-id"]; found {
+		traceID, err := trace.TraceIDFromHex(tid)
+		if err != nil {
+			slog.Error("decoding TraceID", slog.String("TraceID", tid), ilog.Err(err))
+		} else {
+			return trace.ContextWithRemoteSpanContext(ctx, trace.SpanContext{}.WithTraceID(traceID))
+		}
+	}
+	return ctx
+}
+
+func injectTraceContext(ctx context.Context, ca *apps.ChartAssignment) {
+	sc := trace.SpanContextFromContext(ctx)
+	if !sc.IsValid() {
+		return
+	}
+	if ca.Annotations == nil {
+		ca.Annotations = map[string]string{}
+	}
+	(propagation.TraceContext{}).Inject(ctx, propagation.MapCarrier(ca.Annotations))
+	ca.Annotations["cloudrobotics.com/trace-id"] = sc.TraceID().String()
+}
+
+func isTraceAnnotation(k string) bool {
+	return k == "traceparent" || k == "tracestate" || k == "cloudrobotics.com/trace-id"
+}
+
+func annotationsEqual(a, b map[string]string) bool {
+	for k, va := range a {
+		if isTraceAnnotation(k) {
+			continue
+		}
+		if vb, ok := b[k]; !ok || va != vb {
+			return false
+		}
+	}
+	for k := range b {
+		if isTraceAnnotation(k) {
+			continue
+		}
+		if _, ok := a[k]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 // chartAssignmentChanged returns true if the CA's labels, annotations, or spec changed.
 func chartAssignmentChanged(prev, cur *apps.ChartAssignment) (bool, error) {
 	if !reflect.DeepEqual(prev.Labels, cur.Labels) {
 		return true, nil
 	}
-	if !reflect.DeepEqual(prev.Annotations, cur.Annotations) {
+	if !annotationsEqual(prev.Annotations, cur.Annotations) {
 		return true, nil
 	}
 	prevSpec, err := yaml.Marshal(prev.Spec)

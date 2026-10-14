@@ -26,6 +26,7 @@ import (
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/controller/approllout"
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"github.com/googlecloudrobotics/ilog"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -42,11 +43,13 @@ import (
 )
 
 var (
-	params      = flag.String("params", "", "Helm configuration parameters formatted as name=value,topname.subname=value")
-	healthzPort = flag.Int("healthz-port", 8080, "Listening port of the /healthz probe")
-	webhookPort = flag.Int("webhook-port", 9876, "Listening port of the custom resource webhook")
-	certDir     = flag.String("cert-dir", "", "Directory for TLS certificates")
-	logLevel    = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
+	params               = flag.String("params", "", "Helm configuration parameters formatted as name=value,topname.subname=value")
+	healthzPort          = flag.Int("healthz-port", 8080, "Listening port of the /healthz probe")
+	webhookPort          = flag.Int("webhook-port", 9876, "Listening port of the custom resource webhook")
+	certDir              = flag.String("cert-dir", "", "Directory for TLS certificates")
+	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "", "If not empty, traces will be uploaded to this Google Cloud Project.")
+	traceProbability     = flag.Float64("trace-probability", 1.0, "Probability of sampling a root trace span (0.0 to 1.0).")
+	logLevel             = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
 )
 
 func main() {
@@ -55,6 +58,19 @@ func main() {
 	slog.SetDefault(slog.New(logHandler))
 
 	ctx := signals.SetupSignalHandler()
+	if *stackdriverProjectID != "" {
+		tp, err := telemetry.SetupCloudTracing(
+			ctx,
+			*stackdriverProjectID,
+			"app-rollout-controller",
+			*traceProbability,
+		)
+		if err != nil {
+			slog.Error("Failed to setup Cloud Tracing", ilog.Err(err))
+			os.Exit(1)
+		}
+		defer tp.Shutdown(context.Background())
+	}
 	kubernetesConfig, err := rest.InClusterConfig()
 	if err != nil {
 		slog.Error("Failed to initialize Kubernetes config", ilog.Err(err))

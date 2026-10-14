@@ -20,6 +20,8 @@ import (
 
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -941,4 +943,103 @@ func TestReconciler_EnqueueHelpers(t *testing.T) {
 		t.Errorf("Expected enqueued rollout 'owner-rollout', got %q", req2.Name)
 	}
 	q2.Done(req2)
+}
+
+func TestReconciler_TracePropagation(t *testing.T) {
+	prevTP := otel.GetTracerProvider()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.AlwaysSample()))
+	otel.SetTracerProvider(tp)
+	t.Cleanup(func() {
+		_ = tp.Shutdown(t.Context())
+		otel.SetTracerProvider(prevTP)
+	})
+
+	scheme := runtime.NewScheme()
+	apps.AddToScheme(scheme)
+	registry.AddToScheme(scheme)
+	core.AddToScheme(scheme)
+
+	ar := &apps.AppRollout{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "my-rollout",
+			UID:        "rollout-uid",
+			Generation: 1,
+			Annotations: map[string]string{
+				"traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+			},
+		},
+		Spec: apps.AppRolloutSpec{
+			AppName: "my-app",
+		},
+	}
+	app := &apps.App{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "my-app",
+			Labels: map[string]string{
+				labelAppName: "my-app",
+			},
+		},
+		Spec: apps.AppSpec{
+			Components: apps.AppComponents{
+				Cloud: apps.AppComponent{
+					Inline: "cloud-manifests",
+				},
+			},
+		},
+	}
+
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apps.AppRollout{}).
+		WithIndex(&apps.ChartAssignment{}, fieldIndexOwners, indexOwnerReferences).
+		WithObjects(ar, app).
+		Build()
+
+	r := &Reconciler{
+		kube:       client,
+		baseValues: chartutil.Values{},
+	}
+
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: "my-rollout"},
+	}
+
+	if _, err := r.Reconcile(t.Context(), req); err != nil {
+		t.Fatalf("First Reconcile() error = %v", err)
+	}
+
+	var cloudCA apps.ChartAssignment
+	if err := client.Get(t.Context(), kclient.ObjectKey{Name: "my-rollout-cloud"}, &cloudCA); err != nil {
+		t.Fatalf("Failed to get cloud CA: %v", err)
+	}
+	firstTraceparent := cloudCA.Annotations["traceparent"]
+	if !strings.HasPrefix(firstTraceparent, "00-4bf92f3577b34da6a3ce929d0e0e4736-") {
+		t.Errorf("Expected traceparent with inherited trace ID, got %q", firstTraceparent)
+	}
+	if firstTraceparent == "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" {
+		t.Errorf("Expected child span ID in traceparent, got unchanged parent %q", firstTraceparent)
+	}
+	if got := cloudCA.Annotations["cloudrobotics.com/trace-id"]; got != "4bf92f3577b34da6a3ce929d0e0e4736" {
+		t.Errorf("Expected cloudrobotics.com/trace-id = 4bf92f3577b34da6a3ce929d0e0e4736, got %q", got)
+	}
+	firstRV := cloudCA.ResourceVersion
+
+	// Clear rollout annotations and reconcile again; trace annotations alone must not trigger an update.
+	if err := client.Get(t.Context(), kclient.ObjectKey{Name: "my-rollout"}, ar); err != nil {
+		t.Fatalf("Failed to get AppRollout: %v", err)
+	}
+	ar.Annotations = nil
+	if err := client.Update(t.Context(), ar); err != nil {
+		t.Fatalf("Failed to update AppRollout: %v", err)
+	}
+
+	if _, err := r.Reconcile(t.Context(), req); err != nil {
+		t.Fatalf("Second Reconcile() error = %v", err)
+	}
+	if err := client.Get(t.Context(), kclient.ObjectKey{Name: "my-rollout-cloud"}, &cloudCA); err != nil {
+		t.Fatalf("Failed to get cloud CA: %v", err)
+	}
+	if cloudCA.ResourceVersion != firstRV {
+		t.Errorf("Expected ChartAssignment ResourceVersion %q to be unchanged on no-op reconcile, got %q", firstRV, cloudCA.ResourceVersion)
+	}
 }

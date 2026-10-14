@@ -29,6 +29,8 @@ spec:
           use_tv_verbose={{ .Values.use_tv_verbose }}"
         - --webhook-port=9876
         - --cert-dir=/tls
+        - --trace-stackdriver-project-id={{ .Values.project }}
+        - --trace-probability=1.0
         env:
         - name: GOOGLE_CLOUD_PROJECT
           value: {{ .Values.project }}
