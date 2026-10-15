@@ -1,0 +1,50 @@
+# This chart ONLY deploys the VictoriaMetrics Operator.
+# It runs as a cluster-wide singleton watching all namespaces so it can see
+# VictoriaMetrics CRs and ServiceMonitors across namespaces and create
+# ClusterRole permissions for VMAgent instances.
+
+victoria-metrics-operator:
+  enabled: true
+  fullnameOverride: "vm-operator"
+  # Watch all namespaces so the operator can see CRs cluster-wide and create
+  # ClusterRole permissions for VMAgent instances at runtime.
+  watchNamespaces: []
+  crds:
+    cleanup:
+      enabled: false
+  admissionWebhooks:
+    certManager:
+      enabled: true
+      issuer:
+        name: "selfsigned-issuer"
+        kind: "ClusterIssuer"
+
+# Disable all components (they are deployed by the actual metric apps)
+vmalert:
+  enabled: false
+vmalertmanager:
+  enabled: false
+alertmanager:
+  enabled: false
+vmsingle:
+  enabled: false
+vmcluster:
+  enabled: false
+vmagent:
+  enabled: false
+grafana:
+  enabled: false
+prometheus-node-exporter:
+  enabled: false
+kube-state-metrics:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+coreDns:
+  enabled: false
+kubeProxy:
+  enabled: false
