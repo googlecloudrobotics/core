@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: smartctl-exporter
+spec:
+  selector:
+    matchLabels:
+      app: smartctl-exporter
+  template:
+    metadata:
+      labels:
+        app: smartctl-exporter
+    spec:
+      containers:
+        - name: smartctl-exporter
+          # Mirrored from quay.io/prometheuscommunity/smartctl-exporter
+          image: gcr.io/cloud-robotics-releases/smartctl-exporter:v0.12.0
+          args:
+            - --web.listen-address=:9633
+          securityContext:
+            privileged: true
+            runAsUser: 0
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartctl-exporter
+  labels:
+    app: smartctl-exporter
+spec:
+  clusterIP: None
+  ports:
+    - port: 9633
+      name: http-metrics
+  selector:
+    app: smartctl-exporter
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: smartctl-exporter
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 60s
+  selector:
+    matchLabels:
+      app: smartctl-exporter

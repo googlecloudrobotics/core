@@ -1,0 +1,87 @@
+{{- $vmagentPort := 8429 -}}
+{{- if .Values.vmagent }}
+  {{- if .Values.vmagent.spec }}
+    {{- if .Values.vmagent.spec.port }}
+      {{- $vmagentPort = .Values.vmagent.spec.port -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: victoriametrics-robotmetrics-write
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+spec:
+  hostnames:
+  - {{ .Values.domain }}
+  parentRefs:
+  - name: crc-gateway
+    namespace: default
+    sectionName: https
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /victoriametrics-robotmetrics-write/insert/0/prometheus/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /victoriametrics/robots/vmagent/
+    backendRefs:
+    - name: vmagent-vmr
+      port: {{ $vmagentPort }}
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /victoriametrics-robotmetrics-write/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /victoriametrics/robots/vmagent/
+    backendRefs:
+    - name: vmagent-vmr
+      port: {{ $vmagentPort }}
+  - matches:
+    - path:
+        type: Exact
+        value: /victoriametrics-robotmetrics-write
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /victoriametrics/robots/vmagent/
+    backendRefs:
+    - name: vmagent-vmr
+      port: {{ $vmagentPort }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: victoriametrics-robotmetrics-write-auth
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: victoriametrics-robotmetrics-write
+  extAuth:
+    contextExtensions:
+      - name: robot
+        value: "true"
+    headersToExtAuth:
+      {{- toYaml .Values.authProxy.authHeaders | nindent 6 }}
+    failOpen: false
+    grpc:
+      backendRefs:
+      - name: token-vendor
+        namespace: app-token-vendor
+        port: 9091
