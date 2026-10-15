@@ -397,6 +397,54 @@ data:
 	f.verifyWriteActions()
 }
 
+func TestSynk_applyAllRejectsTerminatingResource(t *testing.T) {
+	now := metav1.Now()
+	var cmBefore corev1.ConfigMap
+	unmarshalYAML(t, &cmBefore, `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: foo1
+  name: cm1
+data:
+  foo1: bar1`)
+	cmBefore.SetDeletionTimestamp(&now)
+	cmBefore.SetFinalizers([]string{"example.com/test-finalizer"})
+
+	f := newFixture(t)
+	f.addObjects(&cmBefore)
+
+	var cmUpdate corev1.ConfigMap
+	unmarshalYAML(t, &cmUpdate, `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: foo1
+  name: cm1
+data:
+  foo1: bar2`)
+	cm := toUnstructured(t, &cmUpdate)
+
+	set := &apps.ResourceSet{}
+	set.Name = "test.v1"
+	set.UID = "deadbeef"
+
+	results, err := f.newSynk().applyAll(t.Context(), set, &ApplyOptions{name: "test"}, cm.DeepCopy())
+	if err == nil {
+		t.Fatal("expected error applying over terminating resource, got nil")
+	}
+	if !IsTransientErr(err) {
+		t.Errorf("expected IsTransientErr(err) to be true, got false; err: %v", err)
+	}
+	if len(results) == 0 || results.list()[0].err == nil {
+		t.Errorf("expected result to contain error, got results: %v", results)
+	}
+	if !strings.Contains(err.Error(), "is terminating") {
+		t.Errorf("expected error message to contain 'is terminating', got: %v", err)
+	}
+	f.verifyWriteActions()
+}
+
 func TestSynk_applyAllReplacesHeadlessToHeadedService(t *testing.T) {
 	var svcBefore, svcUpdate corev1.Service
 	unmarshalYAML(t, &svcBefore, `
