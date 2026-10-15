@@ -64,4 +64,24 @@ spec:
     name: kubernetes-api
   authorization:
     defaultAction: Allow
+---
+# cr-syncer on each robot opens multiple concurrent long-lived watch streams.
+# Because Envoy proxies to cr-syncer-auth-webhook over HTTP/1.1, each watch
+# stream uses a dedicated upstream TCP connection. Raise the circuit breaker on
+# this route so a single surviving Envoy pod can hold all watch streams during a
+# pod drain without tripping 503 UO (upstream overflow).
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: kubernetes-api-traffic-policy
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: kubernetes-api
+  mergeType: StrategicMerge
+  circuitBreaker:
+    maxConnections: 10000
+    maxParallelRequests: 10000
+    maxPendingRequests: 10000
 {{- end }}
