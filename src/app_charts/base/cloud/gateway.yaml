@@ -153,6 +153,13 @@ spec:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: crc-gateway
+  # Raise default per-route upstream circuit breaker limits from Envoy's 1024
+  # default to 2048 so relay routes continue serving cleanly if one Envoy pod
+  # drains in larger clusters.
+  circuitBreaker:
+    maxConnections: 2048
+    maxParallelRequests: 2048
+    maxPendingRequests: 2048
   connection:
     bufferLimit: 4Mi
   http2:
