@@ -97,4 +97,29 @@
   {{- $data = $data | replace "  annotations:\n    ${CR_PROMETHEUS_SA_ANNOTATIONS}: \"\"\n" "" -}}
 {{- end }}
 
+{{- /*
+  At Bazel build time, helm_template renders kube-prometheus-stack with
+  nodeExporter.enabled: "${CR_PROM_NODE_EXPORTER_ENABLED}". Because a non-empty
+  placeholder string is truthy in Helm, the prometheus-node-exporter subchart
+  manifests are always emitted into files/prometheus-operator-chart.robot.yaml.
+  When .Values.nodeExporter.enabled is false at deploy time, split the rendered
+  YAML stream by document and drop the prometheus-node-exporter resources so
+  they do not collide with VictoriaMetrics' node-exporter DaemonSet.
+*/ -}}
+{{- $nodeExporterEnabled := true }}
+{{- if .Values.nodeExporter }}
+  {{- if hasKey .Values.nodeExporter "enabled" }}
+    {{- $nodeExporterEnabled = .Values.nodeExporter.enabled }}
+  {{- end }}
+{{- end }}
+{{- $parts := splitList "\n---\n# Source: " (printf "\n%s" $data) -}}
+{{- $newData := "" -}}
+{{- range $part := $parts -}}
+  {{- if (trim $part) }}
+    {{- if not (and (not $nodeExporterEnabled) (contains "app.kubernetes.io/name: prometheus-node-exporter" $part)) }}
+      {{- $newData = printf "%s\n---\n# Source: %s" $newData $part -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- $data = trimPrefix "\n" $newData -}}
 {{ $data }}

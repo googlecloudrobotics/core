@@ -5,6 +5,7 @@ metadata:
   name: prometheus-federation-{{ .name }}
   labels:
     prometheus: kube-prometheus
+    release: prometheus-legacy
 spec:
   endpoints:
   - port: http
