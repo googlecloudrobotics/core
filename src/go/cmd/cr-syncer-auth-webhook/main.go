@@ -352,8 +352,13 @@ func main() {
 		defer tp.Shutdown(ctx)
 	}
 
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
+
 	server := &http.Server{
-		Addr: fmt.Sprintf(":%d", *port),
+		Addr:      fmt.Sprintf(":%d", *port),
+		Protocols: protocols,
 		Handler: otelhttp.NewHandler(
 			http.DefaultServeMux,
 			"",
