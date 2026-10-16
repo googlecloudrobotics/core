@@ -50,7 +50,7 @@ import (
 var tracer = otel.Tracer("github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment")
 
 // extractParentSpanContext extracts a parent trace context from ChartAssignment annotations,
-// preferring standard W3C traceparent headers and falling back to cloudrobotics.com/trace-id.
+// preferring standard W3C traceparent headers and falling back to deprecated cloudrobotics.com/trace-id.
 func extractParentSpanContext(ctx context.Context, as *apps.ChartAssignment) context.Context {
 	annotations := as.GetAnnotations()
 	if len(annotations) == 0 {
@@ -60,12 +60,23 @@ func extractParentSpanContext(ctx context.Context, as *apps.ChartAssignment) con
 	if trace.SpanContextFromContext(extracted).IsValid() {
 		return extracted
 	}
-	if tid, found := annotations["cloudrobotics.com/trace-id"]; found {
+	if tid, found := annotations["cloudrobotics.com/trace-id"]; found && tid != "" && tid != "00000000000000000000000000000000" {
+		slog.Warn("cloudrobotics.com/trace-id annotation is deprecated; use W3C traceparent instead",
+			slog.String("Name", as.GetName()),
+			slog.String("TraceID", tid))
 		traceID, err := trace.TraceIDFromHex(tid)
 		if err != nil {
 			slog.Error("decoding TraceID", slog.String("TraceID", tid), ilog.Err(err))
 		} else {
-			return trace.ContextWithRemoteSpanContext(ctx, trace.SpanContext{}.WithTraceID(traceID))
+			// OpenTelemetry requires both a non-zero TraceID and a non-zero SpanID for
+			// SpanContext.IsValid() (otherwise tracer.Start ignores the parent and generates
+			// a new random TraceID), and ParentBased sampling requires FlagsSampled.
+			return trace.ContextWithRemoteSpanContext(ctx, trace.NewSpanContext(trace.SpanContextConfig{
+				TraceID:    traceID,
+				SpanID:     trace.SpanID{1},
+				TraceFlags: trace.FlagsSampled,
+				Remote:     true,
+			}))
 		}
 	}
 	return ctx
