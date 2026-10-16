@@ -449,12 +449,20 @@ func extractParentSpanContext(ctx context.Context, m metav1.Object) context.Cont
 	if trace.SpanContextFromContext(extracted).IsValid() {
 		return extracted
 	}
-	if tid, found := annotations["cloudrobotics.com/trace-id"]; found {
+	if tid, found := annotations["cloudrobotics.com/trace-id"]; found && tid != "" && tid != "00000000000000000000000000000000" {
+		slog.Warn("cloudrobotics.com/trace-id annotation is deprecated; use W3C traceparent instead",
+			slog.String("Name", m.GetName()),
+			slog.String("TraceID", tid))
 		traceID, err := trace.TraceIDFromHex(tid)
 		if err != nil {
 			slog.Error("decoding TraceID", slog.String("TraceID", tid), ilog.Err(err))
 		} else {
-			return trace.ContextWithRemoteSpanContext(ctx, trace.SpanContext{}.WithTraceID(traceID))
+			return trace.ContextWithRemoteSpanContext(ctx, trace.NewSpanContext(trace.SpanContextConfig{
+				TraceID:    traceID,
+				SpanID:     trace.SpanID{1},
+				TraceFlags: trace.FlagsSampled,
+				Remote:     true,
+			}))
 		}
 	}
 	return ctx
@@ -469,7 +477,6 @@ func injectTraceContext(ctx context.Context, ca *apps.ChartAssignment) {
 		ca.Annotations = map[string]string{}
 	}
 	(propagation.TraceContext{}).Inject(ctx, propagation.MapCarrier(ca.Annotations))
-	ca.Annotations["cloudrobotics.com/trace-id"] = sc.TraceID().String()
 }
 
 func isTraceAnnotation(k string) bool {

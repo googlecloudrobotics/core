@@ -155,3 +155,34 @@ reconciliation will restore the original configuration.
 ```shell
 kubectl annotate <resource-type> <resource-name> synk.cloudrobotics.com/ignore-
 ```
+
+## Distributed tracing
+
+Both `app-rollout-controller` and `chart-assignment-controller` emit
+OpenTelemetry trace spans and propagate trace context across `AppRollout` and
+`ChartAssignment` custom resources using the standard
+[W3C Trace Context](https://www.w3.org/TR/trace-context/) `traceparent`
+annotation (`00-<trace-id>-<span-id>-<flags>`):
+
+- When `app-rollout-controller` reconciles an `AppRollout` and creates or
+  updates a `ChartAssignment`, it injects `traceparent` (and `tracestate`, if
+  present) onto the `ChartAssignment`'s `metadata.annotations`.
+- When `chart-assignment-controller` applies or deletes a `ChartAssignment`, it
+  extracts `traceparent` from `metadata.annotations` and starts its `Apply` /
+  `Delete` and `synk` resource reconciliation spans as children of that span
+  context.
+
+Callers creating or updating an `AppRollout` or `ChartAssignment` can link
+controller reconciliation into their own trace by injecting W3C Trace Context
+onto the resource annotations:
+
+```go
+if obj.Annotations == nil {
+    obj.Annotations = map[string]string{}
+}
+(propagation.TraceContext{}).Inject(ctx, propagation.MapCarrier(obj.Annotations))
+```
+
+> **Note:** The legacy `cloudrobotics.com/trace-id` annotation (which carried
+> only a bare 32-hex-character trace ID) is **deprecated** in favor of W3C
+> `traceparent` and will be removed in a future release.

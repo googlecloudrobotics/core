@@ -22,6 +22,7 @@ import (
 	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	"go.opentelemetry.io/otel"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/trace"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -1019,8 +1020,8 @@ func TestReconciler_TracePropagation(t *testing.T) {
 	if firstTraceparent == "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" {
 		t.Errorf("Expected child span ID in traceparent, got unchanged parent %q", firstTraceparent)
 	}
-	if got := cloudCA.Annotations["cloudrobotics.com/trace-id"]; got != "4bf92f3577b34da6a3ce929d0e0e4736" {
-		t.Errorf("Expected cloudrobotics.com/trace-id = 4bf92f3577b34da6a3ce929d0e0e4736, got %q", got)
+	if _, ok := cloudCA.Annotations["cloudrobotics.com/trace-id"]; ok {
+		t.Errorf("Expected deprecated cloudrobotics.com/trace-id not to be set, got %q", cloudCA.Annotations["cloudrobotics.com/trace-id"])
 	}
 	firstRV := cloudCA.ResourceVersion
 
@@ -1041,5 +1042,30 @@ func TestReconciler_TracePropagation(t *testing.T) {
 	}
 	if cloudCA.ResourceVersion != firstRV {
 		t.Errorf("Expected ChartAssignment ResourceVersion %q to be unchanged on no-op reconcile, got %q", firstRV, cloudCA.ResourceVersion)
+	}
+}
+
+func TestExtractParentSpanContext_LegacyTraceID(t *testing.T) {
+	ar := &apps.AppRollout{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "legacy-rollout",
+			Annotations: map[string]string{
+				"cloudrobotics.com/trace-id": "4bf92f3577b34da6a3ce929d0e0e4736",
+			},
+		},
+	}
+	ctx := extractParentSpanContext(t.Context(), ar)
+	sc := trace.SpanContextFromContext(ctx)
+	if !sc.IsValid() {
+		t.Fatalf("Expected valid SpanContext from legacy cloudrobotics.com/trace-id, got invalid: %+v", sc)
+	}
+	if !sc.IsRemote() {
+		t.Errorf("Expected remote SpanContext")
+	}
+	if !sc.IsSampled() {
+		t.Errorf("Expected sampled SpanContext")
+	}
+	if got := sc.TraceID().String(); got != "4bf92f3577b34da6a3ce929d0e0e4736" {
+		t.Errorf("Expected TraceID = 4bf92f3577b34da6a3ce929d0e0e4736, got %q", got)
 	}
 }
