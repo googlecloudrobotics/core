@@ -4,37 +4,6 @@ load("//bazel:build_rules/helm_template.bzl", "helm_template")
 
 # Tests
 
-helm_template(
-    name = "chart-assignment-controller-chart.robot",
-    chart = "//src/app_charts/chart-assignment-controller",
-    helm_version = 3,
-    # The namespace will later be replaced with the actual one.
-    namespace = "HELM-NAMESPACE",
-    release_name = "chart-assignment-controller",
-    values = "chart-assignment-controller-robot.values.yaml",
-)
-
-app_chart(
-    name = "base-test",
-    extra_templates = [
-        ":cloud/namespace.yaml",
-        ":cloud/apps-crd.yaml",
-        ":robot/app-management.yaml",
-        ":robot/cert-manager.yaml",
-        ":robot/cert-manager-certificates.yaml",
-        ":robot/cert-manager-issuers.yaml",
-    ],
-    files = [
-        ":cert-manager-chart.robot",
-        ":chart-assignment-controller-chart.robot",
-    ],
-    images = {
-        "chart-assignment-controller": "//src/go/cmd/chart-assignment-controller:chart-assignment-controller-image",
-    },
-    values = ":values-robot.yaml",
-    visibility = ["//visibility:public"],
-)
-
 sh_test(
     name = "app_management_test",
     srcs = ["app_management_test.sh"],
@@ -55,6 +24,16 @@ helm_template(
     namespace = "HELM-NAMESPACE",
     release_name = "cert-manager",
     values = "cert-manager-robot.values.yaml",
+)
+
+helm_template(
+    name = "chart-assignment-controller-chart.robot",
+    chart = "//src/app_charts/chart-assignment-controller",
+    helm_version = 3,
+    # The namespace will later be replaced with the actual one.
+    namespace = "HELM-NAMESPACE",
+    release_name = "chart-assignment-controller",
+    values = "chart-assignment-controller-robot.values.yaml",
 )
 
 app_chart(

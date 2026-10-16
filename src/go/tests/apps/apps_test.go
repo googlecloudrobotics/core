@@ -60,7 +60,7 @@ spec:
     spec:
       containers:
       - name: test
-        image: "gcr.io/google-containers/busybox:latest"
+        image: "gcr.io/google-containers/busybox:1.27.2"
         args: ["sleep", "999999999"]`
 	deploymentWithBadLabels = `
 apiVersion: apps/v1
@@ -79,7 +79,7 @@ spec:
     spec:
       containers:
       - name: test
-        image: "gcr.io/google-containers/busybox:latest"
+        image: "gcr.io/google-containers/busybox:1.27.2"
         args: ["sleep", "999999999"]`
 	badJob = `
 apiVersion: batch/v1
@@ -95,7 +95,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: test
-        image: "gcr.io/google-containers/busybox:latest"
+        image: "gcr.io/google-containers/busybox:1.27.2"
         args: ["false"]`
 	goodJob = `
 apiVersion: batch/v1
@@ -111,7 +111,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: test
-        image: "gcr.io/google-containers/busybox:latest"
+        image: "gcr.io/google-containers/busybox:1.27.2"
         args: ["true"]`
 )
 
@@ -125,13 +125,13 @@ func TestAll(t *testing.T) {
 	defer env.Teardown()
 
 	env.InstallChartArchive(
-		robotClusterName, "base-test", "default",
-		"src/app_charts/base/base-test-0.0.1.tgz",
+		robotClusterName, "chart-assignment-controller", "default",
+		"src/app_charts/chart-assignment-controller/chart-assignment-controller.tgz",
 		map[string]string{
-			"project":         "",
-			"robot.name":      robotClusterName,
-			"registry":        os.Getenv("REGISTRY"),
-			"webhook.enabled": "false",
+			"robotName":                robotClusterName,
+			"image.repository":         os.Getenv("REGISTRY") + "/chart-assignment-controller",
+			"imagePullSecrets[0].name": "gcr-json-key",
+			"webhook.enabled":          "false",
 		},
 	)
 	if err := backoff.Retry(
