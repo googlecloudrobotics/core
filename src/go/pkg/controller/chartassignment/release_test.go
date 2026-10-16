@@ -22,6 +22,7 @@ import (
 	"github.com/golang/mock/gomock"
 	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
 	"github.com/googlecloudrobotics/core/src/go/pkg/kubetest"
+	"go.opentelemetry.io/otel/trace"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -372,5 +373,48 @@ func TestReleases_EnsureUpdated_PermanentErrorNoRetry(t *testing.T) {
 
 		// 2. Second attempt with same generation should be skipped.
 		ensureUpdatedWithRetry(t, rs, as)
+	})
+}
+
+func TestExtractParentSpanContext(t *testing.T) {
+	t.Run("W3C traceparent", func(t *testing.T) {
+		as := &apps.ChartAssignment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "my-release",
+				Annotations: map[string]string{
+					"traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+				},
+			},
+		}
+		ctx := extractParentSpanContext(t.Context(), as)
+		sc := trace.SpanContextFromContext(ctx)
+		if !sc.IsValid() || !sc.IsRemote() || !sc.IsSampled() {
+			t.Fatalf("Expected valid remote sampled SpanContext, got %+v", sc)
+		}
+		if got := sc.TraceID().String(); got != "4bf92f3577b34da6a3ce929d0e0e4736" {
+			t.Errorf("Expected TraceID = 4bf92f3577b34da6a3ce929d0e0e4736, got %q", got)
+		}
+		if got := sc.SpanID().String(); got != "00f067aa0ba902b7" {
+			t.Errorf("Expected SpanID = 00f067aa0ba902b7, got %q", got)
+		}
+	})
+
+	t.Run("legacy cloudrobotics.com/trace-id fallback", func(t *testing.T) {
+		as := &apps.ChartAssignment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "my-release",
+				Annotations: map[string]string{
+					"cloudrobotics.com/trace-id": "4bf92f3577b34da6a3ce929d0e0e4736",
+				},
+			},
+		}
+		ctx := extractParentSpanContext(t.Context(), as)
+		sc := trace.SpanContextFromContext(ctx)
+		if !sc.IsValid() || !sc.IsRemote() || !sc.IsSampled() {
+			t.Fatalf("Expected valid remote sampled SpanContext from legacy annotation, got %+v", sc)
+		}
+		if got := sc.TraceID().String(); got != "4bf92f3577b34da6a3ce929d0e0e4736" {
+			t.Errorf("Expected TraceID = 4bf92f3577b34da6a3ce929d0e0e4736, got %q", got)
+		}
 	})
 }
