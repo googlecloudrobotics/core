@@ -18,19 +18,25 @@ package telemetry
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 
-	traceexporter "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace"
+	"go.opentelemetry.io/contrib/detectors/gcp"
 	b3prop "go.opentelemetry.io/contrib/propagators/b3"
 	ocprop "go.opentelemetry.io/contrib/propagators/opencensus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
-	"google.golang.org/api/option"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/oauth"
 )
+
+// GCP Telemetry API writes the spans to the project in gcp.project_id.
+const gcpProjectKey = attribute.Key("gcp.project_id")
 
 var (
 	// HTTPPropagator is a composite propagator for HTTP services supporting
@@ -59,32 +65,40 @@ func IgnoreHealthAndMetrics(r *http.Request) bool {
 	}
 }
 
-// SetupCloudTracing initializes OpenTelemetry tracing with Google Cloud Trace exporter.
+// SetupCloudTracing initializes OpenTelemetry tracing exporting over OTLP gRPC
+// to the Google Cloud Telemetry API (telemetry.googleapis.com:443).
 func SetupCloudTracing(ctx context.Context, projectID, serviceName string, traceProbability float64) (*sdktrace.TracerProvider, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("projectID must be specified")
 	}
-	exporter, err := traceexporter.New(
-		traceexporter.WithProjectID(projectID),
-		traceexporter.WithTraceClientOptions([]option.ClientOption{
-			option.WithTelemetryDisabled(),
-		}),
+	creds, err := oauth.NewApplicationDefault(ctx, "https://www.googleapis.com/auth/trace.append")
+	if err != nil {
+		return nil, fmt.Errorf("load application default credentials: %w", err)
+	}
+	exporter, err := otlptracegrpc.New(ctx,
+		otlptracegrpc.WithEndpoint("telemetry.googleapis.com:443"),
+		otlptracegrpc.WithDialOption(grpc.WithPerRPCCredentials(creds)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create trace exporter: %w", err)
 	}
 
-	var resAttrs []attribute.KeyValue
+	resAttrs := []attribute.KeyValue{
+		gcpProjectKey.String(projectID),
+	}
 	if serviceName != "" {
 		resAttrs = append(resAttrs, semconv.ServiceName(serviceName))
 	}
 	res, err := resource.New(ctx,
-		resource.WithAttributes(resAttrs...),
-		resource.WithFromEnv(),
+		resource.WithDetectors(gcp.NewDetector()),
 		resource.WithTelemetrySDK(),
+		resource.WithHost(),
+		resource.WithFromEnv(),
+		resource.WithAttributes(resAttrs...),
 	)
 	if err != nil {
-		res = resource.Empty()
+		// resource.New returns a partial resource on failure.
+		slog.WarnContext(ctx, "Failed to create telemetry resource", slog.String("error", err.Error()))
 	}
 
 	tp := sdktrace.NewTracerProvider(
