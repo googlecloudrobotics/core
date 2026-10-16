@@ -89,7 +89,7 @@ type cluster struct {
 // New creates a new test environment.
 func New(t *testing.T, cfg Config) *Environment {
 	e := &Environment{
-		helmPath: "../+non_module_deps+kubernetes_helm/helm",
+		helmPath: "../+non_module_deps+kubernetes_helm3/helm",
 		synkPath: "src/go/cmd/synk/synk_/synk",
 		t:        t,
 		cfg:      cfg,
@@ -118,7 +118,7 @@ func New(t *testing.T, cfg Config) *Environment {
 			if err := setupCluster(e.synkPath, cluster); err != nil {
 				// If cluster has already been created, delete it.
 				if cluster.kind != nil && os.Getenv("NO_TEARDOWN") == "" {
-					cluster.kind.Delete(cfg.Name, "")
+					cluster.kind.Delete(cluster.genName, "")
 					if cluster.kubeConfigPath != "" {
 						os.Remove(cluster.kubeConfigPath)
 					}
@@ -158,9 +158,10 @@ func (e *Environment) InstallChartArchive(cluster, name, namespace, path string,
 	output, err := exec.Command(
 		e.helmPath,
 		"template",
-		"--set-string", helmValues(args),
-		"--name", name,
+		name,
 		path,
+		"--namespace", namespace,
+		"--set", helmValues(args),
 	).CombinedOutput()
 	if err != nil {
 		e.t.Fatalf("Synk install of %s failed: %v\nHelm output:\n%s\n", name, err, output)
