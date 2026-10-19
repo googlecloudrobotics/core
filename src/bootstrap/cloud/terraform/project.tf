@@ -32,6 +32,7 @@ resource "google_project_service" "project-services" {
     # Next 2 are needed for Terraform's data.google_project.project.resource to work.
     "cloudbilling.googleapis.com",
     "cloudresourcemanager.googleapis.com",
+    "cloudtrace.googleapis.com",
     "compute.googleapis.com",
     "container.googleapis.com",
     "containersecurity.googleapis.com",
@@ -45,6 +46,7 @@ resource "google_project_service" "project-services" {
     "servicemanagement.googleapis.com",
     "serviceusage.googleapis.com",
     "storage-component.googleapis.com",
+    "telemetry.googleapis.com",
     ], length(var.additional_regions) == 0 ? [] : [
     # Following APIs are only needed when using multi-cluster gateways.
     "gkeconnect.googleapis.com",

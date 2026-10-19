@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -239,4 +240,73 @@ func TestMetricsEndpoint(t *testing.T) {
 	if !strings.Contains(body, "legacy_requests_total") {
 		t.Errorf("expected /metrics output to contain legacy_requests_total, got:\n%s", body)
 	}
+}
+
+func TestH2CAndHTTP1Support(t *testing.T) {
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	defer listener.Close()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Proto", r.Proto)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	server := &http.Server{
+		Protocols: protocols,
+		Handler:   mux,
+	}
+	go server.Serve(listener)
+	defer server.Close()
+
+	addr := listener.Addr().String()
+
+	t.Run("HTTP/1.1", func(t *testing.T) {
+		resp, err := http.Get("http://" + addr + "/healthz")
+		if err != nil {
+			t.Fatalf("HTTP/1.1 request failed: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+		if resp.ProtoMajor != 1 {
+			t.Errorf("resp.ProtoMajor = %d, want 1", resp.ProtoMajor)
+		}
+		if got := resp.Header.Get("X-Proto"); got != "HTTP/1.1" {
+			t.Errorf("server saw Proto = %q, want HTTP/1.1", got)
+		}
+	})
+
+	t.Run("HTTP/2 cleartext (h2c)", func(t *testing.T) {
+		h2cProtocols := new(http.Protocols)
+		h2cProtocols.SetUnencryptedHTTP2(true)
+
+		client := &http.Client{
+			Transport: &http.Transport{
+				Protocols: h2cProtocols,
+			},
+		}
+		resp, err := client.Get("http://" + addr + "/healthz")
+		if err != nil {
+			t.Fatalf("h2c request failed: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+		if resp.ProtoMajor != 2 {
+			t.Errorf("resp.ProtoMajor = %d, want 2", resp.ProtoMajor)
+		}
+		if got := resp.Header.Get("X-Proto"); got != "HTTP/2.0" {
+			t.Errorf("server saw Proto = %q, want HTTP/2.0", got)
+		}
+	})
 }
