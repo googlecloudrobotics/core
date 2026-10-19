@@ -26,25 +26,27 @@ import (
 	"strings"
 	"sync"
 
-	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
-	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
-	"github.com/googlecloudrobotics/ilog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
+	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/downloader"
+	"helm.sh/helm/v3/pkg/engine"
+	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/repo"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/downloader"
-	"k8s.io/helm/pkg/getter"
-	"k8s.io/helm/pkg/helm/helmpath"
-	"k8s.io/helm/pkg/proto/hapi/chart"
-	"k8s.io/helm/pkg/renderutil"
-	"k8s.io/helm/pkg/repo"
+
+	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	"github.com/googlecloudrobotics/core/src/go/pkg/synk"
+	"github.com/googlecloudrobotics/ilog"
 )
 
 var tracer = otel.Tracer("github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment")
@@ -325,14 +327,18 @@ func loadAndExpandChart(as *apps.ChartAssignment) ([]*unstructured.Unstructured,
 	if err != nil {
 		return nil, true, err
 	}
+
+	values, err = chartutil.ToRenderValues(c, values, chartutil.ReleaseOptions{
+		Name:      as.Name,
+		Namespace: as.Namespace,
+		IsInstall: true,
+	}, &chartutil.Capabilities{})
+	if err != nil {
+		return nil, true, err
+	}
+
 	// Expand chart.
-	manifests, err := renderutil.Render(c, &chart.Config{Raw: values}, renderutil.Options{
-		ReleaseOptions: chartutil.ReleaseOptions{
-			Name:      as.Name,
-			Namespace: as.Spec.NamespaceName,
-			IsInstall: true,
-		},
-	})
+	manifests, err := engine.Render(c, values)
 	if err != nil {
 		return nil, false, fmt.Errorf("render chart: %w", err)
 	}
@@ -346,7 +352,9 @@ func loadAndExpandChart(as *apps.ChartAssignment) ([]*unstructured.Unstructured,
 	return res, false, nil
 }
 
-func loadChart(cspec *apps.AssignedChart) (*chart.Chart, string, error) {
+// loadChart loads an assign chart.
+// Returns the chart and user values from the chart assignment.
+func loadChart(cspec *apps.AssignedChart) (*chart.Chart, chartutil.Values, error) {
 	var archive io.Reader
 	var err error
 
@@ -355,49 +363,47 @@ func loadChart(cspec *apps.AssignedChart) (*chart.Chart, string, error) {
 	} else {
 		archive, err = fetchChartTar(cspec.Repository, cspec.Name, cspec.Version)
 		if err != nil {
-			return nil, "", fmt.Errorf("retrieve chart: %w", err)
+			return nil, nil, fmt.Errorf("retrieve chart: %w", err)
 		}
 	}
-	c, err := chartutil.LoadArchive(archive)
+	// loader.LoadArchive supports both apiVersion: v1 (Helm 2, including requirements.yaml)
+	// and apiVersion: v2 (Helm 3, including Chart.yaml dependencies and crds/).
+	c, err := loader.LoadArchive(archive)
 	if err != nil {
-		return nil, "", fmt.Errorf("load chart archive: %w", err)
+		return nil, nil, fmt.Errorf("load chart archive: %w", err)
 	}
 
-	// Ensure charts in requirements.yaml are actually in packaged in.
-	if req, err := chartutil.LoadRequirements(c); err == nil {
-		if err := renderutil.CheckDependencies(c, req); err != nil {
-			return nil, "", fmt.Errorf("check chart dependencies: %w", err)
+	if req := c.Metadata.Dependencies; req != nil {
+		if err := action.CheckDependencies(c, req); err != nil {
+			return nil, nil, fmt.Errorf("check chart dependencies: %w", err)
 		}
-	} else if err != chartutil.ErrRequirementsNotFound {
-		return nil, "", fmt.Errorf("load chart requirements: %w", err)
 	}
 
-	// TODO(ensonic): handle empty c.Values, cspec.Values
-	// Build the full set of values including the default ones. Even though
-	// they are part of the chart, they are ignored if we don't provide
-	// them explicitly.
-	vals, err := chartutil.ReadValues([]byte(c.Values.Raw))
-	if err != nil {
-		return nil, "", fmt.Errorf("reading chart values: %w", err)
+	// CoalesceTables gives higher precedence to the first argument (dst).
+	// DeepCopy cspec.Values and c.Values to avoid mutating inputs.
+	userVals := map[string]interface{}(cspec.Values.DeepCopy())
+	if userVals == nil {
+		userVals = map[string]interface{}{}
 	}
-	vals.MergeInto(chartutil.Values(cspec.Values)) // ChartAssignment values.
 
-	valsRaw, err := vals.YAML()
-	if err != nil {
-		return nil, "", fmt.Errorf("encode values: %w", err)
+	// Evaluate subchart `condition`/`tags` (disabled subcharts are removed
+	// from c) and apply `import-values` (merged into c.Values). Same as what
+	// `helm install` does (pkg/action/install.go).
+	if err := chartutil.ProcessDependenciesWithMerge(c, userVals); err != nil {
+		return nil, nil, fmt.Errorf("process chart dependencies: %w", err)
 	}
-	return c, valsRaw, nil
+
+	return c, userVals, nil
 }
 
 func fetchChartTar(repoURL, name, version string) (io.Reader, error) {
 	c := downloader.ChartDownloader{
 		Getters: getter.Providers{
-			{Schemes: []string{"http", "https"}, New: newHTTPGetter},
+			{Schemes: []string{"http", "https"}, New: getter.NewHTTPGetter},
 		},
-		HelmHome: helmpath.Home(os.ExpandEnv("$HOME/.helm")),
-		Out:      os.Stderr,
-		Keyring:  os.ExpandEnv("$HOME/.gnupg/pubring.gpg"),
-		Verify:   downloader.VerifyIfPossible,
+		Out:     os.Stderr,
+		Keyring: os.ExpandEnv("$HOME/.gnupg/pubring.gpg"),
+		Verify:  downloader.VerifyIfPossible,
 	}
 
 	dir, err := os.MkdirTemp("", name)
@@ -427,11 +433,6 @@ func fetchChartTar(repoURL, name, version string) (io.Reader, error) {
 		return nil, err
 	}
 	return bytes.NewReader(b), nil
-}
-
-// newHTTPGetter return a Helm chart getter for HTTP(s) repositories.
-func newHTTPGetter(url, certFile, keyFile, caFile string) (getter.Getter, error) {
-	return getter.NewHTTPGetter(url, certFile, keyFile, caFile)
 }
 
 func decodeManifests(manifests map[string]string) ([]*unstructured.Unstructured, error) {

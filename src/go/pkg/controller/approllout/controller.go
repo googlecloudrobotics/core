@@ -21,24 +21,23 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"slices"
 	"sort"
 	"time"
 
-	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
-	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
-	"github.com/googlecloudrobotics/ilog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
+	"helm.sh/helm/v3/pkg/chartutil"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/helm/pkg/chartutil"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -47,6 +46,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/yaml"
+
+	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
+	"github.com/googlecloudrobotics/ilog"
 )
 
 var tracer = otel.Tracer("github.com/googlecloudrobotics/core/src/go/pkg/controller/approllout")
@@ -227,7 +230,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, ar *apps.AppRollout) (res reconcile.Result, err error) {
-	ctx, span := tracer.Start(extractParentSpanContext(ctx, ar), "Reconcile "+ar.Name,
+	ctx, span := tracer.Start(
+		extractParentSpanContext(ctx, ar), "Reconcile "+ar.Name,
 		trace.WithAttributes(
 			attribute.String("app.rollout.name", ar.Name),
 			attribute.String("app.name", ar.Spec.AppName),
@@ -529,7 +533,6 @@ func generateChartAssignments(
 	rollout *apps.AppRollout,
 	baseValues chartutil.Values,
 ) ([]*apps.ChartAssignment, error) {
-
 	var (
 		// Different entries might request different app versions. This map
 		// is used to only retrieve them once.
@@ -611,6 +614,24 @@ func generateChartAssignments(
 	return cas, nil
 }
 
+// mergeValues merges value layers from lowest to highest precedence. Later
+// layers override earlier ones; nested maps are merged recursively, all other
+// values (scalars, lists) are replaced. None of the inputs are mutated.
+func mergeValues(layers ...map[string]interface{}) chartutil.Values {
+	out := map[string]interface{}{}
+	// CoalesceTables(dst, src) gives dst precedence, so walk from the highest
+	// layer down and fill in what's missing from each lower layer.
+	for _, layer := range slices.Backward(layers) {
+		if layer == nil {
+			continue
+		}
+		// CoalesceTables mutates dst, may write nils into src, and copies
+		// nested maps from src into dst by reference, so copy every layer.
+		out = chartutil.CoalesceTables(out, runtime.DeepCopyJSON(layer))
+	}
+	return out
+}
+
 // newCloudChartAssignment generates a new ChartAssignment for the cloud cluster
 // from an app, it's rollout, a set of base configuration values,
 // and a list of robots matched by the rollout.
@@ -632,12 +653,12 @@ func newCloudChartAssignment(
 			"name": r.Name,
 		})
 	}
-	vals := chartutil.Values{}
-	vals.MergeInto(values)
-	vals.MergeInto(chartutil.Values(rollout.Spec.Cloud.Values))
-	vals.MergeInto(chartutil.Values{"robots": robotValuesList})
 
-	ca.Spec.Chart.Values = apps.ConfigValues(vals)
+	ca.Spec.Chart.Values = apps.ConfigValues(mergeValues(
+		values,
+		rollout.Spec.Cloud.Values,
+		map[string]interface{}{"robots": robotValuesList},
+	))
 
 	return ca
 }
@@ -661,12 +682,11 @@ func newRobotChartAssignment(
 		ca.Spec.Chart.Version = spec.Version
 	}
 
-	vals := chartutil.Values{}
-	vals.MergeInto(values)
-	vals.MergeInto(chartutil.Values(spec.Values))
-	vals.MergeInto(chartutil.Values{"robot": map[string]interface{}{"name": robot.Name}})
-
-	ca.Spec.Chart.Values = apps.ConfigValues(vals)
+	ca.Spec.Chart.Values = apps.ConfigValues(mergeValues(
+		values,
+		spec.Values,
+		map[string]interface{}{"robot": map[string]interface{}{"name": robot.Name}},
+	))
 
 	return ca
 }

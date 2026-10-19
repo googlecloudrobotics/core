@@ -23,16 +23,11 @@ import (
 	"log/slog"
 	"os"
 
-	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
-	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
-	"github.com/googlecloudrobotics/core/src/go/pkg/controller/approllout"
-	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
-	"github.com/googlecloudrobotics/ilog"
+	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/strvals"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/strvals"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -40,6 +35,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
+	"github.com/googlecloudrobotics/core/src/go/pkg/controller/approllout"
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
+	"github.com/googlecloudrobotics/ilog"
 )
 
 var (

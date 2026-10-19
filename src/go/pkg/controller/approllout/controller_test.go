@@ -18,20 +18,21 @@ import (
 	"strings"
 	"testing"
 
-	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
-	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 	"go.opentelemetry.io/otel"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"helm.sh/helm/v3/pkg/chartutil"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/helm/pkg/chartutil"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
+
+	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	registry "github.com/googlecloudrobotics/core/src/go/pkg/apis/registry/v1alpha1"
 )
 
 func marshalYAML(t *testing.T, v interface{}) string {

@@ -20,29 +20,38 @@ import (
 	"testing/synctest"
 
 	"github.com/golang/mock/gomock"
-	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
-	"github.com/googlecloudrobotics/core/src/go/pkg/kubetest"
+	"github.com/google/go-cmp/cmp"
+	"helm.sh/helm/v3/pkg/chartutil"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/helm/pkg/chartutil"
+
+	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	"github.com/googlecloudrobotics/core/src/go/pkg/kubetest"
 )
 
 const (
 	ChartName = "testchart"
 )
 
-func verifyValues(t *testing.T, have string, wantValues chartutil.Values) {
+func verifyValues(t *testing.T, haveValues chartutil.Values, wantValues chartutil.Values) {
 	t.Helper()
-	if want, err := wantValues.YAML(); err != nil {
+	have, err := haveValues.YAML()
+	if err != nil {
 		t.Fatal(err)
-	} else if want != have {
+	}
+	want, err := wantValues.YAML()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want != have {
 		t.Fatalf("config values do not match: want\n%s\n\ngot\n%s\n", want, have)
 	}
 }
 
-func Test_loadChart_mergesValues(t *testing.T) {
+func Test_loadAndExpandChart_mergesValues(t *testing.T) {
 	var as apps.ChartAssignment
 	unmarshalYAML(t, &as, `
 metadata:
@@ -54,21 +63,31 @@ spec:
       bar2:
         baz2: test
 	`)
-	as.Spec.Chart.Inline = kubetest.BuildInlineChart(t, ChartName /*template=*/, "", `
+	as.Spec.Chart.Inline = kubetest.BuildInlineChart(t, ChartName, `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: values
+data:
+  bar1: "{{ .Values.bar1 }}"
+  baz1: "{{ .Values.foo1.baz1 }}"
+  baz2: "{{ .Values.bar2.baz2 }}"
+`, `
 foo1:
   baz1: "hello"
 bar1: 3`)
-	wantValues := chartutil.Values{
-		"bar1": 4,
-		"bar2": chartutil.Values{"baz2": "test"},
-		"foo1": chartutil.Values{"baz1": "hello"},
-	}
-
-	_, vals, err := loadChart(&as.Spec.Chart)
+	resources, _, err := loadAndExpandChart(&as)
 	if err != nil {
 		t.Fatal(err)
 	}
-	verifyValues(t, vals, wantValues)
+	if len(resources) != 1 {
+		t.Fatalf("want 1 resource, got %d", len(resources))
+	}
+	got, _, _ := unstructured.NestedStringMap(resources[0].Object, "data")
+	want := map[string]string{"bar1": "4", "baz1": "hello", "baz2": "test"}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("rendered values mismatch (-want +got):\n%s", diff)
+	}
 }
 
 func Test_loadChartWithoutTemplates_returnsZeroManifests(t *testing.T) {
@@ -88,7 +107,6 @@ spec:
 	if len(resources) > 0 {
 		t.Errorf("Expected no resources, got %d", len(resources))
 	}
-
 }
 
 func Test_updateSynk_callsApply(t *testing.T) {

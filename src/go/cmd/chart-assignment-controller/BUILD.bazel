@@ -28,31 +28,6 @@ go_library(
     ],
 )
 
-genrule(
-    name = "helm-config",
-    outs = ["helm-config.tar"],
-    # To make the rule deterministic
-    #  - Remove the "generated" timestamp in repositories.yaml.
-    #  - Add some extra tar flags.
-    cmd = "HELM_HOME=$$PWD/.helm $(location @kubernetes_helm//:helm) >/dev/null init --client-only --skip-repos " +
-          "&& sed -i '/generated:/d' .helm/repository/repositories.yaml " +
-          "&& tar --owner=root --group=root --numeric-owner --mtime='2010-01-01' --create --file $@ .helm",
-    output_to_bindir = True,
-    tools = ["@kubernetes_helm//:helm"],
-)
-
-oci_image(
-    name = "helm-image",
-    base = "@distroless_base",
-    tars = [":helm-image-layer"],
-)
-
-crc_image_layer(
-    name = "helm-image-layer",
-    package_dir = "/home/nonroot/",
-    deps = [":helm-config"],
-)
-
 go_binary(
     name = "chart-assignment-controller-app",
     embed = [":go_default_library"],
@@ -65,7 +40,7 @@ crc_image_layer(
 
 oci_image(
     name = "chart-assignment-controller-image",
-    base = ":helm-image",
+    base = "@distroless_base",
     entrypoint = ["/chart-assignment-controller-app"],
     tars = [":chart-assignment-controller-layer"],
 )
