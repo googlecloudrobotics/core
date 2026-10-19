@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "controller.go",
         "release.go",
+        "render.go",
         "validator.go",
     ],
     importpath = "github.com/googlecloudrobotics/core/src/go/pkg/controller/chartassignment",
