@@ -6,10 +6,13 @@ def _get_runfile_path(ctx, f):
         return "${RUNFILES}/" + f.short_path
 
 def _impl(ctx):
-    runfiles = ctx.attr._sh_tpl.default_runfiles.files.to_list()
-    for target in ctx.attr.targets:
-        runfiles.append(target.files_to_run.executable)
-        runfiles.extend(target.default_runfiles.files.to_list())
+    runfiles = ctx.runfiles(files = [
+        target.files_to_run.executable
+        for target in ctx.attr.targets
+    ]).merge(ctx.attr._sh_tpl.default_runfiles).merge_all([
+        target.default_runfiles
+        for target in ctx.attr.targets
+    ])
 
     ctx.actions.expand_template(
         template = ctx.file._sh_tpl,
@@ -23,7 +26,7 @@ def _impl(ctx):
         is_executable = True,
     )
 
-    return [DefaultInfo(runfiles = ctx.runfiles(files = runfiles))]
+    return [DefaultInfo(runfiles = runfiles)]
 
 run_parallel = rule(
     attrs = {
