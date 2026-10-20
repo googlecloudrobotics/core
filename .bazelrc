@@ -48,5 +48,6 @@ test --test_tag_filters="-external,-requires-docker"
 # Workspace status command for stamping
 build --workspace_status_command=scripts/workspace-status.sh
 
-# Compress container image layers with zstd by default
+# Use zstd instead of the default gzip to compress container image layers.
+# zstd compresses faster and produces smaller layers.
 build --@rules_img//img/settings:compress=zstd

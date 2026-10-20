@@ -80,14 +80,13 @@ image_manifest(
     base = ":base_image_with_files",
     entrypoint = ["/setup-robot-app"],
     layers = [":setup-robot-image-layer"],
-    visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "setup-robot-image.digest",
     srcs = [":setup-robot-image"],
     output_group = "digest",
-    visibility = ["//visibility:public"],
+    visibility = ["//src/bootstrap/cloud:__pkg__"],
 )
 
 container_push(
