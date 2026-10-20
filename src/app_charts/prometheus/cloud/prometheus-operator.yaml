@@ -41,7 +41,7 @@
 {{- end }}
 
 
-# Inject the serviceMonitorSelector and podMonitorSelector to allow users to override the universal matching default.
+# Inject the serviceMonitorSelector, podMonitorSelector, and ruleSelector to allow users to override the universal matching default.
 {{- $prometheusServiceMonitorSelectorMap := dict -}}
 {{- if .Values.prometheus }}
   {{- if .Values.prometheus.prometheusSpec }}
@@ -51,8 +51,8 @@
   {{- end }}
 {{- end }}
 {{- if $prometheusServiceMonitorSelectorMap }}
-  {{- $formattedPrometheusServiceMonitorSelectorObject := toYaml $prometheusServiceMonitorSelectorMap | nindent 6 -}}
-  {{- $data = $data | replace "$CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedPrometheusServiceMonitorSelectorObject)) -}}
+  {{- $formattedPrometheusServiceMonitorSelectorObject := toYaml $prometheusServiceMonitorSelectorMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedPrometheusServiceMonitorSelectorObject)) -}}
 {{- else }}
   {{- $data = $data | replace "$CR_PROMETHEUS_SERVICE_MONITOR_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
@@ -66,10 +66,25 @@
   {{- end }}
 {{- end }}
 {{- if $prometheusPodMonitorSelectorMap }}
-  {{- $formattedPrometheusPodMonitorSelectorObject := toYaml $prometheusPodMonitorSelectorMap | nindent 6 -}}
-  {{- $data = $data | replace "$CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "      " (trimPrefix "\n" $formattedPrometheusPodMonitorSelectorObject)) -}}
+  {{- $formattedPrometheusPodMonitorSelectorObject := toYaml $prometheusPodMonitorSelectorMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedPrometheusPodMonitorSelectorObject)) -}}
 {{- else }}
   {{- $data = $data | replace "$CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
+{{- end }}
+
+{{- $prometheusRuleSelectorMap := dict -}}
+{{- if .Values.prometheus }}
+  {{- if .Values.prometheus.prometheusSpec }}
+    {{- if .Values.prometheus.prometheusSpec.ruleSelector }}
+      {{- $prometheusRuleSelectorMap = .Values.prometheus.prometheusSpec.ruleSelector -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $prometheusRuleSelectorMap }}
+  {{- $formattedPrometheusRuleSelectorObject := toYaml $prometheusRuleSelectorMap | nindent 4 -}}
+  {{- $data = $data | replace "$CR_PROMETHEUS_RULE_SELECTOR_OBJECT: REMOVE_ME" (trimPrefix "    " (trimPrefix "\n" $formattedPrometheusRuleSelectorObject)) -}}
+{{- else }}
+  {{- $data = $data | replace "$CR_PROMETHEUS_RULE_SELECTOR_OBJECT: REMOVE_ME" "{}" -}}
 {{- end }}
 
 # Inject the externalLabels as a pre-formatted YAML block to allow users to define multiple labels in a dict

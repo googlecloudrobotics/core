@@ -39,17 +39,14 @@ prometheus:
     podMonitorSelector:
       $CR_PROMETHEUS_POD_MONITOR_SELECTOR_OBJECT: REMOVE_ME
 
-    # Pick up all rules across all namespaces.
+    # Pick up all rules across all namespaces by default.
     ruleNamespaceSelector:
       # Inverse selector selects everything
       matchExpressions:
       - key: "non-existent-label-for-universal-matching"
         operator: "DoesNotExist"
     ruleSelector:
-      # Inverse selector selects everything
-      matchExpressions:
-      - key: "non-existent-label-for-universal-matching"
-        operator: "DoesNotExist"
+      $CR_PROMETHEUS_RULE_SELECTOR_OBJECT: REMOVE_ME
 
     scrapeClasses:
     - name: default
