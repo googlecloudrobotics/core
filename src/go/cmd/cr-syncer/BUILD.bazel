@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
-load("@rules_oci//oci:defs.bzl", "oci_image")
-load("//bazel:crc_image_layer.bzl", "crc_image_layer")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "image_layer")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -82,15 +82,17 @@ go_binary(
     visibility = ["//visibility:private"],
 )
 
-crc_image_layer(
+image_layer(
     name = "cr-syncer-image-layer",
-    srcs = [":cr-syncer-app"],
+    srcs = {
+        "/cr-syncer-app": ":cr-syncer-app",
+    },
 )
 
-oci_image(
+image_manifest(
     name = "cr-syncer-image",
     base = "@distroless_base",
     entrypoint = ["/cr-syncer-app"],
-    tars = [":cr-syncer-image-layer"],
+    layers = [":cr-syncer-image-layer"],
     visibility = ["//visibility:public"],
 )

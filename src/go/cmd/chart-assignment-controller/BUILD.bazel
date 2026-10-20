@@ -1,6 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
-load("//bazel:crc_image_layer.bzl", "crc_image_layer")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "image_layer")
+load("@rules_img//img:load.bzl", "image_load")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -30,27 +31,24 @@ go_library(
 
 genrule(
     name = "helm-config",
-    outs = ["helm-config.tar"],
-    # To make the rule deterministic
-    #  - Remove the "generated" timestamp in repositories.yaml.
-    #  - Add some extra tar flags.
+    outs = ["repositories.yaml"],
+    # Remove the "generated" timestamp in repositories.yaml to make the rule deterministic.
     cmd = "HELM_HOME=$$PWD/.helm $(location @kubernetes_helm//:helm) >/dev/null init --client-only --skip-repos " +
-          "&& sed -i '/generated:/d' .helm/repository/repositories.yaml " +
-          "&& tar --owner=root --group=root --numeric-owner --mtime='2010-01-01' --create --file $@ .helm",
-    output_to_bindir = True,
+          "&& sed '/generated:/d' .helm/repository/repositories.yaml > $@",
     tools = ["@kubernetes_helm//:helm"],
 )
 
-oci_image(
+image_manifest(
     name = "helm-image",
     base = "@distroless_base",
-    tars = [":helm-image-layer"],
+    layers = [":helm-image-layer"],
 )
 
-crc_image_layer(
+image_layer(
     name = "helm-image-layer",
-    package_dir = "/home/nonroot/",
-    deps = [":helm-config"],
+    srcs = {
+        "/home/nonroot/.helm/repository/repositories.yaml": ":helm-config",
+    },
 )
 
 go_binary(
@@ -58,26 +56,22 @@ go_binary(
     embed = [":go_default_library"],
 )
 
-crc_image_layer(
+image_layer(
     name = "chart-assignment-controller-layer",
-    srcs = [":chart-assignment-controller-app"],
+    srcs = {
+        "/chart-assignment-controller-app": ":chart-assignment-controller-app",
+    },
 )
 
-oci_image(
+image_manifest(
     name = "chart-assignment-controller-image",
     base = ":helm-image",
     entrypoint = ["/chart-assignment-controller-app"],
-    tars = [":chart-assignment-controller-layer"],
+    layers = [":chart-assignment-controller-layer"],
 )
 
-oci_load(
+image_load(
     name = "chart-assignment-controller-tarball",
     image = ":chart-assignment-controller-image",
-    repo_tags = ["chart-assignment-controller:latest"],
-)
-
-filegroup(
-    name = "chart-assignment-controller-tarball.tar",
-    srcs = [":chart-assignment-controller-tarball"],
-    output_group = "tarball",
+    tag = "chart-assignment-controller:latest",
 )

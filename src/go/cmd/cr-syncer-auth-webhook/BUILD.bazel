@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
-load("@rules_oci//oci:defs.bzl", "oci_image")
-load("//bazel:crc_image_layer.bzl", "crc_image_layer")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "image_layer")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -30,16 +30,18 @@ go_binary(
     embed = [":go_default_library"],
 )
 
-crc_image_layer(
+image_layer(
     name = "cr-syncer-auth-webhook-layer",
-    srcs = [":cr-syncer-auth-webhook-app"],
+    srcs = {
+        "/cr-syncer-auth-webhook-app": ":cr-syncer-auth-webhook-app",
+    },
 )
 
-oci_image(
+image_manifest(
     name = "cr-syncer-auth-webhook-image",
     base = "@distroless_base",
     entrypoint = ["/cr-syncer-auth-webhook-app"],
-    tars = [":cr-syncer-auth-webhook-layer"],
+    layers = [":cr-syncer-auth-webhook-layer"],
 )
 
 go_test(

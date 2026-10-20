@@ -6,9 +6,11 @@ def _get_runfile_path(ctx, f):
         return "${RUNFILES}/" + f.short_path
 
 def _impl(ctx):
-    runfiles = ctx.attr._sh_tpl.default_runfiles.files.to_list()
-    runfiles.append(ctx.attr.target.files_to_run.executable)
-    runfiles.extend(ctx.attr.target.default_runfiles.files.to_list())
+    runfiles = ctx.runfiles(files = [
+        ctx.attr.target.files_to_run.executable,
+    ]).merge(ctx.attr._sh_tpl.default_runfiles).merge(
+        ctx.attr.target.default_runfiles,
+    )
 
     variables = "PYTHON_RUNFILES=\"${RUNFILES}\" RUNFILES_DIR=\"${RUNFILES}\" "
     ctx.actions.expand_template(
@@ -21,7 +23,7 @@ def _impl(ctx):
         is_executable = True,
     )
 
-    return [DefaultInfo(runfiles = ctx.runfiles(files = runfiles))]
+    return [DefaultInfo(runfiles = runfiles)]
 
 cache_gcr_credentials = rule(
     attrs = {

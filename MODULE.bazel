@@ -2,7 +2,7 @@ bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
 bazel_dep(name = "bazel_skylib", version = "1.9.2")
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "protobuf", version = "36.2", repo_name = "com_google_protobuf")
-bazel_dep(name = "rules_oci", version = "2.3.0")
+bazel_dep(name = "rules_img", version = "0.3.23")
 bazel_dep(name = "rules_pkg", version = "1.3.0")
 bazel_dep(name = "rules_shell", version = "0.8.0")
 bazel_dep(name = "rules_helm", version = "0.34.0")
@@ -108,17 +108,13 @@ use_repo(
 # OCI #
 #######
 
-oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+img_pull = use_repo_rule("@rules_img//img:pull.bzl", "pull")
 
 # gcloud container images describe gcr.io/distroless/base:latest --format='value(image_summary.digest)'
-oci.pull(
+img_pull(
     name = "distroless_base",
     digest = "sha256:389cad21f73e4c37b94ffe5b13736d5a92bd5bd3c6c6b38c2be1c881e14ba2bd",
-    image = "gcr.io/distroless/base",
     platforms = ["linux/amd64"],
-)
-use_repo(
-    oci,
-    "distroless_base",
-    "distroless_base_linux_amd64",
+    registry = "gcr.io",
+    repository = "distroless/base",
 )

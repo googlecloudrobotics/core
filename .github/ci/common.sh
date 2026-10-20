@@ -43,9 +43,10 @@ function release_binary {
   oldPwd=$(pwd)
   # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl
   for t in latest ${DOCKER_TAG}; do
-    cd ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/${RUNFILES_ROOT}
-    ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh \
-      --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
+    cd ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push.exe.runfiles/${RUNFILES_ROOT}
+    ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push.exe \
+      --registry="${CLOUD_ROBOTICS_CONTAINER_REGISTRY%%/*}" \
+      --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY#*/}/setup-robot" \
       --tag="${t}"
 
     cd ${oldPwd}/bazel-bin/src/app_charts/push.runfiles/${RUNFILES_ROOT}

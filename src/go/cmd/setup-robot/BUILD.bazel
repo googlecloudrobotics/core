@@ -1,6 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push")
-load("//bazel:crc_image_layer.bzl", "crc_image_layer")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "image_layer")
+load("//bazel:container_push.bzl", "container_push")
 
 go_library(
     name = "go_default_library",
@@ -46,20 +47,19 @@ go_test(
     ],
 )
 
-crc_image_layer(
+image_layer(
     name = "base_image_with_files_layer",
-    srcs = [
-        "//src/app_charts/base:base-robot",
-        "//src/go/cmd/synk",
-        "@kubernetes_helm//:helm",
-    ],
-    package_dir = "/setup-robot-files",
+    srcs = {
+        "/setup-robot-files/base-robot-0.0.1.tgz": "//src/app_charts/base:base-robot",
+        "/setup-robot-files/synk": "//src/go/cmd/synk",
+        "/setup-robot-files/helm": "@kubernetes_helm//:helm",
+    },
 )
 
-oci_image(
+image_manifest(
     name = "base_image_with_files",
     base = "@distroless_base",
-    tars = [":base_image_with_files_layer"],
+    layers = [":base_image_with_files_layer"],
 )
 
 go_binary(
@@ -68,20 +68,29 @@ go_binary(
     visibility = ["//visibility:private"],
 )
 
-crc_image_layer(
+image_layer(
     name = "setup-robot-image-layer",
-    srcs = [":setup-robot-app"],
+    srcs = {
+        "/setup-robot-app": ":setup-robot-app",
+    },
 )
 
-oci_image(
+image_manifest(
     name = "setup-robot-image",
     base = ":base_image_with_files",
     entrypoint = ["/setup-robot-app"],
-    tars = [":setup-robot-image-layer"],
+    layers = [":setup-robot-image-layer"],
     visibility = ["//visibility:public"],
 )
 
-oci_push(
+filegroup(
+    name = "setup-robot-image.digest",
+    srcs = [":setup-robot-image"],
+    output_group = "digest",
+    visibility = ["//visibility:public"],
+)
+
+container_push(
     name = "setup-robot.push",
     image = ":setup-robot-image",
     visibility = ["//visibility:public"],

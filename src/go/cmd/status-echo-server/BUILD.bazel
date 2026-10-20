@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
-load("@rules_oci//oci:defs.bzl", "oci_image")
-load("//bazel:crc_image_layer.bzl", "crc_image_layer")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "image_layer")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -19,16 +19,18 @@ go_binary(
     embed = [":go_default_library"],
 )
 
-crc_image_layer(
+image_layer(
     name = "status-echo-server-image-layer",
-    srcs = [":status-echo-server-app"],
+    srcs = {
+        "/status-echo-server-app": ":status-echo-server-app",
+    },
 )
 
-oci_image(
+image_manifest(
     name = "status-echo-server-image",
     base = "@distroless_base",
     entrypoint = ["/status-echo-server-app"],
-    tars = [":status-echo-server-image-layer"],
+    layers = [":status-echo-server-image-layer"],
 )
 
 go_test(
