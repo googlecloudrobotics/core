@@ -153,10 +153,16 @@
 
 # Inject externalLabels
 {{- $externalLabelsMap := dict -}}
+{{- if and .Values.robot .Values.robot.name }}
+  {{- $_ := set $externalLabelsMap "robot" .Values.robot.name -}}
+  {{- $_ := set $externalLabelsMap "cluster" .Values.robot.name -}}
+{{- end }}
 {{- if .Values.vmagent }}
   {{- if .Values.vmagent.spec }}
     {{- if .Values.vmagent.spec.externalLabels }}
-      {{- $externalLabelsMap = .Values.vmagent.spec.externalLabels -}}
+      {{- range $k, $v := .Values.vmagent.spec.externalLabels }}
+        {{- $_ := set $externalLabelsMap $k $v -}}
+      {{- end }}
     {{- end }}
   {{- end }}
 {{- end }}
