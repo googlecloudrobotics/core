@@ -269,15 +269,6 @@ func (s *Synk) Apply(
 		return rs, err
 	}
 	results, applyErr := s.applyAll(ctx, rs, opts, resources...)
-	defer func() {
-		// We always want to clean up old failed ResourceSets. There is no reason
-		// to keep multiple failed ones around. But a failure in the cleanup is not
-		// critical. So we only log it.
-		if err := s.deleteFailedResourceSets(ctx, opts.name, opts.version); err != nil {
-			slog.Warn("Failed to remove failed ResourceSets", slog.Any("Name", opts.name), slog.Any("Error", err))
-		}
-	}()
-
 	if err := s.updateResourceSetStatus(ctx, rs, results); err != nil {
 		return rs, err
 	}
@@ -285,6 +276,11 @@ func (s *Synk) Apply(
 		if err := s.deleteResourceSets(ctx, opts.name, opts.version); err != nil {
 			return rs, err
 		}
+	} else if err := s.deleteFailedResourceSets(ctx, opts.name, opts.version); err != nil {
+		// We always want to clean up old failed ResourceSets. There is no reason
+		// to keep multiple failed ones around. But a failure in the cleanup is not
+		// critical. So we only log it.
+		slog.Warn("Failed to remove failed ResourceSets", slog.Any("Name", opts.name), slog.Any("Error", err))
 	}
 	return rs, applyErr
 }
@@ -1210,7 +1206,9 @@ func (s *Synk) next(ctx context.Context, name string) (version int, err error) {
 	ctx, span := tracer.Start(ctx, "Get next ResourceSet version")
 	defer span.End()
 
-	list, err := s.client.Resource(resourceSetGVR).List(ctx, metav1.ListOptions{})
+	list, err := s.client.Resource(resourceSetGVR).List(ctx, metav1.ListOptions{
+		LabelSelector: "name=" + name,
+	})
 	if err != nil {
 		return 0, fmt.Errorf("list existing ResourceSets: %w", err)
 	}

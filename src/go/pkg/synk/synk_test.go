@@ -760,6 +760,133 @@ func TestSynk_deleteFailedResourceSets(t *testing.T) {
 	f.verifyWriteActions()
 }
 
+func TestSynk_next(t *testing.T) {
+	ctx := t.Context()
+	nu := func(name, version string) *unstructured.Unstructured {
+		u := newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", name+"."+version)
+		u.SetLabels(map[string]string{"name": name})
+		return u
+	}
+	f := newFixture(t)
+	f.addObjects(
+		nu("test", "v2"),
+		nu("other", "v9"),
+		nu("test", "v5"),
+	)
+	synk := f.newSynk()
+
+	version, err := synk.next(ctx, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if version != 6 {
+		t.Errorf("next() = %d, want 6", version)
+	}
+	actions := f.fake.Actions()
+	if len(actions) != 1 {
+		t.Fatalf("expected 1 action, got %d", len(actions))
+	}
+	listAction, ok := actions[0].(k8stest.ListAction)
+	if !ok {
+		t.Fatalf("expected ListAction, got %T", actions[0])
+	}
+	if got := listAction.GetListRestrictions().Labels.String(); got != "name=test" {
+		t.Errorf("List label selector = %q, want %q", got, "name=test")
+	}
+}
+
+func TestSynk_Apply_ResourceSetCleanup(t *testing.T) {
+	nu := func(name, version string, failed bool) *unstructured.Unstructured {
+		u := newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "", name+"."+version)
+		u.SetLabels(map[string]string{"name": name})
+		if failed {
+			unstructured.SetNestedField(u.Object, "Failed", "status", "phase")
+		} else {
+			unstructured.SetNestedField(u.Object, "Settled", "status", "phase")
+		}
+		return u
+	}
+
+	t.Run("success deletes all older ResourceSets in one list", func(t *testing.T) {
+		f := newFixture(t)
+		f.addObjects(
+			nu("test", "v1", false),
+			nu("test", "v2", true),
+		)
+		s := f.newSynk()
+
+		_, err := s.Apply(t.Context(), "test", &ApplyOptions{Namespace: "ns"},
+			newUnstructured("v1", "Pod", "ns", "pod1"),
+		)
+		if err != nil {
+			t.Fatalf("Apply() failed: %v", err)
+		}
+
+		var rsLists int
+		var deleted []string
+		for _, a := range f.fake.Actions() {
+			if a.GetResource() != resourceSetGVR {
+				continue
+			}
+			switch v := a.(type) {
+			case k8stest.ListAction:
+				rsLists++
+			case k8stest.DeleteAction:
+				deleted = append(deleted, v.GetName())
+			}
+		}
+		// 1 List in next() + 1 List in deleteResourceSets() (no redundant List in deleteFailedResourceSets()).
+		if rsLists != 2 {
+			t.Errorf("expected 2 ResourceSet List calls, got %d", rsLists)
+		}
+		wantDeleted := []string{"test.v1", "test.v2"}
+		if !reflect.DeepEqual(deleted, wantDeleted) {
+			t.Errorf("deleted ResourceSets = %v, want %v", deleted, wantDeleted)
+		}
+	})
+
+	t.Run("failure deletes only older failed ResourceSets", func(t *testing.T) {
+		f := newFixture(t)
+		f.addObjects(
+			nu("test", "v1", false),
+			nu("test", "v2", true),
+		)
+		s := f.newSynk()
+		f.fake.PrependReactor("create", "pods", func(action k8stest.Action) (bool, runtime.Object, error) {
+			return true, nil, errors.New("permanent failure")
+		})
+
+		_, err := s.Apply(t.Context(), "test", &ApplyOptions{Namespace: "ns"},
+			newUnstructured("v1", "Pod", "ns", "pod1"),
+		)
+		if err == nil {
+			t.Fatalf("Apply() succeeded unexpectedly")
+		}
+
+		var rsLists int
+		var deleted []string
+		for _, a := range f.fake.Actions() {
+			if a.GetResource() != resourceSetGVR {
+				continue
+			}
+			switch v := a.(type) {
+			case k8stest.ListAction:
+				rsLists++
+			case k8stest.DeleteAction:
+				deleted = append(deleted, v.GetName())
+			}
+		}
+		// 1 List in next() + 1 List in deleteFailedResourceSets().
+		if rsLists != 2 {
+			t.Errorf("expected 2 ResourceSet List calls, got %d", rsLists)
+		}
+		wantDeleted := []string{"test.v2"}
+		if !reflect.DeepEqual(deleted, wantDeleted) {
+			t.Errorf("deleted ResourceSets = %v, want %v", deleted, wantDeleted)
+		}
+	})
+}
+
 func TestSynk_populateNamespaces(t *testing.T) {
 	f := newFixture(t)
 	s := f.newSynk()
