@@ -403,8 +403,8 @@ go.opentelemetry.io/contrib/detectors/gcp v1.47.0 h1:Ct6+aaiSO6Nk5SOb6PYcR7iWp+8
 go.opentelemetry.io/contrib/detectors/gcp v1.47.0/go.mod h1:3N259ss0b1AVOs+fYw7lOO0mcUwNqSIpQ+Zitpuqx00=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.70.0 h1:oECp5f+hN7nkwjU/8BxQ/q23bGPb8FIrD839owX222E=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.70.0/go.mod h1:DqEFwLumhzMBDQv9PcWbyoDxHI/4lAk6CM4nJBH39sc=
-go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0 h1:3g7B90UzBltIDKq1/5mrTGxTnOFDV0ICOhLoxiZ8jlg=
-go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0/go.mod h1:Ef8SuTh59BT7+ofpDxN9z+yOlc4t2GjLmKDgYNJL/NU=
+go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0 h1:LxwW/9ctSCv+QkE/cLR7M91ZIkXNMqJtEMi1vCw9U8s=
+go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0/go.mod h1:tOsftB4SslBwwErVEPaenU2RpThXWPIU8DoJHEC4dyw=
 go.opentelemetry.io/contrib/propagators/b3 v1.47.0 h1:vlKDmtjhe1R0d7kdov/+KVTKWOKeGLyohB+iXoDPRMQ=
 go.opentelemetry.io/contrib/propagators/b3 v1.47.0/go.mod h1:0zRiXIfXU30PKYMsdbqYbGK8iHF8KqyPi0qdXT2wAuE=
 go.opentelemetry.io/contrib/propagators/opencensus v0.72.0 h1:+qXYt4C4syqA7KM4zNjP72tchajOAEpcfgObsxzPKoc=
