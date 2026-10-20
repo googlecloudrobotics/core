@@ -203,6 +203,7 @@ func (s *Synk) Init(ctx context.Context) error {
 		return fmt.Errorf("create ResourceSet CRD: %w", err)
 	}
 
+	_, span := tracer.Start(ctx, "Wait for ResourceSet CRD")
 	err := backoff.Retry(
 		func() error {
 			ok, err := s.crdAvailable(&u)
@@ -217,6 +218,7 @@ func (s *Synk) Init(ctx context.Context) error {
 		},
 		backoff.WithContext(backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 60), ctx),
 	)
+	span.End()
 	if err != nil {
 		return fmt.Errorf("wait for ResourceSet CRD: %w", err)
 	}
@@ -370,6 +372,7 @@ func (s *Synk) applyAll(
 		}
 		wg.Wait()
 
+		_, span := tracer.Start(ctx, "Wait for CRDs")
 		err := backoff.Retry(
 			func() error {
 				for _, crd := range crds {
@@ -385,6 +388,7 @@ func (s *Synk) applyAll(
 			},
 			backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 60),
 		)
+		span.End()
 		if err != nil {
 			return results, fmt.Errorf("wait for CRDs: %w", err)
 		}
@@ -1014,6 +1018,9 @@ var resourceSetGVR = schema.GroupVersionResource{
 }
 
 func (s *Synk) createResourceSet(ctx context.Context, rs *apps.ResourceSet) error {
+	ctx, span := tracer.Start(ctx, "Create ResourceSet")
+	defer span.End()
+
 	rs.Kind = "ResourceSet"
 	rs.APIVersion = "apps.cloudrobotics.com/v1alpha1"
 
@@ -1066,6 +1073,9 @@ func (r applyResults) list() (l []*applyResult) {
 }
 
 func (s *Synk) updateResourceSetStatus(ctx context.Context, rs *apps.ResourceSet, results applyResults) error {
+	ctx, span := tracer.Start(ctx, "Update ResourceSet status")
+	defer span.End()
+
 	type group map[schema.GroupVersionKind][]apps.ResourceStatus
 	applied, failed := group{}, group{}
 
@@ -1125,6 +1135,9 @@ func (s *Synk) updateResourceSetStatus(ctx context.Context, rs *apps.ResourceSet
 // deleteFailedResourceSets deletes all failed ResourceSets of the given name
 // that have a lower version.
 func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, version int) error {
+	ctx, span := tracer.Start(ctx, "Delete failed ResourceSets")
+	defer span.End()
+
 	c := s.client.Resource(resourceSetGVR)
 
 	list, err := c.List(ctx, metav1.ListOptions{
@@ -1149,7 +1162,10 @@ func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, versio
 		// we only return after all dependents have been deleted as well?
 		// kubectl doesn't allow to opt into foreground deletion in general but
 		// here it would likely bring us closer to the apply --prune semantics.
-		if err := c.Delete(ctx, r.GetName(), metav1.DeleteOptions{}); err != nil {
+		_, delSpan := tracer.Start(ctx, "Delete "+r.GetName())
+		err = c.Delete(ctx, r.GetName(), metav1.DeleteOptions{})
+		delSpan.End()
+		if err != nil {
 			return fmt.Errorf("delete ResourceSet %q: %w", r.GetName(), err)
 		}
 	}
@@ -1159,6 +1175,9 @@ func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, versio
 // deleteResourceSets deletes all ResourceSets of the given name that have a
 // lower version.
 func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int) error {
+	ctx, span := tracer.Start(ctx, "Delete old ResourceSets")
+	defer span.End()
+
 	c := s.client.Resource(resourceSetGVR)
 
 	list, err := c.List(ctx, metav1.ListOptions{
@@ -1176,7 +1195,10 @@ func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int)
 		// we only return after all dependents have been deleted as well?
 		// kubectl doesn't allow to opt into foreground deletion in general but
 		// here it would likely bring us closer to the apply --prune semantics.
-		if err := c.Delete(ctx, r.GetName(), metav1.DeleteOptions{}); err != nil {
+		_, delSpan := tracer.Start(ctx, "Delete "+r.GetName())
+		err := c.Delete(ctx, r.GetName(), metav1.DeleteOptions{})
+		delSpan.End()
+		if err != nil {
 			return fmt.Errorf("delete ResourceSet %q: %w", r.GetName(), err)
 		}
 	}
@@ -1185,6 +1207,9 @@ func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int)
 
 // next returns the next version for the resources name.
 func (s *Synk) next(ctx context.Context, name string) (version int, err error) {
+	ctx, span := tracer.Start(ctx, "Get next ResourceSet version")
+	defer span.End()
+
 	list, err := s.client.Resource(resourceSetGVR).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("list existing ResourceSets: %w", err)
