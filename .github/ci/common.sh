@@ -234,10 +234,11 @@ function publish_release_size_metrics() {
   collect_release_blob_rows "${registry}" "${tag}" "${release_time}" "${cache_dir}" > "${rows_file}"
 
   if [[ -s "${rows_file}" ]]; then
-    bq --project_id="${bq_project}" query --use_legacy_sql=false --quiet \
+    bq --project_id="${bq_project}" --quota_project_id="${bq_project}" query \
+      --use_legacy_sql=false --quiet \
       --parameter="tag:STRING:${tag}" \
       "DELETE FROM \`${bq_table/:/\.}\` WHERE release_tag = @tag"
-    bq --project_id="${bq_project}" load \
+    bq --project_id="${bq_project}" --quota_project_id="${bq_project}" load \
       --source_format=NEWLINE_DELIMITED_JSON \
       "${bq_table}" \
       "${rows_file}"
