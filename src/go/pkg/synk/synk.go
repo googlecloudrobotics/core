@@ -342,6 +342,7 @@ func (s *Synk) applyAll(
 	if workers <= 0 {
 		workers = 1
 	}
+	// Buffered channel used to limit the number of simultaneously running workers.
 	activeWorkers := make(chan struct{}, workers)
 
 	crds, regulars := separateCRDsFromResources(resources)
@@ -390,7 +391,7 @@ func (s *Synk) applyAll(
 		}
 	}
 
-	prefetched := s.prefetchResources(ctx, regulars, activeWorkers)
+	prefetched := s.prefetchResources(ctx, regulars)
 
 	for _, tier := range groupByPriority(regulars) {
 		// Try applying until the errors stay the same between iterations. Put in
@@ -400,6 +401,10 @@ func (s *Synk) applyAll(
 		for i := 0; i < 10; i++ {
 			var curFailures int
 			var wg sync.WaitGroup
+			// Only use the pre-fetched snapshot on the first attempt (i == 0).
+			// On retries (i > 0), leave tierPrefetched nil so applyOne falls
+			// back to individual Get calls and fetches the latest cluster state
+			// for resources that failed to apply.
 			var tierPrefetched *prefetchedResources
 			if i == 0 {
 				tierPrefetched = prefetched
@@ -810,14 +815,12 @@ func (p *prefetchedResources) lookup(gvr schema.GroupVersionResource, namespace,
 func (s *Synk) prefetchResources(
 	ctx context.Context,
 	resources []*unstructured.Unstructured,
-	activeWorkers chan struct{},
 ) *prefetchedResources {
 	type groupInfo struct {
-		gvk   schema.GroupVersionKind
-		names map[string]struct{}
+		gvk      schema.GroupVersionKind
+		namesSet map[string]struct{}
 	}
 	groups := map[resourceGroupKey]*groupInfo{}
-	var keys []resourceGroupKey
 
 	for _, r := range resources {
 		if r.GetName() == "" {
@@ -843,24 +846,28 @@ func (s *Synk) prefetchResources(
 		info, ok := groups[key]
 		if !ok {
 			info = &groupInfo{
-				gvk:   mapping.GroupVersionKind,
-				names: map[string]struct{}{},
+				gvk:      mapping.GroupVersionKind,
+				namesSet: map[string]struct{}{},
 			}
 			groups[key] = info
-			keys = append(keys, key)
 		}
-		info.names[r.GetName()] = struct{}{}
+		info.namesSet[r.GetName()] = struct{}{}
 	}
 
 	prefetched := &prefetchedResources{
 		byGroup: map[resourceGroupKey]map[string]*unstructured.Unstructured{},
 	}
+	workers := s.workers
+	if workers <= 0 {
+		workers = 1
+	}
+	// Buffered channel used to limit the number of simultaneously running workers.
+	activeWorkers := make(chan struct{}, workers)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	for _, key := range keys {
-		info := groups[key]
-		if len(info.names) < 2 {
+	for key, info := range groups {
+		if len(info.namesSet) < 2 {
 			continue
 		}
 		activeWorkers <- struct{}{}
@@ -885,10 +892,10 @@ func (s *Synk) prefetchResources(
 					ilog.Err(err))
 				return
 			}
-			byName := make(map[string]*unstructured.Unstructured, len(info.names))
+			byName := make(map[string]*unstructured.Unstructured, len(info.namesSet))
 			for i := range list.Items {
 				item := &list.Items[i]
-				if _, wanted := info.names[item.GetName()]; !wanted {
+				if _, wanted := info.namesSet[item.GetName()]; !wanted {
 					continue
 				}
 				if item.GetKind() == "" {
