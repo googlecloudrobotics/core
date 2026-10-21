@@ -20,6 +20,7 @@ export default {
   allowedUnsafeExecutions: ['bazelModDeps'],
   allowedCommands: [
     '^install-tool bazelisk && bazel mod deps --lockfile_mode=update$',
+    '^install-tool helm && rm -f third_party/cert-manager/cert-manager-\\S+\\.tgz && helm pull cert-manager --repo https://charts\\.jetstack\\.io --version v[0-9][0-9A-Za-z.+-]* -d third_party/cert-manager/$',
   ],
   enabledManagers: [
     'bazel-module',
@@ -75,6 +76,16 @@ export default {
       datasourceTemplate: 'golang-version',
       depNameTemplate: 'go',
     },
+    {
+      // The cert-manager chart is vendored as a .tgz, see the packageRule
+      // below for how the new version is fetched.
+      customType: 'regex',
+      managerFilePatterns: ['third_party/cert-manager/BUILD.bazel'],
+      matchStrings: ['CERT_MANAGER_VERSION = "(?<currentValue>[^"]+)"'],
+      datasourceTemplate: 'helm',
+      registryUrlTemplate: 'https://charts.jetstack.io',
+      depNameTemplate: 'cert-manager',
+    },
   ],
   packageRules: [
     {
@@ -100,6 +111,18 @@ export default {
         ],
         fileFilters: ['MODULE.bazel.lock'],
         executionMode: 'branch',
+      },
+    },
+    {
+      matchManagers: ['custom.regex'],
+      matchDatasources: ['helm'],
+      matchDepNames: ['cert-manager'],
+      postUpgradeTasks: {
+        commands: [
+          'install-tool helm && rm -f third_party/cert-manager/cert-manager-*.tgz && helm pull cert-manager --repo https://charts.jetstack.io --version {{{newVersion}}} -d third_party/cert-manager/',
+        ],
+        fileFilters: ['third_party/cert-manager/*.tgz'],
+        executionMode: 'update',
       },
     },
   ],

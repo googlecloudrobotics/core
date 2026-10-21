@@ -2,14 +2,14 @@
 # Apache 2.0 license
 licenses(["notice"])
 
-# files downloaded by running:
-# helm repo add jetstack https://charts.jetstack.io --force-update
-# cert_manager_version="v1.21.2"
-# helm pull jetstack/cert-manager --version ${cert_manager_version} -d third_party/cert-manager/
+# Renovate updates this version and fetches the matching chart, see
+# .github/ci/renovate-config.js. To update manually, run:
+#   rm third_party/cert-manager/cert-manager-*.tgz
+#   helm pull cert-manager --repo https://charts.jetstack.io --version ${CERT_MANAGER_VERSION} -d third_party/cert-manager/
+CERT_MANAGER_VERSION = "v1.21.2"
 
-exports_files(
-    glob([
-        "*.tgz",
-    ]),
+alias(
+    name = "cert-manager-chart",
+    actual = "cert-manager-%s.tgz" % CERT_MANAGER_VERSION,
     visibility = ["//visibility:public"],
 )
