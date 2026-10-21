@@ -48,7 +48,7 @@ register_toolchains("@llvm_toolchain//:all")
 bazel_dep(name = "rules_go", version = "0.64.2", repo_name = "io_bazel_rules_go")
 
 go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
-go_sdk.download(version = "1.27.2")
+go_sdk.download(version = "1.27.3")
 
 bazel_dep(name = "gazelle", version = "0.54.0", repo_name = "bazel_gazelle")
 
@@ -113,7 +113,7 @@ img_pull = use_repo_rule("@rules_img//img:pull.bzl", "pull")
 # gcloud container images describe gcr.io/distroless/base:latest --format='value(image_summary.digest)'
 img_pull(
     name = "distroless_base",
-    digest = "sha256:389cad21f73e4c37b94ffe5b13736d5a92bd5bd3c6c6b38c2be1c881e14ba2bd",
+    digest = "sha256:65be09d063b5d4737995ca5a17bb7e12ed990412751ec8ec212c9d74db257639",
     platforms = ["linux/amd64"],
     registry = "gcr.io",
     repository = "distroless/base",
