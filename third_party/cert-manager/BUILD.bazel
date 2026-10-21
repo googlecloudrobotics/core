@@ -2,10 +2,8 @@
 # Apache 2.0 license
 licenses(["notice"])
 
-# Renovate updates this version and fetches the matching chart, see
-# .github/ci/renovate-config.js. To update manually, run:
-#   rm third_party/cert-manager/cert-manager-*.tgz
-#   helm pull cert-manager --repo https://charts.jetstack.io --version ${CERT_MANAGER_VERSION} -d third_party/cert-manager/
+# Updated by Renovate. To update manually, run:
+#   third_party/cert-manager/update.sh <version>
 CERT_MANAGER_VERSION = "v1.21.2"
 
 alias(
