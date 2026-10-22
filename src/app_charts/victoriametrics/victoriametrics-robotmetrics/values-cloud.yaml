@@ -24,6 +24,13 @@ vmcluster:
       replicaCount: 2
       nodeSelector: {}
       tolerations: []
+      resources:
+        requests:
+          cpu: "1000m"
+          memory: "4Gi"
+        limits:
+          cpu: "2000m"
+          memory: "12Gi"
       storage:
         volumeClaimTemplate:
           spec:

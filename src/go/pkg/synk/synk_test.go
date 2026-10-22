@@ -659,6 +659,179 @@ func TestSynk_applyAllRetriesResourceExpired(t *testing.T) {
 	}
 }
 
+func TestSynk_applyAllPrefetchesMultipleResources(t *testing.T) {
+	set := &apps.ResourceSet{}
+	set.Name = "test.v1"
+	set.UID = "deadbeef"
+	ownerRef := metav1.OwnerReference{
+		APIVersion:         "apps.cloudrobotics.com/v1alpha1",
+		Kind:               "ResourceSet",
+		Name:               set.Name,
+		UID:                set.UID,
+		BlockOwnerDeletion: new(true),
+	}
+
+	t.Run("lists group with >=2 resources and gets single resource", func(t *testing.T) {
+		var cm1Before corev1.ConfigMap
+		unmarshalYAML(t, &cm1Before, `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: foo1
+  name: cm1
+data:
+  foo1: bar1`)
+		f := newFixture(t)
+		f.addObjects(&cm1Before)
+
+		var cm1Update, cm2Create corev1.ConfigMap
+		unmarshalYAML(t, &cm1Update, `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: foo1
+  name: cm1
+data:
+  foo1: baz1`)
+		unmarshalYAML(t, &cm2Create, `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: foo1
+  name: cm2
+data:
+  foo2: bar2`)
+		cm1 := toUnstructured(t, &cm1Update)
+		cm2 := toUnstructured(t, &cm2Create)
+		deploy := newUnstructured("apps/v1", "Deployment", "foo1", "dp1")
+
+		s := f.newSynk()
+		_, err := s.applyAll(t.Context(), set, &ApplyOptions{name: "test"},
+			cm1.DeepCopy(),
+			cm2.DeepCopy(),
+			deploy.DeepCopy(),
+		)
+		if err != nil {
+			t.Fatalf("applyAll() failed: %v", err)
+		}
+
+		var cmLists, cmGets, deployLists, deployGets int
+		for _, a := range f.fake.Actions() {
+			switch a.GetResource() {
+			case gvrs["configmaps"]:
+				switch a.GetVerb() {
+				case "list":
+					cmLists++
+				case "get":
+					cmGets++
+				}
+			case gvrs["deployments"]:
+				switch a.GetVerb() {
+				case "list":
+					deployLists++
+				case "get":
+					deployGets++
+				}
+			}
+		}
+		if cmLists != 1 || cmGets != 0 {
+			t.Errorf("configmaps read actions: got %d list and %d get, want 1 list and 0 get", cmLists, cmGets)
+		}
+		if deployLists != 0 || deployGets != 1 {
+			t.Errorf("deployments read actions: got %d list and %d get, want 0 list and 1 get", deployLists, deployGets)
+		}
+
+		cm1.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+		cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+		deploy.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+		setAppliedAnnotation(cm1)
+		setAppliedAnnotation(cm2)
+		setAppliedAnnotation(deploy)
+
+		f.expectActions(
+			k8stest.NewUpdateAction(gvrs["configmaps"], "foo1", cm1),
+			k8stest.NewCreateAction(gvrs["configmaps"], "foo1", cm2),
+			k8stest.NewCreateAction(gvrs["deployments"], "foo1", deploy),
+		)
+		f.verifyWriteActions()
+	})
+
+	t.Run("falls back to get when list fails", func(t *testing.T) {
+		f := newFixture(t)
+		s := f.newSynk()
+		f.fake.PrependReactor("list", "deployments", func(action k8stest.Action) (bool, runtime.Object, error) {
+			return true, nil, errors.New("list forbidden")
+		})
+
+		dp1 := newUnstructured("apps/v1", "Deployment", "foo1", "dp1")
+		dp2 := newUnstructured("apps/v1", "Deployment", "foo1", "dp2")
+
+		_, err := s.applyAll(t.Context(), set, &ApplyOptions{name: "test"},
+			dp1.DeepCopy(),
+			dp2.DeepCopy(),
+		)
+		if err != nil {
+			t.Fatalf("applyAll() failed: %v", err)
+		}
+
+		var deployLists, deployGets int
+		for _, a := range f.fake.Actions() {
+			if a.GetResource() != gvrs["deployments"] {
+				continue
+			}
+			switch a.GetVerb() {
+			case "list":
+				deployLists++
+			case "get":
+				deployGets++
+			}
+		}
+		if deployLists != 1 || deployGets != 2 {
+			t.Errorf("deployments read actions: got %d list and %d get, want 1 list and 2 get", deployLists, deployGets)
+		}
+	})
+
+	t.Run("falls back to get on retry", func(t *testing.T) {
+		f := newFixture(t)
+		s := f.newSynk()
+		f.fake.PrependReactor("create", "deployments", func(action k8stest.Action) (bool, runtime.Object, error) {
+			ca := action.(k8stest.CreateAction)
+			if ca.GetObject().(*unstructured.Unstructured).GetName() == "dp1" {
+				return true, nil, k8serrors.NewResourceExpired("gone")
+			}
+			return false, nil, nil
+		})
+
+		dp1 := newUnstructured("apps/v1", "Deployment", "foo1", "dp1")
+		dp2 := newUnstructured("apps/v1", "Deployment", "foo1", "dp2")
+
+		_, err := s.applyAll(t.Context(), set, &ApplyOptions{name: "test"},
+			dp1.DeepCopy(),
+			dp2.DeepCopy(),
+		)
+		if err == nil {
+			t.Fatalf("applyAll() succeeded unexpectedly")
+		}
+
+		var deployLists, deployGets int
+		for _, a := range f.fake.Actions() {
+			if a.GetResource() != gvrs["deployments"] {
+				continue
+			}
+			switch a.GetVerb() {
+			case "list":
+				deployLists++
+			case "get":
+				deployGets++
+			}
+		}
+		// Iteration 0 uses 1 List for both dp1 and dp2; iteration 1 retries failed dp1 using 1 Get.
+		if deployLists != 1 || deployGets != 1 {
+			t.Errorf("deployments read actions: got %d list and %d get, want 1 list and 1 get", deployLists, deployGets)
+		}
+	})
+}
+
 func TestSynk_skipsTestResources(t *testing.T) {
 	ctx := t.Context()
 	s := newFixture(t).newSynk()
