@@ -977,6 +977,14 @@ func (s *Synk) applyOne(
 		return apps.ResourceActionNone, fmt.Errorf("owner conflict: %w", err)
 	}
 
+	if current.GetDeletionTimestamp() != nil {
+		return apps.ResourceActionNone, transientErr{
+			fmt.Errorf("resource %s/%s is terminating (deletionTimestamp: %s, finalizers: %v); waiting for cleanup",
+				resource.GetNamespace(), resource.GetName(),
+				current.GetDeletionTimestamp(), current.GetFinalizers()),
+		}
+	}
+
 	if set != nil && !isCustomResourceDefinition(current) && current.GetAnnotations()[AnnotationIgnore] == "true" {
 		// We are ignoring the desired spec change, but we must still update
 		// the owner reference on the current cluster resource to point to the
