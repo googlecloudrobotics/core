@@ -113,7 +113,7 @@ img_pull = use_repo_rule("@rules_img//img:pull.bzl", "pull")
 # gcloud container images describe gcr.io/distroless/base:latest --format='value(image_summary.digest)'
 img_pull(
     name = "distroless_base",
-    digest = "sha256:65be09d063b5d4737995ca5a17bb7e12ed990412751ec8ec212c9d74db257639",
+    digest = "sha256:f5e95195e998742ff590b7569bae479accce1226e51ae6c3118954030121cdcb",
     platforms = ["linux/amd64"],
     registry = "gcr.io",
     repository = "distroless/base",
