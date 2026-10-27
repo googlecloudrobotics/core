@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.10.0
 	cloud.google.com/go/storage v1.65.0
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/envoyproxy/go-control-plane/envoy v1.39.0
+	github.com/envoyproxy/go-control-plane/envoy v1.40.0
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590
