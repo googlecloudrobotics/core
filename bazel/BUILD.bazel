@@ -4,7 +4,6 @@ exports_files([
     "app.bzl",
     "app_chart.bzl",
     "container_push.bzl",
-    "crc_image_layer.bzl",
     "repositories.bzl",
 ])
 

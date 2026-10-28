@@ -8,9 +8,9 @@ go_test(
     timeout = "long",
     srcs = ["apps_test.go"],
     data = [
-        "//src/app_charts/base:base-test",
+        "//src/app_charts/chart-assignment-controller",
         "//src/go/cmd/synk",
-        "@kubernetes_helm//:helm",
+        "@kubernetes_helm3//:helm",
     ],
     rundir = ".",
     tags = [

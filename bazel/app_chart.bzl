@@ -32,26 +32,20 @@ def _impl(ctx):
         "images:",
     ])
 
-    jq_bin = ctx.toolchains["@aspect_bazel_lib//lib:jq_toolchain_type"].jqinfo.bin
-
     images = ctx.attr.images or {}
     for key, value in images.items():
-        key_files = key[DefaultInfo].files
-        for file in key_files.to_list():
-            image_dir = file
+        digest_file = key[OutputGroupInfo].digest.to_list()[0]
 
         # keep the leading '/' since helm charts prepend the registry without one
-        cmds.append("  {nick}: /{image}@$({jq} -r '.manifests[0].digest' {digest}/index.json)".format(
+        cmds.append("  {nick}: /{image}@$(cat {digest})".format(
             nick = value.replace("-", "_"),
             image = value,
-            digest = image_dir.path,
-            jq = jq_bin.path,
+            digest = digest_file.path,
         ))
-        source_digests.append(image_dir)
+        source_digests.append(digest_file)
     cmds.append("EOF")
 
     ctx.actions.run_shell(
-        tools = [jq_bin],
         outputs = [values_yaml],
         inputs = values_files + source_digests,
         command = "\n".join(cmds),
@@ -122,7 +116,6 @@ _app_chart_backend = rule(
     outputs = {
         "chart": "%{name}-0.0.1.tgz",
     },
-    toolchains = ["@aspect_bazel_lib//lib:jq_toolchain_type"],
 )
 
 def app_chart(

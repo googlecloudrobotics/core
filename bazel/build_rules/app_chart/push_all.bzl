@@ -8,10 +8,13 @@ def _get_runfile_path(ctx, f):
         return "${RUNFILES}/" + f.short_path
 
 def _impl(ctx):
-    runfiles = ctx.attr._sh_tpl.default_runfiles.files.to_list()
-    for target in ctx.attr.push_targets:
-        runfiles.append(target.files_to_run.executable)
-        runfiles.extend(target.default_runfiles.files.to_list())
+    runfiles = ctx.runfiles(files = [
+        target.files_to_run.executable
+        for target in ctx.attr.push_targets
+    ]).merge(ctx.attr._sh_tpl.default_runfiles).merge_all([
+        target.default_runfiles
+        for target in ctx.attr.push_targets
+    ])
 
     ctx.actions.expand_template(
         template = ctx.file._sh_tpl,
@@ -20,7 +23,7 @@ def _impl(ctx):
                 [
                     "if [[ -z \"${TAG:-}\" ]]; then echo >&2 \"$0: TAG environment variable must be set when pushing images.\"; exit 1; fi",
                 ] + [
-                    "async {command} --repository=\"${{CONTAINER_REGISTRY}}/{repository}\" --tag=\"${{TAG}}\"".format(
+                    "async {command} --registry=\"${{CONTAINER_REGISTRY%%/*}}\" --repository=\"${{CONTAINER_REGISTRY#*/}}/{repository}\" --tag=\"${{TAG}}\"".format(
                         command = _get_runfile_path(ctx, target.files_to_run.executable),
                         repository = repository,
                     )
@@ -32,7 +35,7 @@ def _impl(ctx):
         is_executable = True,
     )
 
-    return [DefaultInfo(runfiles = ctx.runfiles(files = runfiles))]
+    return [DefaultInfo(runfiles = runfiles)]
 
 _push_all = rule(
     attrs = {

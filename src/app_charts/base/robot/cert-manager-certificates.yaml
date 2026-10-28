@@ -10,6 +10,10 @@ spec:
   privateKey:
     algorithm: ECDSA
     size: 256
+    # Keep the CA key stable on renewal so that certificates it has already
+    # signed (e.g. webhook serving certs) remain valid. cert-manager >= v1.18
+    # defaults to Always.
+    rotationPolicy: Never
   issuerRef:
     name: selfsigned-issuer
     kind: ClusterIssuer

@@ -67,7 +67,7 @@ jobs:
 
       - name: Generate app token
         id: renovate-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
@@ -91,12 +91,12 @@ jobs:
           echo "RENOVATE_GCR_TOKEN=${JSON_KEY_BASE64}" >> "$GITHUB_ENV"
 
       - name: Run Renovate to check for updated dependencies
-        uses: renovatebot/github-action@f0f41e5f2e706165f6814b1d0f0d0e319de7d1d9 # v46.3.8
+        uses: renovatebot/github-action@2804199d260ad00c1fae0e9e842888369391c776 # v46.3.10
         with:
           configurationFile: .github/ci/renovate-config.js
           token: "${{ steps.renovate-token.outputs.token }}"
           # renovate: datasource=docker dep_name=ghcr.io/renovatebot/renovate versioning=docker
-          renovate-version: 44.151.5
+          renovate-version: 44.186.5
         env:
           RENOVATE_REPOSITORY_CACHE: ${{ github.event.inputs.repoCache || 'enabled' }}
           LOG_LEVEL: "${{ github.event.inputs.logLevel || 'info' }}" # https://github.com/marketplace/actions/renovate-bot-github-action#debug-logging

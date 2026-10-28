@@ -43,9 +43,10 @@ function release_binary {
   oldPwd=$(pwd)
   # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl
   for t in latest ${DOCKER_TAG}; do
-    cd ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/${RUNFILES_ROOT}
-    ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh \
-      --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
+    cd ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push.exe.runfiles/${RUNFILES_ROOT}
+    ${oldPwd}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push.exe \
+      --registry="${CLOUD_ROBOTICS_CONTAINER_REGISTRY%%/*}" \
+      --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY#*/}/setup-robot" \
       --tag="${t}"
 
     cd ${oldPwd}/bazel-bin/src/app_charts/push.runfiles/${RUNFILES_ROOT}
@@ -233,10 +234,11 @@ function publish_release_size_metrics() {
   collect_release_blob_rows "${registry}" "${tag}" "${release_time}" "${cache_dir}" > "${rows_file}"
 
   if [[ -s "${rows_file}" ]]; then
-    bq --project_id="${bq_project}" query --use_legacy_sql=false --quiet \
+    bq --project_id="${bq_project}" --quota_project_id="${bq_project}" query \
+      --use_legacy_sql=false --quiet \
       --parameter="tag:STRING:${tag}" \
       "DELETE FROM \`${bq_table/:/\.}\` WHERE release_tag = @tag"
-    bq --project_id="${bq_project}" load \
+    bq --project_id="${bq_project}" --quota_project_id="${bq_project}" load \
       --source_format=NEWLINE_DELIMITED_JSON \
       "${bq_table}" \
       "${rows_file}"

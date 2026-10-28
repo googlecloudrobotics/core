@@ -103,9 +103,10 @@ function prepare_source_install {
   # created projects (see b/123625511).
   local oldPwd
   oldPwd=$(pwd)
-  cd ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh.runfiles/${RUNFILES_ROOT}
-  ${DIR}/bazel-bin/src/go/cmd/setup-robot/push_setup-robot.push.sh \
-    --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY}/setup-robot" \
+  cd ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push.exe.runfiles/${RUNFILES_ROOT}
+  ${DIR}/bazel-bin/src/go/cmd/setup-robot/setup-robot.push.exe \
+    --registry="${CLOUD_ROBOTICS_CONTAINER_REGISTRY%%/*}" \
+    --repository="${CLOUD_ROBOTICS_CONTAINER_REGISTRY#*/}/setup-robot" \
     --tag="latest"
 
   # The tag variable must be called 'TAG', see cloud-robotics/bazel/container_push.bzl

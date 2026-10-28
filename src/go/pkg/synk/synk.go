@@ -199,10 +199,11 @@ func (s *Synk) Init(ctx context.Context) error {
 	if err := convert(crd, &u); err != nil {
 		return err
 	}
-	if _, err := s.applyOne(ctx, &u, nil); err != nil {
+	if _, err := s.applyOne(ctx, &u, nil, nil); err != nil {
 		return fmt.Errorf("create ResourceSet CRD: %w", err)
 	}
 
+	_, span := tracer.Start(ctx, "Wait for ResourceSet CRD")
 	err := backoff.Retry(
 		func() error {
 			ok, err := s.crdAvailable(&u)
@@ -217,6 +218,7 @@ func (s *Synk) Init(ctx context.Context) error {
 		},
 		backoff.WithContext(backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 60), ctx),
 	)
+	span.End()
 	if err != nil {
 		return fmt.Errorf("wait for ResourceSet CRD: %w", err)
 	}
@@ -267,15 +269,6 @@ func (s *Synk) Apply(
 		return rs, err
 	}
 	results, applyErr := s.applyAll(ctx, rs, opts, resources...)
-	defer func() {
-		// We always want to clean up old failed ResourceSets. There is no reason
-		// to keep multiple failed ones around. But a failure in the cleanup is not
-		// critical. So we only log it.
-		if err := s.deleteFailedResourceSets(ctx, opts.name, opts.version); err != nil {
-			slog.Warn("Failed to remove failed ResourceSets", slog.Any("Name", opts.name), slog.Any("Error", err))
-		}
-	}()
-
 	if err := s.updateResourceSetStatus(ctx, rs, results); err != nil {
 		return rs, err
 	}
@@ -283,6 +276,11 @@ func (s *Synk) Apply(
 		if err := s.deleteResourceSets(ctx, opts.name, opts.version); err != nil {
 			return rs, err
 		}
+	} else if err := s.deleteFailedResourceSets(ctx, opts.name, opts.version); err != nil {
+		// We always want to clean up old failed ResourceSets. There is no reason
+		// to keep multiple failed ones around. But a failure in the cleanup is not
+		// critical. So we only log it.
+		slog.Warn("Failed to remove failed ResourceSets", slog.Any("Name", opts.name), slog.Any("Error", err))
 	}
 	return rs, applyErr
 }
@@ -344,6 +342,7 @@ func (s *Synk) applyAll(
 	if workers <= 0 {
 		workers = 1
 	}
+	// Buffered channel used to limit the number of simultaneously running workers.
 	activeWorkers := make(chan struct{}, workers)
 
 	crds, regulars := separateCRDsFromResources(resources)
@@ -357,7 +356,7 @@ func (s *Synk) applyAll(
 				defer func() { <-activeWorkers }()
 				// CRDs must never be replaced as deleting them will delete
 				// all its current instances. Update conflicts must be resolved manually.
-				action, err := s.applyOne(ctx, crd, rs)
+				action, err := s.applyOne(ctx, crd, rs, nil)
 				mu.Lock()
 				if err != nil {
 					opts.errorf(crd, action, "failed to apply: %s", err)
@@ -370,6 +369,7 @@ func (s *Synk) applyAll(
 		}
 		wg.Wait()
 
+		_, span := tracer.Start(ctx, "Wait for CRDs")
 		err := backoff.Retry(
 			func() error {
 				for _, crd := range crds {
@@ -385,10 +385,13 @@ func (s *Synk) applyAll(
 			},
 			backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 60),
 		)
+		span.End()
 		if err != nil {
 			return results, fmt.Errorf("wait for CRDs: %w", err)
 		}
 	}
+
+	prefetched := s.prefetchResources(ctx, regulars)
 
 	for _, tier := range groupByPriority(regulars) {
 		// Try applying until the errors stay the same between iterations. Put in
@@ -398,6 +401,14 @@ func (s *Synk) applyAll(
 		for i := 0; i < 10; i++ {
 			var curFailures int
 			var wg sync.WaitGroup
+			// Only use the pre-fetched snapshot on the first attempt (i == 0).
+			// On retries (i > 0), leave tierPrefetched nil so applyOne falls
+			// back to individual Get calls and fetches the latest cluster state
+			// for resources that failed to apply.
+			var tierPrefetched *prefetchedResources
+			if i == 0 {
+				tierPrefetched = prefetched
+			}
 
 			for _, r := range tier {
 				// Don't retry resources that were applied successfully
@@ -411,7 +422,7 @@ func (s *Synk) applyAll(
 					// Attach the ResourceSet as owner. CRDs are exempt since
 					// the risk of unintended deletion of all its instances is too high.
 					setOwnerRef(r, rs)
-					action, err := s.applyOne(ctx, r, rs)
+					action, err := s.applyOne(ctx, r, rs, tierPrefetched)
 					mu.Lock()
 					if err != nil {
 						curFailures++
@@ -775,7 +786,138 @@ func mustReplace(resource *unstructured.Unstructured, current *unstructured.Unst
 	return resource.GetKind() == "Service" && isHeadlessService(current) != isHeadlessService(resource)
 }
 
-func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured, set *apps.ResourceSet) (apps.ResourceAction, error) {
+type resourceGroupKey struct {
+	gvr       schema.GroupVersionResource
+	namespace string
+}
+
+// prefetchedResources holds existing cluster resources fetched in bulk via List
+// for (GVR, namespace) groups that contain multiple resources.
+type prefetchedResources struct {
+	byGroup map[resourceGroupKey]map[string]*unstructured.Unstructured
+}
+
+// lookup returns the pre-fetched resource if its (GVR, namespace) group was
+// listed. When the second return value is true, a non-nil pointer means the
+// resource exists in the cluster and nil means it does not exist. When false,
+// the group was not pre-fetched and the caller should fall back to Get.
+func (p *prefetchedResources) lookup(gvr schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, bool) {
+	if p == nil {
+		return nil, false
+	}
+	group, ok := p.byGroup[resourceGroupKey{gvr: gvr, namespace: namespace}]
+	if !ok {
+		return nil, false
+	}
+	return group[name], true
+}
+
+func (s *Synk) prefetchResources(
+	ctx context.Context,
+	resources []*unstructured.Unstructured,
+) *prefetchedResources {
+	type groupInfo struct {
+		gvk      schema.GroupVersionKind
+		namesSet map[string]struct{}
+	}
+	groups := map[resourceGroupKey]*groupInfo{}
+
+	for _, r := range resources {
+		if r.GetName() == "" {
+			continue
+		}
+		gvk := r.GroupVersionKind()
+		mapping, err := s.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			continue
+		}
+		var ns string
+		// Only use the resource's namespace if the resource kind is namespaced
+		// (i.e. not cluster-scoped / RESTScopeNameRoot), matching applyOne so
+		// cluster-scoped resources are listed without a namespace even if the
+		// manifest specifies metadata.namespace.
+		if mapping.Scope.Name() != meta.RESTScopeNameRoot {
+			ns = r.GetNamespace()
+		}
+		key := resourceGroupKey{
+			gvr:       mapping.Resource,
+			namespace: ns,
+		}
+		info, ok := groups[key]
+		if !ok {
+			info = &groupInfo{
+				gvk:      mapping.GroupVersionKind,
+				namesSet: map[string]struct{}{},
+			}
+			groups[key] = info
+		}
+		info.namesSet[r.GetName()] = struct{}{}
+	}
+
+	prefetched := &prefetchedResources{
+		byGroup: map[resourceGroupKey]map[string]*unstructured.Unstructured{},
+	}
+	workers := s.workers
+	if workers <= 0 {
+		workers = 1
+	}
+	// Buffered channel used to limit the number of simultaneously running workers.
+	activeWorkers := make(chan struct{}, workers)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for key, info := range groups {
+		if len(info.namesSet) < 2 {
+			continue
+		}
+		activeWorkers <- struct{}{}
+		wg.Go(func() {
+			defer func() { <-activeWorkers }()
+
+			var client dynamic.ResourceInterface
+			if key.namespace == "" {
+				client = s.client.Resource(key.gvr)
+			} else {
+				client = s.client.Resource(key.gvr).Namespace(key.namespace)
+			}
+			_, listSpan := tracer.Start(ctx, "List "+key.gvr.Resource, trace.WithAttributes(
+				attribute.String("namespace", key.namespace),
+			))
+			list, err := client.List(ctx, metav1.ListOptions{})
+			listSpan.End()
+			if err != nil {
+				slog.Warn("Failed to list resources for prefetch, falling back to Get",
+					slog.String("Resource", key.gvr.String()),
+					slog.String("Namespace", key.namespace),
+					ilog.Err(err))
+				return
+			}
+			byName := make(map[string]*unstructured.Unstructured, len(info.namesSet))
+			for i := range list.Items {
+				item := &list.Items[i]
+				if _, wanted := info.namesSet[item.GetName()]; !wanted {
+					continue
+				}
+				if item.GetKind() == "" {
+					item.SetGroupVersionKind(info.gvk)
+				}
+				byName[item.GetName()] = item
+			}
+			mu.Lock()
+			prefetched.byGroup[key] = byName
+			mu.Unlock()
+		})
+	}
+	wg.Wait()
+	return prefetched
+}
+
+func (s *Synk) applyOne(
+	ctx context.Context,
+	resource *unstructured.Unstructured,
+	set *apps.ResourceSet,
+	prefetched *prefetchedResources,
+) (apps.ResourceAction, error) {
 	// If name is unset, we'd retrieve a list below and panic.
 	// TODO(freinartz): This may be valid if generateName is set instead. In this case we
 	// want to create the resource in any case.
@@ -794,10 +936,12 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		return apps.ResourceActionNone, fmt.Errorf("get REST mapping: %w", err)
 	}
 	var client dynamic.ResourceInterface
+	var ns string
 	if mapping.Scope.Name() == meta.RESTScopeNameRoot {
 		client = s.client.Resource(mapping.Resource)
 	} else {
-		client = s.client.Resource(mapping.Resource).Namespace(resource.GetNamespace())
+		ns = resource.GetNamespace()
+		client = s.client.Resource(mapping.Resource).Namespace(ns)
 	}
 	resetAppliedAnnotation := false
 	if err := setAppliedAnnotation(resource); err != nil {
@@ -805,11 +949,21 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		resetAppliedAnnotation = true
 	}
 
+	var current *unstructured.Unstructured
+	if cached, ok := prefetched.lookup(mapping.Resource, ns, resource.GetName()); ok {
+		current = cached
+	} else {
+		_, getSpan := tracer.Start(ctx, "Get "+resource.GetName())
+		current, err = client.Get(ctx, resource.GetName(), metav1.GetOptions{})
+		getSpan.End()
+		if k8serrors.IsNotFound(err) {
+			current = nil
+		} else if err != nil {
+			return apps.ResourceActionNone, fmt.Errorf("get resource: %w", err)
+		}
+	}
 	// Create the resource if it doesn't exist yet.
-	_, getSpan := tracer.Start(ctx, "Get "+resource.GetName())
-	current, err := client.Get(ctx, resource.GetName(), metav1.GetOptions{})
-	getSpan.End()
-	if k8serrors.IsNotFound(err) {
+	if current == nil {
 		_, createSpan := tracer.Start(ctx, "Create "+resource.GetName())
 		res, err := client.Create(ctx, resource, metav1.CreateOptions{})
 		createSpan.End()
@@ -818,8 +972,6 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		}
 		*resource = *res
 		return apps.ResourceActionCreate, nil
-	} else if err != nil {
-		return apps.ResourceActionNone, fmt.Errorf("get resource: %w", err)
 	}
 	if err := validateOwnerRefs(current, set); err != nil {
 		return apps.ResourceActionNone, fmt.Errorf("owner conflict: %w", err)
@@ -840,6 +992,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		// is deleted. We call setOwnerRef on 'current' (not 'resource') because
 		// we are updating the current cluster state directly instead of applying
 		// the desired resource.
+		current = current.DeepCopy()
 		setOwnerRef(current, set)
 		_, updateSpan := tracer.Start(ctx, "Update owner refs "+resource.GetName())
 		res, err := client.Update(ctx, current, metav1.UpdateOptions{})
@@ -870,6 +1023,7 @@ func (s *Synk) applyOne(ctx context.Context, resource *unstructured.Unstructured
 		return apps.ResourceActionNone, err
 	}
 	if resetAppliedAnnotation {
+		current = current.DeepCopy()
 		deleteAppliedAnnotation(current)
 	}
 	originalRaw := getAppliedAnnotation(current)
@@ -1022,6 +1176,9 @@ var resourceSetGVR = schema.GroupVersionResource{
 }
 
 func (s *Synk) createResourceSet(ctx context.Context, rs *apps.ResourceSet) error {
+	ctx, span := tracer.Start(ctx, "Create ResourceSet")
+	defer span.End()
+
 	rs.Kind = "ResourceSet"
 	rs.APIVersion = "apps.cloudrobotics.com/v1alpha1"
 
@@ -1074,6 +1231,9 @@ func (r applyResults) list() (l []*applyResult) {
 }
 
 func (s *Synk) updateResourceSetStatus(ctx context.Context, rs *apps.ResourceSet, results applyResults) error {
+	ctx, span := tracer.Start(ctx, "Update ResourceSet status")
+	defer span.End()
+
 	type group map[schema.GroupVersionKind][]apps.ResourceStatus
 	applied, failed := group{}, group{}
 
@@ -1133,6 +1293,9 @@ func (s *Synk) updateResourceSetStatus(ctx context.Context, rs *apps.ResourceSet
 // deleteFailedResourceSets deletes all failed ResourceSets of the given name
 // that have a lower version.
 func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, version int) error {
+	ctx, span := tracer.Start(ctx, "Delete failed ResourceSets")
+	defer span.End()
+
 	c := s.client.Resource(resourceSetGVR)
 
 	list, err := c.List(ctx, metav1.ListOptions{
@@ -1157,7 +1320,10 @@ func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, versio
 		// we only return after all dependents have been deleted as well?
 		// kubectl doesn't allow to opt into foreground deletion in general but
 		// here it would likely bring us closer to the apply --prune semantics.
-		if err := c.Delete(ctx, r.GetName(), metav1.DeleteOptions{}); err != nil {
+		_, delSpan := tracer.Start(ctx, "Delete "+r.GetName())
+		err = c.Delete(ctx, r.GetName(), metav1.DeleteOptions{})
+		delSpan.End()
+		if err != nil {
 			return fmt.Errorf("delete ResourceSet %q: %w", r.GetName(), err)
 		}
 	}
@@ -1167,6 +1333,9 @@ func (s *Synk) deleteFailedResourceSets(ctx context.Context, name string, versio
 // deleteResourceSets deletes all ResourceSets of the given name that have a
 // lower version.
 func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int) error {
+	ctx, span := tracer.Start(ctx, "Delete old ResourceSets")
+	defer span.End()
+
 	c := s.client.Resource(resourceSetGVR)
 
 	list, err := c.List(ctx, metav1.ListOptions{
@@ -1184,7 +1353,10 @@ func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int)
 		// we only return after all dependents have been deleted as well?
 		// kubectl doesn't allow to opt into foreground deletion in general but
 		// here it would likely bring us closer to the apply --prune semantics.
-		if err := c.Delete(ctx, r.GetName(), metav1.DeleteOptions{}); err != nil {
+		_, delSpan := tracer.Start(ctx, "Delete "+r.GetName())
+		err := c.Delete(ctx, r.GetName(), metav1.DeleteOptions{})
+		delSpan.End()
+		if err != nil {
 			return fmt.Errorf("delete ResourceSet %q: %w", r.GetName(), err)
 		}
 	}
@@ -1193,7 +1365,12 @@ func (s *Synk) deleteResourceSets(ctx context.Context, name string, version int)
 
 // next returns the next version for the resources name.
 func (s *Synk) next(ctx context.Context, name string) (version int, err error) {
-	list, err := s.client.Resource(resourceSetGVR).List(ctx, metav1.ListOptions{})
+	ctx, span := tracer.Start(ctx, "Get next ResourceSet version")
+	defer span.End()
+
+	list, err := s.client.Resource(resourceSetGVR).List(ctx, metav1.ListOptions{
+		LabelSelector: "name=" + name,
+	})
 	if err != nil {
 		return 0, fmt.Errorf("list existing ResourceSets: %w", err)
 	}

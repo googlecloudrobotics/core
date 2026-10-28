@@ -64,5 +64,6 @@ go_test(
         "@io_k8s_sigs_yaml//:go_default_library",
         "@io_opentelemetry_go_otel//:go_default_library",
         "@io_opentelemetry_go_otel_sdk//trace:go_default_library",
+        "@io_opentelemetry_go_otel_trace//:go_default_library",
     ],
 )
