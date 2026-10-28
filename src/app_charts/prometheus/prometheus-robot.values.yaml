@@ -78,6 +78,10 @@ prometheus:
         value: 16MB
       - name: storage.tsdb.wal-segment-size
         value: 16MB
+      - name: storage.tsdb.min-block-duration
+        value: 30m
+      - name: storage.tsdb.max-block-duration
+        value: 30m
     containers:
     - name: "${CR_PROMETHEUS_CONTAINERS_OBJECT}"
     remoteWrite:
@@ -89,7 +93,7 @@ prometheus:
     storageSpec:
       emptyDir:
         medium: Memory
-        sizeLimit: 512Mi
+        sizeLimit: 1Gi
   serviceAccount:
     annotations:
       "${CR_PROMETHEUS_SA_ANNOTATIONS}": ""
