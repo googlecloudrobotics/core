@@ -21,6 +21,7 @@ resource "google_container_cluster" "cloud-robotics" {
 
   # Make the cluster VPC-native (default for v1.21+)
   networking_mode = "VPC_NATIVE"
+  ip_allocation_policy {}
 
   datapath_provider = var.datapath_provider
   # This enables setting network policies using fully qualified domain names.
@@ -46,8 +47,6 @@ resource "google_container_cluster" "cloud-robotics" {
   gateway_api_config {
     channel = "CHANNEL_STANDARD"
   }
-
-  ip_allocation_policy {}
 
   maintenance_policy {
     recurring_window {
@@ -107,6 +106,21 @@ resource "google_container_cluster" "cloud-robotics-ar" {
 
   gateway_api_config {
     channel = "CHANNEL_STANDARD"
+  }
+
+  maintenance_policy {
+    recurring_window {
+      # Dates specifies first ocurance, times are in UTC
+      # Start late and end early to cover regions ahead/behind the sun
+      # Note: we mst not make this too small, otherwise GKE cannot schedule updates
+      start_time = "2025-04-05T05:00:00Z"
+      end_time   = "2025-04-06T19:00:00Z"
+      recurrence = "FREQ=WEEKLY;BYDAY=SA"
+    }
+  }
+
+  release_channel {
+    channel = "STABLE"
   }
 
   timeouts {
