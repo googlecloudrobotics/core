@@ -59,6 +59,10 @@ func VerifySignature(jwtk string, pubKey string) error {
 		}
 		return key, nil
 	},
+		// These are the methods of type *jwt.SigningMethodRSA, so this matches
+		// the check above (and the previous form3tech-oss/jwt-go
+		// implementation). RSA-PSS (PS256 etc) has a different type and is
+		// rejected. Robots sign with RS256 (see robotauth.go).
 		jwt.WithValidMethods([]string{"RS256", "RS384", "RS512"}),
 		jwt.WithIssuedAt(),
 		jwt.WithLeeway(clockSkewLeeway),
