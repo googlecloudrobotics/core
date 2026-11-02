@@ -2,7 +2,9 @@ package jwt
 
 import (
 	"testing"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -49,8 +51,6 @@ Q9+NmKvXWKATAPax1yYoESaZtc22aCZWouIdJr3baYlfBb4w8stoJPoONuyn4ard
 pwIDAQAB
 -----END PUBLIC KEY-----`
 
-/*
-Unused in key right now, but here for reference:
 const testPrivKey = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEAvTGUksynbWhvZkHNJn8C2oXVD400jiK4T0JoyS/SwbBGwFr3
@@ -80,7 +80,6 @@ vwi8dtCSMNnJLCUXGx5cjTndgjTl8Woah0wy9XNNeIUjI8JPxIwXmmjppPKdCBI4
 0ZyqQjgPJvwfY7lxFjE10ypv99QDlEbnwngt6bvSkY+6+DQTUDw=
 -----END RSA PRIVATE KEY-----
 `
-*/
 
 func TestVerifySignature(t *testing.T) {
 	err := VerifySignature(testJWT, testPubKey)
@@ -130,5 +129,70 @@ func TestVerifySignatureInvalidSigAlg(t *testing.T) {
 	err := VerifySignature(testJWTInvalidSigAlg, testPubKey)
 	if err == nil { // no error
 		t.Fatal("VerifySignature(..): should have errored with invalid signature alg, but did not")
+	}
+}
+
+func signTestJWT(t *testing.T, claims jwt.MapClaims) string {
+	t.Helper()
+	key, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(testPrivKey))
+	if err != nil {
+		t.Fatalf("failed to parse test private key: %v", err)
+	}
+	signed, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(key)
+	if err != nil {
+		t.Fatalf("failed to sign test JWT: %v", err)
+	}
+	return signed
+}
+
+func TestVerifySignatureClockSkew(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name    string
+		iat     time.Time
+		exp     time.Time
+		wantErr bool
+	}{
+		{
+			name: "issued-in-past",
+			iat:  now.Add(-10 * time.Second),
+			exp:  now.Add(time.Hour),
+		},
+		{
+			name: "issued-slightly-in-future",
+			iat:  now.Add(time.Minute),
+			exp:  now.Add(time.Hour),
+		},
+		{
+			name:    "issued-far-in-future",
+			iat:     now.Add(time.Hour),
+			exp:     now.Add(2 * time.Hour),
+			wantErr: true,
+		},
+		{
+			name: "expired-slightly",
+			iat:  now.Add(-time.Hour),
+			exp:  now.Add(-time.Minute),
+		},
+		{
+			name:    "expired-long-ago",
+			iat:     now.Add(-2 * time.Hour),
+			exp:     now.Add(-time.Hour),
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token := signTestJWT(t, jwt.MapClaims{
+				"aud": "testaud",
+				"iss": "robot-dev-testuser",
+				"iat": tt.iat.Unix(),
+				"exp": tt.exp.Unix(),
+			})
+			err := VerifySignature(token, testPubKey)
+			if gotErr := err != nil; gotErr != tt.wantErr {
+				t.Errorf("VerifySignature(..) = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }

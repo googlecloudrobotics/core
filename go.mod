@@ -7,9 +7,9 @@ require (
 	cloud.google.com/go/storage v1.65.0
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/envoyproxy/go-control-plane/envoy v1.39.0
-	github.com/form3tech-oss/jwt-go v3.2.5+incompatible
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/nftables v0.3.0
