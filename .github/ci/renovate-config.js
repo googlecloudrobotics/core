@@ -18,9 +18,11 @@ export default {
   ],
   repositories: ['googlecloudrobotics/core'],
   allowedUnsafeExecutions: ['bazelModDeps'],
+  // postUpgradeTasks commands are run without a shell, so `&&` etc. don't
+  // work. Use postUpgradeTasks.installTools to install required tools.
   allowedCommands: [
-    '^install-tool bazelisk && bazel mod deps --lockfile_mode=update$',
-    '^install-tool helm && third_party/cert-manager/update\\.sh$',
+    '^bazel mod deps --lockfile_mode=update$',
+    '^third_party/cert-manager/update\\.sh$',
   ],
   enabledManagers: [
     'bazel-module',
@@ -106,9 +108,8 @@ export default {
       matchManagers: ['custom.regex'],
       matchFileNames: ['MODULE.bazel', 'non_module_deps.bzl'],
       postUpgradeTasks: {
-        commands: [
-          'install-tool bazelisk && bazel mod deps --lockfile_mode=update',
-        ],
+        installTools: { bazelisk: {} },
+        commands: ['bazel mod deps --lockfile_mode=update'],
         fileFilters: ['MODULE.bazel.lock'],
         executionMode: 'branch',
       },
@@ -118,9 +119,8 @@ export default {
       matchDatasources: ['helm'],
       matchDepNames: ['cert-manager'],
       postUpgradeTasks: {
-        commands: [
-          'install-tool helm && third_party/cert-manager/update.sh',
-        ],
+        installTools: { helm: {} },
+        commands: ['third_party/cert-manager/update.sh'],
         fileFilters: ['third_party/cert-manager/*.tgz'],
         executionMode: 'update',
       },
