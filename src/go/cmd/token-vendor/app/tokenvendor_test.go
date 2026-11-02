@@ -3,13 +3,14 @@ package app
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/form3tech-oss/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/oauth"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository"
 	"github.com/googlecloudrobotics/core/src/go/cmd/token-vendor/repository/memory"
@@ -268,13 +269,10 @@ func getInMemoryRepo(ctx context.Context, deviceId, key string) repository.PubKe
 
 func createFakeJWTWithSubject(t *testing.T, deviceId, subject string) string {
 	t.Helper()
-	jwtWithSubject := jwt.StandardClaims{
-		Audience:  nil,
-		ExpiresAt: time.Now().Add(10 * time.Second).Unix(),
-		Id:        t.Name(),
-		IssuedAt:  0,
+	jwtWithSubject := jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(10 * time.Second)),
+		ID:        t.Name(),
 		Issuer:    deviceId,
-		NotBefore: 0,
 		Subject:   subject,
 	}
 
@@ -283,9 +281,10 @@ func createFakeJWTWithSubject(t *testing.T, deviceId, subject string) string {
 		t.Errorf("failed to serialize jwt: %v", err)
 	}
 
-	return jwt.EncodeSegment([]byte(`{"typ": "JWT"}`)) +
-		"." + jwt.EncodeSegment(buffer.Bytes()) +
-		"." + jwt.EncodeSegment([]byte("no-signature-present"))
+	enc := base64.RawURLEncoding.EncodeToString
+	return enc([]byte(`{"typ": "JWT"}`)) +
+		"." + enc(buffer.Bytes()) +
+		"." + enc([]byte("no-signature-present"))
 }
 
 func createSAFromName(name string) string {

@@ -6,9 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
-	jwt "github.com/form3tech-oss/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 )
+
+// clockSkewLeeway is the tolerance applied when validating the time-based
+// claims (exp, nbf, iat) of a JWT. Robots may have clocks that are slightly
+// out of sync with the token vendor, eg after being offline for a while, which
+// would otherwise cause "token used before issued" errors.
+const clockSkewLeeway = 5 * time.Minute
 
 type payload struct {
 	Aud    string
@@ -46,12 +53,17 @@ func VerifySignature(jwtk string, pubKey string) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse public key: %w", err)
 	}
-	_, err = jwt.Parse(jwtk, func(t *jwt.Token) (interface{}, error) {
+	_, err = jwt.Parse(jwtk, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, errors.New("unexpected signing method, only RSA family is accepted")
 		}
 		return key, nil
-	})
+	},
+		// This list matches *jwt.SigningMethodRSA. Robots sign with RS256.
+		jwt.WithValidMethods([]string{"RS256", "RS384", "RS512"}),
+		jwt.WithIssuedAt(),
+		jwt.WithLeeway(clockSkewLeeway),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to parse and verify signature: %w", err)
 	}
