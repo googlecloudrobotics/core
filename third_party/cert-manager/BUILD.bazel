@@ -4,7 +4,7 @@ licenses(["notice"])
 
 # Updated by Renovate. To update manually, run:
 #   third_party/cert-manager/update.sh <version>
-CERT_MANAGER_VERSION = "v1.21.2"
+CERT_MANAGER_VERSION = "v1.21.3"
 
 alias(
     name = "cert-manager-chart",
