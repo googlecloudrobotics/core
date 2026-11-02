@@ -18,8 +18,11 @@ export default {
   ],
   repositories: ['googlecloudrobotics/core'],
   allowedUnsafeExecutions: ['bazelModDeps'],
+  // postUpgradeTasks commands are run without a shell, so `&&` etc. don't
+  // work. Use postUpgradeTasks.installTools to install required tools.
   allowedCommands: [
-    '^install-tool bazelisk && bazel mod deps --lockfile_mode=update$',
+    '^bazel mod deps --lockfile_mode=update$',
+    '^third_party/cert-manager/update\\.sh$',
   ],
   enabledManagers: [
     'bazel-module',
@@ -75,6 +78,16 @@ export default {
       datasourceTemplate: 'golang-version',
       depNameTemplate: 'go',
     },
+    {
+      // The cert-manager chart is vendored as a .tgz, which update.sh fetches
+      // in the postUpgradeTask below.
+      customType: 'regex',
+      managerFilePatterns: ['third_party/cert-manager/BUILD.bazel'],
+      matchStrings: ['CERT_MANAGER_VERSION = "(?<currentValue>[^"]+)"'],
+      datasourceTemplate: 'helm',
+      registryUrlTemplate: 'https://charts.jetstack.io',
+      depNameTemplate: 'cert-manager',
+    },
   ],
   packageRules: [
     {
@@ -95,11 +108,21 @@ export default {
       matchManagers: ['custom.regex'],
       matchFileNames: ['MODULE.bazel', 'non_module_deps.bzl'],
       postUpgradeTasks: {
-        commands: [
-          'install-tool bazelisk && bazel mod deps --lockfile_mode=update',
-        ],
+        installTools: { bazelisk: {} },
+        commands: ['bazel mod deps --lockfile_mode=update'],
         fileFilters: ['MODULE.bazel.lock'],
         executionMode: 'branch',
+      },
+    },
+    {
+      matchManagers: ['custom.regex'],
+      matchDatasources: ['helm'],
+      matchDepNames: ['cert-manager'],
+      postUpgradeTasks: {
+        installTools: { helm: {} },
+        commands: ['third_party/cert-manager/update.sh'],
+        fileFilters: ['third_party/cert-manager/*.tgz'],
+        executionMode: 'update',
       },
     },
   ],

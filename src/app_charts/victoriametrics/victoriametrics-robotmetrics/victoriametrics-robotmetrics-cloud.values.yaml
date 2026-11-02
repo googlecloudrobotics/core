@@ -144,6 +144,12 @@ prometheus-node-exporter:
 kube-state-metrics:
   enabled: false
 
+kubelet:
+  enabled: false
+
+kubeApiServer:
+  enabled: false
+
 # etcd, scheduler, and controller-manager are managed by GKE and hidden.
 kubeEtcd:
   enabled: false
