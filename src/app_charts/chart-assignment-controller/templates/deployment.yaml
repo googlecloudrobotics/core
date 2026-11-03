@@ -29,6 +29,9 @@ spec:
           env:
             - name: ROBOT_NAME
               value: {{ .Values.robotName | quote }}
+            # HOME is mounted readonly so we put the cache in /tmp
+            - name: HELM_CACHE_HOME
+              value: /tmp/helm-cache
           args:
             - --cloud-cluster={{ .Values.cloudCluster }}
             - --webhook-enabled={{ .Values.webhook.enabled }}
