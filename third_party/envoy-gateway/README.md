@@ -7,13 +7,13 @@ This directory contains vendored Custom Resource Definitions (CRDs) and system m
 
 ## Updating Manifests
 
-To update or re-generate the Envoy Gateway and Gateway API manifests, run:
+Vendored manifests are updated automatically by Renovate. To update or re-generate them manually, run:
 
 ```shell
 ./update.sh
 ```
 
-You can optionally override the versions by setting environment variables:
+You can optionally override the versions by setting environment variables (`GAPI_VERSION` is resolved automatically from Envoy Gateway's `go.mod` when omitted):
 
 ```shell
 EG_VERSION=v1.8.3 GAPI_VERSION=v1.5.1 ./update.sh
