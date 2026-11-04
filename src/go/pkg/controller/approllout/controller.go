@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
-	"slices"
 	"sort"
 	"time"
 
@@ -629,15 +628,13 @@ func generateChartAssignments(
 // values (scalars, lists) are replaced. None of the inputs are mutated.
 func mergeValues(layers ...map[string]any) chartutil.Values {
 	out := map[string]any{}
-	// CoalesceTables(dst, src) gives dst precedence, so walk from the highest
-	// layer down and fill in what's missing from each lower layer.
-	for _, layer := range slices.Backward(layers) {
+	for _, layer := range layers {
 		if layer == nil {
 			continue
 		}
-		// CoalesceTables mutates dst, may write nils into src, and copies
-		// nested maps from src into dst by reference, so copy every layer.
-		out = chartutil.CoalesceTables(out, runtime.DeepCopyJSON(layer))
+		// CoalesceTables(dst, src) gives dst precedence, mutates dst, may write
+		// nils into src, and copies nested maps by reference, so clone every layer.
+		out = chartutil.CoalesceTables(runtime.DeepCopyJSON(layer), out)
 	}
 	return out
 }

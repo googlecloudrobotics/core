@@ -15,6 +15,7 @@
 package approllout
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -62,6 +63,160 @@ func verifyChartAssignment(t *testing.T, want, got *apps.ChartAssignment) {
 	if wantStr != gotStr {
 		t.Fatalf("expected ChartAssignment: \n%s\ngot:\n%s\n", wantStr, gotStr)
 	}
+}
+
+func TestMergeValues(t *testing.T) {
+	tests := []struct {
+		name   string
+		layers []map[string]any
+		want   chartutil.Values
+	}{
+		{
+			name:   "no layers",
+			layers: nil,
+			want:   chartutil.Values{},
+		},
+		{
+			name:   "nil and empty layers",
+			layers: []map[string]any{nil, {}, nil},
+			want:   chartutil.Values{},
+		},
+		{
+			name: "precedence across three layers with nested maps, scalars, and lists",
+			layers: []map[string]any{
+				{
+					"onlyBase": "base",
+					"scalar":   "v0",
+					"list":     []any{"a", "b"},
+					"nested": map[string]any{
+						"keepBase": "v0",
+						"override": "v0",
+						"deep": map[string]any{
+							"x": int64(1),
+							"y": int64(2),
+						},
+					},
+				},
+				nil,
+				{
+					"scalar": "v1",
+					"list":   []any{"c"},
+					"nested": map[string]any{
+						"override": "v1",
+						"keepMid":  true,
+						"deep": map[string]any{
+							"y": int64(20),
+						},
+					},
+				},
+				{
+					"scalar": "v2",
+					"nested": map[string]any{
+						"deep": map[string]any{
+							"z": int64(30),
+						},
+					},
+				},
+			},
+			want: chartutil.Values{
+				"onlyBase": "base",
+				"scalar":   "v2",
+				"list":     []any{"c"},
+				"nested": map[string]any{
+					"keepBase": "v0",
+					"override": "v1",
+					"keepMid":  true,
+					"deep": map[string]any{
+						"x": int64(1),
+						"y": int64(20),
+						"z": int64(30),
+					},
+				},
+			},
+		},
+		{
+			name: "table overrides scalar and scalar overrides table",
+			layers: []map[string]any{
+				{
+					"toScalar": map[string]any{"a": "1"},
+					"toTable":  "scalar",
+					"viaScalar": map[string]any{
+						"stale": "from-base",
+					},
+				},
+				{
+					"toScalar":  "replaced",
+					"viaScalar": "middle-scalar",
+				},
+				{
+					"toTable": map[string]any{"b": "2"},
+					"viaScalar": map[string]any{
+						"fresh": "from-top",
+					},
+				},
+			},
+			want: chartutil.Values{
+				"toScalar": "replaced",
+				"toTable":  map[string]any{"b": "2"},
+				"viaScalar": map[string]any{
+					"fresh": "from-top",
+				},
+			},
+		},
+		{
+			name: "nil value nullifies lower layers across three layers",
+			layers: []map[string]any{
+				{"drop": "v0", "keep": "v0"},
+				{"drop": "v1"},
+				{"drop": nil},
+			},
+			want: chartutil.Values{
+				"keep": "v0",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := mergeValues(tc.layers...)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("mergeValues() =\n%s\nwant:\n%s", marshalYAML(t, got), marshalYAML(t, tc.want))
+			}
+		})
+	}
+
+	t.Run("does not mutate inputs or alias nested maps", func(t *testing.T) {
+		base := map[string]any{
+			"drop": "from-base",
+			"nested": map[string]any{
+				"shared": "original",
+				"list":   []any{"a"},
+			},
+		}
+		override := map[string]any{
+			"drop": nil,
+			"nested": map[string]any{
+				"added": "from-override",
+			},
+		}
+		baseSnapshot := runtime.DeepCopyJSON(base)
+		overrideSnapshot := runtime.DeepCopyJSON(override)
+
+		got := mergeValues(base, override)
+
+		// Mutate the returned map to ensure no nested maps/slices are shared with inputs.
+		gotNested := got["nested"].(map[string]any)
+		gotNested["shared"] = "mutated"
+		gotNested["added"] = "mutated"
+		gotNested["list"].([]any)[0] = "mutated"
+
+		if !reflect.DeepEqual(base, baseSnapshot) {
+			t.Errorf("base layer was mutated: got %#v, want %#v", base, baseSnapshot)
+		}
+		if !reflect.DeepEqual(override, overrideSnapshot) {
+			t.Errorf("override layer was mutated: got %#v, want %#v", override, overrideSnapshot)
+		}
+	})
 }
 
 func TestNewRobotChartAssignment(t *testing.T) {
