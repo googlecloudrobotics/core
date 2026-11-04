@@ -363,7 +363,7 @@ func loadAndExpandChart(as *apps.ChartAssignment) ([]*unstructured.Unstructured,
 	return res, false, nil
 }
 
-// loadChart loads an assign chart.
+// loadChart loads an assigned chart.
 // Returns the chart and user values from the chart assignment.
 func loadChart(cspec *apps.AssignedChart) (*chart.Chart, chartutil.Values, error) {
 	var archive io.Reader

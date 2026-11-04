@@ -627,8 +627,8 @@ func generateChartAssignments(
 // mergeValues merges value layers from lowest to highest precedence. Later
 // layers override earlier ones; nested maps are merged recursively, all other
 // values (scalars, lists) are replaced. None of the inputs are mutated.
-func mergeValues(layers ...map[string]interface{}) chartutil.Values {
-	out := map[string]interface{}{}
+func mergeValues(layers ...map[string]any) chartutil.Values {
+	out := map[string]any{}
 	// CoalesceTables(dst, src) gives dst precedence, so walk from the highest
 	// layer down and fill in what's missing from each lower layer.
 	for _, layer := range slices.Backward(layers) {
