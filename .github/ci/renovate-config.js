@@ -88,6 +88,19 @@ export default {
       registryUrlTemplate: 'https://charts.jetstack.io',
       depNameTemplate: 'cert-manager',
     },
+    {
+      customType: 'regex',
+      managerFilePatterns: [
+        'src/app_charts/base/cloud/nginx-ingress-controller-shield.yaml',
+      ],
+      matchStrings: [
+        'image: (?<depName>nginx/nginx-unprivileged):(?<currentValue>[^@\\s]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?',
+      ],
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
+      autoReplaceStringTemplate:
+        'image: {{{depName}}}:{{#if newValue}}{{{newValue}}}{{else}}{{{currentValue}}}{{/if}}{{#if newDigest}}@{{{newDigest}}}{{/if}}',
+    },
   ],
   packageRules: [
     {
