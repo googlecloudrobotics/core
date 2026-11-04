@@ -392,9 +392,9 @@ func loadChart(cspec *apps.AssignedChart) (*chart.Chart, chartutil.Values, error
 
 	// CoalesceTables gives higher precedence to the first argument (dst).
 	// DeepCopy cspec.Values and c.Values to avoid mutating inputs.
-	userVals := map[string]interface{}(cspec.Values.DeepCopy())
+	userVals := map[string]any(cspec.Values.DeepCopy())
 	if userVals == nil {
-		userVals = map[string]interface{}{}
+		userVals = map[string]any{}
 	}
 
 	// Evaluate subchart `condition`/`tags` (disabled subcharts are removed
