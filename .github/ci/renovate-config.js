@@ -22,7 +22,9 @@ export default {
   // work. Use postUpgradeTasks.installTools to install required tools.
   allowedCommands: [
     '^bazel mod deps --lockfile_mode=update$',
+    '^python3 -m pip install pyyaml$',
     '^third_party/cert-manager/update\\.sh$',
+    '^third_party/envoy-gateway/update\\.sh$',
   ],
   enabledManagers: [
     'bazel-module',
@@ -89,6 +91,15 @@ export default {
       depNameTemplate: 'cert-manager',
     },
     {
+      // Envoy Gateway (and matching Gateway API) manifests and dashboards are
+      // vendored by update.sh in the postUpgradeTask below.
+      customType: 'regex',
+      managerFilePatterns: ['third_party/envoy-gateway/update.sh'],
+      matchStrings: ['EG_VERSION="\\$\\{EG_VERSION:-(?<currentValue>[^}]+)\\}"'],
+      datasourceTemplate: 'github-releases',
+      depNameTemplate: 'envoyproxy/gateway',
+    },
+    {
       customType: 'regex',
       managerFilePatterns: [
         'src/app_charts/base/cloud/nginx-ingress-controller-shield.yaml',
@@ -135,6 +146,26 @@ export default {
         installTools: { helm: {} },
         commands: ['third_party/cert-manager/update.sh'],
         fileFilters: ['third_party/cert-manager/*.tgz'],
+        executionMode: 'update',
+      },
+    },
+    {
+      matchManagers: ['custom.regex'],
+      matchDatasources: ['github-releases'],
+      matchDepNames: ['envoyproxy/gateway'],
+      postUpgradeTasks: {
+        installTools: { python: {} },
+        commands: [
+          'python3 -m pip install pyyaml',
+          'third_party/envoy-gateway/update.sh',
+        ],
+        fileFilters: [
+          'third_party/envoy-gateway/README.md',
+          'third_party/envoy-gateway/*.yaml',
+          'third_party/envoy-gateway/dashboards/*.json',
+          'third_party/gateway-api/gatewayapi-crds.yaml',
+          'third_party/gateway-api/update.sh',
+        ],
         executionMode: 'update',
       },
     },
