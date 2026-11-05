@@ -29,28 +29,6 @@ go_library(
     ],
 )
 
-genrule(
-    name = "helm-config",
-    outs = ["repositories.yaml"],
-    # Remove the "generated" timestamp in repositories.yaml to make the rule deterministic.
-    cmd = "HELM_HOME=$$PWD/.helm $(location @kubernetes_helm//:helm) >/dev/null init --client-only --skip-repos " +
-          "&& sed '/generated:/d' .helm/repository/repositories.yaml > $@",
-    tools = ["@kubernetes_helm//:helm"],
-)
-
-image_manifest(
-    name = "helm-image",
-    base = "@distroless_base",
-    layers = [":helm-image-layer"],
-)
-
-image_layer(
-    name = "helm-image-layer",
-    srcs = {
-        "/home/nonroot/.helm/repository/repositories.yaml": ":helm-config",
-    },
-)
-
 go_binary(
     name = "chart-assignment-controller-app",
     embed = [":go_default_library"],
@@ -65,7 +43,7 @@ image_layer(
 
 image_manifest(
     name = "chart-assignment-controller-image",
-    base = ":helm-image",
+    base = "@distroless_base",
     entrypoint = ["/chart-assignment-controller-app"],
     layers = [":chart-assignment-controller-layer"],
 )
