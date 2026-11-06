@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-HELM="${TEST_SRCDIR}/+non_module_deps+kubernetes_helm/helm"
+HELM="${TEST_SRCDIR}/rules_helm++helm+helm/helm-3.19.3"
 if [[ ! -x "${HELM}" ]] ; then
   # If we hit this again, consider using the runfiles library:
   # https://github.com/bazelbuild/bazel/blob/master/tools/bash/runfiles/runfiles.bash#L55-L86
@@ -22,8 +22,8 @@ if [[ ! -x "${HELM}" ]] ; then
   exit 1
 fi
 
-CLOUD_BASE="${TEST_SRCDIR}/_main/src/app_charts/base/base-cloud-0.0.1.tgz"
-ROBOT_BASE="${TEST_SRCDIR}/_main/src/app_charts/base/base-robot-0.0.1.tgz"
+CLOUD_BASE="${TEST_SRCDIR}/_main/src/app_charts/base/base-cloud.tgz"
+ROBOT_BASE="${TEST_SRCDIR}/_main/src/app_charts/base/base-robot.tgz"
 
 function test_failed() {
   echo "TEST FAILED: $1"
@@ -62,10 +62,10 @@ function expect_app_not_installed() {
   test_passed "application \"${application}\" is not included in template created by \"${command}\""
 }
 
-expect_app_installed "${HELM} template ${CLOUD_BASE} --set-string app_management=true" "app-rollout-controller"
-expect_app_installed "${HELM} template ${CLOUD_BASE} --set-string app_management=true" "chart-assignment-controller"
-expect_app_not_installed "${HELM} template ${CLOUD_BASE} --set-string app_management=false" "app-rollout-controller"
-expect_app_not_installed "${HELM} template ${CLOUD_BASE} --set-string app_management=false" "chart-assignment-controller"
+expect_app_installed "${HELM} template base-cloud ${CLOUD_BASE} --set-string app_management=true" "app-rollout-controller"
+expect_app_installed "${HELM} template base-cloud ${CLOUD_BASE} --set-string app_management=true" "chart-assignment-controller"
+expect_app_not_installed "${HELM} template base-cloud ${CLOUD_BASE} --set-string app_management=false" "app-rollout-controller"
+expect_app_not_installed "${HELM} template base-cloud ${CLOUD_BASE} --set-string app_management=false" "chart-assignment-controller"
 
-expect_app_installed "${HELM} template ${ROBOT_BASE} --set-string app_management=true" "chart-assignment-controller"
-expect_app_not_installed "${HELM} template ${ROBOT_BASE} --set-string app_management=false" "chart-assignment-controller"
+expect_app_installed "${HELM} template base-robot ${ROBOT_BASE} --set-string app_management=true" "chart-assignment-controller"
+expect_app_not_installed "${HELM} template base-robot ${ROBOT_BASE} --set-string app_management=false" "chart-assignment-controller"

@@ -36,8 +36,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	crcapps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
-	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 	"golang.org/x/sync/errgroup"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -53,6 +51,9 @@ import (
 	kindconfig "sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
 	kindcluster "sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/yaml"
+
+	crcapps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
 )
 
 // Environment encapsulates a set of clusters and can run tests against them.
@@ -89,7 +90,7 @@ type cluster struct {
 // New creates a new test environment.
 func New(t *testing.T, cfg Config) *Environment {
 	e := &Environment{
-		helmPath: "../+non_module_deps+kubernetes_helm3/helm",
+		helmPath: "../rules_helm++helm+helm/helm-3.19.3",
 		synkPath: "src/go/cmd/synk/synk_/synk",
 		t:        t,
 		cfg:      cfg,
@@ -303,7 +304,7 @@ func (f *Fixture) FromYAML(tmpl string, vals, dst interface{}) {
 func BuildInlineChart(t *testing.T, name, tmpl, values string) string {
 	t.Helper()
 
-	chartData := fmt.Sprintf(`{name: %q, version: "0.0.1"}`, name)
+	chartData := fmt.Sprintf(`{apiVersion: v2, name: %q, version: "0.0.1"}`, name)
 
 	var encoded bytes.Buffer
 	bw := base64.NewEncoder(base64.StdEncoding, &encoded)
