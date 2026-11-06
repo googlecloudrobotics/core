@@ -28,12 +28,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/googlecloudrobotics/core/src/go/pkg/configutil"
-	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
-	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
-	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
-	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
-	"github.com/googlecloudrobotics/ilog"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
@@ -45,6 +39,13 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/googlecloudrobotics/core/src/go/pkg/configutil"
+	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
+	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
+	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
+	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
+	"github.com/googlecloudrobotics/ilog"
 )
 
 var (
@@ -294,7 +295,7 @@ func main() {
 	appManagement := configutil.GetBoolean(vars, "APP_MANAGEMENT", true)
 	// Use "robot" as a suffix for consistency for Synk deployments.
 	installChartOrDie(ctx, k8sLocalClientSet, domain, registry, "base-robot", baseNamespace,
-		"base-robot-0.0.1.tgz", appManagement)
+		"base-robot.tgz", appManagement)
 
 	// Set up Robot CR as a last step (local CR needs CRD to be deployed)
 	if *crSyncer {
@@ -367,10 +368,10 @@ func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, re
 	output, err := exec.Command(
 		helmPath,
 		"template",
-		"--set-string", vars,
-		"--name", name,
-		"--namespace", namespace,
+		name,
 		filepath.Join(filesDir, chartPath),
+		"--namespace", namespace,
+		"--set-string", vars,
 	).CombinedOutput()
 	if err != nil {
 		slog.Error("Synk install failed.",
