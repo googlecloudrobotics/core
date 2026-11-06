@@ -1,17 +1,20 @@
+load("@rules_helm//helm:defs.bzl", "helm_template")
 load("//bazel:app.bzl", "app")
 load("//bazel:app_chart.bzl", "app_chart")
-load("//bazel:build_rules/helm_template.bzl", "helm_template")
 
 # --- Cloud side ---
 
 helm_template(
     name = "victoriametrics-robotmetrics-chart.cloud",
-    chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
-    helm_version = 3,
-    kube_version = "1.29.0",
-    namespace = "HELM-NAMESPACE",
-    release_name = "vmr",
-    values = "victoriametrics-robotmetrics-cloud.values.yaml",
+    chart = "//src/app_charts/victoriametrics:victoriametrics-chart",
+    opts = [
+        "--name-template",
+        "vmr",
+        # The namespace will later be replaced with the actual one.
+        "--namespace",
+        "HELM-NAMESPACE",
+    ],
+    values = ["victoriametrics-robotmetrics-cloud.values.yaml"],
 )
 
 app_chart(
@@ -27,12 +30,15 @@ app_chart(
 
 helm_template(
     name = "victoriametrics-robotmetrics-chart.robot",
-    chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
-    helm_version = 3,
-    kube_version = "1.29.0",
-    namespace = "HELM-NAMESPACE",
-    release_name = "vmr",
-    values = "victoriametrics-robotmetrics-robot.values.yaml",
+    chart = "//src/app_charts/victoriametrics:victoriametrics-chart",
+    opts = [
+        "--name-template",
+        "vmr",
+        # The namespace will later be replaced with the actual one.
+        "--namespace",
+        "HELM-NAMESPACE",
+    ],
+    values = ["victoriametrics-robotmetrics-robot.values.yaml"],
 )
 
 app_chart(

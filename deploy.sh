@@ -29,7 +29,7 @@ RUNFILES_ROOT="_main"
 if is_source_install; then
   # Not using bazel run to not clobber the bazel-bin dir
   TERRAFORM="${DIR}/bazel-out/../../../external/+non_module_deps+hashicorp_terraform/terraform"
-  HELM_COMMAND="${DIR}/bazel-out/../../../external/+non_module_deps+kubernetes_helm/helm"
+  HELM_COMMAND="${DIR}/bazel-bin/external/rules_helm++helm+helm/helm-3.19.3"
   SYNK_COMMAND="${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk"
 else
   TERRAFORM="${DIR}/bin/terraform"
@@ -80,7 +80,7 @@ function prepare_source_install {
 
   bazel ${BAZEL_FLAGS} build \
       "@hashicorp_terraform//:terraform" \
-      "@kubernetes_helm//:helm" \
+      "@helm" \
       //src/app_charts/base:base-cloud \
       //src/app_charts/platform-apps:platform-apps-cloud \
       //src/app_charts:push \
@@ -328,7 +328,7 @@ function helm_region_shared {
   echo "synk init done"
 
   echo "installing base-cloud to ${CLUSTER_CONTEXT}..."
-  ${HELM_COMMAND} --kube-context "${CLUSTER_CONTEXT}" template -n base-cloud --namespace=${BASE_NAMESPACE} "${values[@]}" \
+  ${HELM_COMMAND} --kube-context "${CLUSTER_CONTEXT}" template base-cloud --namespace=${BASE_NAMESPACE} "${values[@]}" \
       ./bazel-bin/src/app_charts/base/base-cloud-0.0.1.tgz \
     | ${SYNK_COMMAND} --context "${CLUSTER_CONTEXT}" apply base-cloud -n ${BASE_NAMESPACE} -f - \
     || die "Synk failed for base-cloud"
@@ -336,7 +336,7 @@ function helm_region_shared {
   # This is the main region. Only run this here!
   if [[ "${CLUSTER_NAME}" = "${PROJECT_NAME}" ]]; then
     echo "installing platform-apps-cloud to ${CLOUD_ROBOTICS_CTX}..."
-    ${HELM_COMMAND} --kube-context "${CLUSTER_CONTEXT}" template -n platform-apps-cloud "${values[@]}" \
+    ${HELM_COMMAND} --kube-context "${CLUSTER_CONTEXT}" template platform-apps-cloud "${values[@]}" \
         ./bazel-bin/src/app_charts/platform-apps/platform-apps-cloud-0.0.1.tgz \
       | ${SYNK_COMMAND} --context "${CLUSTER_CONTEXT}" apply platform-apps-cloud -f - \
       || die "Synk failed for platform-apps-cloud"

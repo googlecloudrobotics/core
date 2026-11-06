@@ -1,20 +1,28 @@
+load("@rules_helm//helm:defs.bzl", "helm_import", "helm_template")
 load("//bazel:app.bzl", "app")
 load("//bazel:app_chart.bzl", "app_chart")
-load("//bazel:build_rules/helm_template.bzl", "helm_template")
+
+helm_import(
+    name = "grafana-operator-chart",
+    chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-87.5.1.tgz",
+)
 
 helm_template(
     name = "grafana-operator-chart.cloud",
     # We use the kube-prometheus-stack chart instead of the standalone grafana chart
     # because it natively bundles all the default Kubernetes mixin dashboards (like node-exporter,
     # kubelet, apiserver) as ConfigMaps. We disable the rest of the backend components in the values file.
-    chart = "//third_party/kube-prometheus-stack:kube-prometheus-stack-87.5.1.tgz",
-    helm_version = 3,
-    kube_version = "1.29.0",
-    # The namespace will later be replaced with the actual one.
-    namespace = "HELM-NAMESPACE",
-    # Pick a short release name as it will be used as a prefix for a lot of resources.
-    release_name = "grafana",
-    values = "grafana-cloud.values.yaml",
+    chart = ":grafana-operator-chart",
+    opts = [
+        "--name-template",
+        "grafana",
+        # The namespace will later be replaced with the actual one.
+        "--namespace",
+        "HELM-NAMESPACE",
+        "--kube-version",
+        "1.29.0",
+    ],
+    values = ["grafana-cloud.values.yaml"],
 )
 
 app_chart(

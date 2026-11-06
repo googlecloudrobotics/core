@@ -1,20 +1,22 @@
-load("//bazel:build_rules/helm_chart.bzl", "helm_chart")
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@rules_helm//helm:defs.bzl", "helm_package")
 load("//bazel/build_rules/app_chart:cache_gcr_credentials.bzl", "cache_gcr_credentials")
 load("//bazel/build_rules/app_chart:push_all.bzl", "push_all")
 
 def _impl(ctx):
-    chart_yaml = ctx.actions.declare_file(ctx.label.name + "-chart.yaml")
+    chart_yaml = ctx.outputs.chart_yaml
 
     ctx.actions.expand_template(
         template = ctx.file._chart_yaml_template,
         output = chart_yaml,
-        substitutions = {"${name}": ctx.label.name, "${version}": "0.0.1"},
+        substitutions = {"${name}": ctx.attr.chart_name, "${version}": "0.0.1"},
     )
 
-    values_yaml = ctx.actions.declare_file(ctx.label.name + "-values.yaml")
+    values_yaml = ctx.outputs.values_yaml
     source_digests = []
 
     values_files = [ctx.file.values] + ctx.files.extra_values
+
     # Use awk '1' instead of cat to concatenate values files. This ensures that
     # each file ends with a newline, preventing invalid YAML if an input file
     # is missing a trailing newline.
@@ -52,29 +54,14 @@ def _impl(ctx):
         toolchain = None,
     )
 
-    helm_chart(
-        ctx,
-        name = ctx.label.name,
-        chart = chart_yaml,
-        values = values_yaml,
-        # TODO(b/72936439): This is currently unused and fixed to 0.0.1.
-        version = "0.0.1",
-        templates = ctx.files.templates,
-        files = ctx.files.files,
-        helm = ctx.file._helm,
-        out = ctx.outputs.chart,
-    )
-
     return [DefaultInfo(
-        runfiles = ctx.runfiles(files = [ctx.outputs.chart]),
-        files = depset([ctx.outputs.chart]),
+        files = depset([chart_yaml, values_yaml]),
     )]
 
 _app_chart_backend = rule(
     implementation = _impl,
     attrs = {
-        "chart": attr.string(
-            doc = "the chart name (robot/cloud/cloud-per-robot)",
+        "chart_name": attr.string(
             mandatory = True,
         ),
         "values": attr.label(
@@ -86,19 +73,7 @@ _app_chart_backend = rule(
             allow_files = True,
             default = [],
             doc = "Extra values files to append to values.yaml. " +
-              "Use this if you only want to add additional values without changing the defaults.",
-        ),
-        "templates": attr.label_list(
-            allow_empty = True,
-            allow_files = True,
-            default = [],
-            doc = "Files for the chart's templates/ directory.",
-        ),
-        "files": attr.label_list(
-            allow_empty = True,
-            allow_files = True,
-            default = [],
-            doc = "Extra non-template files for the chart's files/ directory.",
+                  "Use this if you only want to add additional values without changing the defaults.",
         ),
         "images": attr.label_keyed_string_dict(
             allow_empty = True,
@@ -108,13 +83,39 @@ _app_chart_backend = rule(
             default = Label("//bazel/build_rules/app_chart:Chart.yaml.template"),
             allow_single_file = True,
         ),
-        "_helm": attr.label(
-            default = Label("@kubernetes_helm//:helm"),
-            allow_single_file = True,
-        ),
     },
     outputs = {
-        "chart": "%{name}-0.0.1.tgz",
+        "chart_yaml": paths.join("%{name}", "Chart.yaml"),
+        "values_yaml": paths.join("%{name}", "values.yaml"),
+    },
+)
+
+def _stage_subdir_impl(ctx):
+    """Copy files into a directory"""
+    outs = []
+    for f in ctx.files.srcs:
+        out = ctx.actions.declare_file(paths.join(ctx.attr.subdir, f.basename))
+        # ctx.actions.symlink doesn't work in remote build if target file is a cache hit because of a bazel bug.
+        # Parent directory for a symlink only created for external repo:
+        # https://github.com/bazelbuild/bazel/blob/8.8.2/src/main/java/com/google/devtools/build/lib/remote/AbstractActionInputPrefetcher.java#L808-L826.
+        ctx.actions.run_shell(
+            inputs = [f],
+            outputs = [out],
+            command = 'cp -f "$1" "$2"',
+            arguments = [f.path, out.path],
+            mnemonic = "CopyFile",
+            toolchain = None,
+        )
+        outs.append(out)
+    return [DefaultInfo(files = depset(outs))]
+
+_stage_subdir = rule(
+    implementation = _stage_subdir_impl,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+        ),
+        "subdir": attr.string(mandatory = True),
     },
 )
 
@@ -163,13 +164,36 @@ def app_chart(
             reversed_images[v] = k
 
     _app_chart_backend(
-        name = name,
-        chart = chart,
+        name = name + ".inputs",
+        chart_name = name,
         values = values,
         extra_values = extra_values,
-        templates = native.glob([chart + "/*.yaml"], allow_empty = True) + (extra_templates or []),
-        files = files,
         images = reversed_images,
+        visibility = visibility,
+    )
+
+    # We need to put extra files in files/ directory to keep old behavior.
+    # helm_package does not prefix files so we need to prepare the correct directory structure.
+    # FIXME: This will fail if multiple targets in the same directory points to different files with the same file name (bazel will complain about conflicting outputs).
+    _stage_subdir(
+        name = name + ".files",
+        srcs = files,
+        subdir = "files",
+    )
+
+    _stage_subdir(
+        name = name + ".templates",
+        srcs = native.glob([chart + "/*.yaml"], allow_empty = True) + (extra_templates or []),
+        subdir = name + ".templates",
+    )
+
+    helm_package(
+        name = name,
+        chart = paths.join(name + ".inputs", "Chart.yaml"),
+        values = paths.join(name + ".inputs", "values.yaml"),
+        templates = [":" + name + ".templates"],
+        files = [":" + name + ".files"],
+        stamp = 0,
         visibility = visibility,
     )
 

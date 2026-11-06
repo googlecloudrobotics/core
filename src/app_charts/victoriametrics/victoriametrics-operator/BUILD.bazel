@@ -1,23 +1,31 @@
-load("//bazel:build_rules/helm_template.bzl", "helm_template")
-load("//bazel:app_chart.bzl", "app_chart")
+load("@rules_helm//helm:defs.bzl", "helm_template")
 load("//bazel:app.bzl", "app")
+load("//bazel:app_chart.bzl", "app_chart")
 
 helm_template(
     name = "victoriametrics-operator-chart.cloud",
-    chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
-    helm_version = 3,
-    namespace = "HELM-NAMESPACE",
-    release_name = "vm-operator",
-    values = "victoriametrics-operator-cloud.values.yaml",
+    chart = "//src/app_charts/victoriametrics:victoriametrics-chart",
+    opts = [
+        "--name-template",
+        "vm-operator",
+        # The namespace will later be replaced with the actual one.
+        "--namespace",
+        "HELM-NAMESPACE",
+    ],
+    values = ["victoriametrics-operator-cloud.values.yaml"],
 )
 
 helm_template(
     name = "victoriametrics-operator-chart.robot",
-    chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
-    helm_version = 3,
-    namespace = "HELM-NAMESPACE",
-    release_name = "vm-operator",
-    values = "victoriametrics-operator-robot.values.yaml",
+    chart = "//src/app_charts/victoriametrics:victoriametrics-chart",
+    opts = [
+        "--name-template",
+        "vm-operator",
+        # The namespace will later be replaced with the actual one.
+        "--namespace",
+        "HELM-NAMESPACE",
+    ],
+    values = ["victoriametrics-operator-robot.values.yaml"],
 )
 
 app_chart(
