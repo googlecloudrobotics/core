@@ -88,6 +88,8 @@ const (
 	bearerPrefix      = "Bearer "
 )
 
+type preserveAuthKey struct{}
+
 type handlers struct {
 	client   *http.Client
 	k8sProxy *httputil.ReverseProxy
@@ -130,6 +132,10 @@ func newHandlers() (*handlers, error) {
 			// Why: RawPath stores the original encoded path. Resetting RawPath = "" forces
 			// httputil.ReverseProxy to re-encode req.URL.Path without retaining the stripped prefix.
 			r.Out.URL.RawPath = ""
+
+			if preserve, _ := r.In.Context().Value(preserveAuthKey{}).(bool); preserve {
+				return
+			}
 
 			k8sToken, err := h.k8sToken()
 			if err != nil {
@@ -259,6 +265,10 @@ func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		legacyRequests.Inc()
+		// Legacy GCP tokens are verified by Cloud IAM in kube-apiserver, so forward them unchanged.
+		ctx := context.WithValue(r.Context(), preserveAuthKey{}, true)
+		h.k8sProxy.ServeHTTP(w, r.WithContext(ctx))
+		return
 	}
 
 	robotName, err := h.extractRobotName(r.Context(), encodedJWT)
