@@ -173,10 +173,7 @@ kubelet:
       regex: 'container_memory_(mapped_file|swap|failures_total)'
     - sourceLabels: [__name__]
       action: drop
-      regex: 'container_(file_descriptors|tasks_state|threads_max|threads|processes|sockets|last_seen|ulimits_soft)'
-    - sourceLabels: [__name__]
-      action: drop
-      regex: 'container_pressure_(io|memory)_.*|container_cpu_load_d_average_10s|container_memory_failcnt'
+      regex: 'container_(file_descriptors|tasks_state|threads_max|processes|last_seen)'
     - sourceLabels: [__name__]
       action: drop
       regex: 'container_spec.*|container_network.*|container_blkio.*|container_fs.*'
