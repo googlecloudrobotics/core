@@ -236,6 +236,8 @@ func (h *handlers) validateRequestPath(urlString string, robotName string) error
 	return nil
 }
 
+var errSubMismatch = errors.New("JWT sub does not match iss")
+
 func (h *handlers) extractRobotName(ctx context.Context, encodedJWT string) (string, error) {
 	if strings.HasPrefix(encodedJWT, legacyTokenPrefix) {
 		return "", nil
@@ -244,6 +246,11 @@ func (h *handlers) extractRobotName(ctx context.Context, encodedJWT string) (str
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to parse JWT despite previous verification", ilog.Err(err))
 		return "", err
+	}
+	// /jwt.verify only checks the signature against the key for iss, so bind sub to iss.
+	if claims.Sub == "" || claims.Iss != "robot-"+claims.Sub {
+		slog.ErrorContext(ctx, "JWT sub does not match iss", slog.String("Sub", claims.Sub), slog.String("Iss", claims.Iss))
+		return "", errSubMismatch
 	}
 	slog.DebugContext(ctx, "JWT parsed", slog.String("ID", claims.Sub))
 	return claims.Sub, nil
@@ -272,6 +279,10 @@ func (h *handlers) proxyKubernetes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	robotName, err := h.extractRobotName(r.Context(), encodedJWT)
+	if errors.Is(err, errSubMismatch) {
+		http.Error(w, "Request not allowed", http.StatusForbidden)
+		return
+	}
 	if err != nil {
 		http.Error(w, "Credentials could not be parsed", http.StatusInternalServerError)
 		return
@@ -309,6 +320,10 @@ func (h *handlers) auth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	robotName, err := h.extractRobotName(r.Context(), encodedJWT)
+	if errors.Is(err, errSubMismatch) {
+		http.Error(w, "Request not allowed", http.StatusForbidden)
+		return
+	}
 	if err != nil {
 		http.Error(w, "Credentials could not be parsed", http.StatusInternalServerError)
 		return

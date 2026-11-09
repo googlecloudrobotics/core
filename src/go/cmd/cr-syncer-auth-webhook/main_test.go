@@ -15,8 +15,8 @@ import (
 )
 
 // testValidJWT is a base64-encoded unencrypted JWT header.payload.signature
-// payload: {"sub":"robot-1","iss":"test"}
-const testValidJWT = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJyb2JvdC0xIiwiaXNzIjoidGVzdCJ9.c2ln"
+// payload: {"sub":"robot-1","iss":"robot-robot-1"}
+const testValidJWT = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJyb2JvdC0xIiwiaXNzIjoicm9ib3Qtcm9ib3QtMSJ9.c2ln"
 
 func TestProxyKubernetes(t *testing.T) {
 	t.Run("unauthorized", func(t *testing.T) {
@@ -397,4 +397,48 @@ func TestH2CAndHTTP1Support(t *testing.T) {
 			t.Errorf("server saw Proto = %q, want HTTP/2.0", got)
 		}
 	})
+}
+
+func TestSubNotMatchingIssRejected(t *testing.T) {
+	tokenVendorServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer tokenVendorServer.Close()
+	oldTokenVendor := *tokenVendor
+	*tokenVendor = tokenVendorServer.URL
+	defer func() { *tokenVendor = oldTokenVendor }()
+
+	h, err := newHandlers()
+	if err != nil {
+		t.Fatalf("newHandlers() failed: %v", err)
+	}
+	for name, jwt := range map[string]string{
+		// payload: {"sub":"","iss":"robot-robot-1"}
+		"empty sub": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIiLCJpc3MiOiJyb2JvdC1yb2JvdC0xIn0.c2ln",
+		// payload: {"sub":"robot-2","iss":"robot-robot-1"}
+		"other robot's sub": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJyb2JvdC0yIiwiaXNzIjoicm9ib3Qtcm9ib3QtMSJ9.c2ln",
+	} {
+		t.Run(name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/apis/core.kubernetes/apis/registry.cloudrobotics.com/v1alpha1/namespaces/default/robots/robot-2", nil)
+			req.Header.Set("Authorization", "Bearer "+jwt)
+			rec := httptest.NewRecorder()
+
+			h.proxyKubernetes(rec, req)
+
+			if rec.Code != http.StatusForbidden {
+				t.Errorf("proxyKubernetes status = %d, want %d", rec.Code, http.StatusForbidden)
+			}
+
+			req = httptest.NewRequest(http.MethodGet, "/auth", nil)
+			req.Header.Set("Authorization", "Bearer "+jwt)
+			req.Header.Set("X-Original-Url", "http://host/apis/core.kubernetes/apis/registry.cloudrobotics.com/v1alpha1/namespaces/default/robots/robot-2")
+			rec = httptest.NewRecorder()
+
+			h.auth(rec, req)
+
+			if rec.Code != http.StatusForbidden {
+				t.Errorf("auth status = %d, want %d", rec.Code, http.StatusForbidden)
+			}
+		})
+	}
 }
