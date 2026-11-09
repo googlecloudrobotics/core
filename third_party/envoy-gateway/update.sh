@@ -25,7 +25,7 @@ eg_override="${EG_VERSION:-}"
 # https://gateway.envoyproxy.io/news/releases/matrix/
 # Updated by Renovate (see .github/ci/renovate-config.js). To update manually, run:
 #   EG_VERSION=<version> third_party/envoy-gateway/update.sh
-EG_VERSION="${EG_VERSION:-v1.8.3}"
+EG_VERSION="${EG_VERSION:-v1.10.0}"
 if [[ -n "${eg_override}" ]]; then
   sed -i "s/^EG_VERSION=\"\\\${EG_VERSION:-.*}\"$/EG_VERSION=\"\${EG_VERSION:-${EG_VERSION}}\"/" \
     "${SCRIPT_DIR}/update.sh"
