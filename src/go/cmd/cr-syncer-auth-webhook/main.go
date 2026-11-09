@@ -134,6 +134,8 @@ func newHandlers() (*handlers, error) {
 			k8sToken, err := h.k8sToken()
 			if err != nil {
 				slog.Error("Failed to read serviceaccount token", ilog.Err(err))
+				// Don't leak the caller's robot JWT to kube-apiserver.
+				r.Out.Header.Del("Authorization")
 			} else {
 				r.Out.Header.Set("Authorization", bearerPrefix+k8sToken)
 			}

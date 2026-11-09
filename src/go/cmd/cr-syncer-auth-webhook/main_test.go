@@ -131,6 +131,46 @@ func TestProxyKubernetes(t *testing.T) {
 			t.Errorf("proxied Authorization = %q, want %q", gotAuthHeader, wantAuth)
 		}
 	})
+
+	t.Run("robot JWT not forwarded when serviceaccount token is unreadable", func(t *testing.T) {
+		tokenVendorServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer tokenVendorServer.Close()
+
+		gotAuthHeader := ""
+		k8sBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotAuthHeader = r.Header.Get("Authorization")
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer k8sBackend.Close()
+
+		oldTokenVendor := *tokenVendor
+		oldK8sTarget := *k8sTarget
+		oldK8sTokenPath := *k8sTokenPath
+		*tokenVendor = tokenVendorServer.URL
+		*k8sTarget = k8sBackend.URL
+		*k8sTokenPath = filepath.Join(t.TempDir(), "missing-token")
+		defer func() {
+			*tokenVendor = oldTokenVendor
+			*k8sTarget = oldK8sTarget
+			*k8sTokenPath = oldK8sTokenPath
+		}()
+
+		h, err := newHandlers()
+		if err != nil {
+			t.Fatalf("newHandlers() failed: %v", err)
+		}
+		req := httptest.NewRequest(http.MethodGet, "/apis/core.kubernetes/apis/registry.cloudrobotics.com/v1alpha1/namespaces/default/robots/robot-1", nil)
+		req.Header.Set("Authorization", "Bearer "+testValidJWT)
+		rec := httptest.NewRecorder()
+
+		h.proxyKubernetes(rec, req)
+
+		if gotAuthHeader != "" {
+			t.Errorf("proxied Authorization = %q, want empty", gotAuthHeader)
+		}
+	})
 }
 
 func getLegacyRequestCount(t *testing.T) int {
