@@ -93,7 +93,7 @@ prometheus:
     storageSpec:
       emptyDir:
         medium: Memory
-        sizeLimit: 1Gi
+        sizeLimit: 512Mi
   serviceAccount:
     annotations:
       "${CR_PROMETHEUS_SA_ANNOTATIONS}": ""
@@ -150,10 +150,15 @@ kubelet:
   serviceMonitor:
     # From kubernetes 1.18, /metrics/resource/v1alpha1 renamed to /metrics/resource
     resourcePath: "/metrics/resource"
+    # The upstream default is 10s, which made cAdvisor the largest consumer of
+    # the in-memory TSDB (b/578348634). Note that prometheus-adapter (used for
+    # metrics.k8s.io) relies on these metrics, so the data it serves will now
+    # be updated every 30s.
+    cAdvisorInterval: 30s
     metricRelabelings:
-    # Drop high cardinality metrics from kubelet.
+    # Drop high cardinality metrics from kubelet. (with metrics_path="/metrics")
     - action: drop
-      regex: "container_network.*|container_blkio.*|kubelet_.*|kubernetes_feature_enabled|container_fs.*|container_processes|container_last_seen|storage_operation_duration_seconds_bucket"
+      regex: "kubelet_.*|kubernetes_feature_enabled|storage_operation_duration_seconds_bucket"
       sourceLabels: [__name__]
     cAdvisorMetricRelabelings:
     # Drop high cardinality metrics from kubelet. (with metrics_path="/metrics/cadvisor")
@@ -168,13 +173,20 @@ kubelet:
       regex: 'container_memory_(mapped_file|swap|failures_total)'
     - sourceLabels: [__name__]
       action: drop
-      regex: 'container_(file_descriptors|tasks_state|threads_max)'
+      regex: 'container_(file_descriptors|tasks_state|threads_max|processes|last_seen)'
     - sourceLabels: [__name__]
       action: drop
       regex: 'container_spec.*|container_network.*|container_blkio.*|container_fs.*'
+    # Drop non-pod cgroups (eg system.slice).
     - sourceLabels: [id, pod]
       action: drop
       regex: '.+;'
+    # Drop pod sandbox (pause) containers, which have an image but no container
+    # name. This keeps the per-pod (container="", image="") and per-container
+    # series.
+    - sourceLabels: [container, image]
+      action: drop
+      regex: ';.+'
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_node_name]
       targetLabel: instance
