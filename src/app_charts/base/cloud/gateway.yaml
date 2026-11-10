@@ -23,6 +23,17 @@ spec:
             target:
               type: Utilization
               averageUtilization: 80
+        # Scale down one pod at a time so connections that outlive drainTimeout
+        # are only cut on a single pod per period.
+        behavior:
+          scaleDown:
+            stabilizationWindowSeconds: 300
+            policies:
+            - type: Pods
+              value: 1
+              periodSeconds: 180
+      envoyPDB:
+        maxUnavailable: 1
       envoyDeployment:
         replicas: 2
         pod:
@@ -35,6 +46,13 @@ spec:
                     matchLabels:
                       app.kubernetes.io/name: envoy
                   topologyKey: kubernetes.io/hostname
+          topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: topology.kubernetes.io/zone
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: envoy
         container:
           resources:
             requests:
