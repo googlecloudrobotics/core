@@ -15,7 +15,7 @@ require (
 	github.com/google/nftables v0.3.0
 	github.com/googlecloudrobotics/ilog v0.0.0-20240112131211-2efd642f756e
 	github.com/motemen/go-loghttp v0.0.0-20170804080138-974ac5ceac27
-	github.com/prometheus/client_golang v1.24.1
+	github.com/prometheus/client_golang v1.25.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.1.0
 	go.opentelemetry.io/contrib/detectors/gcp v1.47.0
