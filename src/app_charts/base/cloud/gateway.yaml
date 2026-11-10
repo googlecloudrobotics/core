@@ -24,7 +24,8 @@ spec:
               type: Utilization
               averageUtilization: 80
       envoyDeployment:
-        replicas: 2
+        # replicas is intentionally unset: envoyHpa.minReplicas sets the floor, and a
+        # static count would fight the HPA (Envoy Gateway ignores it once envoyHpa is set).
         pod:
           affinity:
             podAntiAffinity:

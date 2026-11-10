@@ -16,7 +16,7 @@
 
 set -euo pipefail
 
-GAPI_VERSION="${GAPI_VERSION:-v1.5.1}"
+GAPI_VERSION="${GAPI_VERSION:-v1.6.1}"
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 dst="${SCRIPT_DIR}/gatewayapi-crds.yaml"
 
