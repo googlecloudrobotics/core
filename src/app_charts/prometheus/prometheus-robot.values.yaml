@@ -87,7 +87,7 @@ prometheus:
         value: 30m
       # Don't set storage.tsdb.wal-compression-type=zstd: it keeps a 16MB
       # encoder history buffer per CPU in the heap (384MB on a 24-core IPC),
-      # costing far more RAM than it saves on the tmpfs (b/578348634).
+      # costing far more RAM than it saves on the tmpfs.
     containers:
     - name: "${CR_PROMETHEUS_CONTAINERS_OBJECT}"
     remoteWrite:
