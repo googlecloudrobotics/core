@@ -303,7 +303,7 @@
   "moduleExtensions": {
     "//:non_module_deps.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "yuwTlnOb1sBh/iNjerKZQOcPRRrCZyVd1tjqA/rDe4c=",
+        "bzlTransitiveDigest": "IvijXKU3+ZUVmIo+IliEjwQySwCTdvYZtaG1it3iVm4=",
         "usagesDigest": "zfnL/SmA7XDGXo53LgkU5djkne78t1HNugCpAtbfc84=",
         "recordedInputs": [
           "REPO_MAPPING:,bazel_tools bazel_tools"
@@ -327,28 +327,6 @@
               ],
               "sha256": "692421b0c5e04ae4bc0bfff42fb1ce8671fe68daee2b8d8ea94657bb1fcddc0a",
               "strip_prefix": "bazel_gomock-fde78c91cf1783cc1e33ba278922ba67a6ee2a84"
-            }
-          },
-          "kubernetes_helm": {
-            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
-            "attributes": {
-              "urls": [
-                "https://get.helm.sh/helm-v2.17.0-linux-amd64.tar.gz"
-              ],
-              "sha256": "f3bec3c7c55f6a9eb9e6586b8c503f370af92fe987fcbf741f37707606d70296",
-              "strip_prefix": "linux-amd64",
-              "build_file": "@@//third_party/helm2:BUILD.bazel"
-            }
-          },
-          "kubernetes_helm3": {
-            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
-            "attributes": {
-              "urls": [
-                "https://get.helm.sh/helm-v3.21.3-linux-amd64.tar.gz"
-              ],
-              "sha256": "15e041a93a590dce8100f39385cd98c84a765c9e36aeeb9e2dc6ff9e4769e2e0",
-              "strip_prefix": "linux-amd64",
-              "build_file": "@@//third_party/helm3:BUILD.bazel"
             }
           },
           "hashicorp_terraform": {

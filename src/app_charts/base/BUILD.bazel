@@ -1,17 +1,20 @@
+load("@rules_helm//helm:defs.bzl", "helm_import", "helm_template")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//bazel:app_chart.bzl", "app_chart")
-load("//bazel:build_rules/helm_template.bzl", "helm_template")
 
 # Tests
 
 helm_template(
     name = "chart-assignment-controller-chart.robot",
     chart = "//src/app_charts/chart-assignment-controller",
-    helm_version = 3,
-    # The namespace will later be replaced with the actual one.
-    namespace = "HELM-NAMESPACE",
-    release_name = "chart-assignment-controller",
-    values = "chart-assignment-controller-robot.values.yaml",
+    opts = [
+        "--name-template",
+        "chart-assignment-controller",
+        # The namespace will later be replaced with the actual one.
+        "--namespace",
+        "HELM-NAMESPACE",
+    ],
+    values = ["chart-assignment-controller-robot.values.yaml"],
 )
 
 sh_test(
@@ -20,20 +23,28 @@ sh_test(
     data = [
         ":base-cloud",
         ":base-robot",
-        "@kubernetes_helm//:helm",
+        "@helm",
     ],
 )
 
 # Robot
 
+helm_import(
+    name = "cert-manager-chart",
+    chart = "//third_party/cert-manager:cert-manager-chart",
+)
+
 helm_template(
     name = "cert-manager-chart.robot",
-    chart = "//third_party/cert-manager:cert-manager-chart",
-    helm_version = 3,
-    # The namespace will later be replaced with the actual one.
-    namespace = "HELM-NAMESPACE",
-    release_name = "cert-manager",
-    values = "cert-manager-robot.values.yaml",
+    chart = ":cert-manager-chart",
+    opts = [
+        "--name-template",
+        "cert-manager",
+        # The namespace will later be replaced with the actual one.
+        "--namespace",
+        "HELM-NAMESPACE",
+    ],
+    values = ["cert-manager-robot.values.yaml"],
 )
 
 app_chart(
@@ -63,22 +74,28 @@ app_chart(
 
 helm_template(
     name = "cert-manager-chart.cloud",
-    chart = "//third_party/cert-manager:cert-manager-chart",
-    helm_version = 3,
-    # The namespace will later be replaced with the actual one.
-    namespace = "HELM-NAMESPACE",
-    release_name = "cert-manager",
-    values = "cert-manager-cloud.values.yaml",
+    chart = ":cert-manager-chart",
+    opts = [
+        "--name-template",
+        "cert-manager",
+        # The namespace will later be replaced with the actual one.
+        "--namespace",
+        "HELM-NAMESPACE",
+    ],
+    values = ["cert-manager-cloud.values.yaml"],
 )
 
 helm_template(
     name = "chart-assignment-controller-chart.cloud",
     chart = "//src/app_charts/chart-assignment-controller",
-    helm_version = 3,
-    # The namespace will later be replaced with the actual one.
-    namespace = "HELM-NAMESPACE",
-    release_name = "chart-assignment-controller",
-    values = "chart-assignment-controller-cloud.values.yaml",
+    opts = [
+        "--name-template",
+        "chart-assignment-controller",
+        # The namespace will later be replaced with the actual one.
+        "--namespace",
+        "HELM-NAMESPACE",
+    ],
+    values = ["chart-assignment-controller-cloud.values.yaml"],
 )
 
 app_chart(

@@ -9,8 +9,6 @@ bazel_dep(name = "rules_helm", version = "0.35.0")
 # -- bazel_dep definitions -- #
 
 non_module_deps = use_extension("//:non_module_deps.bzl", "non_module_deps")
-use_repo(non_module_deps, "kubernetes_helm")
-use_repo(non_module_deps, "kubernetes_helm3")
 use_repo(non_module_deps, "hashicorp_terraform")
 use_repo(non_module_deps, "com_github_kubernetes_sigs_application")
 use_repo(non_module_deps, "ingress-nginx")
@@ -118,3 +116,11 @@ img_pull(
     registry = "gcr.io",
     repository = "distroless/base",
 )
+
+########
+# helm #
+########
+
+helm = use_extension("@rules_helm//helm:extensions.bzl", "helm")
+helm.host_tools(name = "helm", version = "3.19.3")
+use_repo(helm, "helm")
