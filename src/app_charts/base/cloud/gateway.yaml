@@ -47,6 +47,12 @@ spec:
   shutdown:
     drainTimeout: 90s
     minDrainDuration: 35s
+  telemetry:
+    metrics:
+      # Keep Envoy Gateway's default prefix (the vendored envoy-clusters dashboard
+      # parses "<kind>/<namespace>/<name>/rule/<number>") and append the rule's
+      # backends as "<namespace>/<name>|<namespace>/<name>|...".
+      clusterStatName: "%ROUTE_KIND%/%ROUTE_NAMESPACE%/%ROUTE_NAME%/rule/%ROUTE_RULE_NUMBER%/%BACKEND_REFS%"
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
