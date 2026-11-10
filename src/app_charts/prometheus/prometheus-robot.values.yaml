@@ -163,6 +163,11 @@ kubelet:
     # whenever trackTimestampsStaleness is enabled.
     honorTimestamps: false
     trackTimestampsStaleness: false
+    # Relax cAdvisor scraping from the 10s upstream default to match the 30s
+    # Cloud federation cadence while keeping >=8 samples in prometheus-adapter's
+    # [4m] container CPU irate window (coarsens metrics.k8s.io container
+    # CPU/memory refresh step resolution to 30s).
+    cAdvisorInterval: 30s
     metricRelabelings:
     # Drop high cardinality metrics from kubelet.
     - action: drop
