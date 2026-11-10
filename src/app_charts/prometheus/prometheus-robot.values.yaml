@@ -85,10 +85,9 @@ prometheus:
         value: 30m
       - name: storage.tsdb.max-block-duration
         value: 30m
-      # walCompression is enabled by chart default (Snappy); switch WAL codec to
-      # Zstd (Prometheus v3.x) for substantially tighter compression on tmpfs.
-      - name: storage.tsdb.wal-compression-type
-        value: zstd
+      # Don't set storage.tsdb.wal-compression-type=zstd: it keeps a 16MB
+      # encoder history buffer per CPU in the heap (384MB on a 24-core IPC),
+      # costing far more RAM than it saves on the tmpfs.
     containers:
     - name: "${CR_PROMETHEUS_CONTAINERS_OBJECT}"
     remoteWrite:
