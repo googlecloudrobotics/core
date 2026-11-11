@@ -15,8 +15,8 @@ import (
 )
 
 // testValidJWT is a base64-encoded unencrypted JWT header.payload.signature
-// payload: {"sub":"robot-1","iss":"test"}
-const testValidJWT = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJyb2JvdC0xIiwiaXNzIjoidGVzdCJ9.c2ln"
+// payload: {"sub":"robot-1","iss":"robot-robot-1"}
+const testValidJWT = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJyb2JvdC0xIiwiaXNzIjoicm9ib3Qtcm9ib3QtMSJ9.c2ln"
 
 func TestProxyKubernetes(t *testing.T) {
 	t.Run("unauthorized", func(t *testing.T) {
@@ -129,6 +129,94 @@ func TestProxyKubernetes(t *testing.T) {
 		wantAuth := "Bearer mock-k8s-sa-token"
 		if gotAuthHeader != wantAuth {
 			t.Errorf("proxied Authorization = %q, want %q", gotAuthHeader, wantAuth)
+		}
+	})
+
+	t.Run("legacy credentials accepted", func(t *testing.T) {
+		oldAccept := *acceptLegacyCredentials
+		*acceptLegacyCredentials = true
+		defer func() { *acceptLegacyCredentials = oldAccept }()
+
+		gotPath := ""
+		gotAuthHeader := ""
+		k8sBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			gotAuthHeader = r.Header.Get("Authorization")
+			w.WriteHeader(http.StatusCreated)
+			fmt.Fprint(w, `{"kind":"Robot"}`)
+		}))
+		defer k8sBackend.Close()
+
+		tmpDir := t.TempDir()
+		tokenFile := filepath.Join(tmpDir, "token")
+		if err := os.WriteFile(tokenFile, []byte("mock-k8s-sa-token"), 0600); err != nil {
+			t.Fatalf("failed to write mock token file: %v", err)
+		}
+
+		oldK8sTarget := *k8sTarget
+		oldK8sTokenPath := *k8sTokenPath
+		*k8sTarget = k8sBackend.URL
+		*k8sTokenPath = tokenFile
+		defer func() {
+			*k8sTarget = oldK8sTarget
+			*k8sTokenPath = oldK8sTokenPath
+		}()
+
+		h, err := newHandlers()
+		if err != nil {
+			t.Fatalf("newHandlers() failed: %v", err)
+		}
+
+		before := getLegacyRequestCount(t)
+
+		// Creating a Robot resource has no robot name segment or labelSelector in the URL.
+		req := httptest.NewRequest(http.MethodPost, "/apis/core.kubernetes/apis/registry.cloudrobotics.com/v1alpha1/namespaces/default/robots", strings.NewReader(`{"kind":"Robot"}`))
+		req.Header.Set("Authorization", "Bearer ya29.test-legacy-token")
+		rec := httptest.NewRecorder()
+
+		h.proxyKubernetes(rec, req)
+
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("proxyKubernetes status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+		}
+		wantPath := "/apis/registry.cloudrobotics.com/v1alpha1/namespaces/default/robots"
+		if gotPath != wantPath {
+			t.Errorf("proxied path = %q, want %q", gotPath, wantPath)
+		}
+		wantAuth := "Bearer ya29.test-legacy-token"
+		if gotAuthHeader != wantAuth {
+			t.Errorf("proxied Authorization = %q, want %q", gotAuthHeader, wantAuth)
+		}
+		after := getLegacyRequestCount(t)
+		if after-before != 1 {
+			t.Errorf("expected legacyRequests counter to increment by 1, before=%d, after=%d", before, after)
+		}
+	})
+
+	t.Run("legacy credentials rejected when disabled", func(t *testing.T) {
+		oldAccept := *acceptLegacyCredentials
+		*acceptLegacyCredentials = false
+		defer func() { *acceptLegacyCredentials = oldAccept }()
+
+		h, err := newHandlers()
+		if err != nil {
+			t.Fatalf("newHandlers() failed: %v", err)
+		}
+
+		before := getLegacyRequestCount(t)
+
+		req := httptest.NewRequest(http.MethodPost, "/apis/core.kubernetes/apis/registry.cloudrobotics.com/v1alpha1/namespaces/default/robots", nil)
+		req.Header.Set("Authorization", "Bearer ya29.test-legacy-token")
+		rec := httptest.NewRecorder()
+
+		h.proxyKubernetes(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("proxyKubernetes status = %d, want %d", rec.Code, http.StatusUnauthorized)
+		}
+		after := getLegacyRequestCount(t)
+		if after != before {
+			t.Errorf("expected legacyRequests counter not to increment, before=%d, after=%d", before, after)
 		}
 	})
 }
@@ -309,4 +397,48 @@ func TestH2CAndHTTP1Support(t *testing.T) {
 			t.Errorf("server saw Proto = %q, want HTTP/2.0", got)
 		}
 	})
+}
+
+func TestSubNotMatchingIssRejected(t *testing.T) {
+	tokenVendorServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer tokenVendorServer.Close()
+	oldTokenVendor := *tokenVendor
+	*tokenVendor = tokenVendorServer.URL
+	defer func() { *tokenVendor = oldTokenVendor }()
+
+	h, err := newHandlers()
+	if err != nil {
+		t.Fatalf("newHandlers() failed: %v", err)
+	}
+	for name, jwt := range map[string]string{
+		// payload: {"sub":"","iss":"robot-robot-1"}
+		"empty sub": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIiLCJpc3MiOiJyb2JvdC1yb2JvdC0xIn0.c2ln",
+		// payload: {"sub":"robot-2","iss":"robot-robot-1"}
+		"other robot's sub": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJyb2JvdC0yIiwiaXNzIjoicm9ib3Qtcm9ib3QtMSJ9.c2ln",
+	} {
+		t.Run(name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/apis/core.kubernetes/apis/registry.cloudrobotics.com/v1alpha1/namespaces/default/robots/robot-2", nil)
+			req.Header.Set("Authorization", "Bearer "+jwt)
+			rec := httptest.NewRecorder()
+
+			h.proxyKubernetes(rec, req)
+
+			if rec.Code != http.StatusForbidden {
+				t.Errorf("proxyKubernetes status = %d, want %d", rec.Code, http.StatusForbidden)
+			}
+
+			req = httptest.NewRequest(http.MethodGet, "/auth", nil)
+			req.Header.Set("Authorization", "Bearer "+jwt)
+			req.Header.Set("X-Original-Url", "http://host/apis/core.kubernetes/apis/registry.cloudrobotics.com/v1alpha1/namespaces/default/robots/robot-2")
+			rec = httptest.NewRecorder()
+
+			h.auth(rec, req)
+
+			if rec.Code != http.StatusForbidden {
+				t.Errorf("auth status = %d, want %d", rec.Code, http.StatusForbidden)
+			}
+		})
+	}
 }

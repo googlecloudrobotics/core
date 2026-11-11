@@ -29,7 +29,6 @@ ACCESS_TOKEN=<gcp-access-token> REGISTRY=<container-registry> \
 
 - `--project`: Google Cloud Platform Project ID (required).
 - `--robot-type`: Robot type identifier (optional if the robot is already registered).
-- `--registry-id`: ID used when writing the public key to the cloud registry (default: `"robot-<robot-name>"`).
 - `--labels`: Comma-separated `key=value` labels to attach to the `Robot` custom resource.
 - `--annotations`: Comma-separated `key=value` annotations to attach to the `Robot` custom resource.
 - `--cr-syncer`: Set up `cr-syncer` and create the `Robot` CR in the cloud cluster (default: `true`).

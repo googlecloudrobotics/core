@@ -35,7 +35,8 @@ spec:
       envoyPDB:
         maxUnavailable: 1
       envoyDeployment:
-        replicas: 2
+        # replicas is intentionally unset: envoyHpa.minReplicas sets the floor, and a
+        # static count would fight the HPA (Envoy Gateway ignores it once envoyHpa is set).
         pod:
           affinity:
             podAntiAffinity:
@@ -64,6 +65,12 @@ spec:
   shutdown:
     drainTimeout: 90s
     minDrainDuration: 35s
+  telemetry:
+    metrics:
+      # Keep Envoy Gateway's default prefix (the vendored envoy-clusters dashboard
+      # parses "<kind>/<namespace>/<name>/rule/<number>") and append the rule's
+      # backends as "<namespace>/<name>|<namespace>/<name>|...".
+      clusterStatName: "%ROUTE_KIND%/%ROUTE_NAMESPACE%/%ROUTE_NAME%/rule/%ROUTE_RULE_NUMBER%/%BACKEND_REFS%"
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass

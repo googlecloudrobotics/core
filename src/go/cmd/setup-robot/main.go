@@ -51,7 +51,6 @@ var (
 	robotName          = new(string)
 	project            = flag.String("project", "", "Project ID for the Google Cloud Platform")
 	robotType          = flag.String("robot-type", "", "Robot type. Optional if the robot is already registered.")
-	registryID         = flag.String("registry-id", "", "The ID used when writing the public key to the cloud registry. Default: robot-<robot-name>.")
 	labels             = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
 	annotations        = flag.String("annotations", "", "Robot annotations. Optional if the robot is already registered.")
 	crSyncer           = flag.Bool("cr-syncer", true, "Set up the cr-syncer, and create a Robot CR in the cloud cluster.")
@@ -113,9 +112,6 @@ func parseFlags() {
 		flag.Usage()
 		fmt.Println("ERROR: --project is required.")
 		os.Exit(1)
-	}
-	if *registryID == "" {
-		*registryID = fmt.Sprintf("robot-%s", *robotName)
 	}
 
 	if *fluentd && *fluentbit {
@@ -258,10 +254,11 @@ func main() {
 	if *robotAuthentication {
 		// Set up robot authentication.
 		auth := &robotauth.RobotAuth{
-			RobotName:           *robotName,
-			ProjectId:           *project,
-			Domain:              domain,
-			PublicKeyRegistryId: *registryID,
+			RobotName: *robotName,
+			ProjectId: *project,
+			Domain:    domain,
+			// cr-syncer-auth-webhook requires the key's device ID to be robot-<robot-name>.
+			PublicKeyRegistryId: "robot-" + *robotName,
 		}
 
 		slog.Info("Creating new private key")
