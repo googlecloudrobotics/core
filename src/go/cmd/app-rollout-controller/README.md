@@ -18,4 +18,5 @@ For more details on the application management architecture, see [App Management
 - `--healthz-port`: Listening port of the `/healthz` probe (default: `8080`).
 - `--webhook-port`: Listening port of the custom resource validation webhook server (default: `9876`).
 - `--cert-dir`: Directory containing TLS certificates for the webhook server (default: `""`).
+- `--apiserver-max-qps`: Maximum number of calls to the Kubernetes API server per second (default: `100`).
 - `--log-level`: Minimum log message level required to be logged (default: `0` / `INFO`).
