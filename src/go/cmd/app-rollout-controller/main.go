@@ -50,6 +50,7 @@ var (
 	certDir              = flag.String("cert-dir", "", "Directory for TLS certificates")
 	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "", "If not empty, traces will be uploaded to this Google Cloud Project.")
 	traceProbability     = flag.Float64("trace-probability", 1.0, "Probability of sampling a root trace span (0.0 to 1.0).")
+	maxQPS               = flag.Int("apiserver-max-qps", 100, "Maximum number of calls to the API server per second.")
 	logLevel             = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
 )
 
@@ -77,6 +78,9 @@ func main() {
 		slog.Error("Failed to initialize Kubernetes config", ilog.Err(err))
 		os.Exit(1)
 	}
+	kubernetesConfig.QPS = float32(*maxQPS)
+	// The default value of twice the max QPS seems to work well.
+	kubernetesConfig.Burst = *maxQPS * 2
 
 	helmParams, err := strvals.ParseString(*params)
 	if err != nil {
