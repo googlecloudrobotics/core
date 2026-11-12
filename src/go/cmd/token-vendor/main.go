@@ -78,8 +78,8 @@ var (
 		"key-store",
 		string(Kubernetes),
 		"Public key repository implementation to use. Options: "+strings.Join(keyStoreOpts, ","))
-	k8sQPS   = flag.Int("k8s-qps", 25, "Limit of QPS to the Kubernetes API server.")
-	k8sBurst = flag.Int("k8s-burst", 50, "Burst limit of QPS to the Kubernetes API server.")
+	k8sQPS   = flag.Int("k8s-qps", 100, "Limit of QPS to the Kubernetes API server.")
+	k8sBurst = flag.Int("k8s-burst", 200, "Burst limit of QPS to the Kubernetes API server.")
 	// API options
 	bind     = flag.String("bind", "0.0.0.0", "Address to bind to")
 	port     = flag.Int("port", 9090, "Port number to listen on")
