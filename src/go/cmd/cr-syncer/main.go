@@ -98,6 +98,8 @@ var (
 	listenAddr         = flag.String("listen-address", ":80", "HTTP listen address")
 	conflictErrorLimit = flag.Int("conflict-error-limit", 5, "Number of consecutive conflict errors before informer is restarted")
 	timeout            = flag.Int64("timeout", 300, "Timeout for CR watch calls in seconds")
+	localMaxQPS        = flag.Int("local-max-qps", 50, "Maximum number of calls to the local API server per second.")
+	remoteMaxQPS       = flag.Int("remote-max-qps", 20, "Maximum number of calls to the remote API server per second.")
 	useRobotJWT        = flag.Bool("use-robot-jwt", false, "Use robot JWT for authn instead of GCP access token - requires recent CRC cloud deployment")
 	verbose            = flag.Bool("verbose", false, "DEPRECATED: Use log_level")
 	logLevel           = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
@@ -192,6 +194,8 @@ func restConfigForRemote(ctx context.Context) (*rest.Config, error) {
 		// The original value of timeout is set in the options of lister and watcher in newInformer function. This timeout is not enforced by the client.
 		// That's the reason for the timeout in REST config. It is set to timeout + 5 seconds to give some time for a graceful closing of the connection.
 		Timeout: time.Second * (time.Duration(*timeout) + 5),
+		QPS:     float32(*remoteMaxQPS),
+		Burst:   *remoteMaxQPS * 2,
 	}, nil
 }
 
@@ -246,6 +250,8 @@ func main() {
 		slog.Error("InClusterConfig", ilog.Err(err))
 		os.Exit(1)
 	}
+	localConfig.QPS = float32(*localMaxQPS)
+	localConfig.Burst = *localMaxQPS * 2
 
 	labeler := new(otelhttp.Labeler)
 	labeler.Add(tagLocation.String("local"))
