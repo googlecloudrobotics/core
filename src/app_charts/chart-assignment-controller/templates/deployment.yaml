@@ -38,6 +38,9 @@ spec:
             - --webhook-port=9876
             - --trace-stackdriver-project-id={{ .Values.project }}
             - --trace-probability=1.0
+            {{- if .Values.maxQPS }}
+            - --apiserver-max-qps={{ .Values.maxQPS }}
+            {{- end }}
             {{- if .Values.webhook.enabled }}
             - --cert-dir=/tls
             {{- end }}
