@@ -4,6 +4,7 @@ image:
 cloudCluster: true
 robotName: ""
 project: '{{ .Values.project }}'
+maxQPS: 100
 webhook:
   enabled: true
 rbac:

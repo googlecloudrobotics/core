@@ -93,6 +93,7 @@ func newSynk() (*synk.Synk, error) {
 	}
 	restcfg.QPS = float32(maxQPS)
 	restcfg.Burst = maxQPS * 2
+	restOpts.WithDiscoveryQPS(float32(maxQPS)).WithDiscoveryBurst(max(300, maxQPS*2))
 	discovery, err := restOpts.ToDiscoveryClient()
 	if err != nil {
 		return nil, fmt.Errorf("get discovery client: %w", err)
