@@ -30,6 +30,8 @@ The `cr-syncer` listens on `--listen-address` (default `:80`) and serves:
 - `--listen-address`: HTTP listen address for health, metrics, and debug endpoints (default: `":80"`).
 - `--conflict-error-limit`: Number of consecutive conflict errors before an informer is restarted (default: `5`).
 - `--timeout`: Timeout for CR watch calls in seconds (default: `300`).
+- `--local-max-qps`: Maximum number of calls to the local Kubernetes API server per second (default: `50`).
+- `--remote-max-qps`: Maximum number of calls to the remote Kubernetes API server per second (default: `20`).
 - `--use-robot-jwt`: Use a robot-signed JWT for authentication instead of a GCP OAuth2 access token (default: `false`).
 - `--log-level`: Minimum log message level required to be logged (default: `0` / `INFO`).
 - `--verbose`: Deprecated; enables debug logging and HTTP request/response logging (default: `false`).
