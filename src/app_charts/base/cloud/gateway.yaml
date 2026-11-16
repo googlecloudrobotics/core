@@ -200,6 +200,8 @@ spec:
   timeout:
     http:
       requestTimeout: 60s
+      # Close idle upstream connections before backends do, to avoid 503s on stale pooled connections.
+      connectionIdleTimeout: 30s
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
