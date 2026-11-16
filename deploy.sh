@@ -29,7 +29,7 @@ RUNFILES_ROOT="_main"
 if is_source_install; then
   # Not using bazel run to not clobber the bazel-bin dir
   TERRAFORM="${DIR}/bazel-out/../../../external/+non_module_deps+hashicorp_terraform/terraform"
-  HELM_COMMAND="${DIR}/bazel-bin/external/rules_helm++helm+helm/helm-3.19.3"
+  HELM_COMMAND="${DIR}/bazel-bin/bazel/helm"
   SYNK_COMMAND="${DIR}/bazel-bin/src/go/cmd/synk/synk_/synk"
 else
   TERRAFORM="${DIR}/bin/terraform"

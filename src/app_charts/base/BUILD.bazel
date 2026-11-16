@@ -23,7 +23,7 @@ sh_test(
     data = [
         ":base-cloud",
         ":base-robot",
-        "@helm",
+        "//bazel:helm",
     ],
 )
 

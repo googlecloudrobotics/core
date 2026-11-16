@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 exports_files([
@@ -10,6 +11,15 @@ exports_files([
 sh_binary(
     name = "zstd",
     srcs = ["@zstd_linux_amd64//:zstd"],
+    visibility = ["//visibility:public"],
+)
+
+copy_file(
+    name = "helm",
+    src = "@helm",
+    out = "helm",
+    allow_symlink = True,
+    is_executable = True,
     visibility = ["//visibility:public"],
 )
 

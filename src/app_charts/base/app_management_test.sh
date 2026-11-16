@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-HELM="${TEST_SRCDIR}/rules_helm++helm+helm/helm-3.19.3"
+HELM="${TEST_SRCDIR}/_main/bazel/helm"
 if [[ ! -x "${HELM}" ]] ; then
   # If we hit this again, consider using the runfiles library:
   # https://github.com/bazelbuild/bazel/blob/master/tools/bash/runfiles/runfiles.bash#L55-L86
