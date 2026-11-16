@@ -99,7 +99,9 @@ It has been tested with the following traffic:
 - HTTP 1.1 chunked request bodies (`Transfer-Encoding: chunked` in the request header, buffered before relaying)
 - SPDY from kubectl (via HTTP 101 Switching Protocols) for `kubectl exec`
 - Unidirectional gRPC (HTTP2 cleartext and HTTP trailers)
-- Streaming gRPC (server, client, and bi-directional)
+
+Streaming gRPC does not work in general as it tries to read the entire request body before forwarding the response.
+In limited cases (where the client closes the request body before reading the response body) it may work.
 
 ## Flags
 
