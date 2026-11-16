@@ -146,6 +146,9 @@ spec:
     alpnProtocols:
     - h2
     - http/1.1
+  headers:
+    # ingress-nginx dropped headers with underscores; Envoy's default rejects the request with 400.
+    withUnderscoresAction: DropHeader
   # Client-to-Envoy Traffic Policy:
   # - 5 MiB stream window / 8 MiB connection window & buffer limit allows high-RTT
   #   uploads (e.g. 130 ms RTT) to reach ~38.5 MB/s (~308 Mbit/s) per stream while bounding
