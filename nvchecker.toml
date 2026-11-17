@@ -20,11 +20,6 @@ registry = "quay.io"
 container = "oauth2-proxy/oauth2-proxy"
 prefix = "v"
 
-[stackdriver-logging-agent]
-source = "container"
-registry = "gcr.io"
-container = "stackdriver-agents/stackdriver-logging-agent"
-
 # github packages
 
 [cert-manager]
