@@ -103,9 +103,11 @@ export default {
       customType: 'regex',
       managerFilePatterns: [
         'src/app_charts/base/cloud/nginx-ingress-controller-shield.yaml',
+        'src/app_charts/base/cloud/oauth2-proxy.yaml',
       ],
       matchStrings: [
         'image: (?<depName>nginx/nginx-unprivileged):(?<currentValue>[^@\\s]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?',
+        'image: (?<depName>quay\\.io/oauth2-proxy/oauth2-proxy):(?<currentValue>[^@\\s]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?',
       ],
       datasourceTemplate: 'docker',
       versioningTemplate: 'docker',
