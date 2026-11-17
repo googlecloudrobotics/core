@@ -52,4 +52,6 @@ build --workspace_status_command=scripts/workspace-status.sh
 # zstd compresses faster and produces smaller layers.
 build --@rules_img//img/settings:compress=zstd
 
+# TODO(koonpeng): Keep in sync with helm.host_tools in MODULE.bazel, and let
+# Renovate bump this (or drop the override once on Helm v4) with rules_helm.
 build --@rules_helm//helm/settings:version=3.19.3
