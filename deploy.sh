@@ -80,7 +80,7 @@ function prepare_source_install {
 
   bazel ${BAZEL_FLAGS} build \
       "@hashicorp_terraform//:terraform" \
-      "@helm" \
+      //bazel:helm \
       //src/app_charts/base:base-cloud \
       //src/app_charts/platform-apps:platform-apps-cloud \
       //src/app_charts:push \
