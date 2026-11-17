@@ -48,7 +48,6 @@ app_chart(
     files = [
         ":cert-manager-chart.robot",
         ":chart-assignment-controller-chart.robot",
-        "//third_party/fluentd_gcp_addon",
     ],
     images = {
         "cr-syncer": "//src/go/cmd/cr-syncer:cr-syncer-image",

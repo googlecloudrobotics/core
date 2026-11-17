@@ -32,10 +32,8 @@ ACCESS_TOKEN=<gcp-access-token> REGISTRY=<container-registry> \
 - `--labels`: Comma-separated `key=value` labels to attach to the `Robot` custom resource.
 - `--annotations`: Comma-separated `key=value` annotations to attach to the `Robot` custom resource.
 - `--cr-syncer`: Set up `cr-syncer` and create the `Robot` CR in the cloud cluster (default: `true`).
-- `--fluentd`: Set up `fluentd` to upload logs to Cloud Logging (default: `true`). Cannot be enabled together with `--fluentbit`.
-- `--fluentbit`: Set up `fluentbit` to upload logs to Cloud Logging (default: `false`).
+- `--fluentbit`: Set up `fluentbit` to upload logs to Cloud Logging (default: `true`).
 - `--log-prefix-subdomain`: Subdomain to prepend to the Fluentbit log tag prefix (default: `""`).
-- `--docker-data-root`: Docker data root directory matching `data-root` in `/etc/docker/daemon.json` (default: `"/var/lib/docker"`).
 - `--pod-cidr`: Pod IP address range in the cluster matching the CNI configuration, used by `metadata-server` to allow pod requests (default: `"192.168.9.0/24"`).
 - `--robot-authentication`: Generate and register robot authentication credentials (default: `true`).
 - `--running-on-gke`: Skip host-specific setup steps that are unnecessary when running on GKE (default: `false`).
