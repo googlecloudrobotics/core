@@ -59,6 +59,9 @@ import (
 const requestBodyStreamingParam = "request_body_streaming"
 
 var (
+	// errRequestStreamGone means the relay server has no such request any more.
+	errRequestStreamGone = errors.New("request stream is gone")
+
 	ErrTimeout        = errors.New(http.StatusText(http.StatusRequestTimeout))
 	ErrForbidden      = errors.New(http.StatusText(http.StatusForbidden))
 	debugLogs    bool = false
@@ -594,7 +597,7 @@ func (c *Client) postErrorResponse(remote *http.Client, id string, message strin
 // "packets".
 // It returns nil at the end of a streamed request body, else an error. The
 // caller closes the backend connection.
-func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter io.Writer) error {
+func (c *Client) streamToBackend(ctx context.Context, remote *http.Client, id string, backendWriter io.Writer) error {
 	streamURL := (&url.URL{
 		Scheme:   c.config.RelayScheme,
 		Host:     c.config.RelayAddress,
@@ -604,13 +607,16 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 	for {
 		// Get data from the "request stream", then copy it to the backend.
 		// We use a Post with empty body to avoid caching.
-		resp, err := remote.Post(streamURL, "text/plain", http.NoBody)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, streamURL, http.NoBody)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "text/plain")
+		resp, err := remote.Do(req)
 		if err != nil {
 			// TODO(rodrigoq): detect transient failure and retry w/ backoff?
 			// e.g. "server status Request Timeout: No request received within timeout"
-			slog.Error("Failed to get request stream",
-				slog.String("ID", id), ilog.Err(err))
-			return err
+			return fmt.Errorf("get request stream: %w", err)
 		}
 		if resp.StatusCode == http.StatusNoContent {
 			// The user-client has ended a streamed request body.
@@ -621,7 +627,7 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 			if debugLogs {
 				slog.Info("End of request stream", slog.String("ID", id))
 			}
-			return errors.New("request stream is gone")
+			return errRequestStreamGone
 		} else if resp.StatusCode != http.StatusOK {
 			msg, err := io.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -639,9 +645,7 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 		n, err := io.Copy(backendWriter, resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			slog.Error("Failed to write to backend:",
-				slog.String("ID", id), ilog.Err(err))
-			return err
+			return fmt.Errorf("write to backend: %w", err)
 		} else {
 			if debugLogs {
 				slog.Info("Wrote to backend",
@@ -649,6 +653,15 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 			}
 		}
 	}
+}
+
+// logStreamError logs why streamToBackend failed. A request that is simply
+// over is not a failure.
+func logStreamError(id string, err error) {
+	if err == nil || errors.Is(err, errRequestStreamGone) || errors.Is(err, context.Canceled) {
+		return
+	}
+	slog.Error("Stream to backend failed", slog.String("ID", id), ilog.Err(err))
 }
 
 func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *http.Client, pbreq *pb.HttpRequest) {
@@ -659,10 +672,19 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 		c.postErrorResponse(remote, id, fmt.Sprintf("Failed to create request for backend: %v", err))
 		return
 	}
+	// After a 101 response the request stream carries the data of the upgraded
+	// connection, so it can't carry a streamed body too.
 	if bodyWriter != nil {
 		// Start before the backend request: the backend may read request body
 		// before it sends response headers.
-		go func() { bodyWriter.CloseWithError(c.streamToBackend(remote, id, bodyWriter)) }()
+		// The context stops the stream when the request is over.
+		streamCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		go func() {
+			err := c.streamToBackend(streamCtx, remote, id, bodyWriter)
+			logStreamError(id, err)
+			bodyWriter.CloseWithError(err)
+		}()
 	}
 	// Measure edge processing time.
 	extractedCtx := telemetry.HTTPPropagator.Extract(ctx, propagation.HeaderCarrier(req.Header))
@@ -697,7 +719,7 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 			// response stream to end and prevent the client from hanging in the case
 			// of an error in the request stream.
 			defer bodyWriter.Close()
-			c.streamToBackend(remote, id, bodyWriter)
+			logStreamError(id, c.streamToBackend(ctx, remote, id, bodyWriter))
 		}()
 	} else {
 		// `hresp.Body` is closed after streaming is finished.

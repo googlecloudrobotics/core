@@ -16,6 +16,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -333,6 +334,7 @@ func TestBuildResponsesTimesOut(t *testing.T) {
 
 func TestStreamedRequestBody(t *testing.T) {
 	type pollResponse struct {
+		// Status 0 cancels the context of streamToBackend during the poll.
 		status int
 		body   string
 	}
@@ -363,8 +365,16 @@ func TestStreamedRequestBody(t *testing.T) {
 			wantBody: "first-second",
 			wantErr:  true,
 		},
+		{
+			name:     "context_cancelled",
+			polls:    []pollResponse{{200, "-second"}, {0, ""}},
+			wantBody: "first-second",
+			wantErr:  true,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
 			polls := 0
 			relayTransport := &mockTransport{
 				roundTrip: func(req *http.Request) (*http.Response, error) {
@@ -377,6 +387,11 @@ func TestStreamedRequestBody(t *testing.T) {
 					}
 					p := tc.polls[polls]
 					polls++
+					if p.status == 0 {
+						cancel()
+						<-req.Context().Done()
+						return nil, req.Context().Err()
+					}
 					return &http.Response{StatusCode: p.status, Body: io.NopCloser(strings.NewReader(p.body))}, nil
 				},
 			}
@@ -399,7 +414,7 @@ func TestStreamedRequestBody(t *testing.T) {
 				t.Errorf("ContentLength = %d, want %d", req.ContentLength, tc.wantContentLength)
 			}
 			go func() {
-				bodyWriter.CloseWithError(c.streamToBackend(&http.Client{Transport: relayTransport}, "15", bodyWriter))
+				bodyWriter.CloseWithError(c.streamToBackend(ctx, &http.Client{Transport: relayTransport}, "15", bodyWriter))
 			}()
 
 			body, err := io.ReadAll(req.Body)
