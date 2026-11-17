@@ -34,6 +34,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -52,6 +53,10 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/protobuf/proto"
 )
+
+// requestBodyStreamingParam is the query parameter of /server/request that
+// asks the relay server for streamed request bodies.
+const requestBodyStreamingParam = "request_body_streaming"
 
 var (
 	ErrTimeout        = errors.New(http.StatusText(http.StatusRequestTimeout))
@@ -94,6 +99,10 @@ type ClientConfig struct {
 
 	DisableHttp2 bool
 	ForceHttp2   bool
+
+	// RequestBodyStreaming makes the client ask the relay server for
+	// streamed request bodies.
+	RequestBodyStreaming bool
 }
 
 type RelayServerError struct {
@@ -330,11 +339,11 @@ func extractRequestHeader(breq *pb.HttpRequest, header *http.Header) {
 	}
 }
 
-func (c *Client) createBackendRequest(breq *pb.HttpRequest) (*http.Request, error) {
+func (c *Client) createBackendRequest(breq *pb.HttpRequest) (*http.Request, *io.PipeWriter, error) {
 	id := *breq.Id
 	targetUrl, err := url.Parse(*breq.Url)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	targetUrl.Scheme = c.config.BackendScheme
 	targetUrl.Host = c.config.BackendAddress
@@ -343,18 +352,34 @@ func (c *Client) createBackendRequest(breq *pb.HttpRequest) (*http.Request, erro
 		slog.String("ID", id),
 		slog.String("Method", *breq.Method),
 		slog.Any("TargetURL", *targetUrl))
-	req, err := http.NewRequest(*breq.Method, targetUrl.String(), bytes.NewReader(breq.Body))
+	var body io.Reader = bytes.NewReader(breq.Body)
+	var bodyWriter *io.PipeWriter
+	if breq.GetBodyStreamed() {
+		// The rest of the body follows on the request stream, see
+		// streamToBackend.
+		pr, pw := io.Pipe()
+		body = &streamedBody{Reader: io.MultiReader(body, pr), pipe: pr}
+		bodyWriter = pw
+	}
+	req, err := http.NewRequest(*breq.Method, targetUrl.String(), body)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if c.config.PreserveHost && breq.Host != nil {
 		req.Host = *breq.Host
 	}
 	extractRequestHeader(breq, &req.Header)
+	if bodyWriter != nil {
+		// The length of a streamed body is only known from the user-client's
+		// Content-Length header, if it sent one.
+		if n, err := strconv.ParseInt(req.Header.Get("Content-Length"), 10, 64); err == nil {
+			req.ContentLength = n
+		}
+	}
 	if c.config.AuthenticationTokenFile != "" {
 		token, err := os.ReadFile(c.config.AuthenticationTokenFile)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to read authentication token from %s: %v", c.config.AuthenticationTokenFile, err)
+			return nil, nil, fmt.Errorf("Failed to read authentication token from %s: %v", c.config.AuthenticationTokenFile, err)
 		}
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
@@ -364,7 +389,19 @@ func (c *Client) createBackendRequest(breq *pb.HttpRequest) (*http.Request, erro
 		slog.Info("DumpRequest", slog.String("Request", string(dump)))
 	}
 
-	return req, nil
+	return req, bodyWriter, nil
+}
+
+// streamedBody is the body of a backend request whose body is streamed from
+// the relay server. Closing it (the HTTP transport does that when the request
+// is done) stops streamToBackend.
+type streamedBody struct {
+	io.Reader
+	pipe *io.PipeReader
+}
+
+func (b *streamedBody) Close() error {
+	return b.pipe.Close()
 }
 
 // This function builds and executes a http.Request from the proto request we
@@ -550,16 +587,14 @@ func (c *Client) postErrorResponse(remote *http.Client, id string, message strin
 }
 
 // streamToBackend streams data from the client (eg kubectl) to the
-// backend. For example, when using `kubectl exec` this handles stdin.
-// It fails permanently and closes the backend connection on any failure, as
-// the relay-server doesn't have sufficiently advanced flow control to recover
-// from dropped/duplicate "packets".
-func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter io.WriteCloser) {
-	// Close the backend connection on stream failure. This should cause the
-	// response stream to end and prevent the client from hanging in the case
-	// of an error in the request stream.
-	defer backendWriter.Close()
-
+// backend. For example, when using `kubectl exec` this handles stdin, and for
+// a streamed request body it handles the rest of the body.
+// It fails permanently on any failure, as the relay-server doesn't have
+// sufficiently advanced flow control to recover from dropped/duplicate
+// "packets".
+// It returns nil at the end of a streamed request body, else an error. The
+// caller closes the backend connection.
+func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter io.Writer) error {
 	streamURL := (&url.URL{
 		Scheme:   c.config.RelayScheme,
 		Host:     c.config.RelayAddress,
@@ -575,16 +610,21 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 			// e.g. "server status Request Timeout: No request received within timeout"
 			slog.Error("Failed to get request stream",
 				slog.String("ID", id), ilog.Err(err))
-			return
+			return err
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode == http.StatusGone {
+		if resp.StatusCode == http.StatusNoContent {
+			// The user-client has ended a streamed request body.
+			resp.Body.Close()
+			return nil
+		} else if resp.StatusCode == http.StatusGone {
+			resp.Body.Close()
 			if debugLogs {
 				slog.Info("End of request stream", slog.String("ID", id))
 			}
-			return
+			return errors.New("request stream is gone")
 		} else if resp.StatusCode != http.StatusOK {
 			msg, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			if err != nil {
 				msg = []byte(fmt.Sprintf("<failed to read response body: %v>", err))
 			}
@@ -594,12 +634,14 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 					slog.String("Status", http.StatusText(resp.StatusCode)),
 					slog.String("Message", string(msg)))
 			}
-			return
+			return fmt.Errorf("request stream: server status %s: %s", http.StatusText(resp.StatusCode), msg)
 		}
-		if n, err := io.Copy(backendWriter, resp.Body); err != nil {
+		n, err := io.Copy(backendWriter, resp.Body)
+		resp.Body.Close()
+		if err != nil {
 			slog.Error("Failed to write to backend:",
 				slog.String("ID", id), ilog.Err(err))
-			return
+			return err
 		} else {
 			if debugLogs {
 				slog.Info("Wrote to backend",
@@ -612,10 +654,15 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *http.Client, pbreq *pb.HttpRequest) {
 	ts := time.Now()
 	id := *pbreq.Id
-	req, err := c.createBackendRequest(pbreq)
+	req, bodyWriter, err := c.createBackendRequest(pbreq)
 	if err != nil {
 		c.postErrorResponse(remote, id, fmt.Sprintf("Failed to create request for backend: %v", err))
 		return
+	}
+	if bodyWriter != nil {
+		// Start before the backend request: the backend may read request body
+		// before it sends response headers.
+		go func() { bodyWriter.CloseWithError(c.streamToBackend(remote, id, bodyWriter)) }()
 	}
 	// Measure edge processing time.
 	extractedCtx := telemetry.HTTPPropagator.Extract(ctx, propagation.HeaderCarrier(req.Header))
@@ -633,7 +680,7 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 		return
 	}
 
-	if *resp.StatusCode == http.StatusSwitchingProtocols {
+	if bodyWriter == nil && *resp.StatusCode == http.StatusSwitchingProtocols {
 		// A 101 Switching Protocols response means that the request will be
 		// used for bidirectional streaming, so start a goroutine to stream
 		// from client to backend.
@@ -645,9 +692,15 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 			return
 		}
 		// Stream stdin from remote to backend
-		go c.streamToBackend(remote, id, bodyWriter)
+		go func() {
+			// Close the backend connection on stream failure. This should cause the
+			// response stream to end and prevent the client from hanging in the case
+			// of an error in the request stream.
+			defer bodyWriter.Close()
+			c.streamToBackend(remote, id, bodyWriter)
+		}()
 	} else {
-		// `streamToBackend` will close `hresp.Body` but it is only called on websocket connections.
+		// `hresp.Body` is closed after streaming is finished.
 		// We need to close it here for http connections.
 		defer hresp.Body.Close()
 	}
@@ -715,7 +768,7 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 		if err != nil {
 			slog.Error("Closing backend connection",
 				slog.String("ID", *resp.Id), ilog.Err(err))
-			// This is also closed in streamToBackend.
+			// This is also closed when streamToBackend returns.
 			// Closing here too to ensure the disconnect propagates faster.
 			hresp.Body.Close()
 			// Drain the response channel to avoid blocking buildResponses.
@@ -799,6 +852,9 @@ func (c *Client) localProxyWorker(ctx context.Context, remote, local *http.Clien
 func (c *Client) buildRelayURL() string {
 	query := url.Values{}
 	query.Add("server", c.config.ServerName)
+	if c.config.RequestBodyStreaming {
+		query.Add(requestBodyStreamingParam, "1")
+	}
 	relayURL := url.URL{
 		Scheme:   c.config.RelayScheme,
 		Host:     c.config.RelayAddress,

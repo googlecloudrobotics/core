@@ -330,3 +330,100 @@ func TestBuildResponsesTimesOut(t *testing.T) {
 		t.Errorf("resp.Eof = %v; want true", resp.Eof)
 	}
 }
+
+func TestStreamedRequestBody(t *testing.T) {
+	type pollResponse struct {
+		status int
+		body   string
+	}
+	for _, tc := range []struct {
+		name string
+		// Content-Length header of the user-client's request, if any.
+		contentLength     string
+		polls             []pollResponse
+		wantContentLength int64
+		wantBody          string
+		wantErr           bool
+	}{
+		{
+			name:     "complete",
+			polls:    []pollResponse{{200, "-second"}, {200, ""}, {200, "-third"}, {204, ""}},
+			wantBody: "first-second-third",
+		},
+		{
+			name:              "complete_with_content_length",
+			contentLength:     "12",
+			polls:             []pollResponse{{200, "-second"}, {204, ""}},
+			wantContentLength: 12,
+			wantBody:          "first-second",
+		},
+		{
+			name:     "request_gone",
+			polls:    []pollResponse{{200, "-second"}, {410, "No ongoing request"}},
+			wantBody: "first-second",
+			wantErr:  true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			polls := 0
+			relayTransport := &mockTransport{
+				roundTrip: func(req *http.Request) (*http.Response, error) {
+					if req.Method != "POST" || req.URL.Path != "/server/requeststream" || req.URL.Query().Get("id") != "15" {
+						t.Errorf("Relay request: got %s %s, want POST /server/requeststream?id=15", req.Method, req.URL)
+					}
+					if polls >= len(tc.polls) {
+						t.Errorf("Unexpected request stream poll %d", polls+1)
+						return nil, fmt.Errorf("unexpected request")
+					}
+					p := tc.polls[polls]
+					polls++
+					return &http.Response{StatusCode: p.status, Body: io.NopCloser(strings.NewReader(p.body))}, nil
+				},
+			}
+			pbreq := &pb.HttpRequest{
+				Id:           proto.String("15"),
+				Method:       proto.String("POST"),
+				Url:          proto.String("http://invalid/upload"),
+				Body:         []byte("first"),
+				BodyStreamed: proto.Bool(true),
+			}
+			if tc.contentLength != "" {
+				pbreq.Header = []*pb.HttpHeader{{Name: proto.String("Content-Length"), Value: proto.String(tc.contentLength)}}
+			}
+			c := NewClient(DefaultClientConfig())
+			req, bodyWriter, err := c.createBackendRequest(pbreq)
+			if err != nil {
+				t.Fatalf("createBackendRequest failed: %v", err)
+			}
+			if req.ContentLength != tc.wantContentLength {
+				t.Errorf("ContentLength = %d, want %d", req.ContentLength, tc.wantContentLength)
+			}
+			go func() {
+				bodyWriter.CloseWithError(c.streamToBackend(&http.Client{Transport: relayTransport}, "15", bodyWriter))
+			}()
+
+			body, err := io.ReadAll(req.Body)
+			if got := string(body); got != tc.wantBody {
+				t.Errorf("Backend request body = %q, want %q", got, tc.wantBody)
+			}
+			if gotErr := err != nil; gotErr != tc.wantErr {
+				t.Errorf("Reading the backend request body: err = %v, want error: %v", err, tc.wantErr)
+			}
+			if polls != len(tc.polls) {
+				t.Errorf("Request stream polls = %d, want %d", polls, len(tc.polls))
+			}
+		})
+	}
+}
+
+func TestBuildRelayURLRequestBodyStreaming(t *testing.T) {
+	config := DefaultClientConfig()
+	config.ServerName = "foo"
+	if got := NewClient(config).buildRelayURL(); strings.Contains(got, requestBodyStreamingParam) {
+		t.Errorf("buildRelayURL() = %q, want no %s", got, requestBodyStreamingParam)
+	}
+	config.RequestBodyStreaming = true
+	if got, want := NewClient(config).buildRelayURL(), requestBodyStreamingParam+"=1"; !strings.Contains(got, want) {
+		t.Errorf("buildRelayURL() with RequestBodyStreaming = %q, want %s", got, want)
+	}
+}
