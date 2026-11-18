@@ -78,7 +78,6 @@ function create {
     ${ROBOT_NAME} \
     --project ${GCP_PROJECT_ID} \
     --robot-type "${ROBOT_TYPE}" \
-    --fluentd=false \
     --fluentbit=false \
     --running-on-gke=true \
     --pod-cidr "${POD_CIDR}" \
