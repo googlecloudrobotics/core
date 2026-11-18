@@ -33,6 +33,11 @@ message HttpRequest {
   optional string url = 3;
   repeated HttpHeader header = 4;
   optional bytes body = 5;
+  // If true, `body` is only the start of the request body. The relay client
+  // reads the rest from /server/requeststream?id=<id> until it returns
+  // 204 No Content. Only sent to relay clients that poll /server/request with
+  // request_body_streaming=1.
+  optional bool body_streamed = 7;
 }
 
 // Each HttpRequest may generate a stream of multiple HTTP responses with the

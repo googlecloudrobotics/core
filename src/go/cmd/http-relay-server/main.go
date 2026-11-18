@@ -52,7 +52,9 @@ var (
 		"Timeout for inactive requests. In particular, this sets a limit on how long the backend can wait before writing headers and the response status.")
 	inactiveBackendTimeout = flag.Duration("inactive_backend_timeout", server.DefaultInactiveBackendTimeout,
 		"Timeout for inactive backends. Backends (robots) that have not shown any activity for this duration will be cleaned up along with their metrics.")
-	pprofPort = flag.Int("pprof_port", 0, "If non-zero, serves pprof endpoints on this port.")
+	pprofPort            = flag.Int("pprof_port", 0, "If non-zero, serves pprof endpoints on this port.")
+	requestBodyStreaming = flag.Bool("request_body_streaming", false,
+		"Relay a request before its body has ended, for relay clients that ask for it.")
 )
 
 func main() {
@@ -89,6 +91,7 @@ func main() {
 		BlockSize:              *blockSize,
 		InactiveRequestTimeout: *inactiveRequestTimeout,
 		InactiveBackendTimeout: *inactiveBackendTimeout,
+		RequestBodyStreaming:   *requestBodyStreaming,
 	})
 	server.Start(ctx)
 }

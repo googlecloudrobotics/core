@@ -87,7 +87,8 @@ func WaitForClient(t testing.TB, relayPort int, serverName string) {
 func startRelay(t testing.TB, ctx context.Context, relayLn net.Listener, config client.ClientConfig) {
 	t.Helper()
 	relayServer := server.NewServer(server.Config{
-		BlockSize: 10 * 1024,
+		BlockSize:            10 * 1024,
+		RequestBodyStreaming: true,
 	})
 	go relayServer.StartOnListener(ctx, relayLn)
 

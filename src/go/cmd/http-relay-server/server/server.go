@@ -38,11 +38,16 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"golang.org/x/sync/errgroup"
 )
+
+// requestBodyStreamingParam is the query parameter of /server/request that
+// relay clients set to 1 if they can read streamed request bodies.
+const requestBodyStreamingParam = "request_body_streaming"
 
 var (
 	ErrRequestPathTooShort     = errors.New("request path too short")
@@ -68,6 +73,8 @@ const (
 	DefaultInactiveRequestTimeout = 60 * time.Second
 	// DefaultInactiveBackendTimeout is the default timeout for inactive backends.
 	DefaultInactiveBackendTimeout = 30 * time.Minute
+	// DefaultRequestBodyTimeout is the default duration that we wait before we will stream request body.
+	DefaultRequestBodyTimeout = 100 * time.Millisecond
 )
 
 type Config struct {
@@ -79,6 +86,14 @@ type Config struct {
 	InactiveRequestTimeout time.Duration
 	// InactiveBackendTimeout is the timeout for inactive backends.
 	InactiveBackendTimeout time.Duration
+	// RequestBodyTimeout is how long the server waits for the request body
+	// before it relays the request and streams the rest of the body to the
+	// relay client.
+	RequestBodyTimeout time.Duration
+	// RequestBodyStreaming makes the server relay a request before its body
+	// has ended, see [RequestBodyTimeout]. Without it, the server always reads
+	// the whole request body first.
+	RequestBodyStreaming bool
 }
 
 type Server struct {
@@ -98,6 +113,9 @@ func NewServer(conf Config) *Server {
 	}
 	if conf.InactiveBackendTimeout == 0 {
 		conf.InactiveBackendTimeout = DefaultInactiveBackendTimeout
+	}
+	if conf.RequestBodyTimeout == 0 {
+		conf.RequestBodyTimeout = DefaultRequestBodyTimeout
 	}
 	s := &Server{
 		conf: conf,
@@ -304,6 +322,47 @@ func (s *Server) readRequestBody(ctx context.Context, r *http.Request) ([]byte, 
 	return io.ReadAll(r.Body)
 }
 
+// readOrStreamRequestBody reads the request body for up to RequestBodyTimeout.
+// If the body hasn't ended by then, it returns the part that it has, the
+// requestBody that gets the rest, and a channel that gets the result of
+// reading the rest.
+func (s *Server) readOrStreamRequestBody(ctx context.Context, r *http.Request) ([]byte, requestBody, <-chan error, error) {
+	_, span := tracer.Start(ctx, "Start reading request body")
+	defer span.End()
+
+	rest := make(requestBody, 1)
+	copied := make(chan error, 1)
+	go func() {
+		_, err := io.Copy(rest, r.Body)
+		copied <- err
+	}()
+
+	var err error
+	streaming := false
+	select {
+	case err = <-copied:
+	case <-time.After(s.conf.RequestBodyTimeout):
+		streaming = true
+	}
+	span.SetAttributes(attribute.Bool("streaming", streaming))
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return nil, nil, nil, err
+	}
+
+	// The part of the body that arrived so far.
+	var body []byte
+	select {
+	case body = <-rest:
+	default:
+	}
+	if !streaming {
+		return body, nil, nil, nil
+	}
+	return body, rest, copied, nil
+}
+
 func (s *Server) createBackendRequest(backendCtx backendContext, r *http.Request, body []byte) *pb.HttpRequest {
 	backendUrl := url.URL{
 		Scheme:   "http",
@@ -325,11 +384,11 @@ func (s *Server) createBackendRequest(backendCtx backendContext, r *http.Request
 	return backendReq
 }
 
-func (s *Server) relayRequest(ctx context.Context, backendCtx backendContext, request *pb.HttpRequest) (<-chan *pb.HttpResponse, error) {
+func (s *Server) relayRequest(ctx context.Context, backendCtx backendContext, request *pb.HttpRequest, body requestBody) (<-chan *pb.HttpResponse, error) {
 	_, span := tracer.Start(ctx, "Schedule request for pickup")
 	defer span.End()
 
-	backendRespChan, err := s.b.RelayRequest(backendCtx.ServerName, request)
+	backendRespChan, err := s.b.RelayRequestWithBody(backendCtx.ServerName, request, body)
 	if err != nil {
 		return nil, err
 	}
@@ -384,18 +443,34 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := s.readRequestBody(ctx, r)
+	var body []byte
+	// The rest of the body and its read error, if the body is streamed.
+	var bodyRest requestBody
+	var bodyErr <-chan error
+	// After a 101 response the request stream carries the data of the upgraded
+	// connection, so it can't carry a streamed body too.
+	if s.conf.RequestBodyStreaming && r.Header.Get("Upgrade") == "" && s.b.RequestBodyStreaming(backendCtx.ServerName) {
+		body, bodyRest, bodyErr, err = s.readOrStreamRequestBody(ctx, r)
+	} else {
+		body, err = s.readRequestBody(ctx, r)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	backendReq := s.createBackendRequest(*backendCtx, r, body)
+	if bodyRest != nil {
+		backendReq.BodyStreamed = proto.Bool(true)
+		// Without this, Go's HTTP/1 server doesn't send the response while
+		// the request body is still open.
+		http.NewResponseController(w).EnableFullDuplex()
+	}
 
 	// Pipe a request into the request channel to it get polled by the relay client.
 	// Then return the response channel, so we can pass it on and wait on a response
 	// from the relay-client.
-	backendRespChan, err := s.relayRequest(ctx, *backendCtx, backendReq)
+	backendRespChan, err := s.relayRequest(ctx, *backendCtx, backendReq, bodyRest)
 	if err != nil {
 		if _, ok := err.(*RelayClientUnavailableError); ok {
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -407,6 +482,18 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer s.b.StopRelayRequest(backendCtx.Id)
+	if bodyRest != nil {
+		go func() {
+			// Tell the relay client when the body has ended. If reading it
+			// failed (e.g. the user-client is gone), abort the relayed request
+			// instead, so that the backend doesn't take the body for complete.
+			if err := <-bodyErr; err != nil {
+				s.b.StopRelayRequest(backendCtx.Id)
+			} else {
+				close(bodyRest)
+			}
+		}()
+	}
 
 	header, responseChunksChan, done := s.waitForFirstResponseAndHandleSwitching(ctx, *backendCtx, w, backendRespChan)
 	if done {
@@ -490,6 +577,8 @@ func (s *Server) serverRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Info("Relay client connected", slog.String("ServerName", server))
+	requestBodyStreaming := r.URL.Query().Get(requestBodyStreamingParam) == "1"
+	s.b.SetRequestBodyStreaming(server, requestBodyStreaming)
 
 	// Get pending request from client and sent as a reply to the relay-client.
 	request, err := s.b.GetRequest(r.Context(), server, r.URL.Path)
@@ -497,6 +586,15 @@ func (s *Server) serverRequest(w http.ResponseWriter, r *http.Request) {
 		// Expected if the relay is idle, or if the server is restarting.
 		slog.Debug("Relay client got no request", slog.String("ID", server), ilog.Err(err))
 		http.Error(w, err.Error(), http.StatusRequestTimeout)
+		return
+	}
+	if request.GetBodyStreamed() && !requestBodyStreaming {
+		// The request was queued for a relay client that reads streamed request
+		// bodies, but this one doesn't (e.g. it was just downgraded) and would
+		// take the start of the body for the whole body.
+		slog.Warn("Dropping request with streamed body for relay client without request body streaming", slog.String("ID", request.GetId()))
+		s.b.StopRelayRequest(request.GetId())
+		http.Error(w, "request body streaming is not supported by this relay client", http.StatusRequestTimeout)
 		return
 	}
 
@@ -518,8 +616,13 @@ func (s *Server) serverRequestStream(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing id query parameter", http.StatusBadRequest)
 		return
 	}
-	data, ok := s.b.GetRequestStream(id)
-	if !ok {
+	data, err := s.b.GetRequestStream(id)
+	if err == io.EOF {
+		// This tells the relay client that the user-client has ended a
+		// streamed request body.
+		w.WriteHeader(http.StatusNoContent)
+		return
+	} else if err != nil {
 		// Using the 410 Gone error tells the relay client that this request
 		// has completed.
 		http.Error(w, "No ongoing request with id "+id, http.StatusGone)

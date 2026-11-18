@@ -69,7 +69,7 @@ func (s *testServer) BiDiStream(stream rt.TestService_BiDiStreamServer) error {
 	}
 }
 
-func mustInitRelay(t *testing.T) (*rt.RelayEnv, net.Listener) {
+func mustInitRelay(t *testing.T, opts ...func(*client.ClientConfig)) (*rt.RelayEnv, net.Listener) {
 	t.Helper()
 
 	config := client.DefaultClientConfig()
@@ -78,6 +78,9 @@ func mustInitRelay(t *testing.T) (*rt.RelayEnv, net.Listener) {
 	config.DisableAuthForRemote = true
 	config.ForceHttp2 = true // Enable HTTP/2 for gRPC
 	config.NumPendingRequests = 5
+	for _, opt := range opts {
+		opt(&config)
+	}
 
 	env, lis, cleanup := rt.SetupRelay(t, config)
 	t.Cleanup(cleanup)
@@ -286,7 +289,7 @@ func TestBiDiStreamingOverRelay(t *testing.T) {
 // TestInteractiveBiDiStreamingOverRelay waits for each echo before sending the
 // next message or half-closing.
 func TestInteractiveBiDiStreamingOverRelay(t *testing.T) {
-	relayEnv, lis := mustInitRelay(t)
+	relayEnv, lis := mustInitRelay(t, func(c *client.ClientConfig) { c.RequestBodyStreaming = true })
 	defer lis.Close()
 
 	grpcServer := grpc.NewServer()

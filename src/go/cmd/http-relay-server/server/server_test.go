@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -836,5 +837,169 @@ func TestResponseFilterChunking(t *testing.T) {
 	_, more := <-chunks
 	if more {
 		t.Error("Expected chunks channel to be closed")
+	}
+}
+
+func TestClientHandlerStreamsRequestBody(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		// Whether the relay client polled with request_body_streaming=1.
+		relayClientStreams bool
+		conf               Config
+		header             http.Header
+		// The user-client sends first, waits for longer than RequestBodyTimeout,
+		// sends rest and then ends the body, with bodyErr if set.
+		first, rest string
+		bodyErr     error
+		// Whether the request is relayed before the body has ended, and the
+		// status that then ends the request stream.
+		wantStreamed  bool
+		wantStreamEnd int
+		// The response to the user-client.
+		wantStatus int
+	}{
+		{
+			name:               "body_pauses",
+			relayClientStreams: true,
+			conf:               Config{RequestBodyStreaming: true, RequestBodyTimeout: 10 * time.Millisecond},
+			first:              "first-",
+			rest:               "second",
+			wantStreamed:       true,
+			wantStreamEnd:      http.StatusNoContent,
+			wantStatus:         http.StatusOK,
+		},
+		{
+			name:               "body_ends_before_the_timeout",
+			relayClientStreams: true,
+			conf:               Config{RequestBodyStreaming: true, RequestBodyTimeout: time.Minute},
+			first:              "first",
+			wantStatus:         http.StatusOK,
+		},
+		{
+			name:               "relay_client_without_request_body_streaming",
+			relayClientStreams: false,
+			conf:               Config{RequestBodyStreaming: true, RequestBodyTimeout: 10 * time.Millisecond},
+			first:              "first-",
+			rest:               "second",
+			wantStatus:         http.StatusOK,
+		},
+		{
+			name:               "server_without_request_body_streaming",
+			relayClientStreams: true,
+			conf:               Config{RequestBodyTimeout: 10 * time.Millisecond},
+			first:              "first-",
+			rest:               "second",
+			wantStatus:         http.StatusOK,
+		},
+		{
+			name:               "upgrade_request",
+			relayClientStreams: true,
+			conf:               Config{RequestBodyStreaming: true, RequestBodyTimeout: 10 * time.Millisecond},
+			header:             http.Header{"Upgrade": {"websocket"}},
+			first:              "first-",
+			rest:               "second",
+			wantStatus:         http.StatusOK,
+		},
+		{
+			name:               "body_fails",
+			relayClientStreams: true,
+			conf:               Config{RequestBodyStreaming: true, RequestBodyTimeout: 10 * time.Millisecond},
+			bodyErr:            errors.New("connection reset"),
+			wantStreamed:       true,
+			wantStreamEnd:      http.StatusGone,
+			wantStatus:         http.StatusGatewayTimeout,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pr, pw := io.Pipe()
+			defer pw.Close()
+			req := httptest.NewRequest("POST", "/client/foo/upload", pr)
+			maps.Copy(req.Header, tc.header)
+			respRecorder := httptest.NewRecorder()
+			server := NewServer(tc.conf)
+			server.b.SetRequestBodyStreaming("foo", tc.relayClientStreams)
+			wg := sync.WaitGroup{}
+			wg.Go(func() { server.userClientRequest(respRecorder, req) })
+
+			sendRest := func() {
+				pw.Write([]byte(tc.rest))
+				pw.CloseWithError(tc.bodyErr)
+			}
+			go func() {
+				pw.Write([]byte(tc.first))
+				if !tc.wantStreamed {
+					if tc.rest != "" {
+						time.Sleep(2 * tc.conf.RequestBodyTimeout)
+					}
+					sendRest()
+				}
+			}()
+			relayRequest, err := server.b.GetRequest(t.Context(), "foo", "/")
+			if err != nil {
+				t.Fatalf("Error when getting request: %v", err)
+			}
+			if got := relayRequest.GetBodyStreamed(); got != tc.wantStreamed {
+				t.Errorf("BodyStreamed = %v; want %v", got, tc.wantStreamed)
+			}
+
+			gotBody := string(relayRequest.Body)
+			if tc.wantStreamed {
+				go sendRest()
+				gotStreamEnd := 0
+				for gotStreamEnd == 0 {
+					w := httptest.NewRecorder()
+					server.serverRequestStream(w, httptest.NewRequest("POST", "/server/requeststream?id="+relayRequest.GetId(), nil))
+					if w.Code == http.StatusOK {
+						gotBody += w.Body.String()
+					} else {
+						gotStreamEnd = w.Code
+					}
+				}
+				if gotStreamEnd != tc.wantStreamEnd {
+					t.Errorf("Request stream ended with status %d; want %d", gotStreamEnd, tc.wantStreamEnd)
+				}
+			}
+			if want := tc.first + tc.rest; gotBody != want {
+				t.Errorf("Wrong request body; got %q; want %q", gotBody, want)
+			}
+
+			if tc.wantStatus == http.StatusOK {
+				server.b.SendResponse(&pb.HttpResponse{
+					Id:         relayRequest.Id,
+					StatusCode: proto.Int32(200),
+					Eof:        proto.Bool(true),
+				})
+			}
+			wg.Wait()
+			if got := respRecorder.Code; got != tc.wantStatus {
+				t.Errorf("Wrong response code; got %d; want %d", got, tc.wantStatus)
+			}
+		})
+	}
+}
+
+// A relay client that doesn't read streamed request bodies would take the
+// start of the body for the whole body.
+func TestServerRequestDropsStreamedRequestForRelayClientWithoutStreaming(t *testing.T) {
+	server := NewServer(Config{})
+	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest, 1), lastActivity: time.Now()}
+	respChan, err := server.b.RelayRequest("foo", &pb.HttpRequest{
+		Id:           proto.String("15"),
+		Method:       proto.String("POST"),
+		Url:          proto.String("http://invalid/upload"),
+		Body:         []byte("first"),
+		BodyStreamed: proto.Bool(true),
+	})
+	if err != nil {
+		t.Fatalf("RelayRequest failed: %v", err)
+	}
+
+	w := httptest.NewRecorder()
+	server.serverRequest(w, httptest.NewRequest("GET", "/server/request?server=foo", nil))
+	if w.Code != http.StatusRequestTimeout {
+		t.Errorf("GET /server/request returned status %d; want %d", w.Code, http.StatusRequestTimeout)
+	}
+	if _, more := <-respChan; more {
+		t.Error("The request wasn't stopped")
 	}
 }

@@ -28,6 +28,7 @@ For the complete architecture, sequence diagrams, and scalability considerations
 - `--max_idle_conns_per_host`: Maximum number of idle (keep-alive) connections to keep per host (default: `50`).
 - `--disable_http2`: Disable HTTP/2 protocol usage (e.g. for channels that require HTTP/1.1 protocol upgrades such as SPDY) (default: `false`).
 - `--force_http2`: Force HTTP/2 transport usage (e.g. when relaying cleartext gRPC) (default: `false`).
+- `--request_body_streaming`: Ask the relay server to stream request bodies. Without it, a request reaches the backend only when the caller has ended the request body. The relay server needs the flag too (default: `false`).
 - `--disable_auth_for_remote`: Disable authentication when talking to the relay server for local testing (default: `false`).
 - `--trace-stackdriver-project-id`: If non-empty, uploads OpenTelemetry traces to this Google Cloud Project (default: `""`).
 - `--log_level`: Minimum log message level required to be logged (default: `0` / `INFO`).
