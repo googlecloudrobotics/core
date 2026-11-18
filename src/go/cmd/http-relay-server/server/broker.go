@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 	"strings"
@@ -96,6 +97,8 @@ type pendingResponse struct {
 	requestStream chan []byte
 	// This mutex should be locked when writing to `requestStream``
 	requestStreamMutex sync.Mutex
+	// The rest of a streamed request body, else nil.
+	requestBody requestBody
 
 	// This channel is used to communicate data between the backend and user-client.
 	// The user-client sends a hanging request to the relay-server which blocks until
@@ -111,6 +114,24 @@ type pendingResponse struct {
 
 	// mark that the connection should be dropped
 	markReap chan struct{}
+}
+
+// requestBody holds the part of a streamed request body that the relay client
+// hasn't fetched yet. The channel has capacity 1: new data is merged into the
+// piece that waits there, so the relay client gets all that arrived since its
+// last poll in one piece. It is closed at the end of the body.
+type requestBody chan []byte
+
+// Write adds p to the data that waits for the relay client. Only one goroutine
+// may write.
+func (b requestBody) Write(p []byte) (int, error) {
+	var data []byte
+	select {
+	case data = <-b:
+	default:
+	}
+	b <- append(data, p...)
+	return len(p), nil
 }
 
 type RelayClientUnavailableError struct {
@@ -130,6 +151,9 @@ func (e *RelayClientUnavailableError) Error() string {
 type backendState struct {
 	reqChan      chan *pb.HttpRequest
 	lastActivity time.Time
+	// Whether the relay client asked for streamed request bodies in its last
+	// poll.
+	requestBodyStreaming bool
 }
 
 type broker struct {
@@ -156,6 +180,13 @@ func (r *broker) Healthy() error {
 // RelayRequest matches a pending relay client's request to the encapsulated
 // request and returns a channel for the results.
 func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *pb.HttpResponse, error) {
+	return r.RelayRequestWithBody(server, request, nil)
+}
+
+// RelayRequestWithBody is like RelayRequest, for a request whose body is
+// streamed: request has the start of the body, and the relay client gets what
+// is written to body from GetRequestStream.
+func (r *broker) RelayRequestWithBody(server string, request *pb.HttpRequest, body requestBody) (<-chan *pb.HttpResponse, error) {
 	id := *request.Id
 	targetUrl, err := url.Parse(*request.Url)
 	if err != nil {
@@ -177,6 +208,7 @@ func (r *broker) RelayRequest(server string, request *pb.HttpRequest) (<-chan *p
 	ts := time.Now()
 	r.resp[id] = &pendingResponse{
 		requestStream:  make(chan []byte),
+		requestBody:    body,
 		responseStream: make(chan *pb.HttpResponse),
 		lastActivity:   ts,
 		startTime:      ts,
@@ -245,23 +277,59 @@ func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpR
 	}
 }
 
+// SetRequestBodyStreaming records whether the relay client for the server
+// identifier asked for streamed request bodies.
+func (r *broker) SetRequestBodyStreaming(server string, enabled bool) {
+	r.m.Lock()
+	defer r.m.Unlock()
+	bs := r.req[server]
+	if bs == nil {
+		bs = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+		r.req[server] = bs
+	}
+	bs.requestBodyStreaming = enabled
+}
+
+// RequestBodyStreaming reports whether the relay client for the server
+// identifier asked for streamed request bodies.
+func (r *broker) RequestBodyStreaming(server string) bool {
+	r.m.Lock()
+	defer r.m.Unlock()
+	bs := r.req[server]
+	return bs != nil && bs.requestBodyStreaming
+}
+
 // GetRequestStream gets data from the stream that follows a client's HTTP
 // request. For example, when using `kubectl exec` this passes stdin data from
-// the broker to the relay client.
-// If no ongoing request matches the given ID, this returns ok=false.
-func (r *broker) GetRequestStream(id string) ([]byte, bool) {
+// the broker to the relay client, and for a streamed request body it passes
+// the rest of the body.
+// It returns io.EOF at the end of a streamed request body, and
+// ErrInvalidRequestID if no ongoing request matches the given ID.
+func (r *broker) GetRequestStream(id string) ([]byte, error) {
 	r.m.Lock()
 	pr := r.resp[id]
 	r.m.Unlock()
 	if pr == nil {
-		return nil, false
+		return nil, fmt.Errorf("%w %s", ErrInvalidRequestID, id)
 	}
 
 	select {
 	case data := <-pr.requestStream:
-		return data, true
+		return data, nil
+	case data, more := <-pr.requestBody:
+		if !more {
+			return nil, io.EOF
+		}
+		// An upload can take longer than the inactivity timeout before the
+		// backend sends its first response.
+		r.m.Lock()
+		pr.lastActivity = time.Now()
+		r.m.Unlock()
+		return data, nil
+	case <-pr.markReap:
+		return nil, fmt.Errorf("%w %s", ErrInvalidRequestID, id)
 	case <-time.After(getRequestTimeout):
-		return []byte{}, true
+		return []byte{}, nil
 	}
 }
 
@@ -333,6 +401,8 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 				// this request is already removed from the broker earlier so `ReapInactiveRequests` will not
 				// process this and attempt to close the channel twice.
 				close(pr.responseStream)
+				// The request is over: stop whoever still waits on the request stream.
+				close(pr.markReap)
 			}
 			return nil
 		case <-pr.markReap:

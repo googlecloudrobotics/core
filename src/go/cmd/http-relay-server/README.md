@@ -88,6 +88,25 @@ sequenceDiagram
 
 The relay-client side implementation is in `../http-relay-client`.
 
+### Streamed request bodies
+
+Some requests keep their body open while the backend responds, for example
+gRPC client-streaming and bidirectional calls. With `--request_body_streaming`,
+the relay-server therefore waits only 100ms for the request body, if the
+relay-client asked for streamed request bodies with `request_body_streaming=1`
+on `/server/request`:
+
+1. Relay-server responds to `/server/request` with the part of the body that
+   arrived so far. If the body hasn't ended yet, it marks the request as
+   `body_streamed`.
+2. Relay-client starts the request to the backend, and requests
+   `/server/requeststream?id=$id` for the rest of the body.
+3. Relay-server responds with more of the body. It responds with
+   `204 No Content` when the user-client has ended the body, and with
+   `410 Gone` when the request is over or the user-client aborted it.
+4. Relay-client passes the bytes on to the backend, and ends or aborts the
+   request to the backend accordingly.
+
 ## Tested capabilities
 
 The http-relay-server was originally designed as a way to use kubectl against remote clusters.
@@ -96,16 +115,17 @@ It has been tested with the following traffic:
 
 - HTTP 1.1 & 2 from web browsers (including bidirectional streaming with websockets)
 - HTTP 1.1 from kubectl, including streaming response bodies for `kubectl logs`
-- HTTP 1.1 chunked request bodies (`Transfer-Encoding: chunked` in the request header, buffered before relaying)
+- HTTP 1.1 chunked request bodies (`Transfer-Encoding: chunked` in the request header)
 - SPDY from kubectl (via HTTP 101 Switching Protocols) for `kubectl exec`
 - Unidirectional gRPC (HTTP2 cleartext and HTTP trailers)
-- Streaming gRPC (server, client, and bi-directional)
+- Streaming gRPC (server, client, and bi-directional), including calls that wait for responses while the request stream is open
 
 ## Flags
 
 - `--port`: Port number to listen on (default: 80).
 - `--block_size`: Size of i/o buffer in bytes (default: 10240).
 - `--inactive_request_timeout`: Timeout for inactive requests (default: 60s). In particular, this sets a limit on how long the backend can wait before writing headers and the response status.
+- `--request_body_streaming`: Relay a request before its body has ended, see [Streamed request bodies](#streamed-request-bodies) (default: false).
 
 ## Configuration
 

@@ -18,8 +18,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"testing/synctest"
@@ -218,12 +220,12 @@ func TestRequestStream(t *testing.T) {
 			t.Error("PutRequestStream(idOne, \"hello\") = false, want true")
 		}
 	}()
-	data, ok := b.GetRequestStream(idOne)
-	if !ok {
-		t.Error("data, ok := GetRequestStream(idOne); ok = false, want true")
+	data, err := b.GetRequestStream(idOne)
+	if err != nil {
+		t.Errorf("data, err := GetRequestStream(idOne); err = %v, want nil", err)
 	}
 	if !bytes.Equal(data, []byte("hello")) {
-		t.Errorf("data, ok := GetRequestStream(idOne); data = %q, want \"hello\"", data)
+		t.Errorf("data, err := GetRequestStream(idOne); data = %q, want \"hello\"", data)
 	}
 
 	// Complete the ongoing request.
@@ -236,8 +238,8 @@ func TestRequestStreamUnknownID(t *testing.T) {
 	if ok := b.PutRequestStream(unknownID, []byte{}); ok {
 		t.Error("ok := PutRequestStream(unknownID, \"\"); ok = true, want false")
 	}
-	if _, ok := b.GetRequestStream(unknownID); ok {
-		t.Error("_, ok := GetRequestStream(unknownID; ok = true, want false")
+	if _, err := b.GetRequestStream(unknownID); !errors.Is(err, ErrInvalidRequestID) {
+		t.Errorf("_, err := GetRequestStream(unknownID); err = %v, want %v", err, ErrInvalidRequestID)
 	}
 }
 
@@ -430,9 +432,9 @@ func TestGetRequestStreamTimeout(t *testing.T) {
 	req := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
 	b.RelayRequest("foo", req)
 
-	data, ok := b.GetRequestStream(idOne)
-	if !ok {
-		t.Error("Expected ok=true")
+	data, err := b.GetRequestStream(idOne)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
 	}
 	if len(data) != 0 {
 		t.Errorf("Expected empty data on timeout, got %d bytes", len(data))
@@ -509,5 +511,78 @@ func TestReapInactiveBackends(t *testing.T) {
 	}
 	if _, ok := b.req["inactive"]; ok {
 		t.Error("Inactive backend was not reaped")
+	}
+}
+
+func TestRequestBodyStream(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		b := newBroker()
+		b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest, 1), lastActivity: time.Now()}
+		body := make(requestBody, 1)
+		if _, err := b.RelayRequestWithBody("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")}, body); err != nil {
+			t.Fatalf("RelayRequestWithBody failed: %v", err)
+		}
+
+		// The relay client gets all that was written since its last poll in one
+		// piece. The request stays active while its body is passed on, although
+		// the backend doesn't respond.
+		for _, parts := range [][]string{{"first"}, {"second", "third"}} {
+			time.Sleep(40 * time.Second)
+			for _, part := range parts {
+				body.Write([]byte(part))
+			}
+			want := strings.Join(parts, "")
+			if got, err := b.GetRequestStream(idOne); err != nil || string(got) != want {
+				t.Errorf("GetRequestStream(idOne) = %q, %v; want %q, nil", got, err, want)
+			}
+			b.ReapInactiveRequests(time.Now().Add(-60 * time.Second))
+		}
+
+		close(body)
+		if _, err := b.GetRequestStream(idOne); err != io.EOF {
+			t.Errorf("_, err := GetRequestStream(idOne) after the end of the body; err = %v, want io.EOF", err)
+		}
+	})
+}
+
+func TestGetRequestStreamEndsWithResponse(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		b := newBroker()
+		b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest, 1), lastActivity: time.Now()}
+		respChan, err := b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
+		if err != nil {
+			t.Fatalf("RelayRequest failed: %v", err)
+		}
+		start := time.Now()
+		done := make(chan error, 1)
+		go func() {
+			_, err := b.GetRequestStream(idOne)
+			done <- err
+		}()
+		synctest.Wait()
+
+		go func() { <-respChan }()
+		if err := b.SendResponse(&pb.HttpResponse{Id: proto.String(idOne), Eof: proto.Bool(true)}); err != nil {
+			t.Fatalf("SendResponse failed: %v", err)
+		}
+		if err := <-done; !errors.Is(err, ErrInvalidRequestID) {
+			t.Errorf("_, err := GetRequestStream(idOne) after the last response; err = %v, want %v", err, ErrInvalidRequestID)
+		}
+		if got := time.Since(start); got != 0 {
+			t.Errorf("GetRequestStream(idOne) returned after %v, want 0s", got)
+		}
+	})
+}
+
+func TestRequestBodyStreaming(t *testing.T) {
+	b := newBroker()
+	if b.RequestBodyStreaming("foo") {
+		t.Error("RequestBodyStreaming(foo) = true for an unknown backend, want false")
+	}
+	for _, want := range []bool{true, false} {
+		b.SetRequestBodyStreaming("foo", want)
+		if got := b.RequestBodyStreaming("foo"); got != want {
+			t.Errorf("RequestBodyStreaming(foo) = %v after SetRequestBodyStreaming(foo, %v)", got, want)
+		}
 	}
 }

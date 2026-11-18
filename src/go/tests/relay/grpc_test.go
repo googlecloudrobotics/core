@@ -69,7 +69,7 @@ func (s *testServer) BiDiStream(stream rt.TestService_BiDiStreamServer) error {
 	}
 }
 
-func mustInitRelay(t *testing.T) (*rt.RelayEnv, net.Listener) {
+func mustInitRelay(t *testing.T, opts ...func(*client.ClientConfig)) (*rt.RelayEnv, net.Listener) {
 	t.Helper()
 
 	config := client.DefaultClientConfig()
@@ -78,6 +78,9 @@ func mustInitRelay(t *testing.T) (*rt.RelayEnv, net.Listener) {
 	config.DisableAuthForRemote = true
 	config.ForceHttp2 = true // Enable HTTP/2 for gRPC
 	config.NumPendingRequests = 5
+	for _, opt := range opts {
+		opt(&config)
+	}
 
 	env, lis, cleanup := rt.SetupRelay(t, config)
 	t.Cleanup(cleanup)
@@ -281,4 +284,57 @@ func TestBiDiStreamingOverRelay(t *testing.T) {
 		}
 	})
 	wg.Wait()
+}
+
+// TestInteractiveBiDiStreamingOverRelay waits for each echo before sending the
+// next message or half-closing.
+func TestInteractiveBiDiStreamingOverRelay(t *testing.T) {
+	relayEnv, lis := mustInitRelay(t, func(c *client.ClientConfig) { c.RequestBodyStreaming = true })
+	defer lis.Close()
+
+	grpcServer := grpc.NewServer()
+	rt.RegisterTestServiceServer(grpcServer, &testServer{})
+	go func() {
+		grpcServer.Serve(lis)
+	}()
+	defer grpcServer.Stop()
+
+	rt.WaitForClient(t, relayEnv.RelayPort, "server_name")
+
+	relayAddr := fmt.Sprint("127.0.0.1:", relayEnv.RelayPort)
+	conn, err := grpc.Dial(relayAddr, grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to create client connection: %v", err)
+	}
+	defer conn.Close()
+
+	grpcClient := rt.NewTestServiceClient(conn)
+
+	ctx := metadata.AppendToOutgoingContext(t.Context(), "x-server-name", "server_name")
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	stream, err := grpcClient.BiDiStream(ctx)
+	if err != nil {
+		t.Fatalf("failed to call BiDiStream: %v", err)
+	}
+
+	for _, msg := range []string{"hello", "world"} {
+		if err := stream.Send(&rt.StringMessage{Value: msg}); err != nil {
+			t.Fatalf("failed to send %q: %v", msg, err)
+		}
+		resp, err := stream.Recv()
+		if err != nil {
+			t.Fatalf("no response to %q while the request stream is open: %v", msg, err)
+		}
+		if want := "Echo: " + msg; resp.Value != want {
+			t.Errorf("got %q, want %q", resp.Value, want)
+		}
+	}
+	if err := stream.CloseSend(); err != nil {
+		t.Errorf("failed to CloseSend: %v", err)
+	}
+	if _, err := stream.Recv(); err != io.EOF {
+		t.Errorf("expected EOF, got %v", err)
+	}
 }
