@@ -79,7 +79,8 @@ _app_chart_backend = rule(
             allow_empty = True,
             doc = "Images referenced by the chart.",
         ),
-        # TODO: chart-assignment-controller current ignore crds/, these won't be rendered.
+        # chart-assignment-controller currently ignore crds/, these won't be rendered.
+        # CRDs should be included inside templates, synk will apply CRDs.
         # "crds": attr.label_list(
         #     allow_empty = True,
         #     default = [],
