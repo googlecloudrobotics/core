@@ -107,17 +107,9 @@ def _stage_subdir_impl(ctx):
     outs = []
     for f in ctx.files.srcs:
         out = ctx.actions.declare_file(paths.join(ctx.attr.subdir, f.basename))
-
-        # ctx.actions.symlink doesn't work in remote build if target file is a cache hit because of a bazel bug.
-        # Parent directory for a symlink only created for external repo:
-        # https://github.com/bazelbuild/bazel/blob/8.8.2/src/main/java/com/google/devtools/build/lib/remote/AbstractActionInputPrefetcher.java#L808-L826.
-        ctx.actions.run_shell(
-            inputs = [f],
-            outputs = [out],
-            command = 'cp -f "$1" "$2"',
-            arguments = [f.path, out.path],
-            mnemonic = "CopyFile",
-            toolchain = None,
+        ctx.actions.symlink(
+            output = out,
+            target_file = f,
         )
         outs.append(out)
     return [DefaultInfo(files = depset(outs))]
