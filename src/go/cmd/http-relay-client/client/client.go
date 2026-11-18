@@ -672,8 +672,6 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 		c.postErrorResponse(remote, id, fmt.Sprintf("Failed to create request for backend: %v", err))
 		return
 	}
-	// After a 101 response the request stream carries the data of the upgraded
-	// connection, so it can't carry a streamed body too.
 	if bodyWriter != nil {
 		// Start before the backend request: the backend may read request body
 		// before it sends response headers.
