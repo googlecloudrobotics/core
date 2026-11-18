@@ -6,10 +6,12 @@ go_library(
     name = "go_default_library",
     srcs = [
         "broker.go",
+        "grpc.go",
         "server.go",
     ],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server/server",
     deps = [
+        "//src/go/pkg/httprelay:go_default_library",
         "//src/go/pkg/telemetry:go_default_library",
         "//src/proto/http-relay:go_default_library",
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
@@ -19,6 +21,10 @@ go_library(
         "@io_opentelemetry_go_otel//:go_default_library",
         "@io_opentelemetry_go_otel//attribute:go_default_library",
         "@io_opentelemetry_go_otel//propagation:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//metadata:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
         "@org_golang_google_protobuf//proto:go_default_library",
         "@org_golang_x_net//http2:go_default_library",
         "@org_golang_x_net//http2/h2c:go_default_library",
@@ -31,6 +37,7 @@ go_test(
     size = "small",
     srcs = [
         "broker_test.go",
+        "grpc_test.go",
         "server_test.go",
     ],
     embed = [":go_default_library"],
@@ -38,6 +45,10 @@ go_test(
     deps = [
         "//src/proto/http-relay:go_default_library",
         "@com_github_getlantern_httptest//:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//credentials/insecure:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
         "@org_golang_google_protobuf//proto:go_default_library",
     ],
 )

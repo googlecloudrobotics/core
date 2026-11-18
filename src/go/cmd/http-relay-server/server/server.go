@@ -84,6 +84,7 @@ type Config struct {
 type Server struct {
 	conf Config
 	b    *broker
+	gRPC *gRPCRelay
 }
 
 func NewServer(conf Config) *Server {
@@ -99,9 +100,11 @@ func NewServer(conf Config) *Server {
 	if conf.InactiveBackendTimeout == 0 {
 		conf.InactiveBackendTimeout = DefaultInactiveBackendTimeout
 	}
+	b := newBroker()
 	s := &Server{
 		conf: conf,
-		b:    newBroker(),
+		b:    b,
+		gRPC: newGRPCRelay(b),
 	}
 	return s
 }
@@ -384,6 +387,11 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.b.PreferGRPC(backendCtx.ServerName) {
+		s.gRPC.serveHTTP(ctx, w, r, *backendCtx)
+		return
+	}
+
 	body, err := s.readRequestBody(ctx, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -490,6 +498,9 @@ func (s *Server) serverRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Info("Relay client connected", slog.String("ServerName", server))
+	if r.URL.Query().Get(queryParam) != "1" {
+		s.b.SetGRPC(server, false)
+	}
 
 	// Get pending request from client and sent as a reply to the relay-client.
 	request, err := s.b.GetRequest(r.Context(), server, r.URL.Path)
@@ -580,6 +591,7 @@ func (s *Server) Handler() http.Handler {
 	h.HandleFunc("/server/requeststream", s.serverRequestStream)
 	h.HandleFunc("/server/response", s.serverResponse)
 	h.Handle("/metrics", promhttp.Handler())
+	h.Handle(pathPrefix+"/cloudrobotics.http_relay.v1alpha1.Relay/", http.StripPrefix(pathPrefix, s.gRPC.newGRPCServer()))
 
 	h2s := &http2.Server{}
 	h2h := h2c.NewHandler(h, h2s)

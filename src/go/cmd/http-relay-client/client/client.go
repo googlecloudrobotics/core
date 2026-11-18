@@ -94,6 +94,7 @@ type ClientConfig struct {
 
 	DisableHttp2 bool
 	ForceHttp2   bool
+	GRPCWire     bool
 }
 
 type RelayServerError struct {
@@ -144,12 +145,14 @@ func DefaultClientConfig() ClientConfig {
 
 		DisableHttp2: false,
 		ForceHttp2:   false,
+		GRPCWire:     true,
 	}
 }
 
 type Client struct {
 	config ClientConfig
 	wg     sync.WaitGroup
+	gRPC   *gRPCRelay
 }
 
 func NewClient(config ClientConfig) *Client {
@@ -260,10 +263,24 @@ func (c *Client) Start(ctx context.Context) {
 		),
 	}
 
+	if c.config.GRPCWire {
+		c.gRPC, err = newGRPCRelay(ctx, c.config, local.Transport)
+		if err != nil {
+			slog.Error("unable to set up gRPC relay client", ilog.Err(err))
+			os.Exit(1)
+		}
+	}
+
 	c.StartWithClients(ctx, remote, local)
 }
 
 func (c *Client) StartWithClients(ctx context.Context, remote, local *http.Client) {
+	if c.gRPC != nil {
+		c.wg.Go(func() {
+			c.gRPC.run(ctx)
+		})
+		c.gRPC.waitReady(ctx)
+	}
 	for i := 0; i < c.config.NumPendingRequests; i++ {
 		c.wg.Go(func() {
 			c.localProxyWorker(ctx, remote, local)
@@ -799,6 +816,9 @@ func (c *Client) localProxyWorker(ctx context.Context, remote, local *http.Clien
 func (c *Client) buildRelayURL() string {
 	query := url.Values{}
 	query.Add("server", c.config.ServerName)
+	if c.gRPC != nil && c.gRPC.isHealthy() {
+		query.Set(queryParam, "1")
+	}
 	relayURL := url.URL{
 		Scheme:   c.config.RelayScheme,
 		Host:     c.config.RelayAddress,
