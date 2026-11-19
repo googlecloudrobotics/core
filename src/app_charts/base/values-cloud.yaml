@@ -13,6 +13,7 @@ onprem_federation: "true"
 
 use_gateway: "false"
 use_nginx_shield: "false"
+use_http2: "true"
 
 oauth2_proxy:
   cookie_secret: ""

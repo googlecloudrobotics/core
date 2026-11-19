@@ -14,6 +14,7 @@ data:
   # The token-vendor checks the Original-URI header to accept tokens from query
   # parameters.
   proxy-add-original-uri-header: "true"
+  use-http2: {{ .Values.use_http2 | quote }}
 
   {{- if eq .Values.use_nginx_shield "true" }}
   # Best practice: Pair it with trusted proxy IP ranges
