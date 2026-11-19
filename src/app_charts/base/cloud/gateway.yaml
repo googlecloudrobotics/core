@@ -193,10 +193,6 @@ spec:
   http2:
     initialStreamWindowSize: 1048576      # 1 MiB (overrides 64 KiB default to prevent 16x WINDOW_UPDATE stalls on 1 MiB chunks)
     initialConnectionWindowSize: 4194304  # 4 MiB
-    connectionKeepalive:
-      idleInterval: 60s
-      interval: 60s
-      timeout: 15s
   timeout:
     http:
       requestTimeout: 60s
