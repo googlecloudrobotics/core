@@ -69,3 +69,40 @@ expect_app_not_installed "${HELM} template ${CLOUD_BASE} --set-string app_manage
 
 expect_app_installed "${HELM} template ${ROBOT_BASE} --set-string app_management=true" "chart-assignment-controller"
 expect_app_not_installed "${HELM} template ${ROBOT_BASE} --set-string app_management=false" "chart-assignment-controller"
+
+function expect_template_contains() {
+  local command="$1"
+  local expected="$2"
+  local template
+  if ! template=$(${command}); then
+    test_failed "\"${command}\" failed"
+  fi
+  if [[ "${template}" != *"${expected}"* ]]; then
+    echo "TEMPLATE: ${template}"
+    test_failed "expected \"${expected}\" in template created by \"${command}\""
+  fi
+  test_passed "\"${expected}\" is present in template created by \"${command}\""
+}
+
+function expect_template_not_contains() {
+  local command="$1"
+  local unexpected="$2"
+  local template
+  if ! template=$(${command}); then
+    test_failed "\"${command}\" failed"
+  fi
+  if [[ "${template}" == *"${unexpected}"* ]]; then
+    echo "TEMPLATE: ${template}"
+    test_failed "did not expect \"${unexpected}\" in template created by \"${command}\""
+  fi
+  test_passed "\"${unexpected}\" is absent in template created by \"${command}\""
+}
+
+expect_template_contains "${HELM} template ${CLOUD_BASE} --set-string use_nginx_shield=true" 'use-http2: "true"'
+expect_template_contains "${HELM} template ${CLOUD_BASE} --set-string use_nginx_shield=true" "http2 on;"
+expect_template_contains "${HELM} template ${CLOUD_BASE} --set-string use_nginx_shield=true" "grpc_pass grpcs://backend_grpc;"
+
+expect_template_contains "${HELM} template ${CLOUD_BASE} --set-string use_nginx_shield=true --set-string use_http2=false" 'use-http2: "false"'
+expect_template_contains "${HELM} template ${CLOUD_BASE} --set-string use_nginx_shield=true --set-string use_http2=false" "http2 off;"
+expect_template_not_contains "${HELM} template ${CLOUD_BASE} --set-string use_nginx_shield=true --set-string use_http2=false" "http2 on;"
+expect_template_not_contains "${HELM} template ${CLOUD_BASE} --set-string use_nginx_shield=true --set-string use_http2=false" "grpc_pass"

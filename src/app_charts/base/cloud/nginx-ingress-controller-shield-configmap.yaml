@@ -254,11 +254,13 @@ data:
           ''      "";
       }
 
+      {{- if ne .Values.use_http2 "false" }}
       # Map content-type to detect gRPC traffic (starts with application/grpc).
       map $http_content_type $is_grpc {
           default 0;
           "~*^application/grpc" 1;
       }
+      {{- end }}
 
       map $ssl_server_name $cert_path {
           hostnames;
@@ -274,11 +276,13 @@ data:
           keepalive 256;
       }
 
+      {{- if ne .Values.use_http2 "false" }}
       # Upstream pool for gRPC traffic
       upstream backend_grpc {
           server nginx-ingress-controller-internal:443;
           keepalive 256;
       }
+      {{- end }}
 
       # Listen on port 80 for non-secure HTTP requests
       # Redirect all HTTP traffic to HTTPS (port 443) using a 301 Permanent Redirect.
@@ -294,8 +298,13 @@ data:
         # Listen on port 443 for all secure HTTPS requests.
         listen 443 ssl default_server backlog=4096;
 
+        {{- if eq .Values.use_http2 "false" }}
+        # Disable HTTP/2
+        http2 off;
+        {{- else }}
         # Enable HTTP/2
         http2 on;
+        {{- end }}
 
         # Catch all domains
         server_name _;
@@ -325,6 +334,7 @@ data:
 
         # Location block for HTTP/HTTPS web traffic routing.
         location / {
+          {{- if ne .Values.use_http2 "false" }}
           # Map custom error page 418 to internally forward
           # to the @grpc_backend location block.
           error_page 418 = @grpc_backend;
@@ -334,6 +344,7 @@ data:
           if ($is_grpc) {
               return 418;
           }
+          {{- end }}
 
           # -----------------------------------------------------------
           # STANDARD WEB TRAFFIC (HTTP/1.1)
@@ -387,6 +398,7 @@ data:
           proxy_connect_timeout 75s;
         }
 
+        {{- if ne .Values.use_http2 "false" }}
         # Internal location block for gRPC traffic routing.
         location @grpc_backend {
           # -----------------------------------------------------------
@@ -422,6 +434,7 @@ data:
           # Extended timeout (1 hour) for sending gRPC stream requests to upstream backend.
           grpc_send_timeout 3600s;
         }
+        {{- end }}
       }
     }
 

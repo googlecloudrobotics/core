@@ -51,6 +51,7 @@ function include_config_and_defaults {
   GKE_SECRET_MANAGER_PLUGIN=${GKE_SECRET_MANAGER_PLUGIN:-false}
   USE_GATEWAY=${USE_GATEWAY:-false}
   USE_NGINX_SHIELD=${USE_NGINX_SHIELD:-false}
+  USE_HTTP2=${USE_HTTP2:-true}
 
 
   CLOUD_ROBOTICS_OWNER_EMAIL=${CLOUD_ROBOTICS_OWNER_EMAIL:-$(gcloud config get-value account)}
@@ -309,6 +310,7 @@ function helm_region_shared {
     --set-string "oauth2_proxy.cookie_secret=${CLOUD_ROBOTICS_COOKIE_SECRET}"
     --set-string "use_gateway=${USE_GATEWAY}"
     --set-string "use_nginx_shield=${USE_NGINX_SHIELD}"
+    --set-string "use_http2=${USE_HTTP2}"
     --set "use_tv_verbose=${CRC_USE_TV_VERBOSE}"
   )
 

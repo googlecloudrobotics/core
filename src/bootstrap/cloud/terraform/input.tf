@@ -125,6 +125,12 @@ variable "use_gateway" {
   default     = false
 }
 
+variable "use_http2" {
+  description = "Enable HTTP/2 on nginx ingress and nginx shield (ignored when use_gateway is true)."
+  type        = bool
+  default     = true
+}
+
 variable "managed_config" {
   description = "Control whether CRC config is managed by terraform."
   type        = bool
