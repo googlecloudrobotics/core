@@ -43,7 +43,6 @@ import (
 	"github.com/googlecloudrobotics/ilog"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
@@ -51,6 +50,8 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 )
 
 var (
@@ -564,7 +565,7 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 		Scheme:   c.config.RelayScheme,
 		Host:     c.config.RelayAddress,
 		Path:     c.config.RelayPrefix + "/server/requeststream",
-		RawQuery: "id=" + id,
+		RawQuery: url.Values{"id": {id}, "server": {c.config.ServerName}}.Encode(),
 	}).String()
 	for {
 		// Get data from the "request stream", then copy it to the backend.
