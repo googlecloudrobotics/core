@@ -622,7 +622,10 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 	ctx, span := tracer.Start(extractedCtx, "Recv."+req.URL.Path)
 	defer span.End()
 
-	resp, hresp, err := makeBackendRequest(ctx, local, req, id)
+	backendCtx, cancelBackend := context.WithCancel(ctx)
+	defer cancelBackend()
+
+	resp, hresp, err := makeBackendRequest(backendCtx, local, req, id)
 	if err != nil {
 		// Even if we couldn't handle the backend request, send an
 		// answer to the relay that signals the error.
@@ -633,7 +636,7 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 		return
 	}
 
-	if *resp.StatusCode == http.StatusSwitchingProtocols {
+	if hresp.StatusCode == http.StatusSwitchingProtocols {
 		// A 101 Switching Protocols response means that the request will be
 		// used for bidirectional streaming, so start a goroutine to stream
 		// from client to backend.
@@ -715,9 +718,16 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 		if err != nil {
 			slog.Error("Closing backend connection",
 				slog.String("ID", *resp.Id), ilog.Err(err))
-			// This is also closed in streamToBackend.
-			// Closing here too to ensure the disconnect propagates faster.
-			hresp.Body.Close()
+			if hresp.StatusCode == http.StatusSwitchingProtocols {
+				// For 101 Switching Protocols, hresp.Body wraps the hijacked net.Conn
+				// and is no longer tied to backendCtx.
+				hresp.Body.Close()
+			} else {
+				// Cancel the request context rather than calling hresp.Body.Close()
+				// concurrently with streamBytes's Read; defer hresp.Body.Close() will
+				// run once responseChannel finishes draining.
+				cancelBackend()
+			}
 			// Drain the response channel to avoid blocking buildResponses.
 			for range responseChannel {
 			}
