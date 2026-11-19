@@ -23,8 +23,8 @@ func setupRelay(t *testing.T, serverName string, handler http.Handler) *rt.InMem
 	return rt.SetupInMemoryRelay(t, config, handler)
 }
 
-// TestMoveRelayServerDuringUserRequest tests that when a scale up occurs and the reverse proxy moved an existing
-// server to a new pod, new clients can reach the backend.
+// TestMoveRelayServer tests that when a scale up occurs and the reverse proxy moved an existing
+// server to a new pod, new user clients can eventually reach the backend.
 func TestMoveRelayServer(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		expectedResp := []byte("serverA response")
@@ -71,7 +71,7 @@ func TestMoveRelayServer(t *testing.T) {
 }
 
 // TestMoveRelayServerDuringUserRequest tests that when a scale up occurs and the reverse proxy moved an existing
-// server to a new pod, new clients can continue to receive data.
+// server to a new pod, existing user clients can continue to receive data.
 func TestMoveRelayServerDuringUserRequest(t *testing.T) {
 	t.Skip("not supported")
 	synctest.Test(t, func(t *testing.T) {
