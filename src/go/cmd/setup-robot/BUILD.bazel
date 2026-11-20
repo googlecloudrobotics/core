@@ -50,9 +50,9 @@ go_test(
 image_layer(
     name = "base_image_with_files_layer",
     srcs = {
-        "/setup-robot-files/base-robot-0.0.1.tgz": "//src/app_charts/base:base-robot",
+        "/setup-robot-files/base-robot.tgz": "//src/app_charts/base:base-robot",
         "/setup-robot-files/synk": "//src/go/cmd/synk",
-        "/setup-robot-files/helm": "@kubernetes_helm//:helm",
+        "/setup-robot-files/helm": "@helm",
     },
 )
 

@@ -28,12 +28,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/googlecloudrobotics/core/src/go/pkg/configutil"
-	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
-	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
-	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
-	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
-	"github.com/googlecloudrobotics/ilog"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
@@ -45,6 +39,13 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/googlecloudrobotics/core/src/go/pkg/configutil"
+	"github.com/googlecloudrobotics/core/src/go/pkg/gcr"
+	"github.com/googlecloudrobotics/core/src/go/pkg/kubeutils"
+	"github.com/googlecloudrobotics/core/src/go/pkg/robotauth"
+	"github.com/googlecloudrobotics/core/src/go/pkg/setup"
+	"github.com/googlecloudrobotics/ilog"
 )
 
 var (
@@ -54,10 +55,8 @@ var (
 	labels             = flag.String("labels", "", "Robot labels. Optional if the robot is already registered.")
 	annotations        = flag.String("annotations", "", "Robot annotations. Optional if the robot is already registered.")
 	crSyncer           = flag.Bool("cr-syncer", true, "Set up the cr-syncer, and create a Robot CR in the cloud cluster.")
-	fluentd            = flag.Bool("fluentd", true, "Set up fluentd to upload logs to Stackdriver.")
-	fluentbit          = flag.Bool("fluentbit", false, "Set up fluentbit to upload logs to Stackdriver.")
+	fluentbit          = flag.Bool("fluentbit", true, "Set up fluentbit to upload logs to Stackdriver.")
 	logPrefixSubdomain = flag.String("log-prefix-subdomain", "", "Subdomain to prepend to Fluentbit log tag prefix.")
-	dockerDataRoot     = flag.String("docker-data-root", "/var/lib/docker", "This should match data-root in /etc/docker/daemon.json.")
 	podCIDR            = flag.String("pod-cidr", "192.168.9.0/24",
 		"The range of Pod IP addresses in the cluster. This should match the CNI "+
 			"configuration (eg Cilium's clusterPoolIPv4PodCIDR). If this is incorrect, "+
@@ -111,12 +110,6 @@ func parseFlags() {
 	if *project == "" {
 		flag.Usage()
 		fmt.Println("ERROR: --project is required.")
-		os.Exit(1)
-	}
-
-	if *fluentd && *fluentbit {
-		flag.Usage()
-		fmt.Println("ERROR: --fluentd and --fluenetbit cannot be enabled at the same time.")
 		os.Exit(1)
 	}
 }
@@ -291,7 +284,7 @@ func main() {
 	appManagement := configutil.GetBoolean(vars, "APP_MANAGEMENT", true)
 	// Use "robot" as a suffix for consistency for Synk deployments.
 	installChartOrDie(ctx, k8sLocalClientSet, domain, registry, "base-robot", baseNamespace,
-		"base-robot-0.0.1.tgz", appManagement)
+		"base-robot.tgz", appManagement)
 
 	// Set up Robot CR as a last step (local CR needs CRD to be deployed)
 	if *crSyncer {
@@ -348,10 +341,8 @@ func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, re
 		"project":              *project,
 		"app_management":       strconv.FormatBool(appManagement),
 		"cr_syncer":            strconv.FormatBool(*crSyncer),
-		"fluentd":              strconv.FormatBool(*fluentd),
 		"fluentbit":            strconv.FormatBool(*fluentbit),
 		"log_prefix_subdomain": *logPrefixSubdomain,
-		"docker_data_root":     *dockerDataRoot,
 		"pod_cidr":             *podCIDR,
 		"robot_authentication": strconv.FormatBool(*robotAuthentication),
 		"running_on_gke":       strconv.FormatBool(*runningOnGKE),
@@ -364,10 +355,10 @@ func installChartOrDie(ctx context.Context, cs *kubernetes.Clientset, domain, re
 	output, err := exec.Command(
 		helmPath,
 		"template",
-		"--set-string", vars,
-		"--name", name,
-		"--namespace", namespace,
+		name,
 		filepath.Join(filesDir, chartPath),
+		"--namespace", namespace,
+		"--set-string", vars,
 	).CombinedOutput()
 	if err != nil {
 		slog.Error("Synk install failed.",

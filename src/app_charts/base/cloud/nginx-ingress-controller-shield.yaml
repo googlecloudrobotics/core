@@ -62,7 +62,7 @@ spec:
             - ALL
       containers:
       - name: nginx
-        image: nginx/nginx-unprivileged:1.31.8-alpine@sha256:26277f4923331a5ecda9096c0e378de65a30a5037129a8036c3ef5d9feee833d
+        image: nginx/nginx-unprivileged:1.31.9-alpine@sha256:60214a103e6f38e953ff957f34b1f2e97a9db801ab2df3821da955d0fe6cadd6
         command: ["nginx", "-g", "daemon off;", "-c", "/tmp/nginx/nginx.conf"]
         ports:
         - containerPort: 80
