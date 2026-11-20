@@ -1,0 +1,50 @@
+// Copyright 2026 The Cloud Robotics Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package cloudrobotics.http_relay.v1alpha1;
+
+option go_package = "github.com/googlecloudrobotics/core/src/proto/http-relay;http_relay";
+
+// ClientHello is the initial handshake sent by the relay client to register a
+// stream for a specific backend server.
+message ClientHello {
+  string server = 1;
+}
+
+// ServeRequest is a message sent from the relay client to the relay server.
+message ServeRequest {
+  oneof payload {
+    // Initial handshake identifying the backend server. Must be sent first.
+    ClientHello hello = 1;
+    // Raw HTTP response or upgraded connection bytes from the backend.
+    bytes data = 2;
+  }
+}
+
+// ServeResponse is a message sent from the relay server to the relay client.
+message ServeResponse {
+  // Raw HTTP request or upgraded connection bytes for the backend.
+  // Empty messages act as keepalives and are ignored by the receiver.
+  bytes data = 1;
+}
+
+// Relay tunnels HTTP and upgraded connections between http-relay-server and
+// http-relay-client over bidirectional gRPC streams.
+service Relay {
+  // Serve opens a bidirectional byte stream for a single proxied connection to
+  // the backend named in the initial ClientHello message.
+  rpc Serve(stream ServeRequest) returns (stream ServeResponse);
+}
