@@ -396,8 +396,7 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	clientSupportsStreaming, exists := s.b.BackendSupportsRequestBodyStreaming(backendCtx.ServerName)
 	if !exists {
 		w.Header().Set("X-CLOUDROBOTICS-HTTP-RELAY", backendCtx.Id)
-		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte((&RelayClientUnavailableError{client: backendCtx.ServerName}).Error()))
+		http.Error(w, (&RelayClientUnavailableError{client: backendCtx.ServerName}).Error(), http.StatusServiceUnavailable)
 		return
 	}
 
@@ -425,8 +424,7 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if _, ok := err.(*RelayClientUnavailableError); ok {
 			w.Header().Set("X-CLOUDROBOTICS-HTTP-RELAY", backendCtx.Id)
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(err.Error()))
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
