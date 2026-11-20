@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sync"
 	"testing"
 	"time"
 
@@ -251,34 +250,24 @@ func TestBiDiStreamingOverRelay(t *testing.T) {
 
 	messages := []string{"hello", "world", "bidi", "streaming", "test"}
 
-	var wg sync.WaitGroup
-	wg.Go(func() {
-		for _, msg := range messages {
-			t.Logf("Sending: %q", msg)
-			if err := stream.Send(&rt.StringMessage{Value: msg}); err != nil {
-				t.Errorf("failed to send: %v", err)
-				return
-			}
+	for i, msg := range messages {
+		t.Logf("Sending: %q", msg)
+		if err := stream.Send(&rt.StringMessage{Value: msg}); err != nil {
+			t.Fatalf("failed to send: %v", err)
 		}
-		if err := stream.CloseSend(); err != nil {
-			t.Errorf("failed to CloseSend: %v", err)
+		resp, err := stream.Recv()
+		if err != nil {
+			t.Fatalf("failed to recv: %v", err)
 		}
-	})
-	wg.Go(func() {
-		for i, wantMsg := range messages {
-			resp, err := stream.Recv()
-			if err != nil {
-				t.Errorf("failed to recv: %v", err)
-				return
-			}
-			t.Logf("Received: %q", resp.Value)
-			if want := fmt.Sprintf("Echo: %s", wantMsg); resp.Value != want {
-				t.Errorf("got %q, want %q at index %d", resp.Value, want, i)
-			}
+		t.Logf("Received: %q", resp.Value)
+		if want := fmt.Sprintf("Echo: %s", msg); resp.Value != want {
+			t.Errorf("got %q, want %q at index %d", resp.Value, want, i)
 		}
-		if _, err := stream.Recv(); err != io.EOF {
-			t.Errorf("expected EOF, got %v", err)
-		}
-	})
-	wg.Wait()
+	}
+	if err := stream.CloseSend(); err != nil {
+		t.Fatalf("failed to CloseSend: %v", err)
+	}
+	if _, err := stream.Recv(); err != io.EOF {
+		t.Errorf("expected EOF, got %v", err)
+	}
 }
