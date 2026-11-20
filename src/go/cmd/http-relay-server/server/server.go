@@ -29,12 +29,12 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
-	"github.com/googlecloudrobotics/ilog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
+	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
+	"github.com/googlecloudrobotics/ilog"
+
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -42,6 +42,8 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 )
 
 var (
@@ -398,8 +400,8 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	backendRespChan, err := s.relayRequest(ctx, *backendCtx, backendReq)
 	if err != nil {
 		if _, ok := err.(*RelayClientUnavailableError); ok {
-			w.WriteHeader(http.StatusServiceUnavailable)
 			w.Header().Set("X-CLOUDROBOTICS-HTTP-RELAY", backendCtx.Id)
+			w.WriteHeader(http.StatusServiceUnavailable)
 			w.Write([]byte(err.Error()))
 			return
 		}
