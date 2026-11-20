@@ -132,8 +132,9 @@ func (e *RelayClientUnavailableError) Error() string {
 // There can be multiple concurrent transfers per relay-client, each identified
 // by a unique id query parameter.
 type backendState struct {
-	reqChan      chan *pb.HttpRequest
-	lastActivity time.Time
+	reqChan           chan *pb.HttpRequest
+	lastActivity      time.Time
+	streamRequestBody bool
 }
 
 type broker struct {
@@ -217,6 +218,34 @@ func (r *broker) StopRelayRequest(requestId string) {
 	if ok {
 		r.removeRequest(pr)
 	}
+}
+
+// SetRequestBodyStreaming records whether the relay client for server
+// supports streaming request bodies.
+func (r *broker) SetRequestBodyStreaming(server string, enabled bool) {
+	r.m.Lock()
+	defer r.m.Unlock()
+	bs := r.req[server]
+	if bs == nil {
+		bs = &backendState{
+			reqChan:      make(chan *pb.HttpRequest),
+			lastActivity: time.Now(),
+		}
+		r.req[server] = bs
+	}
+	bs.streamRequestBody = enabled
+}
+
+// BackendSupportsRequestBodyStreaming reports whether the backend exists in the
+// broker and whether its relay client advertised request-body streaming support.
+func (r *broker) BackendSupportsRequestBodyStreaming(server string) (supported bool, exists bool) {
+	r.m.Lock()
+	defer r.m.Unlock()
+	bs := r.req[server]
+	if bs == nil {
+		return false, false
+	}
+	return bs.streamRequestBody, true
 }
 
 // GetRequest obtains a client's request for the server identifier. It blocks

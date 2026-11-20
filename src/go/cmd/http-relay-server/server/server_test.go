@@ -53,7 +53,7 @@ func TestClientHandler(t *testing.T) {
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := httptest.NewRecorder()
 	server := NewServer(Config{})
-	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now(), streamRequestBody: true}
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
@@ -123,7 +123,7 @@ func TestClientHandlerWithChunkedResponse(t *testing.T) {
 	req.Header.Add("X-Deadline", "now")
 	respRecorder := httptest.NewRecorder()
 	server := NewServer(Config{})
-	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now(), streamRequestBody: true}
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() { server.userClientRequest(respRecorder, req); wg.Done() }()
@@ -197,7 +197,7 @@ func TestClientHandlerDeduplicatesTrailersAcrossChunks(t *testing.T) {
 	req := httptest.NewRequest("POST", "/client/foo/grpc.Service/Method", strings.NewReader("body"))
 	respRecorder := httptest.NewRecorder()
 	server := NewServer(Config{})
-	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now(), streamRequestBody: true}
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -272,7 +272,7 @@ func TestClientHandlerWithChunkedRequest(t *testing.T) {
 	req := httptest.NewRequest("POST", "/client/foo/upload", pr)
 	respRecorder := httptest.NewRecorder()
 	server := NewServer(Config{})
-	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now(), streamRequestBody: true}
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -334,7 +334,7 @@ func TestClientHandlerWithAbortedChunkedRequest(t *testing.T) {
 	req := httptest.NewRequest("POST", "/client/foo/upload", pr)
 	respRecorder := httptest.NewRecorder()
 	server := NewServer(Config{})
-	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now(), streamRequestBody: true}
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -366,6 +366,89 @@ func TestClientHandlerWithAbortedChunkedRequest(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func TestClientHandlerChunkedRequestFallbackWhenStreamingDisabled(t *testing.T) {
+	for _, tc := range []struct {
+		name              string
+		disableServer     bool
+		clientSupports    bool
+	}{
+		{name: "old_client_without_streaming", disableServer: false, clientSupports: false},
+		{name: "server_streaming_disabled", disableServer: true, clientSupports: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pr, pw := io.Pipe()
+			req := httptest.NewRequest("POST", "/client/foo/upload", pr)
+			respRecorder := httptest.NewRecorder()
+			server := NewServer(Config{DisableRequestBodyStreaming: tc.disableServer})
+			server.b.SetRequestBodyStreaming("foo", tc.clientSupports)
+
+			var wg sync.WaitGroup
+			wg.Go(func() { server.userClientRequest(respRecorder, req) })
+			go func() {
+				pw.Write([]byte("chunk1-chunk2"))
+				pw.Close()
+			}()
+
+			relayRequest, err := server.b.GetRequest(t.Context(), "foo", "/")
+			if err != nil {
+				t.Fatalf("Error when getting request: %v", err)
+			}
+			if relayRequest.Eof == nil || !*relayRequest.Eof {
+				t.Errorf("Expected Eof=true when streaming disabled, got %v", relayRequest.Eof)
+			}
+			if got, want := string(relayRequest.Body), "chunk1-chunk2"; got != want {
+				t.Errorf("Wrong buffered request body; got %q; want %q", got, want)
+			}
+
+			server.b.SendResponse(&pb.HttpResponse{
+				Id:         relayRequest.Id,
+				StatusCode: proto.Int32(200),
+				Body:       []byte("ok"),
+				Eof:        proto.Bool(true),
+			})
+			wg.Wait()
+			checkResponse(t, respRecorder.Result(), 200, "ok")
+		})
+	}
+}
+
+func TestClientHandlerUnknownBackendReturns503ImmediatelyWithOpenBody(t *testing.T) {
+	pr, pw := io.Pipe()
+	defer pw.Close()
+	req := httptest.NewRequest("POST", "/client/unknown/stream", pr)
+	respRecorder := httptest.NewRecorder()
+	server := NewServer(Config{})
+
+	// Must return 503 immediately without waiting for pw.Close().
+	server.userClientRequest(respRecorder, req)
+	if respRecorder.Code != http.StatusServiceUnavailable {
+		t.Errorf("Expected 503 for unknown backend, got %d", respRecorder.Code)
+	}
+}
+
+func TestServerRequestDropsStreamedRequestForLegacyClient(t *testing.T) {
+	server := NewServer(Config{})
+	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest, 1), lastActivity: time.Now(), streamRequestBody: true}
+	respChan, err := server.b.RelayRequest("foo", &pb.HttpRequest{
+		Id:     proto.String("foo:15"),
+		Method: proto.String("POST"),
+		Url:    proto.String("http://invalid/upload"),
+		Eof:    proto.Bool(false),
+	})
+	if err != nil {
+		t.Fatalf("RelayRequest failed: %v", err)
+	}
+
+	w := httptest.NewRecorder()
+	server.serverRequest(w, httptest.NewRequest("GET", "/server/request?server=foo", nil))
+	if w.Code != http.StatusRequestTimeout {
+		t.Errorf("GET /server/request returned %d, want %d", w.Code, http.StatusRequestTimeout)
+	}
+	if _, more := <-respChan; more {
+		t.Error("Expected queued request to be stopped")
+	}
 }
 
 func TestHeaderMarshaling(t *testing.T) {

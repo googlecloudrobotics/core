@@ -53,6 +53,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const streamRequestBodyParam = "stream_request_body"
+
 var (
 	errRequestStreamGone = errors.New("request stream is gone")
 	ErrTimeout           = errors.New(http.StatusText(http.StatusRequestTimeout))
@@ -93,8 +95,9 @@ type ClientConfig struct {
 	MaxChunkSize int
 	BlockSize    int
 
-	DisableHttp2 bool
-	ForceHttp2   bool
+	DisableHttp2      bool
+	ForceHttp2        bool
+	StreamRequestBody bool
 }
 
 type RelayServerError struct {
@@ -143,8 +146,9 @@ func DefaultClientConfig() ClientConfig {
 		MaxChunkSize: 1024 * 1024, // 1MB. High throughput (e.g. 100MB/s) would otherwise trigger ~2000 POST requests/s at 50KB chunks.
 		BlockSize:    64 * 1024,   // 64KB. Controls the granularity of reads from the backend and internal channel pressure. Aligned with io.Copy.
 
-		DisableHttp2: false,
-		ForceHttp2:   false,
+		DisableHttp2:      false,
+		ForceHttp2:        false,
+		StreamRequestBody: true,
 	}
 }
 
@@ -832,6 +836,9 @@ func (c *Client) localProxyWorker(ctx context.Context, remote, local *http.Clien
 func (c *Client) buildRelayURL() string {
 	query := url.Values{}
 	query.Add("server", c.config.ServerName)
+	if c.config.StreamRequestBody {
+		query.Add(streamRequestBodyParam, "1")
+	}
 	relayURL := url.URL{
 		Scheme:   c.config.RelayScheme,
 		Host:     c.config.RelayAddress,

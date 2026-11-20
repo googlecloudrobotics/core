@@ -54,7 +54,8 @@ var (
 )
 
 const (
-	clientPrefix = "/client/"
+	clientPrefix           = "/client/"
+	streamRequestBodyParam = "stream_request_body"
 	// Time to wait for requests to complete before calling panic(). This should
 	// be less that the kubelet's timeout (30s by default) so that we can print
 	// a stack trace and debug what is still running.
@@ -81,6 +82,9 @@ type Config struct {
 	InactiveRequestTimeout time.Duration
 	// InactiveBackendTimeout is the timeout for inactive backends.
 	InactiveBackendTimeout time.Duration
+	// DisableRequestBodyStreaming disables streaming indeterminate-length
+	// request bodies even when the relay client advertises support.
+	DisableRequestBodyStreaming bool
 }
 
 type Server struct {
@@ -387,11 +391,22 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check backend availability before reading r.Body so an offline backend
+	// returns 503 immediately even if the user client keeps r.Body open.
+	clientSupportsStreaming, exists := s.b.BackendSupportsRequestBodyStreaming(backendCtx.ServerName)
+	if !exists {
+		w.Header().Set("X-CLOUDROBOTICS-HTTP-RELAY", backendCtx.Id)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte((&RelayClientUnavailableError{client: backendCtx.ServerName}).Error()))
+		return
+	}
+
 	// In Go's net/http, r.ContentLength is -1 when the request body length is
 	// unknown (HTTP/1.1 Transfer-Encoding: chunked, or HTTP/2 without a
 	// Content-Length header and without END_STREAM on HEADERS). Stream the body
-	// in that case rather than buffering it with io.ReadAll.
-	streamingRequest := r.ContentLength < 0
+	// in that case rather than buffering it with io.ReadAll, provided both the
+	// server and the connected relay client have streaming enabled.
+	streamingRequest := !s.conf.DisableRequestBodyStreaming && clientSupportsStreaming && r.ContentLength < 0
 	var body []byte
 	if !streamingRequest {
 		body, err = s.readRequestBody(ctx, r)
@@ -528,6 +543,8 @@ func (s *Server) serverRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Info("Relay client connected", slog.String("ServerName", server))
+	streamRequestBody := r.URL.Query().Get(streamRequestBodyParam) == "1"
+	s.b.SetRequestBodyStreaming(server, streamRequestBody)
 
 	// Get pending request from client and sent as a reply to the relay-client.
 	request, err := s.b.GetRequest(r.Context(), server, r.URL.Path)
@@ -535,6 +552,14 @@ func (s *Server) serverRequest(w http.ResponseWriter, r *http.Request) {
 		// Expected if the relay is idle, or if the server is restarting.
 		slog.Debug("Relay client got no request", slog.String("ID", server), ilog.Err(err))
 		http.Error(w, err.Error(), http.StatusRequestTimeout)
+		return
+	}
+	if request.Eof != nil && !*request.Eof && !streamRequestBody {
+		// The request was queued for a relay client that supports streaming
+		// request bodies, but this poller does not (e.g. client was downgraded).
+		slog.Warn("Dropping streamed request for relay client without request body streaming", slog.String("ID", request.GetId()))
+		s.b.StopRelayRequest(request.GetId())
+		http.Error(w, "request body streaming is not supported by this relay client", http.StatusRequestTimeout)
 		return
 	}
 

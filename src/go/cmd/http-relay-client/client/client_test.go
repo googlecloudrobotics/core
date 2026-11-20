@@ -498,3 +498,15 @@ func TestLocalProxyStreamingRequestAborted(t *testing.T) {
 		}
 	})
 }
+
+func TestBuildRelayURLStreamRequestBody(t *testing.T) {
+	config := DefaultClientConfig()
+	config.ServerName = "foo"
+	if got := NewClient(config).buildRelayURL(); !strings.Contains(got, streamRequestBodyParam+"=1") {
+		t.Errorf("buildRelayURL() with default config = %q, want %s=1", got, streamRequestBodyParam)
+	}
+	config.StreamRequestBody = false
+	if got := NewClient(config).buildRelayURL(); strings.Contains(got, streamRequestBodyParam) {
+		t.Errorf("buildRelayURL() with StreamRequestBody=false = %q, want no %s", got, streamRequestBodyParam)
+	}
+}
