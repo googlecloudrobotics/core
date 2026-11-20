@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"os"
 	"sync"
@@ -218,12 +219,12 @@ func TestRequestStream(t *testing.T) {
 			t.Error("PutRequestStream(\"foo\", idOne, \"hello\") = false, want true")
 		}
 	}()
-	data, ok := b.GetRequestStream(idOne)
-	if !ok {
-		t.Error("data, ok := GetRequestStream(idOne); ok = false, want true")
+	data, err := b.GetRequestStream(idOne)
+	if err != nil {
+		t.Errorf("data, err := GetRequestStream(idOne); err = %v, want nil", err)
 	}
 	if !bytes.Equal(data, []byte("hello")) {
-		t.Errorf("data, ok := GetRequestStream(idOne); data = %q, want \"hello\"", data)
+		t.Errorf("data, err := GetRequestStream(idOne); data = %q, want \"hello\"", data)
 	}
 
 	// Complete the ongoing request.
@@ -236,8 +237,8 @@ func TestRequestStreamUnknownID(t *testing.T) {
 	if ok := b.PutRequestStream("foo", unknownID, []byte{}); ok {
 		t.Error("ok := PutRequestStream(\"foo\", unknownID, \"\"); ok = true, want false")
 	}
-	if _, ok := b.GetRequestStream(unknownID); ok {
-		t.Error("_, ok := GetRequestStream(unknownID; ok = true, want false")
+	if _, err := b.GetRequestStream(unknownID); !errors.Is(err, ErrInvalidRequestID) {
+		t.Errorf("_, err := GetRequestStream(unknownID); err = %v, want %v", err, ErrInvalidRequestID)
 	}
 }
 
@@ -430,9 +431,9 @@ func TestGetRequestStreamTimeout(t *testing.T) {
 	req := &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com")}
 	b.RelayRequest("foo", req)
 
-	data, ok := b.GetRequestStream(idOne)
-	if !ok {
-		t.Error("Expected ok=true")
+	data, err := b.GetRequestStream(idOne)
+	if err != nil {
+		t.Errorf("Expected nil error, got %v", err)
 	}
 	if len(data) != 0 {
 		t.Errorf("Expected empty data on timeout, got %d bytes", len(data))
@@ -534,13 +535,13 @@ func TestCloseRequestStreamHalfClose(t *testing.T) {
 		}
 	}()
 
-	data, ok := b.GetRequestStream(idOne)
-	if !ok || !bytes.Equal(data, []byte("chunk1")) {
-		t.Errorf("GetRequestStream(idOne) = (%q, %v), want (\"chunk1\", true)", data, ok)
+	data, err := b.GetRequestStream(idOne)
+	if err != nil || !bytes.Equal(data, []byte("chunk1")) {
+		t.Errorf("GetRequestStream(idOne) = (%q, %v), want (\"chunk1\", nil)", data, err)
 	}
-	// Next call should observe EOF (ok=false) while response stream remains open.
-	if _, ok := b.GetRequestStream(idOne); ok {
-		t.Error("GetRequestStream(idOne) after CloseRequestStream returned ok=true, want false")
+	// Next call should observe io.EOF while response stream remains open.
+	if _, err := b.GetRequestStream(idOne); !errors.Is(err, io.EOF) {
+		t.Errorf("GetRequestStream(idOne) after CloseRequestStream returned err=%v, want io.EOF", err)
 	}
 
 	// Backend should still be able to finish sending responses, and StopRelayRequest should not panic.
@@ -574,12 +575,12 @@ func TestCloseRequestStreamWhilePutBlockedDoesNotDeadlock(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Broker lock must still be free so GetRequestStream can drain chunk1 and observe EOF.
-	data, ok := b.GetRequestStream(idOne)
-	if !ok || !bytes.Equal(data, []byte("chunk1")) {
-		t.Errorf("GetRequestStream = (%q, %v), want (\"chunk1\", true)", data, ok)
+	data, err := b.GetRequestStream(idOne)
+	if err != nil || !bytes.Equal(data, []byte("chunk1")) {
+		t.Errorf("GetRequestStream = (%q, %v), want (\"chunk1\", nil)", data, err)
 	}
-	if _, ok := b.GetRequestStream(idOne); ok {
-		t.Error("GetRequestStream after CloseRequestStream returned ok=true, want false")
+	if _, err := b.GetRequestStream(idOne); !errors.Is(err, io.EOF) {
+		t.Errorf("GetRequestStream after CloseRequestStream returned err=%v, want io.EOF", err)
 	}
 
 	wg.Wait()

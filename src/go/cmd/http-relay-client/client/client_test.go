@@ -376,7 +376,7 @@ func TestLocalProxyStreamingRequest(t *testing.T) {
 						}, nil
 					default:
 						return &http.Response{
-							StatusCode: http.StatusGone,
+							StatusCode: http.StatusNoContent,
 							Body:       io.NopCloser(strings.NewReader("")),
 						}, nil
 					}
@@ -427,6 +427,74 @@ func TestLocalProxyStreamingRequest(t *testing.T) {
 
 		if streamPoll != 3 {
 			t.Errorf("Expected 3 requeststream polls, got %d", streamPoll)
+		}
+	})
+}
+
+func TestLocalProxyStreamingRequestAborted(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		reqPayload, _ := proto.Marshal(&pb.HttpRequest{
+			Id:     proto.String("17"),
+			Method: proto.String("POST"),
+			Url:    proto.String("http://invalid/stream"),
+			Eof:    proto.Bool(false),
+		})
+
+		streamPoll := 0
+		relayTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				switch req.URL.Path {
+				case "/server/request":
+					return &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(bytes.NewReader(reqPayload)),
+					}, nil
+				case "/server/requeststream":
+					streamPoll++
+					if streamPoll == 1 {
+						return &http.Response{
+							StatusCode: 200,
+							Body:       io.NopCloser(strings.NewReader("partial")),
+						}, nil
+					}
+					return &http.Response{
+						StatusCode: http.StatusGone,
+						Body:       io.NopCloser(strings.NewReader("gone")),
+					}, nil
+				case "/server/response":
+					return &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(strings.NewReader("ok")),
+					}, nil
+				default:
+					return nil, fmt.Errorf("unexpected request: %s %s", req.Method, req.URL.Path)
+				}
+			},
+		}
+
+		var backendReadErr error
+		backendTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				_, backendReadErr = io.ReadAll(req.Body)
+				return nil, backendReadErr
+			},
+		}
+
+		config := DefaultClientConfig()
+		config.ServerName = "foo"
+		client := NewClient(config)
+
+		relayClient := &http.Client{Transport: relayTransport}
+		backendClient := &http.Client{Transport: backendTransport}
+
+		if err := client.localProxy(t.Context(), relayClient, backendClient); err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		synctest.Wait()
+
+		if backendReadErr == nil {
+			t.Error("Expected backend body read to fail on 410 Gone, got nil (clean EOF)")
 		}
 	})
 }

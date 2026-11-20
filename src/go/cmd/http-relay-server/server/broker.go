@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 	"strings"
@@ -95,9 +96,10 @@ type pendingResponse struct {
 	// bidirectional streaming connections.
 	requestStream chan []byte
 	// This mutex should be locked when writing to or closing `requestStream`
-	// and when accessing `requestStreamClosed`.
+	// and when accessing `requestStreamClosed` or `requestStreamEOF`.
 	requestStreamMutex  sync.Mutex
 	requestStreamClosed bool
+	requestStreamEOF    bool
 
 	// This channel is used to communicate data between the backend and user-client.
 	// The user-client sends a hanging request to the relay-server which blocks until
@@ -249,25 +251,35 @@ func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpR
 
 // GetRequestStream gets data from the stream that follows a client's HTTP
 // request. For example, when using `kubectl exec` this passes stdin data from
-// the broker to the relay client.
-// If no ongoing request matches the given ID, or the request stream has reached
-// EOF, this returns ok=false.
-func (r *broker) GetRequestStream(id string) ([]byte, bool) {
+// the broker to the relay client, and for a streamed request body it passes
+// the body chunks.
+// It returns io.EOF when a streamed request body reaches EOF cleanly, and
+// ErrInvalidRequestID if no ongoing request matches the given ID or the
+// request was aborted/completed.
+func (r *broker) GetRequestStream(id string) ([]byte, error) {
 	r.m.Lock()
 	pr := r.resp[id]
 	r.m.Unlock()
 	if pr == nil {
-		return nil, false
+		return nil, fmt.Errorf("%w %s", ErrInvalidRequestID, id)
 	}
 
 	select {
 	case data, more := <-pr.requestStream:
 		if !more {
-			return nil, false
+			pr.requestStreamMutex.Lock()
+			eof := pr.requestStreamEOF
+			pr.requestStreamMutex.Unlock()
+			if eof {
+				return nil, io.EOF
+			}
+			return nil, fmt.Errorf("%w %s", ErrInvalidRequestID, id)
 		}
-		return data, true
+		return data, nil
+	case <-pr.markReap:
+		return nil, fmt.Errorf("%w %s", ErrInvalidRequestID, id)
 	case <-time.After(getRequestTimeout):
-		return []byte{}, true
+		return []byte{}, nil
 	}
 }
 
@@ -319,6 +331,7 @@ func (r *broker) CloseRequestStream(id string) {
 	pr.requestStreamMutex.Lock()
 	defer pr.requestStreamMutex.Unlock()
 	if !pr.requestStreamClosed {
+		pr.requestStreamEOF = true
 		pr.requestStreamClosed = true
 		close(pr.requestStream)
 	}

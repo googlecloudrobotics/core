@@ -422,7 +422,6 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	if streamingRequest {
 		defer r.Body.Close()
 		go func() {
-			defer s.b.CloseRequestStream(backendCtx.Id)
 			for {
 				// Allocate a new buffer each iteration because the channel does not copy.
 				buf := make([]byte, s.conf.BlockSize)
@@ -433,8 +432,13 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 				if err != nil {
-					if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
-						slog.Error("Error reading streaming request body", slog.String("ID", backendCtx.Id), ilog.Err(err))
+					if errors.Is(err, io.EOF) {
+						s.b.CloseRequestStream(backendCtx.Id)
+					} else {
+						if !errors.Is(err, net.ErrClosed) {
+							slog.Error("Error reading streaming request body", slog.String("ID", backendCtx.Id), ilog.Err(err))
+						}
+						s.b.StopRelayRequest(backendCtx.Id)
 					}
 					return
 				}
@@ -552,10 +556,16 @@ func (s *Server) serverRequestStream(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing id query parameter", http.StatusBadRequest)
 		return
 	}
-	data, ok := s.b.GetRequestStream(id)
-	if !ok {
+	data, err := s.b.GetRequestStream(id)
+	if errors.Is(err, io.EOF) {
+		// 204 No Content tells the relay client that the user-client cleanly
+		// ended a streamed request body.
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if err != nil {
 		// Using the 410 Gone error tells the relay client that this request
-		// has completed.
+		// has completed or been aborted.
 		http.Error(w, "No ongoing request with id "+id, http.StatusGone)
 		return
 	}

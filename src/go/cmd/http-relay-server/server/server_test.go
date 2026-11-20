@@ -303,11 +303,15 @@ func TestClientHandlerWithChunkedRequest(t *testing.T) {
 
 	var gotBody bytes.Buffer
 	for {
-		chunk, ok := server.b.GetRequestStream(*relayRequest.Id)
-		if !ok {
+		w := httptest.NewRecorder()
+		server.serverRequestStream(w, httptest.NewRequest("POST", "/server/requeststream?id="+*relayRequest.Id, nil))
+		if w.Code == http.StatusNoContent {
 			break
 		}
-		gotBody.Write(chunk)
+		if w.Code != http.StatusOK {
+			t.Fatalf("Unexpected status from serverRequestStream: got %d, want 200 or 204", w.Code)
+		}
+		gotBody.Write(w.Body.Bytes())
 	}
 	if got, want := gotBody.String(), "chunk1-chunk2-chunk3"; got != want {
 		t.Errorf("Wrong streamed request body; got %q; want %q", got, want)
@@ -323,6 +327,45 @@ func TestClientHandlerWithChunkedRequest(t *testing.T) {
 	wg.Wait()
 	resp := respRecorder.Result()
 	checkResponse(t, resp, 200, "ok")
+}
+
+func TestClientHandlerWithAbortedChunkedRequest(t *testing.T) {
+	pr, pw := io.Pipe()
+	req := httptest.NewRequest("POST", "/client/foo/upload", pr)
+	respRecorder := httptest.NewRecorder()
+	server := NewServer(Config{})
+	server.b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		server.userClientRequest(respRecorder, req)
+	}()
+
+	go func() {
+		pw.Write([]byte("partial"))
+		pw.CloseWithError(errors.New("client disconnected"))
+	}()
+
+	relayRequest, err := server.b.GetRequest(t.Context(), "foo", "/")
+	if err != nil {
+		t.Fatalf("Error when getting request: %v", err)
+	}
+
+	w1 := httptest.NewRecorder()
+	server.serverRequestStream(w1, httptest.NewRequest("POST", "/server/requeststream?id="+*relayRequest.Id, nil))
+	if w1.Code != http.StatusOK || w1.Body.String() != "partial" {
+		t.Fatalf("First poll = (%d, %q), want (200, \"partial\")", w1.Code, w1.Body.String())
+	}
+
+	w2 := httptest.NewRecorder()
+	server.serverRequestStream(w2, httptest.NewRequest("POST", "/server/requeststream?id="+*relayRequest.Id, nil))
+	if w2.Code != http.StatusGone {
+		t.Errorf("Aborted stream poll status = %d, want %d", w2.Code, http.StatusGone)
+	}
+
+	wg.Wait()
 }
 
 func TestHeaderMarshaling(t *testing.T) {

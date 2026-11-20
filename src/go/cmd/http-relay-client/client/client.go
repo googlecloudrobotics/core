@@ -54,8 +54,9 @@ import (
 )
 
 var (
-	ErrTimeout        = errors.New(http.StatusText(http.StatusRequestTimeout))
-	ErrForbidden      = errors.New(http.StatusText(http.StatusForbidden))
+	errRequestStreamGone = errors.New("request stream is gone")
+	ErrTimeout           = errors.New(http.StatusText(http.StatusRequestTimeout))
+	ErrForbidden         = errors.New(http.StatusText(http.StatusForbidden))
 	debugLogs    bool = false
 	tracer            = otel.Tracer("github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client")
 )
@@ -550,16 +551,15 @@ func (c *Client) postErrorResponse(remote *http.Client, id string, message strin
 }
 
 // streamToBackend streams data from the client (eg kubectl) to the
-// backend. For example, when using `kubectl exec` this handles stdin.
-// It fails permanently and closes the backend connection on any failure, as
-// the relay-server doesn't have sufficiently advanced flow control to recover
-// from dropped/duplicate "packets".
-func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter io.WriteCloser) {
-	// Close the backend connection on stream failure. This should cause the
-	// response stream to end and prevent the client from hanging in the case
-	// of an error in the request stream.
-	defer backendWriter.Close()
-
+// backend. For example, when using `kubectl exec` this handles stdin, and for
+// a streamed request body it handles the body chunks.
+// It fails permanently on any failure, as the relay-server doesn't have
+// sufficiently advanced flow control to recover from dropped/duplicate
+// "packets".
+// It returns nil on a clean request-body EOF (204 No Content), or an error
+// otherwise (e.g. errRequestStreamGone on 410 Gone). The caller is responsible
+// for closing backendWriter.
+func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter io.Writer) error {
 	streamURL := (&url.URL{
 		Scheme:   c.config.RelayScheme,
 		Host:     c.config.RelayAddress,
@@ -575,14 +575,20 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 			// e.g. "server status Request Timeout: No request received within timeout"
 			slog.Error("Failed to get request stream",
 				slog.String("ID", id), ilog.Err(err))
-			return
+			return fmt.Errorf("failed to get request stream: %w", err)
 		}
-		if resp.StatusCode == http.StatusGone {
+		if resp.StatusCode == http.StatusNoContent {
+			resp.Body.Close()
+			if debugLogs {
+				slog.Info("End of request body stream (EOF)", slog.String("ID", id))
+			}
+			return nil
+		} else if resp.StatusCode == http.StatusGone {
 			resp.Body.Close()
 			if debugLogs {
 				slog.Info("End of request stream", slog.String("ID", id))
 			}
-			return
+			return errRequestStreamGone
 		} else if resp.StatusCode != http.StatusOK {
 			msg, err := io.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -595,14 +601,14 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 					slog.String("Status", http.StatusText(resp.StatusCode)),
 					slog.String("Message", string(msg)))
 			}
-			return
+			return fmt.Errorf("relay server request stream responded %s: %s", http.StatusText(resp.StatusCode), string(msg))
 		}
 		n, err := io.Copy(backendWriter, resp.Body)
 		resp.Body.Close()
 		if err != nil {
 			slog.Error("Failed to write to backend:",
 				slog.String("ID", id), ilog.Err(err))
-			return
+			return fmt.Errorf("failed to write to backend: %w", err)
 		}
 		if debugLogs {
 			slog.Info("Wrote to backend",
@@ -634,7 +640,10 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 		return
 	}
 	if streamingRequest {
-		go c.streamToBackend(remote, id, pw)
+		go func() {
+			err := c.streamToBackend(remote, id, pw)
+			pw.CloseWithError(err)
+		}()
 	}
 	// Measure edge processing time.
 	extractedCtx := telemetry.HTTPPropagator.Extract(ctx, propagation.HeaderCarrier(req.Header))
@@ -664,7 +673,12 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 			return
 		}
 		// Stream stdin from remote to backend
-		go c.streamToBackend(remote, id, bodyWriter)
+		go func() {
+			// Close the backend connection on stream end/failure so the
+			// response stream ends and doesn't hang the client.
+			defer bodyWriter.Close()
+			c.streamToBackend(remote, id, bodyWriter)
+		}()
 	} else {
 		// `streamToBackend` will close `hresp.Body` but it is only called on websocket connections.
 		// We need to close it here for http connections.
