@@ -330,3 +330,103 @@ func TestBuildResponsesTimesOut(t *testing.T) {
 		t.Errorf("resp.Eof = %v; want true", resp.Eof)
 	}
 }
+
+func TestLocalProxyStreamingRequest(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		timeSince = func(t time.Time) time.Duration { return 0 * time.Millisecond }
+
+		reqPayload, _ := proto.Marshal(&pb.HttpRequest{
+			Id:     proto.String("16"),
+			Method: proto.String("POST"),
+			Url:    proto.String("http://invalid/stream"),
+			Eof:    proto.Bool(false),
+		})
+		respPayload, _ := proto.Marshal(&pb.HttpResponse{
+			Id:                proto.String("16"),
+			StatusCode:        proto.Int32(200),
+			Body:              []byte("done"),
+			Eof:               proto.Bool(true),
+			BackendDurationMs: proto.Int64(0),
+		})
+
+		streamPoll := 0
+		relayTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				switch req.URL.Path {
+				case "/server/request":
+					return &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(bytes.NewReader(reqPayload)),
+					}, nil
+				case "/server/requeststream":
+					if req.URL.Query().Get("id") != "16" {
+						t.Errorf("expected id=16, got %q", req.URL.RawQuery)
+					}
+					streamPoll++
+					switch streamPoll {
+					case 1:
+						return &http.Response{
+							StatusCode: 200,
+							Body:       io.NopCloser(strings.NewReader("part1-")),
+						}, nil
+					case 2:
+						return &http.Response{
+							StatusCode: 200,
+							Body:       io.NopCloser(strings.NewReader("part2")),
+						}, nil
+					default:
+						return &http.Response{
+							StatusCode: http.StatusGone,
+							Body:       io.NopCloser(strings.NewReader("")),
+						}, nil
+					}
+				case "/server/response":
+					body, _ := io.ReadAll(req.Body)
+					if !bytes.Equal(body, respPayload) {
+						t.Errorf("response payload mismatch")
+					}
+					return &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(strings.NewReader("ok")),
+					}, nil
+				default:
+					t.Errorf("Unexpected request to relay: %s %s", req.Method, req.URL.Path)
+					return nil, fmt.Errorf("unexpected request")
+				}
+			},
+		}
+
+		backendTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				body, err := io.ReadAll(req.Body)
+				if err != nil {
+					t.Errorf("failed reading backend request body: %v", err)
+				}
+				if got, want := string(body), "part1-part2"; got != want {
+					t.Errorf("backend request body = %q, want %q", got, want)
+				}
+				return &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(strings.NewReader("done")),
+				}, nil
+			},
+		}
+
+		config := DefaultClientConfig()
+		config.ServerName = "foo"
+		client := NewClient(config)
+
+		relayClient := &http.Client{Transport: relayTransport}
+		backendClient := &http.Client{Transport: backendTransport}
+
+		if err := client.localProxy(t.Context(), relayClient, backendClient); err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		synctest.Wait()
+
+		if streamPoll != 3 {
+			t.Errorf("Expected 3 requeststream polls, got %d", streamPoll)
+		}
+	})
+}

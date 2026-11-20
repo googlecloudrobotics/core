@@ -94,8 +94,10 @@ type pendingResponse struct {
 	// This channel is used to communicate data between the backend and user-client for
 	// bidirectional streaming connections.
 	requestStream chan []byte
-	// This mutex should be locked when writing to `requestStream``
-	requestStreamMutex sync.Mutex
+	// This mutex should be locked when writing to or closing `requestStream`
+	// and when accessing `requestStreamClosed`.
+	requestStreamMutex  sync.Mutex
+	requestStreamClosed bool
 
 	// This channel is used to communicate data between the backend and user-client.
 	// The user-client sends a hanging request to the relay-server which blocks until
@@ -248,7 +250,8 @@ func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpR
 // GetRequestStream gets data from the stream that follows a client's HTTP
 // request. For example, when using `kubectl exec` this passes stdin data from
 // the broker to the relay client.
-// If no ongoing request matches the given ID, this returns ok=false.
+// If no ongoing request matches the given ID, or the request stream has reached
+// EOF, this returns ok=false.
 func (r *broker) GetRequestStream(id string) ([]byte, bool) {
 	r.m.Lock()
 	pr := r.resp[id]
@@ -258,27 +261,40 @@ func (r *broker) GetRequestStream(id string) ([]byte, bool) {
 	}
 
 	select {
-	case data := <-pr.requestStream:
+	case data, more := <-pr.requestStream:
+		if !more {
+			return nil, false
+		}
 		return data, true
 	case <-time.After(getRequestTimeout):
 		return []byte{}, true
 	}
 }
 
-// PutsRequestStream adds data from the stream that follows a client's HTTP
+// PutRequestStream adds data from the stream that follows a client's HTTP
 // request. For example, when using `kubectl exec` this passes stdin data from
 // kubectl to the broker.
-// If no ongoing request matches the given ID, this returns ok=false.
-func (r *broker) PutRequestStream(id string, data []byte) bool {
+// If no ongoing request matches the given ID or the request stream is closed,
+// this returns ok=false.
+func (r *broker) PutRequestStream(server, id string, data []byte) bool {
 	r.m.Lock()
 	pr := r.resp[id]
 	if pr == nil {
 		r.m.Unlock()
 		return false
 	}
+	now := time.Now()
+	pr.lastActivity = now
+	if bs := r.req[server]; bs != nil {
+		bs.lastActivity = now
+	}
+	r.m.Unlock()
+
 	pr.requestStreamMutex.Lock()
 	defer pr.requestStreamMutex.Unlock()
-	r.m.Unlock()
+	if pr.requestStreamClosed {
+		return false
+	}
 
 	select {
 	case pr.requestStream <- data:
@@ -288,6 +304,24 @@ func (r *broker) PutRequestStream(id string, data []byte) bool {
 		return true
 	}
 	return true
+}
+
+// CloseRequestStream signals EOF on the request stream (half-close) without
+// tearing down the response stream.
+func (r *broker) CloseRequestStream(id string) {
+	r.m.Lock()
+	pr := r.resp[id]
+	r.m.Unlock()
+	if pr == nil {
+		return
+	}
+
+	pr.requestStreamMutex.Lock()
+	defer pr.requestStreamMutex.Unlock()
+	if !pr.requestStreamClosed {
+		pr.requestStreamClosed = true
+		close(pr.requestStream)
+	}
 }
 
 // SendResponse delivers the HttpResponse to the user-client handler that created the
@@ -381,7 +415,10 @@ func (r *broker) removeRequest(pr *pendingResponse) {
 	close(pr.markReap)
 
 	pr.requestStreamMutex.Lock()
-	close(pr.requestStream)
+	if !pr.requestStreamClosed {
+		pr.requestStreamClosed = true
+		close(pr.requestStream)
+	}
 	pr.requestStreamMutex.Unlock()
 
 	// If we block on this lock, it means `SendResponse` is writing to the channel, since we just closed

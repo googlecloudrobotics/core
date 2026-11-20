@@ -279,7 +279,7 @@ func (s *Server) bidirectionalStream(backendCtx backendContext, w http.ResponseW
 				return
 			} else {
 				slog.Info("Read from bidi-stream", slog.String("ID", backendCtx.Id), slog.Int("Bytes", n))
-				if ok = s.b.PutRequestStream(backendCtx.Id, bytes[:n]); !ok {
+				if ok = s.b.PutRequestStream(backendCtx.ServerName, backendCtx.Id, bytes[:n]); !ok {
 					slog.Info("End of bidi-stream stream", slog.String("ID", backendCtx.Id))
 					return
 				}
@@ -306,7 +306,7 @@ func (s *Server) readRequestBody(ctx context.Context, r *http.Request) ([]byte, 
 	return io.ReadAll(r.Body)
 }
 
-func (s *Server) createBackendRequest(backendCtx backendContext, r *http.Request, body []byte) *pb.HttpRequest {
+func (s *Server) createBackendRequest(backendCtx backendContext, r *http.Request, body []byte, eof bool) *pb.HttpRequest {
 	backendUrl := url.URL{
 		Scheme:   "http",
 		Host:     "invalid",
@@ -322,6 +322,7 @@ func (s *Server) createBackendRequest(backendCtx backendContext, r *http.Request
 		Url:    proto.String(backendUrl.String()),
 		Header: marshalHeader(&r.Header),
 		Body:   body,
+		Eof:    proto.Bool(eof),
 	}
 
 	return backendReq
@@ -386,13 +387,21 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := s.readRequestBody(ctx, r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	// In Go's net/http, r.ContentLength is -1 when the request body length is
+	// unknown (HTTP/1.1 Transfer-Encoding: chunked, or HTTP/2 without a
+	// Content-Length header and without END_STREAM on HEADERS). Stream the body
+	// in that case rather than buffering it with io.ReadAll.
+	streamingRequest := r.ContentLength < 0
+	var body []byte
+	if !streamingRequest {
+		body, err = s.readRequestBody(ctx, r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
-	backendReq := s.createBackendRequest(*backendCtx, r, body)
+	backendReq := s.createBackendRequest(*backendCtx, r, body, !streamingRequest)
 
 	// Pipe a request into the request channel to it get polled by the relay client.
 	// Then return the response channel, so we can pass it on and wait on a response
@@ -409,6 +418,29 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer s.b.StopRelayRequest(backendCtx.Id)
+
+	if streamingRequest {
+		defer r.Body.Close()
+		go func() {
+			defer s.b.CloseRequestStream(backendCtx.Id)
+			for {
+				// Allocate a new buffer each iteration because the channel does not copy.
+				buf := make([]byte, s.conf.BlockSize)
+				n, err := r.Body.Read(buf)
+				if n > 0 {
+					if !s.b.PutRequestStream(backendCtx.ServerName, backendCtx.Id, buf[:n]) {
+						return
+					}
+				}
+				if err != nil {
+					if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
+						slog.Error("Error reading streaming request body", slog.String("ID", backendCtx.Id), ilog.Err(err))
+					}
+					return
+				}
+			}
+		}()
+	}
 
 	header, responseChunksChan, done := s.waitForFirstResponseAndHandleSwitching(ctx, *backendCtx, w, backendRespChan)
 	if done {

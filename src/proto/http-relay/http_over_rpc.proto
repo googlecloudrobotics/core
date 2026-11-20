@@ -33,6 +33,10 @@ message HttpRequest {
   optional string url = 3;
   repeated HttpHeader header = 4;
   optional bytes body = 5;
+  // If explicitly set to false, the request body is streamed via
+  // /server/requeststream until EOF. If unset or true, the full body is in
+  // the `body` field.
+  optional bool eof = 7;
 }
 
 // Each HttpRequest may generate a stream of multiple HTTP responses with the

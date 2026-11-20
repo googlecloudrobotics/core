@@ -213,9 +213,9 @@ func TestRequestStream(t *testing.T) {
 
 	// Send a message over the request stream and assert that it arrives.
 	go func() {
-		ok := b.PutRequestStream(idOne, []byte("hello"))
+		ok := b.PutRequestStream("foo", idOne, []byte("hello"))
 		if !ok {
-			t.Error("PutRequestStream(idOne, \"hello\") = false, want true")
+			t.Error("PutRequestStream(\"foo\", idOne, \"hello\") = false, want true")
 		}
 	}()
 	data, ok := b.GetRequestStream(idOne)
@@ -233,8 +233,8 @@ func TestRequestStream(t *testing.T) {
 
 func TestRequestStreamUnknownID(t *testing.T) {
 	b := newBroker()
-	if ok := b.PutRequestStream(unknownID, []byte{}); ok {
-		t.Error("ok := PutRequestStream(unknownID, \"\"); ok = true, want false")
+	if ok := b.PutRequestStream("foo", unknownID, []byte{}); ok {
+		t.Error("ok := PutRequestStream(\"foo\", unknownID, \"\"); ok = true, want false")
 	}
 	if _, ok := b.GetRequestStream(unknownID); ok {
 		t.Error("_, ok := GetRequestStream(unknownID; ok = true, want false")
@@ -354,7 +354,7 @@ func TestReapWhileSendingRequest(t *testing.T) {
 		// start sending request stream to backend, BUT do not start consuming on the backend side
 		wg.Add(1)
 		go func() {
-			if ok := b.PutRequestStream(*req.Id, []byte(*req.Id)); !ok {
+			if ok := b.PutRequestStream("foo", *req.Id, []byte(*req.Id)); !ok {
 				t.Errorf("Error putting request stream")
 			}
 			wg.Done()
@@ -510,4 +510,78 @@ func TestReapInactiveBackends(t *testing.T) {
 	if _, ok := b.req["inactive"]; ok {
 		t.Error("Inactive backend was not reaped")
 	}
+}
+
+func TestCloseRequestStreamHalfClose(t *testing.T) {
+	b := newBroker()
+	bc := newBrokerConn()
+	var wg sync.WaitGroup
+	done := make(chan bool)
+	wg.Add(2)
+	go bc.runSenderStream(t, b, "foo", idOne, &wg)
+	bc.runReceiverStream(t, b, "foo", &wg, done)
+
+	// Send one chunk, then half-close the request stream.
+	go func() {
+		if ok := b.PutRequestStream("foo", idOne, []byte("chunk1")); !ok {
+			t.Error("PutRequestStream(\"foo\", idOne, \"chunk1\") = false, want true")
+		}
+		b.CloseRequestStream(idOne)
+		// Calling CloseRequestStream again and PutRequestStream after close should be safe.
+		b.CloseRequestStream(idOne)
+		if ok := b.PutRequestStream("foo", idOne, []byte("after-close")); ok {
+			t.Error("PutRequestStream after CloseRequestStream = true, want false")
+		}
+	}()
+
+	data, ok := b.GetRequestStream(idOne)
+	if !ok || !bytes.Equal(data, []byte("chunk1")) {
+		t.Errorf("GetRequestStream(idOne) = (%q, %v), want (\"chunk1\", true)", data, ok)
+	}
+	// Next call should observe EOF (ok=false) while response stream remains open.
+	if _, ok := b.GetRequestStream(idOne); ok {
+		t.Error("GetRequestStream(idOne) after CloseRequestStream returned ok=true, want false")
+	}
+
+	// Backend should still be able to finish sending responses, and StopRelayRequest should not panic.
+	done <- true
+	wg.Wait()
+	b.StopRelayRequest(idOne)
+}
+
+func TestCloseRequestStreamWhilePutBlockedDoesNotDeadlock(t *testing.T) {
+	b := newBroker()
+	b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest, 1), lastActivity: time.Now()}
+	if _, err := b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")}); err != nil {
+		t.Fatalf("RelayRequest failed: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	// Goroutine 1: blocks in PutRequestStream holding requestStreamMutex.
+	wg.Go(func() {
+		if ok := b.PutRequestStream("foo", idOne, []byte("chunk1")); !ok {
+			t.Errorf("PutRequestStream returned false, want true")
+		}
+	})
+	// Wait briefly for PutRequestStream to acquire requestStreamMutex and block on channel send.
+	time.Sleep(10 * time.Millisecond)
+
+	// Goroutine 2: calls CloseRequestStream concurrently while PutRequestStream is blocked.
+	// Note: sync.Mutex.Lock is not durably blocked in testing/synctest, so we test without synctest.
+	wg.Go(func() {
+		b.CloseRequestStream(idOne)
+	})
+	time.Sleep(10 * time.Millisecond)
+
+	// Broker lock must still be free so GetRequestStream can drain chunk1 and observe EOF.
+	data, ok := b.GetRequestStream(idOne)
+	if !ok || !bytes.Equal(data, []byte("chunk1")) {
+		t.Errorf("GetRequestStream = (%q, %v), want (\"chunk1\", true)", data, ok)
+	}
+	if _, ok := b.GetRequestStream(idOne); ok {
+		t.Error("GetRequestStream after CloseRequestStream returned ok=true, want false")
+	}
+
+	wg.Wait()
+	b.StopRelayRequest(idOne)
 }

@@ -72,6 +72,7 @@ func TestClientHandler(t *testing.T) {
 			Value: proto.String("now"),
 		}},
 		Body: []byte("body"),
+		Eof:  proto.Bool(true),
 	}
 	// Remove trace headers entry since we cannot assert on their values.
 	tempHeader := relayRequest.Header[:0]
@@ -141,6 +142,7 @@ func TestClientHandlerWithChunkedResponse(t *testing.T) {
 			Value: proto.String("now"),
 		}},
 		Body: []byte("body"),
+		Eof:  proto.Bool(true),
 	}
 	// Remove trace headers entry since we cannot assert on their values.
 	tempHeader := relayRequest.Header[:0]
@@ -292,8 +294,23 @@ func TestClientHandlerWithChunkedRequest(t *testing.T) {
 		t.Fatalf("Error when getting request: %v", err)
 	}
 
-	if got, want := string(relayRequest.Body), "chunk1-chunk2-chunk3"; got != want {
-		t.Errorf("Wrong request body; got %q; want %q", got, want)
+	if relayRequest.Eof == nil || *relayRequest.Eof {
+		t.Errorf("Expected Eof=false for chunked request, got %v", relayRequest.Eof)
+	}
+	if len(relayRequest.Body) != 0 {
+		t.Errorf("Expected empty initial body for chunked request, got %q", relayRequest.Body)
+	}
+
+	var gotBody bytes.Buffer
+	for {
+		chunk, ok := server.b.GetRequestStream(*relayRequest.Id)
+		if !ok {
+			break
+		}
+		gotBody.Write(chunk)
+	}
+	if got, want := gotBody.String(), "chunk1-chunk2-chunk3"; got != want {
+		t.Errorf("Wrong streamed request body; got %q; want %q", got, want)
 	}
 
 	server.b.SendResponse(&pb.HttpResponse{

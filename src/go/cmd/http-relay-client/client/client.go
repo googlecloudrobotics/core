@@ -330,7 +330,7 @@ func extractRequestHeader(breq *pb.HttpRequest, header *http.Header) {
 	}
 }
 
-func (c *Client) createBackendRequest(breq *pb.HttpRequest) (*http.Request, error) {
+func (c *Client) createBackendRequest(breq *pb.HttpRequest, body io.Reader) (*http.Request, error) {
 	id := *breq.Id
 	targetUrl, err := url.Parse(*breq.Url)
 	if err != nil {
@@ -343,7 +343,7 @@ func (c *Client) createBackendRequest(breq *pb.HttpRequest) (*http.Request, erro
 		slog.String("ID", id),
 		slog.String("Method", *breq.Method),
 		slog.Any("TargetURL", *targetUrl))
-	req, err := http.NewRequest(*breq.Method, targetUrl.String(), bytes.NewReader(breq.Body))
+	req, err := http.NewRequest(*breq.Method, targetUrl.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -577,14 +577,15 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 				slog.String("ID", id), ilog.Err(err))
 			return
 		}
-		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusGone {
+			resp.Body.Close()
 			if debugLogs {
 				slog.Info("End of request stream", slog.String("ID", id))
 			}
 			return
 		} else if resp.StatusCode != http.StatusOK {
 			msg, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			if err != nil {
 				msg = []byte(fmt.Sprintf("<failed to read response body: %v>", err))
 			}
@@ -596,15 +597,16 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 			}
 			return
 		}
-		if n, err := io.Copy(backendWriter, resp.Body); err != nil {
+		n, err := io.Copy(backendWriter, resp.Body)
+		resp.Body.Close()
+		if err != nil {
 			slog.Error("Failed to write to backend:",
 				slog.String("ID", id), ilog.Err(err))
 			return
-		} else {
-			if debugLogs {
-				slog.Info("Wrote to backend",
-					slog.String("ID", id), slog.Int64("ByteCount", n))
-			}
+		}
+		if debugLogs {
+			slog.Info("Wrote to backend",
+				slog.String("ID", id), slog.Int64("ByteCount", n))
 		}
 	}
 }
@@ -612,10 +614,27 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *http.Client, pbreq *pb.HttpRequest) {
 	ts := time.Now()
 	id := *pbreq.Id
-	req, err := c.createBackendRequest(pbreq)
+	streamingRequest := pbreq.Eof != nil && !*pbreq.Eof
+	var body io.Reader
+	var pr *io.PipeReader
+	var pw *io.PipeWriter
+	if streamingRequest {
+		pr, pw = io.Pipe()
+		defer pr.Close()
+		body = pr
+	} else {
+		body = bytes.NewReader(pbreq.Body)
+	}
+	req, err := c.createBackendRequest(pbreq, body)
 	if err != nil {
+		if pw != nil {
+			pw.Close()
+		}
 		c.postErrorResponse(remote, id, fmt.Sprintf("Failed to create request for backend: %v", err))
 		return
+	}
+	if streamingRequest {
+		go c.streamToBackend(remote, id, pw)
 	}
 	// Measure edge processing time.
 	extractedCtx := telemetry.HTTPPropagator.Extract(ctx, propagation.HeaderCarrier(req.Header))
