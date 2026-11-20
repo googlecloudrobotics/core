@@ -126,15 +126,18 @@ func SetupInMemoryRelay(t testing.TB, config client.ClientConfig, backendHandler
 	}
 
 	relayClient := client.NewClient(config)
-	ctx, cancel := context.WithCancel(t.Context())
+	reaperCtx, cancelReaper := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		relayClient.StartWithClients(ctx, relayHTTPClient, &backendHTTPClient)
+		relayServer.StartReaper(reaperCtx)
+	})
+	wg.Go(func() {
+		relayClient.StartWithClients(t.Context(), relayHTTPClient, &backendHTTPClient)
 	})
 
 	t.Cleanup(func() {
 		synctest.Wait()
-		cancel()
+		cancelReaper()
 		relayTS.CloseClientConnections()
 		backendTS.CloseClientConnections()
 		wg.Wait()
