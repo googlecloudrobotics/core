@@ -27,24 +27,6 @@ def _non_module_deps_impl(ctx):
         strip_prefix = "bazel_gomock-fde78c91cf1783cc1e33ba278922ba67a6ee2a84",
     )
     http_archive(
-        name = "kubernetes_helm",
-        urls = [
-            "https://get.helm.sh/helm-v2.17.0-linux-amd64.tar.gz",
-        ],
-        sha256 = "f3bec3c7c55f6a9eb9e6586b8c503f370af92fe987fcbf741f37707606d70296",
-        strip_prefix = "linux-amd64",
-        build_file = "//third_party/helm2:BUILD.bazel",
-    )
-    http_archive(
-        name = "kubernetes_helm3",
-        urls = [
-            "https://get.helm.sh/helm-v3.21.3-linux-amd64.tar.gz",
-        ],
-        sha256 = "15e041a93a590dce8100f39385cd98c84a765c9e36aeeb9e2dc6ff9e4769e2e0",
-        strip_prefix = "linux-amd64",
-        build_file = "//third_party/helm3:BUILD.bazel",
-    )
-    http_archive(
         name = "hashicorp_terraform",
         urls = [
             "https://releases.hashicorp.com/terraform/1.11.4/terraform_1.11.4_linux_amd64.zip",
