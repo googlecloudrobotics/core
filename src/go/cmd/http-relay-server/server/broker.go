@@ -406,9 +406,11 @@ func (r *broker) SendResponse(resp *pb.HttpResponse) error {
 		// is limited by the rate that the user client consumes the stream.
 		case pr.responseStream <- resp:
 			if resp.GetEof() {
-				// this request is already removed from the broker earlier so `ReapInactiveRequests` will not
-				// process this and attempt to close the channel twice.
+				// this request is already removed from the broker earlier so `ReapInactiveRequests`
+				// and `StopRelayRequest` will not process this and attempt to close these channels twice.
 				close(pr.responseStream)
+				// Wake any goroutines still waiting in GetRequestStream or PutRequestStream.
+				close(pr.markReap)
 			}
 			return nil
 		case <-pr.markReap:

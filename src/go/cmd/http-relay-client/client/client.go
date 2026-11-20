@@ -563,7 +563,7 @@ func (c *Client) postErrorResponse(remote *http.Client, id string, message strin
 // It returns nil on a clean request-body EOF (204 No Content), or an error
 // otherwise (e.g. errRequestStreamGone on 410 Gone). The caller is responsible
 // for closing backendWriter.
-func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter io.Writer) error {
+func (c *Client) streamToBackend(ctx context.Context, remote *http.Client, id string, backendWriter io.Writer) error {
 	streamURL := (&url.URL{
 		Scheme:   c.config.RelayScheme,
 		Host:     c.config.RelayAddress,
@@ -573,12 +573,19 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 	for {
 		// Get data from the "request stream", then copy it to the backend.
 		// We use a Post with empty body to avoid caching.
-		resp, err := remote.Post(streamURL, "text/plain", http.NoBody)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, streamURL, http.NoBody)
+		if err != nil {
+			return fmt.Errorf("failed to create request stream request: %w", err)
+		}
+		req.Header.Set("Content-Type", "text/plain")
+		resp, err := remote.Do(req)
 		if err != nil {
 			// TODO(rodrigoq): detect transient failure and retry w/ backoff?
 			// e.g. "server status Request Timeout: No request received within timeout"
-			slog.Error("Failed to get request stream",
-				slog.String("ID", id), ilog.Err(err))
+			if !errors.Is(err, context.Canceled) {
+				slog.Error("Failed to get request stream",
+					slog.String("ID", id), ilog.Err(err))
+			}
 			return fmt.Errorf("failed to get request stream: %w", err)
 		}
 		if resp.StatusCode == http.StatusNoContent {
@@ -644,8 +651,10 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 		return
 	}
 	if streamingRequest {
+		streamCtx, cancelStream := context.WithCancel(ctx)
+		defer cancelStream()
 		go func() {
-			err := c.streamToBackend(remote, id, pw)
+			err := c.streamToBackend(streamCtx, remote, id, pw)
 			pw.CloseWithError(err)
 		}()
 	}
@@ -681,7 +690,7 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 			// Close the backend connection on stream end/failure so the
 			// response stream ends and doesn't hang the client.
 			defer bodyWriter.Close()
-			c.streamToBackend(remote, id, bodyWriter)
+			c.streamToBackend(ctx, remote, id, bodyWriter)
 		}()
 	} else {
 		// `streamToBackend` will close `hresp.Body` but it is only called on websocket connections.

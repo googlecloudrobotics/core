@@ -510,3 +510,68 @@ func TestBuildRelayURLStreamRequestBody(t *testing.T) {
 		t.Errorf("buildRelayURL() with StreamRequestBody=false = %q, want no %s", got, streamRequestBodyParam)
 	}
 }
+
+func TestLocalProxyCancelsRequestStreamOnEarlyResponse(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		reqPayload, _ := proto.Marshal(&pb.HttpRequest{
+			Id:     proto.String("18"),
+			Method: proto.String("POST"),
+			Url:    proto.String("http://invalid/stream"),
+			Eof:    proto.Bool(false),
+		})
+
+		streamCancelled := make(chan struct{})
+		relayTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				switch req.URL.Path {
+				case "/server/request":
+					return &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(bytes.NewReader(reqPayload)),
+					}, nil
+				case "/server/requeststream":
+					// Block until handleRequest cancels streamCtx.
+					<-req.Context().Done()
+					close(streamCancelled)
+					return nil, req.Context().Err()
+				case "/server/response":
+					return &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(strings.NewReader("ok")),
+					}, nil
+				default:
+					return nil, fmt.Errorf("unexpected request: %s %s", req.Method, req.URL.Path)
+				}
+			},
+		}
+
+		backendTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				// Return immediately without reading req.Body (e.g. gRPC Unimplemented).
+				return &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(strings.NewReader("")),
+				}, nil
+			},
+		}
+
+		config := DefaultClientConfig()
+		config.ServerName = "foo"
+		client := NewClient(config)
+
+		relayClient := &http.Client{Transport: relayTransport}
+		backendClient := &http.Client{Transport: backendTransport}
+
+		if err := client.localProxy(t.Context(), relayClient, backendClient); err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		synctest.Wait()
+
+		select {
+		case <-streamCancelled:
+		default:
+			t.Error("Expected in-flight /server/requeststream poll to be cancelled when handleRequest exited")
+		}
+	})
+}

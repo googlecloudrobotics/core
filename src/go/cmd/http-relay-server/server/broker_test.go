@@ -586,3 +586,34 @@ func TestCloseRequestStreamWhilePutBlockedDoesNotDeadlock(t *testing.T) {
 	wg.Wait()
 	b.StopRelayRequest(idOne)
 }
+
+func TestGetRequestStreamWakesOnFinalSendResponse(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		b := newBroker()
+		b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest, 1), lastActivity: time.Now()}
+		respChan, err := b.RelayRequest("foo", &pb.HttpRequest{Id: proto.String(idOne), Url: proto.String("http://example.com/foo")})
+		if err != nil {
+			t.Fatalf("RelayRequest failed: %v", err)
+		}
+
+		start := time.Now()
+		done := make(chan error, 1)
+		go func() {
+			_, err := b.GetRequestStream(idOne)
+			done <- err
+		}()
+		synctest.Wait()
+
+		go func() { <-respChan }()
+		if err := b.SendResponse(&pb.HttpResponse{Id: proto.String(idOne), Eof: proto.Bool(true)}); err != nil {
+			t.Fatalf("SendResponse failed: %v", err)
+		}
+
+		if err := <-done; !errors.Is(err, ErrInvalidRequestID) {
+			t.Errorf("GetRequestStream err = %v, want %v", err, ErrInvalidRequestID)
+		}
+		if elapsed := time.Since(start); elapsed != 0 {
+			t.Errorf("GetRequestStream returned after %v, want 0s", elapsed)
+		}
+	})
+}
