@@ -54,10 +54,10 @@ pkg_files(
 pkg_files(
     name = "binary-tools-files",
     srcs = [
+        "//bazel:helm",
         "//src/go/cmd/synk",
         "//src/go/cmd/token-vendor:token-vendor-app",
         "@hashicorp_terraform//:terraform",
-        "@kubernetes_helm//:helm",
     ],
     attributes = pkg_attributes(mode = "0755"),
     prefix = "bin",

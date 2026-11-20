@@ -1,0 +1,7 @@
+load("@rules_helm//helm:defs.bzl", "helm_import")
+
+helm_import(
+    name = "victoriametrics-chart",
+    chart = "//third_party/victoria-metrics-k8s-stack:victoria-metrics-k8s-stack-0.91.0.tgz",
+    visibility = [":__subpackages__"],
+)

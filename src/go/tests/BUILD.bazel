@@ -31,9 +31,6 @@ go_test(
 sh_test(
     name = "relay_test",
     srcs = ["relay_test.sh"],
-    data = [
-        "@kubernetes_helm//:helm",
-    ],
     tags = ["external"],
 )
 
