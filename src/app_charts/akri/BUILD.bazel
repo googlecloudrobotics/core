@@ -1,15 +1,23 @@
+load("@rules_helm//helm:defs.bzl", "helm_import", "helm_template")
 load("//bazel:app.bzl", "app")
 load("//bazel:app_chart.bzl", "app_chart")
-load("//bazel:build_rules/helm_template.bzl", "helm_template")
+
+helm_import(
+    name = "akri-chart",
+    chart = "//third_party/akri:akri-0.12.9.tgz",
+)
 
 helm_template(
     name = "akri-chart.robot",
-    chart = "//third_party/akri:akri-0.12.9.tgz",
-    helm_version = 3,
-    # The namespace will later be replaced with the actual one.
-    namespace = "HELM-NAMESPACE",
-    release_name = "akri",
-    values = "akri-robot.values.yaml",
+    chart = ":akri-chart",
+    opts = [
+        "--name-template",
+        "akri",
+        # The namespace will later be replaced with the actual one.
+        "--namespace",
+        "HELM-NAMESPACE",
+    ],
+    values = ["akri-robot.values.yaml"],
 )
 
 app_chart(

@@ -9,8 +9,6 @@ bazel_dep(name = "rules_helm", version = "0.35.0")
 # -- bazel_dep definitions -- #
 
 non_module_deps = use_extension("//:non_module_deps.bzl", "non_module_deps")
-use_repo(non_module_deps, "kubernetes_helm")
-use_repo(non_module_deps, "kubernetes_helm3")
 use_repo(non_module_deps, "hashicorp_terraform")
 use_repo(non_module_deps, "com_github_kubernetes_sigs_application")
 use_repo(non_module_deps, "ingress-nginx")
@@ -71,7 +69,6 @@ use_repo(
     "com_github_spf13_pflag",
     "com_google_cloud_go_compute_metadata",
     "com_google_cloud_go_storage",
-    "sh_helm_helm_v3",
     "io_k8s_api",
     "io_k8s_apiextensions_apiserver",
     "io_k8s_apimachinery",
@@ -87,13 +84,13 @@ use_repo(
     "io_opentelemetry_go_contrib_propagators_b3",
     "io_opentelemetry_go_contrib_propagators_opencensus",
     "io_opentelemetry_go_contrib_zpages",
+    "io_opentelemetry_go_otel",
     "io_opentelemetry_go_otel_exporters_otlp_otlptrace_otlptracegrpc",
     "io_opentelemetry_go_otel_exporters_prometheus",
     "io_opentelemetry_go_otel_metric",
-    "io_opentelemetry_go_otel_sdk_metric",
     "io_opentelemetry_go_otel_sdk",
+    "io_opentelemetry_go_otel_sdk_metric",
     "io_opentelemetry_go_otel_trace",
-    "io_opentelemetry_go_otel",
     "org_golang_google_api",
     "org_golang_google_genproto_googleapis_rpc",
     "org_golang_google_grpc",
@@ -102,6 +99,7 @@ use_repo(
     "org_golang_x_oauth2",
     "org_golang_x_sync",
     "org_golang_x_term",
+    "sh_helm_helm_v3",
 )
 
 #######
@@ -118,3 +116,17 @@ img_pull(
     registry = "gcr.io",
     repository = "distroless/base",
 )
+
+########
+# helm #
+########
+
+helm = use_extension("@rules_helm//helm:extensions.bzl", "helm")
+
+# TODO(koonpeng): Let Renovate bump the Helm version (or drop the override once
+# migrated to Helm v4) together when bumping rules_helm.
+helm.host_tools(
+    name = "helm",
+    version = "3.19.3",
+)
+use_repo(helm, "helm")
