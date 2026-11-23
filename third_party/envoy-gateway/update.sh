@@ -74,6 +74,53 @@ curl -fsSL "https://raw.githubusercontent.com/envoyproxy/gateway/${EG_VERSION}/c
 curl -fsSL "https://raw.githubusercontent.com/envoyproxy/gateway/${EG_VERSION}/charts/gateway-addons-helm/dashboards/envoy-gateway-global.json" -o "${dashboards_dst}/envoy-gateway-global.json"
 curl -fsSL "https://raw.githubusercontent.com/envoyproxy/gateway/${EG_VERSION}/charts/gateway-addons-helm/dashboards/envoy-clusters.json" -o "${dashboards_dst}/envoy-clusters.json"
 
+# Replace hardcoded Prometheus datasource UIDs with the dashboard's $datasource
+# template variable so dashboards work with any Grafana Prometheus datasource.
+python3 - "${dashboards_dst}"/*.json <<'EOF'
+import json
+import sys
+
+_BUILTIN_UIDS = {"grafana", "-- Grafana --", "-- Mixed --", "-- Dashboard --"}
+
+
+def normalize_datasources(obj):
+  changed = False
+  if isinstance(obj, dict):
+    ds = obj.get("datasource")
+    if isinstance(ds, dict):
+      ds_type = ds.get("type")
+      uid = ds.get("uid")
+      if (
+          isinstance(uid, str)
+          and uid
+          and not uid.startswith("$")
+          and (
+              ds_type == "prometheus"
+              or (ds_type is None and uid not in _BUILTIN_UIDS)
+          )
+      ):
+        ds["uid"] = "$datasource"
+        changed = True
+    for value in obj.values():
+      if normalize_datasources(value):
+        changed = True
+  elif isinstance(obj, list):
+    for item in obj:
+      if normalize_datasources(item):
+        changed = True
+  return changed
+
+
+for path in sys.argv[1:]:
+  with open(path, "r", encoding="utf-8") as f:
+    raw = f.read()
+  data = json.loads(raw)
+  if normalize_datasources(data):
+    trailing_nl = "\n" if raw.endswith("\n") else ""
+    with open(path, "w", encoding="utf-8") as f:
+      f.write(json.dumps(data, indent=2, ensure_ascii=False) + trailing_nl)
+EOF
+
 sed -i -E \
   -e "s|^(- \*\*Envoy Gateway\*\*: )\[[^]]+\]\([^)]+\)|\1[${EG_VERSION}](https://github.com/envoyproxy/gateway/releases/tag/${EG_VERSION})|" \
   -e "s|^(- \*\*Gateway API\*\*: )\[[^]]+\]\([^)]+\)|\1[${GAPI_VERSION}](https://github.com/kubernetes-sigs/gateway-api/releases/tag/${GAPI_VERSION})|" \
