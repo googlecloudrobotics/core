@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Helper script for third_party/envoy-gateway/update.sh to process Envoy Gateway manifests."""
 
+import re
 import sys
+from typing import Any
 
 import yaml
 
@@ -19,6 +21,66 @@ _EG_SYSTEM_HEADER = """{{- if eq .Values.use_gateway "true" }}
 """
 
 _EG_SYSTEM_FOOTER = "\n{{- end }}\n"
+
+_EG_CONTROLLER_SCHEDULING_PATCH = """      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  control-plane: envoy-gateway
+              topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            control-plane: envoy-gateway
+"""
+
+
+def _patch_controller_deployment(doc_str: str, doc_obj: dict[str, Any]) -> str:
+  """Patches Deployment/envoy-gateway for multi-replica HA scheduling."""
+  spec = doc_obj.get("spec") or {}
+  pod_spec = (spec.get("template") or {}).get("spec") or {}
+  if "affinity" in pod_spec or "topologySpreadConstraints" in pod_spec:
+    raise ValueError(
+        "Deployment/envoy-gateway already defines affinity or"
+        " topologySpreadConstraints; review upstream manifest before patching"
+    )
+
+  patched, count = re.subn(r"(?m)^  replicas:\s*\d+$", "  replicas: 2", doc_str)
+  if count != 1:
+    raise ValueError(
+        f"Expected 1 replicas field in Deployment/envoy-gateway, found {count}"
+    )
+
+  pod_spec_marker = "\n    spec:\n"
+  if patched.count(pod_spec_marker) != 1:
+    raise ValueError(
+        "Expected 1 pod template spec block in Deployment/envoy-gateway"
+    )
+  patched = patched.replace(
+      pod_spec_marker,
+      f"{pod_spec_marker}{_EG_CONTROLLER_SCHEDULING_PATCH}",
+      1,
+  )
+
+  patched_obj = yaml.safe_load(patched)
+  patched_spec = patched_obj.get("spec") or {}
+  patched_pod_spec = (patched_spec.get("template") or {}).get("spec") or {}
+  if patched_spec.get("replicas") != 2:
+    raise ValueError("Failed to set Deployment/envoy-gateway replicas to 2")
+  if (
+      "affinity" not in patched_pod_spec
+      or "topologySpreadConstraints" not in patched_pod_spec
+  ):
+    raise ValueError(
+        "Failed to inject scheduling constraints into Deployment/envoy-gateway"
+    )
+  return patched
 
 
 def _parse_manifests(install_file: str) -> tuple[list[str], list[str]]:
@@ -71,6 +133,11 @@ def _parse_manifests(install_file: str) -> tuple[list[str], list[str]]:
             "extensionApis: {}",
             "extensionApis:\n      enableBackend: true",
         )
+      elif (
+          kind == "Deployment"
+          and doc_obj.get("metadata", {}).get("name") == "envoy-gateway"
+      ):
+        cleaned = _patch_controller_deployment(cleaned, doc_obj)
       system_docs.append(cleaned)
 
   return eg_crds, system_docs
