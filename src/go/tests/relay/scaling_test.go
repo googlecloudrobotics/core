@@ -167,7 +167,7 @@ func TestMoveRelayServerDuringUserRequest(t *testing.T) {
 		select {
 		case result := <-body:
 			if result.err != nil {
-				t.Fatal(err)
+				t.Fatal(result.err)
 			}
 			if !bytes.Equal(result.data, data) {
 				t.Errorf("expected %q to contain %q", result.data, data)
@@ -185,7 +185,7 @@ func TestMoveRelayServerDuringUserRequest(t *testing.T) {
 		select {
 		case result := <-body:
 			if result.err != nil {
-				t.Fatal(err)
+				t.Fatal(result.err)
 			}
 			if !bytes.Equal(result.data, data) {
 				t.Errorf("expected %q to contain %q", result.data, data)
