@@ -48,7 +48,8 @@ func TestLocalProxy(t *testing.T) {
 			Url:    proto.String("http://invalid/foo/bar?a=b"),
 			Header: []*pb.HttpHeader{{
 				Name:  proto.String("X-GFE"),
-				Value: proto.String("google.com")}},
+				Value: proto.String("google.com"),
+			}},
 			Body: []byte("thebody"),
 		})
 		respPayload, _ := proto.Marshal(&pb.HttpResponse{
@@ -84,6 +85,9 @@ func TestLocalProxy(t *testing.T) {
 				case 2:
 					if req.Method != "POST" || req.URL.Path != "/server/response" {
 						t.Errorf("Relay Req 2: expected POST /server/response, got %s %s", req.Method, req.URL.Path)
+					}
+					if req.URL.Query().Get("server") != "foo" {
+						t.Errorf("Relay Req 2: expected query server=foo, got %q", req.URL.RawQuery)
 					}
 					body, _ := io.ReadAll(req.Body)
 					if !bytes.Equal(body, respPayload) {
@@ -159,7 +163,8 @@ func TestBackendError(t *testing.T) {
 			Url:    proto.String("http://invalid/foo/bar?a=b"),
 			Header: []*pb.HttpHeader{{
 				Name:  proto.String("X-GFE"),
-				Value: proto.String("google.com")}},
+				Value: proto.String("google.com"),
+			}},
 			Body: []byte("thebody"),
 		})
 

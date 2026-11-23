@@ -419,9 +419,10 @@ func (c *Client) postResponse(remote *http.Client, br *pb.HttpResponse) error {
 	}
 
 	responseUrl := url.URL{
-		Scheme: c.config.RelayScheme,
-		Host:   c.config.RelayAddress,
-		Path:   c.config.RelayPrefix + "/server/response",
+		Scheme:   c.config.RelayScheme,
+		Host:     c.config.RelayAddress,
+		Path:     c.config.RelayPrefix + "/server/response",
+		RawQuery: url.Values{"server": {c.config.ServerName}}.Encode(),
 	}
 
 	resp, err := remote.Post(responseUrl.String(), "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse", bytes.NewReader(body))
