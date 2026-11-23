@@ -18,7 +18,6 @@ func setupRelay(t *testing.T, serverName string, handler http.Handler) *rt.InMem
 
 	config := client.DefaultClientConfig()
 	config.ServerName = serverName
-	config.ReadIdleTimeout = 30 * time.Second
 
 	return rt.SetupInMemoryRelay(t, config, handler)
 }
@@ -38,34 +37,76 @@ func TestMoveRelayServer(t *testing.T) {
 
 		// simulate a scale up event and the server is moved to a new pod
 		synctest.Wait()
-		envA.Client.Transport = envB.Client.Transport
+		mockTransport := rt.NewMockTransport(t, envB.Client.Transport)
+		envA.Client.Transport = &mockTransport
 
 		// user clients should hit the new server, but receive 503 because relay client still on old server.
+		mockTransport.ExpectRequest(func(req *http.Request) {
+			expectedPath := "/client/serverA"
+			if expectedPath != req.URL.Path {
+				t.Errorf("expected request to %q, but got %q", expectedPath, req.URL.Path)
+			}
+		})
+
+		expectServerRequest := func(req *http.Request) {
+			expectedPath := "/server/request"
+			if expectedPath != req.URL.Path {
+				t.Errorf("expected request to %q, but got %q", expectedPath, req.URL.Path)
+			}
+			expectedServerQuery := "serverA"
+			if server := req.URL.Query().Get("server"); expectedServerQuery != server {
+				t.Errorf("expected server query to contain %q, but got %q", expectedServerQuery, server)
+			}
+		}
+		mockTransport.ExpectRequest(expectServerRequest)
+
 		resp, err := envA.Client.Get(fmt.Sprint(envA.RelayURL, "/client/serverA"))
 		if err != nil {
 			t.Fatal(err)
 		}
 		if resp.StatusCode != http.StatusServiceUnavailable {
-			t.Errorf("expected status %d, got %d", http.StatusServiceUnavailable, resp.StatusCode)
+			t.Errorf("expected status %d, but got %d", http.StatusServiceUnavailable, resp.StatusCode)
 		}
 		resp.Body.Close()
 
 		// wait until the relay client times out and reconnect to the new server
 		synctest.Sleep(30 * time.Second)
 
+		mockTransport.ExpectRequest(func(req *http.Request) {
+			expectedPath := "/client/serverA"
+			if expectedPath != req.URL.Path {
+				t.Errorf("expected request to %q, but got %q", expectedPath, req.URL.Path)
+			}
+		})
+		mockTransport.ExpectRequest(expectServerRequest)
+		mockTransport.ExpectRequest(func(req *http.Request) {
+			expectedPath := "/server/response"
+			if expectedPath != req.URL.Path {
+				t.Errorf("expected request to %q, but got %q", expectedPath, req.URL.Path)
+			}
+			if req.Method != http.MethodPost {
+				t.Errorf("expected request method to be %q, but got %q", http.MethodPost, req.Method)
+			}
+			expectedServerQuery := "serverA"
+			if server := req.URL.Query().Get("server"); expectedServerQuery != server {
+				t.Errorf("expected server query to be %q, but got %q", expectedServerQuery, server)
+			}
+		})
+
 		resp, err = envA.Client.Get(fmt.Sprint(envA.RelayURL, "/client/serverA"))
 		if err != nil {
 			t.Fatal(err)
 		}
 		if resp.StatusCode != http.StatusOK {
-			t.Errorf("expected status %d, got %d", http.StatusOK, resp.StatusCode)
+			t.Errorf("expected status %d, but got %d", http.StatusOK, resp.StatusCode)
 		}
 		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
 		if err != nil {
 			t.Fatal(err)
 		}
 		if !bytes.Equal(expectedResp, body) {
-			t.Errorf("expected to receive %q, got %q", expectedResp, body)
+			t.Errorf("expected to receive %q, but got %q", expectedResp, body)
 		}
 	})
 }

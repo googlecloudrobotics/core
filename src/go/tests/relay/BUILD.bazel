@@ -91,6 +91,5 @@ go_test(
     deps = [
         ":go_default_library",
         "//src/go/cmd/http-relay-client/client:go_default_library",
-        "//src/go/cmd/http-relay-server/server:go_default_library",
     ],
 )

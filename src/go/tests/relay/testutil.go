@@ -178,3 +178,30 @@ func SetupRelay(t testing.TB, config client.ClientConfig) (*RelayEnv, net.Listen
 		BackendPort: backendPort,
 	}, backendLn, cleanup
 }
+
+// MockTransport wraps a `http.RoundTripper` with assertion.
+// If the transport receives requests without an expectation, it will be reported as an error in the test.
+type MockTransport struct {
+	t          *testing.T
+	impl       http.RoundTripper
+	expectReqs []func(req *http.Request)
+}
+
+func (m *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if len(m.expectReqs) == 0 {
+		m.t.Errorf("unexpected request %s %s", req.Method, req.URL)
+		return m.impl.RoundTrip(req)
+	}
+	expect := m.expectReqs[0]
+	m.expectReqs = m.expectReqs[1:]
+	expect(req)
+	return m.impl.RoundTrip(req)
+}
+
+func (m *MockTransport) ExpectRequest(expect func(req *http.Request)) {
+	m.expectReqs = append(m.expectReqs, expect)
+}
+
+func NewMockTransport(t *testing.T, impl http.RoundTripper) MockTransport {
+	return MockTransport{t: t, impl: impl}
+}
