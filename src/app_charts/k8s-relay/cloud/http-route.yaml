@@ -96,3 +96,61 @@ spec:
       - name: token-vendor
         namespace: app-token-vendor
         port: 9091
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: kubernetes-relay-client-extension-policy
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: kubernetes-relay-client
+  lua:
+    - type: Inline
+      inline: |
+        function envoy_on_request(request_handle)
+          local path = request_handle:headers():get(":path")
+          if path then
+            local server = path:match("^/{{ . }}/client/([^/?#]+)")
+            if server then
+              request_handle:headers():replace("X-Server-Name", server)
+            else
+              request_handle:headers():remove("X-Server-Name")
+            end
+          end
+        end
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: kubernetes-relay-client-backend-policy
+spec:
+  mergeType: StrategicMerge
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: kubernetes-relay-client
+  loadBalancer:
+    type: ConsistentHash
+    consistentHash:
+      type: Headers
+      headers:
+        - name: X-Server-Name
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: kubernetes-relay-server-backend-policy
+spec:
+  mergeType: StrategicMerge
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: kubernetes-relay-server
+  loadBalancer:
+    type: ConsistentHash
+    consistentHash:
+      type: QueryParams
+      queryParams:
+        - name: server
