@@ -2,10 +2,10 @@ bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
 bazel_dep(name = "bazel_skylib", version = "1.9.2")
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "protobuf", version = "36.2", repo_name = "com_google_protobuf")
-bazel_dep(name = "rules_img", version = "0.3.25")
+bazel_dep(name = "rules_img", version = "0.3.26")
 bazel_dep(name = "rules_pkg", version = "1.3.0")
-bazel_dep(name = "rules_shell", version = "0.8.0")
-bazel_dep(name = "rules_helm", version = "0.35.0")
+bazel_dep(name = "rules_shell", version = "0.10.0")
+bazel_dep(name = "rules_helm", version = "0.38.0")
 # -- bazel_dep definitions -- #
 
 non_module_deps = use_extension("//:non_module_deps.bzl", "non_module_deps")
@@ -111,7 +111,7 @@ img_pull = use_repo_rule("@rules_img//img:pull.bzl", "pull")
 # gcloud container images describe gcr.io/distroless/base:latest --format='value(image_summary.digest)'
 img_pull(
     name = "distroless_base",
-    digest = "sha256:0e48b9bcd868bce9fa872cee10b52961d9e32677823da4bf68eefb44f38e7b9d",
+    digest = "sha256:8bf71f4e1ba0d0ed5d48a06441ffcee930a456e04b3b613614c43b4270a16d89",
     platforms = ["linux/amd64"],
     registry = "gcr.io",
     repository = "distroless/base",
