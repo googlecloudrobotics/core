@@ -15,6 +15,7 @@
 package synk
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -32,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/discovery"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -1459,4 +1461,871 @@ func Test_decodeResourceSetName(t *testing.T) {
 				c.input, gotName, gotVersion, gotOk, c.wantName, c.wantVersion, c.wantOk)
 		}
 	}
+}
+
+func TestSyncPodSpecServiceAccount(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       map[string]any
+		want        map[string]any
+		wantChanged bool
+	}{
+		{
+			name:        "neither set",
+			input:       map[string]any{"containers": []any{}},
+			want:        map[string]any{"containers": []any{}},
+			wantChanged: false,
+		},
+		{
+			name:        "only serviceAccountName set",
+			input:       map[string]any{"serviceAccountName": "foo"},
+			want:        map[string]any{"serviceAccountName": "foo", "serviceAccount": "foo"},
+			wantChanged: true,
+		},
+		{
+			name:        "only serviceAccount set",
+			input:       map[string]any{"serviceAccount": "foo"},
+			want:        map[string]any{"serviceAccount": "foo", "serviceAccountName": "foo"},
+			wantChanged: true,
+		},
+		{
+			name:        "both matching",
+			input:       map[string]any{"serviceAccountName": "foo", "serviceAccount": "foo"},
+			want:        map[string]any{"serviceAccountName": "foo", "serviceAccount": "foo"},
+			wantChanged: false,
+		},
+		{
+			name:        "conflicting non-empty aligns to serviceAccountName",
+			input:       map[string]any{"serviceAccountName": "new-sa", "serviceAccount": "old-sa"},
+			want:        map[string]any{"serviceAccountName": "new-sa", "serviceAccount": "new-sa"},
+			wantChanged: true,
+		},
+		{
+			name:        "serviceAccountName set with empty serviceAccount",
+			input:       map[string]any{"serviceAccountName": "foo", "serviceAccount": ""},
+			want:        map[string]any{"serviceAccountName": "foo", "serviceAccount": "foo"},
+			wantChanged: true,
+		},
+		{
+			name:        "serviceAccountName set with nil serviceAccount",
+			input:       map[string]any{"serviceAccountName": "foo", "serviceAccount": nil},
+			want:        map[string]any{"serviceAccountName": "foo", "serviceAccount": "foo"},
+			wantChanged: true,
+		},
+		{
+			name:        "empty serviceAccountName with serviceAccount set",
+			input:       map[string]any{"serviceAccountName": "", "serviceAccount": "bar"},
+			want:        map[string]any{"serviceAccountName": "bar", "serviceAccount": "bar"},
+			wantChanged: true,
+		},
+		{
+			name:        "nil serviceAccountName with serviceAccount set",
+			input:       map[string]any{"serviceAccountName": nil, "serviceAccount": "bar"},
+			want:        map[string]any{"serviceAccountName": "bar", "serviceAccount": "bar"},
+			wantChanged: true,
+		},
+		{
+			name:        "only serviceAccountName empty string",
+			input:       map[string]any{"serviceAccountName": ""},
+			want:        map[string]any{"serviceAccountName": "", "serviceAccount": ""},
+			wantChanged: true,
+		},
+		{
+			name:        "only serviceAccount empty string",
+			input:       map[string]any{"serviceAccount": ""},
+			want:        map[string]any{"serviceAccountName": "", "serviceAccount": ""},
+			wantChanged: true,
+		},
+		{
+			name:        "only serviceAccountName nil",
+			input:       map[string]any{"serviceAccountName": nil},
+			want:        map[string]any{"serviceAccountName": nil, "serviceAccount": nil},
+			wantChanged: true,
+		},
+		{
+			name:        "only serviceAccount nil",
+			input:       map[string]any{"serviceAccount": nil},
+			want:        map[string]any{"serviceAccountName": nil, "serviceAccount": nil},
+			wantChanged: true,
+		},
+		{
+			name:        "both empty string",
+			input:       map[string]any{"serviceAccountName": "", "serviceAccount": ""},
+			want:        map[string]any{"serviceAccountName": "", "serviceAccount": ""},
+			wantChanged: false,
+		},
+		{
+			name:        "both nil",
+			input:       map[string]any{"serviceAccountName": nil, "serviceAccount": nil},
+			want:        map[string]any{"serviceAccountName": nil, "serviceAccount": nil},
+			wantChanged: false,
+		},
+		{
+			name:        "mixed empty string and nil",
+			input:       map[string]any{"serviceAccountName": "", "serviceAccount": nil},
+			want:        map[string]any{"serviceAccountName": "", "serviceAccount": nil},
+			wantChanged: false,
+		},
+		{
+			name:        "malformed non-string serviceAccountName untouched",
+			input:       map[string]any{"serviceAccountName": 123},
+			want:        map[string]any{"serviceAccountName": 123},
+			wantChanged: false,
+		},
+		{
+			name:        "malformed non-string serviceAccount untouched",
+			input:       map[string]any{"serviceAccountName": "foo", "serviceAccount": true},
+			want:        map[string]any{"serviceAccountName": "foo", "serviceAccount": true},
+			wantChanged: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotChanged := syncPodSpecServiceAccount(tc.input, nil)
+			if gotChanged != tc.wantChanged {
+				t.Errorf("syncPodSpecServiceAccount() changed = %v, want %v", gotChanged, tc.wantChanged)
+			}
+			if !reflect.DeepEqual(tc.input, tc.want) {
+				t.Errorf("syncPodSpecServiceAccount() result = %#v, want %#v", tc.input, tc.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeOriginalPodSpecServiceAccount(t *testing.T) {
+	t.Run("preserves large integers without float64 precision loss", func(t *testing.T) {
+		raw := []byte(`{"spec":{"bigInt":9007199254740993,"template":{"spec":{"serviceAccountName":"foo"}}}}`)
+		got := string(normalizeOriginalPodSpecServiceAccount(raw, schema.GroupKind{Group: "apps", Kind: "Deployment"}))
+		if !strings.Contains(got, "9007199254740993") {
+			t.Errorf("lost integer precision: %s", got)
+		}
+		if !strings.Contains(got, `"serviceAccount":"foo"`) {
+			t.Errorf("expected serviceAccount mirrored, got: %s", got)
+		}
+	})
+
+	t.Run("handles unicode-escaped key", func(t *testing.T) {
+		raw := []byte(`{"spec":{"template":{"spec":{"\u0073erviceAccountName":"foo"}}}}`)
+		got := normalizeOriginalPodSpecServiceAccount(raw, schema.GroupKind{Group: "apps", Kind: "Deployment"})
+		var obj map[string]any
+		if err := json.Unmarshal(got, &obj); err != nil {
+			t.Fatal(err)
+		}
+		sa, _, _ := unstructured.NestedString(obj, "spec", "template", "spec", "serviceAccount")
+		if sa != "foo" {
+			t.Errorf("expected mirrored serviceAccount=foo, got %q (%s)", sa, got)
+		}
+	})
+
+	t.Run("ignores unknown kinds and non-core groups", func(t *testing.T) {
+		raw := []byte(`{"spec":{"template":{"spec":{"serviceAccountName":"foo"}}}}`)
+		for _, gk := range []schema.GroupKind{
+			{Group: "", Kind: "ConfigMap"},
+			{Group: "example.com", Kind: "Deployment"},
+			{Group: "apps.cloudrobotics.com", Kind: "AppRollout"},
+		} {
+			got := normalizeOriginalPodSpecServiceAccount(raw, gk)
+			if string(got) != string(raw) {
+				t.Errorf("expected %v unchanged, got %s", gk, got)
+			}
+		}
+	})
+
+	t.Run("passes through invalid or non-object JSON unchanged", func(t *testing.T) {
+		gk := schema.GroupKind{Group: "apps", Kind: "Deployment"}
+		for _, raw := range [][]byte{
+			nil,
+			[]byte(``),
+			[]byte(`{invalid serviceAccountName`),
+			[]byte(`null`),
+			[]byte(`["serviceAccountName"]`),
+		} {
+			got := normalizeOriginalPodSpecServiceAccount(raw, gk)
+			if string(got) != string(raw) {
+				t.Errorf("for %q: got %q, want unchanged", raw, got)
+			}
+		}
+	})
+
+	t.Run("handles all built-in PodSpec kinds", func(t *testing.T) {
+		cases := []struct {
+			gk   schema.GroupKind
+			raw  string
+			path []string
+		}{
+			{schema.GroupKind{Group: "", Kind: "Pod"}, `{"spec":{"serviceAccountName":"foo"}}`, []string{"spec"}},
+			{schema.GroupKind{Group: "", Kind: "PodTemplate"}, `{"template":{"spec":{"serviceAccountName":"foo"}}}`, []string{"template", "spec"}},
+			{schema.GroupKind{Group: "", Kind: "ReplicationController"}, `{"spec":{"template":{"spec":{"serviceAccountName":"foo"}}}}`, []string{"spec", "template", "spec"}},
+			{schema.GroupKind{Group: "apps", Kind: "Deployment"}, `{"spec":{"template":{"spec":{"serviceAccountName":"foo"}}}}`, []string{"spec", "template", "spec"}},
+			{schema.GroupKind{Group: "apps", Kind: "DaemonSet"}, `{"spec":{"template":{"spec":{"serviceAccountName":"foo"}}}}`, []string{"spec", "template", "spec"}},
+			{schema.GroupKind{Group: "apps", Kind: "ReplicaSet"}, `{"spec":{"template":{"spec":{"serviceAccountName":"foo"}}}}`, []string{"spec", "template", "spec"}},
+			{schema.GroupKind{Group: "apps", Kind: "StatefulSet"}, `{"spec":{"template":{"spec":{"serviceAccountName":"foo"}}}}`, []string{"spec", "template", "spec"}},
+			{schema.GroupKind{Group: "extensions", Kind: "Deployment"}, `{"spec":{"template":{"spec":{"serviceAccountName":"foo"}}}}`, []string{"spec", "template", "spec"}},
+			{schema.GroupKind{Group: "extensions", Kind: "DaemonSet"}, `{"spec":{"template":{"spec":{"serviceAccountName":"foo"}}}}`, []string{"spec", "template", "spec"}},
+			{schema.GroupKind{Group: "extensions", Kind: "ReplicaSet"}, `{"spec":{"template":{"spec":{"serviceAccountName":"foo"}}}}`, []string{"spec", "template", "spec"}},
+			{schema.GroupKind{Group: "batch", Kind: "Job"}, `{"spec":{"template":{"spec":{"serviceAccountName":"foo"}}}}`, []string{"spec", "template", "spec"}},
+			{schema.GroupKind{Group: "batch", Kind: "CronJob"}, `{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"serviceAccountName":"foo"}}}}}}`, []string{"spec", "jobTemplate", "spec", "template", "spec"}},
+		}
+		for _, tc := range cases {
+			got := normalizeOriginalPodSpecServiceAccount([]byte(tc.raw), tc.gk)
+			var obj map[string]any
+			if err := json.Unmarshal(got, &obj); err != nil {
+				t.Fatalf("%v: unmarshal failed: %v", tc.gk, err)
+			}
+			sa, ok, err := unstructured.NestedString(obj, append(tc.path, "serviceAccount")...)
+			if err != nil || !ok || sa != "foo" {
+				t.Errorf("%v: serviceAccount = (%q, %v, %v), want (\"foo\", true, nil)", tc.gk, sa, ok, err)
+			}
+		}
+	})
+}
+
+// applyServerPodSpecDefaults mimics kube-apiserver's SetDefaults_PodSpec on a
+// PodSpec map, mirroring serviceAccountName <-> serviceAccount and dropping
+// empty/null fields just like Kubernetes JSON omitempty serialization.
+func applyServerPodSpecDefaults(u *unstructured.Unstructured) {
+	path := podSpecPath(u.GroupVersionKind().GroupKind())
+	if len(path) == 0 {
+		return
+	}
+	podSpec, ok := nestedMapRef(u.Object, path)
+	if !ok {
+		return
+	}
+	saName, _ := podSpec["serviceAccountName"].(string)
+	sa, _ := podSpec["serviceAccount"].(string)
+	if len(saName) == 0 {
+		saName = sa
+	}
+	sa = saName
+	if saName == "" {
+		delete(podSpec, "serviceAccountName")
+		delete(podSpec, "serviceAccount")
+	} else {
+		podSpec["serviceAccountName"] = saName
+		podSpec["serviceAccount"] = sa
+	}
+	// Mimic Kubernetes ServiceAccount admission controller for Pods.
+	if u.GroupVersionKind().GroupKind() == (schema.GroupKind{Group: "", Kind: "Pod"}) {
+		if saName == "" {
+			podSpec["serviceAccountName"] = "default"
+			podSpec["serviceAccount"] = "default"
+		}
+	}
+}
+
+// installApiserverPatchReactor adds reactors to a fake dynamic client that
+// simulate kube-apiserver's StrategicMergePatch, Update, Create, and
+// SetDefaults_PodSpec behavior so tests catch any regression where
+// SetDefaults_PodSpec silently restores serviceAccountName from serviceAccount.
+func installApiserverPatchReactor(t *testing.T, client *dynamicfake.FakeDynamicClient, immutableJobs bool) *[]string {
+	t.Helper()
+	var patches []string
+
+	client.Fake.PrependReactor("create", "*", func(action k8stest.Action) (bool, runtime.Object, error) {
+		ca := action.(k8stest.CreateAction)
+		u := ca.GetObject().(*unstructured.Unstructured).DeepCopy()
+		applyServerPodSpecDefaults(u)
+		if err := client.Tracker().Create(ca.GetResource(), u, ca.GetNamespace()); err != nil {
+			return true, nil, err
+		}
+		return true, u.DeepCopy(), nil
+	})
+
+	client.Fake.PrependReactor("update", "*", func(action k8stest.Action) (bool, runtime.Object, error) {
+		ua := action.(k8stest.UpdateAction)
+		u := ua.GetObject().(*unstructured.Unstructured).DeepCopy()
+		applyServerPodSpecDefaults(u)
+		if err := client.Tracker().Update(ua.GetResource(), u, ua.GetNamespace()); err != nil {
+			return true, nil, err
+		}
+		return true, u.DeepCopy(), nil
+	})
+
+	client.Fake.PrependReactor("patch", "*", func(action k8stest.Action) (bool, runtime.Object, error) {
+		pa := action.(k8stest.PatchAction)
+		patches = append(patches, string(pa.GetPatch()))
+		existing, err := client.Tracker().Get(pa.GetResource(), pa.GetNamespace(), pa.GetName())
+		if err != nil {
+			return true, nil, err
+		}
+		origU := existing.(*unstructured.Unstructured).DeepCopy()
+		origBytes, err := origU.MarshalJSON()
+		if err != nil {
+			return true, nil, err
+		}
+		if pa.GetPatchType() != types.StrategicMergePatchType {
+			return true, nil, fmt.Errorf("unexpected patch type %s", pa.GetPatchType())
+		}
+		gvk := origU.GroupVersionKind()
+		typed, err := scheme.Scheme.New(gvk)
+		if err != nil {
+			return true, nil, fmt.Errorf("scheme.New(%v): %w", gvk, err)
+		}
+		patchMeta, err := strategicpatch.NewPatchMetaFromStruct(typed)
+		if err != nil {
+			return true, nil, err
+		}
+		mergedBytes, err := strategicpatch.StrategicMergePatchUsingLookupPatchMeta(origBytes, pa.GetPatch(), patchMeta)
+		if err != nil {
+			return true, nil, err
+		}
+		var merged unstructured.Unstructured
+		if err := merged.UnmarshalJSON(mergedBytes); err != nil {
+			return true, nil, err
+		}
+		// Mirror kube-apiserver pipeline: SetDefaults_PodSpec runs BEFORE validation.
+		applyServerPodSpecDefaults(&merged)
+		if immutableJobs && gvk.Kind == "Job" {
+			oldTmpl, _, _ := unstructured.NestedMap(origU.Object, "spec", "template")
+			newTmpl, _, _ := unstructured.NestedMap(merged.Object, "spec", "template")
+			if !reflect.DeepEqual(oldTmpl, newTmpl) {
+				return true, nil, fmt.Errorf(`Job.batch %q is invalid: spec.template: field is immutable`, pa.GetName())
+			}
+		}
+		if err := client.Tracker().Update(pa.GetResource(), &merged, pa.GetNamespace()); err != nil {
+			return true, nil, err
+		}
+		return true, merged.DeepCopy(), nil
+	})
+	return &patches
+}
+
+func makeWorkload(apiVersion, kind, name, saName, sa string, explicitEmptySAName bool) *unstructured.Unstructured {
+	u := newUnstructured(apiVersion, kind, "app-ns", name)
+	podSpec := map[string]any{
+		"containers": []any{
+			map[string]any{"name": "app", "image": "busybox:latest"},
+		},
+	}
+	if saName != "" || explicitEmptySAName {
+		podSpec["serviceAccountName"] = saName
+	}
+	if sa != "" {
+		podSpec["serviceAccount"] = sa
+	}
+	switch kind {
+	case "Pod":
+		u.Object["spec"] = podSpec
+	case "PodTemplate":
+		u.Object["template"] = map[string]any{"spec": podSpec}
+	case "CronJob":
+		u.Object["spec"] = map[string]any{
+			"schedule": "* * * * *",
+			"jobTemplate": map[string]any{
+				"spec": map[string]any{
+					"template": map[string]any{"spec": podSpec},
+				},
+			},
+		}
+	default:
+		u.Object["spec"] = map[string]any{
+			"template": map[string]any{
+				"metadata": map[string]any{"labels": map[string]any{"app": name}},
+				"spec":     podSpec,
+			},
+		}
+	}
+	return u
+}
+
+func newServerBackedSynk(t *testing.T, immutableJobs bool, initial ...*unstructured.Unstructured) (*Synk, *dynamicfake.FakeDynamicClient, *[]string) {
+	t.Helper()
+	sc := runtime.NewScheme()
+	scheme.AddToScheme(sc)
+	apps.AddToScheme(sc)
+	apiextensions.AddToScheme(sc)
+
+	disc := &fakeCachedDiscoveryClient{resources: map[string]*metav1.APIResourceList{
+		"v1": {
+			GroupVersion: "v1",
+			APIResources: []metav1.APIResource{
+				{Name: "pods", Kind: "Pod", Namespaced: true},
+				{Name: "podtemplates", Kind: "PodTemplate", Namespaced: true},
+				{Name: "replicationcontrollers", Kind: "ReplicationController", Namespaced: true},
+				{Name: "serviceaccounts", Kind: "ServiceAccount", Namespaced: true},
+			},
+		},
+		"apps/v1": {
+			GroupVersion: "apps/v1",
+			APIResources: []metav1.APIResource{
+				{Name: "deployments", Kind: "Deployment", Namespaced: true},
+				{Name: "daemonsets", Kind: "DaemonSet", Namespaced: true},
+				{Name: "statefulsets", Kind: "StatefulSet", Namespaced: true},
+				{Name: "replicasets", Kind: "ReplicaSet", Namespaced: true},
+			},
+		},
+		"batch/v1": {
+			GroupVersion: "batch/v1",
+			APIResources: []metav1.APIResource{
+				{Name: "jobs", Kind: "Job", Namespaced: true},
+				{Name: "cronjobs", Kind: "CronJob", Namespaced: true},
+			},
+		},
+	}}
+
+	objs := make([]runtime.Object, len(initial))
+	for i, o := range initial {
+		objs[i] = o
+	}
+	client := dynamicfake.NewSimpleDynamicClient(sc, objs...)
+	s := New(client, disc)
+	s.mapper = testrestmapper.TestOnlyStaticRESTMapper(sc)
+	s.resetMapper = func() {}
+	s.workers = 1
+	patches := installApiserverPatchReactor(t, client, immutableJobs)
+	return s, client, patches
+}
+
+func assertServiceAccountFields(t *testing.T, u *unstructured.Unstructured, wantSAName, wantSA string) {
+	t.Helper()
+	path := podSpecPath(u.GroupVersionKind().GroupKind())
+	podSpec, ok := nestedMapRef(u.Object, path)
+	if !ok {
+		t.Fatalf("missing podSpec at %v in %v", path, u.Object)
+	}
+	gotSAName, _ := podSpec["serviceAccountName"].(string)
+	gotSA, _ := podSpec["serviceAccount"].(string)
+	if gotSAName != wantSAName || gotSA != wantSA {
+		t.Errorf("%s %s: got (serviceAccountName=%q, serviceAccount=%q), want (%q, %q)",
+			u.GetKind(), u.GetName(), gotSAName, gotSA, wantSAName, wantSA)
+	}
+}
+
+func assertLastAppliedSAFields(t *testing.T, u *unstructured.Unstructured, wantSAName, wantSA string, wantPresent bool) {
+	t.Helper()
+	raw := getAppliedAnnotation(u)
+	var la map[string]any
+	if err := json.Unmarshal(raw, &la); err != nil {
+		t.Fatalf("unmarshal last-applied-configuration: %v", err)
+	}
+	path := podSpecPath(u.GroupVersionKind().GroupKind())
+	podSpec, ok := nestedMapRef(la, path)
+	if !ok {
+		t.Fatalf("missing podSpec at %v in last-applied-configuration", path)
+	}
+	saName, hasSAName := podSpec["serviceAccountName"]
+	sa, hasSA := podSpec["serviceAccount"]
+	if !wantPresent {
+		if hasSAName || hasSA {
+			t.Errorf("last-applied-configuration expected neither SA field present, got serviceAccountName=%v (%v) serviceAccount=%v (%v)", saName, hasSAName, sa, hasSA)
+		}
+		return
+	}
+	if !hasSAName || !hasSA || saName != wantSAName || sa != wantSA {
+		t.Errorf("last-applied-configuration got (serviceAccountName=%v present=%v, serviceAccount=%v present=%v), want (%q, %q)",
+			saName, hasSAName, sa, hasSA, wantSAName, wantSA)
+	}
+}
+
+func TestSynk_serviceAccountUpgradeAndDowngrade(t *testing.T) {
+	ctx := t.Context()
+	opts := &ApplyOptions{Namespace: "app-ns"}
+
+	workloads := []struct {
+		apiVersion string
+		kind       string
+		gvr        schema.GroupVersionResource
+	}{
+		{"apps/v1", "Deployment", schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}},
+		{"apps/v1", "DaemonSet", schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}},
+		{"apps/v1", "StatefulSet", schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}},
+		{"apps/v1", "ReplicaSet", schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}},
+		{"v1", "ReplicationController", schema.GroupVersionResource{Version: "v1", Resource: "replicationcontrollers"}},
+		{"v1", "PodTemplate", schema.GroupVersionResource{Version: "v1", Resource: "podtemplates"}},
+		{"batch/v1", "CronJob", schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}},
+	}
+
+	for _, w := range workloads {
+		t.Run(w.kind+"/full_lifecycle", func(t *testing.T) {
+			s, client, patches := newServerBackedSynk(t, false)
+			getLive := func() *unstructured.Unstructured {
+				u, err := client.Resource(w.gvr).Namespace("app-ns").Get(ctx, "wl", metav1.GetOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				return u
+			}
+
+			// 1. Create without SA.
+			if _, err := s.Apply(ctx, "chart", opts, makeWorkload(w.apiVersion, w.kind, "wl", "", "", false)); err != nil {
+				t.Fatalf("v1 create without SA: %v", err)
+			}
+			live := getLive()
+			assertServiceAccountFields(t, live, "", "")
+			assertLastAppliedSAFields(t, live, "", "", false)
+
+			// 2. Upgrade adding serviceAccountName: "foo" (without deprecated serviceAccount).
+			callerInput := makeWorkload(w.apiVersion, w.kind, "wl", "foo", "", false)
+			if _, err := s.Apply(ctx, "chart", opts, callerInput); err != nil {
+				t.Fatalf("v2 upgrade with serviceAccountName=foo: %v", err)
+			}
+			// Verify caller input was not mutated.
+			ps, _ := nestedMapRef(callerInput.Object, podSpecPath(callerInput.GroupVersionKind().GroupKind()))
+			if _, ok := ps["serviceAccount"]; ok {
+				t.Errorf("caller input was mutated with serviceAccount field")
+			}
+			live = getLive()
+			assertServiceAccountFields(t, live, "foo", "foo")
+			assertLastAppliedSAFields(t, live, "foo", "foo", true)
+
+			// 3. Re-apply same manifest -> patch must NOT touch spec/template.
+			*patches = nil
+			if _, err := s.Apply(ctx, "chart", opts, makeWorkload(w.apiVersion, w.kind, "wl", "foo", "", false)); err != nil {
+				t.Fatalf("v3 no-op reapply: %v", err)
+			}
+			if len(*patches) != 1 {
+				t.Fatalf("expected 1 patch on reapply, got %d", len(*patches))
+			}
+			var patchMap map[string]any
+			if err := json.Unmarshal([]byte((*patches)[0]), &patchMap); err != nil {
+				t.Fatal(err)
+			}
+			if _, hasSpec := patchMap["spec"]; hasSpec {
+				t.Errorf("unexpected spec change in no-op patch: %s", (*patches)[0])
+			}
+			if _, hasTmpl := patchMap["template"]; hasTmpl {
+				t.Errorf("unexpected template change in no-op patch: %s", (*patches)[0])
+			}
+
+			// 4. Rename SA foo -> bar (only serviceAccountName set).
+			if _, err := s.Apply(ctx, "chart", opts, makeWorkload(w.apiVersion, w.kind, "wl", "bar", "", false)); err != nil {
+				t.Fatalf("v4 rename SA foo->bar: %v", err)
+			}
+			live = getLive()
+			assertServiceAccountFields(t, live, "bar", "bar")
+			assertLastAppliedSAFields(t, live, "bar", "bar", true)
+
+			// 5. Downgrade dropping serviceAccountName completely.
+			if _, err := s.Apply(ctx, "chart", opts, makeWorkload(w.apiVersion, w.kind, "wl", "", "", false)); err != nil {
+				t.Fatalf("v5 downgrade omitting SA: %v", err)
+			}
+			live = getLive()
+			assertServiceAccountFields(t, live, "", "")
+			assertLastAppliedSAFields(t, live, "", "", false)
+		})
+	}
+
+	t.Run("old_synk_to_new_synk_downgrade_clears_both", func(t *testing.T) {
+		// Simulate an object previously created by an OLD version of synk:
+		// live has both serviceAccountName and serviceAccount set (via kube-apiserver
+		// SetDefaults_PodSpec), while last-applied-configuration has ONLY serviceAccountName.
+		legacy := makeWorkload("apps/v1", "Deployment", "wl", "foo", "", false)
+		if err := setAppliedAnnotation(legacy); err != nil {
+			t.Fatal(err)
+		}
+		applyServerPodSpecDefaults(legacy)
+		assertServiceAccountFields(t, legacy, "foo", "foo")
+
+		s, client, patches := newServerBackedSynk(t, false, legacy)
+		depGVR := gvrs["deployments"]
+
+		// Downgrade straight to manifest omitting serviceAccountName.
+		if _, err := s.Apply(ctx, "chart", opts, makeWorkload("apps/v1", "Deployment", "wl", "", "", false)); err != nil {
+			t.Fatalf("downgrade failed: %v", err)
+		}
+		live, err := client.Resource(depGVR).Namespace("app-ns").Get(ctx, "wl", metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertServiceAccountFields(t, live, "", "")
+		assertLastAppliedSAFields(t, live, "", "", false)
+		if len(*patches) != 1 || !strings.Contains((*patches)[0], `"serviceAccount":null`) || !strings.Contains((*patches)[0], `"serviceAccountName":null`) {
+			t.Errorf("expected patch to clear both serviceAccount and serviceAccountName, got %v", *patches)
+		}
+	})
+
+	t.Run("old_synk_to_new_synk_reapply_has_no_spec_diff_and_heals_annotation", func(t *testing.T) {
+		legacy := makeWorkload("apps/v1", "Deployment", "wl", "foo", "", false)
+		if err := setAppliedAnnotation(legacy); err != nil {
+			t.Fatal(err)
+		}
+		applyServerPodSpecDefaults(legacy)
+
+		s, client, patches := newServerBackedSynk(t, false, legacy)
+		if _, err := s.Apply(ctx, "chart", opts, makeWorkload("apps/v1", "Deployment", "wl", "foo", "", false)); err != nil {
+			t.Fatalf("reapply failed: %v", err)
+		}
+		var patchMap map[string]any
+		if err := json.Unmarshal([]byte((*patches)[0]), &patchMap); err != nil {
+			t.Fatal(err)
+		}
+		if _, hasSpec := patchMap["spec"]; hasSpec {
+			t.Errorf("expected no spec patch when upgrading synk on unchanged Deployment, got: %s", (*patches)[0])
+		}
+		live, err := client.Resource(gvrs["deployments"]).Namespace("app-ns").Get(ctx, "wl", metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertLastAppliedSAFields(t, live, "foo", "foo", true)
+	})
+
+	t.Run("new_synk_to_old_synk_downgrade_clears_both", func(t *testing.T) {
+		// Create with NEW synk using only serviceAccountName: "foo".
+		s, client, _ := newServerBackedSynk(t, false)
+		if _, err := s.Apply(ctx, "chart", opts, makeWorkload("apps/v1", "Deployment", "wl", "foo", "", false)); err != nil {
+			t.Fatalf("create failed: %v", err)
+		}
+		live, err := client.Resource(gvrs["deployments"]).Namespace("app-ns").Get(ctx, "wl", metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Now simulate an UNPATCHED old synk / vanilla kubectl apply running
+		// strategicpatch.CreateThreeWayMergePatch directly against live WITHOUT
+		// any normalization helpers.
+		originalRaw := getAppliedAnnotation(live)
+		currentRaw, err := live.MarshalJSON()
+		if err != nil {
+			t.Fatal(err)
+		}
+		desired := makeWorkload("apps/v1", "Deployment", "wl", "", "", false)
+		desiredRaw, err := desired.MarshalJSON()
+		if err != nil {
+			t.Fatal(err)
+		}
+		typed, err := scheme.Scheme.New(live.GroupVersionKind())
+		if err != nil {
+			t.Fatal(err)
+		}
+		patchMeta, err := strategicpatch.NewPatchMetaFromStruct(typed)
+		if err != nil {
+			t.Fatal(err)
+		}
+		patch, err := strategicpatch.CreateThreeWayMergePatch(originalRaw, desiredRaw, currentRaw, patchMeta, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mergedBytes, err := strategicpatch.StrategicMergePatchUsingLookupPatchMeta(currentRaw, patch, patchMeta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var merged unstructured.Unstructured
+		if err := merged.UnmarshalJSON(mergedBytes); err != nil {
+			t.Fatal(err)
+		}
+		applyServerPodSpecDefaults(&merged)
+		assertServiceAccountFields(t, &merged, "", "")
+	})
+
+	t.Run("deprecated_only_serviceAccount_downgrade_and_migration", func(t *testing.T) {
+		// Previously applied with ONLY deprecated `serviceAccount: foo`.
+		legacy := makeWorkload("apps/v1", "Deployment", "wl", "", "foo", false)
+		if err := setAppliedAnnotation(legacy); err != nil {
+			t.Fatal(err)
+		}
+		applyServerPodSpecDefaults(legacy)
+
+		s, client, patches := newServerBackedSynk(t, false, legacy)
+
+		// Migrating to `serviceAccountName: foo` should emit no spec patch.
+		if _, err := s.Apply(ctx, "chart", opts, makeWorkload("apps/v1", "Deployment", "wl", "foo", "", false)); err != nil {
+			t.Fatalf("migration failed: %v", err)
+		}
+		var patchMap map[string]any
+		if err := json.Unmarshal([]byte((*patches)[0]), &patchMap); err != nil {
+			t.Fatal(err)
+		}
+		if _, hasSpec := patchMap["spec"]; hasSpec {
+			t.Errorf("unexpected spec patch on migration: %s", (*patches)[0])
+		}
+
+		live, err := client.Resource(gvrs["deployments"]).Namespace("app-ns").Get(ctx, "wl", metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertServiceAccountFields(t, live, "foo", "foo")
+		assertLastAppliedSAFields(t, live, "foo", "foo", true)
+
+		// Downgrading directly from deprecated-only last-applied clears both fields.
+		legacy2 := makeWorkload("apps/v1", "Deployment", "wl2", "", "foo", false)
+		if err := setAppliedAnnotation(legacy2); err != nil {
+			t.Fatal(err)
+		}
+		applyServerPodSpecDefaults(legacy2)
+		s2, client2, _ := newServerBackedSynk(t, false, legacy2)
+		if _, err := s2.Apply(ctx, "chart", opts, makeWorkload("apps/v1", "Deployment", "wl2", "", "", false)); err != nil {
+			t.Fatalf("downgrade failed: %v", err)
+		}
+		live2, err := client2.Resource(gvrs["deployments"]).Namespace("app-ns").Get(ctx, "wl2", metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertServiceAccountFields(t, live2, "", "")
+	})
+
+	t.Run("explicit_empty_string_and_null_clear_stuck_resource", func(t *testing.T) {
+		// Simulate an already-stuck cluster resource: live has serviceAccount/serviceAccountName="foo",
+		// but last-applied-configuration has NEITHER field (as left behind by an earlier old-synk downgrade).
+		stuck := makeWorkload("apps/v1", "Deployment", "wl", "", "", false)
+		if err := setAppliedAnnotation(stuck); err != nil {
+			t.Fatal(err)
+		}
+		unstructured.SetNestedField(stuck.Object, "foo", "spec", "template", "spec", "serviceAccountName")
+		unstructured.SetNestedField(stuck.Object, "foo", "spec", "template", "spec", "serviceAccount")
+
+		s, client, _ := newServerBackedSynk(t, false, stuck)
+		// Explicit `serviceAccountName: ""` clears both fields.
+		if _, err := s.Apply(ctx, "chart", opts, makeWorkload("apps/v1", "Deployment", "wl", "", "", true)); err != nil {
+			t.Fatalf("clear via empty string failed: %v", err)
+		}
+		live, err := client.Resource(gvrs["deployments"]).Namespace("app-ns").Get(ctx, "wl", metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertServiceAccountFields(t, live, "", "")
+
+		// Same check with explicit `serviceAccountName: null`.
+		stuck2 := makeWorkload("apps/v1", "Deployment", "wl2", "", "", false)
+		if err := setAppliedAnnotation(stuck2); err != nil {
+			t.Fatal(err)
+		}
+		unstructured.SetNestedField(stuck2.Object, "foo", "spec", "template", "spec", "serviceAccountName")
+		unstructured.SetNestedField(stuck2.Object, "foo", "spec", "template", "spec", "serviceAccount")
+
+		s2, client2, _ := newServerBackedSynk(t, false, stuck2)
+		desiredNull := makeWorkload("apps/v1", "Deployment", "wl2", "", "", false)
+		ps, _ := nestedMapRef(desiredNull.Object, []string{"spec", "template", "spec"})
+		ps["serviceAccountName"] = nil
+		if _, err := s2.Apply(ctx, "chart", opts, desiredNull); err != nil {
+			t.Fatalf("clear via null failed: %v", err)
+		}
+		live2, err := client2.Resource(gvrs["deployments"]).Namespace("app-ns").Get(ctx, "wl2", metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertServiceAccountFields(t, live2, "", "")
+	})
+
+	t.Run("drop_both_workaround_back_to_serviceAccountName_only", func(t *testing.T) {
+		s, client, patches := newServerBackedSynk(t, false)
+		if _, err := s.Apply(ctx, "chart", opts, makeWorkload("apps/v1", "Deployment", "wl", "foo", "foo", false)); err != nil {
+			t.Fatal(err)
+		}
+		*patches = nil
+		if _, err := s.Apply(ctx, "chart", opts, makeWorkload("apps/v1", "Deployment", "wl", "foo", "", false)); err != nil {
+			t.Fatal(err)
+		}
+		var patchMap map[string]any
+		if err := json.Unmarshal([]byte((*patches)[0]), &patchMap); err != nil {
+			t.Fatal(err)
+		}
+		if _, hasSpec := patchMap["spec"]; hasSpec {
+			t.Errorf("unexpected spec patch dropping duplicate serviceAccount: %s", (*patches)[0])
+		}
+		live, err := client.Resource(gvrs["deployments"]).Namespace("app-ns").Get(ctx, "wl", metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertServiceAccountFields(t, live, "foo", "foo")
+		assertLastAppliedSAFields(t, live, "foo", "foo", true)
+	})
+
+	t.Run("conflicting_fields_align_to_serviceAccountName", func(t *testing.T) {
+		s, client, patches := newServerBackedSynk(t, false)
+		if _, err := s.Apply(ctx, "chart", opts, makeWorkload("apps/v1", "Deployment", "wl", "new-sa", "old-sa", false)); err != nil {
+			t.Fatal(err)
+		}
+		live, err := client.Resource(gvrs["deployments"]).Namespace("app-ns").Get(ctx, "wl", metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertServiceAccountFields(t, live, "new-sa", "new-sa")
+		assertLastAppliedSAFields(t, live, "new-sa", "new-sa", true)
+
+		*patches = nil
+		if _, err := s.Apply(ctx, "chart", opts, makeWorkload("apps/v1", "Deployment", "wl", "new-sa", "old-sa", false)); err != nil {
+			t.Fatal(err)
+		}
+		var patchMap map[string]any
+		if err := json.Unmarshal([]byte((*patches)[0]), &patchMap); err != nil {
+			t.Fatal(err)
+		}
+		if _, hasSpec := patchMap["spec"]; hasSpec {
+			t.Errorf("expected no spurious spec patch on re-apply, got: %s", (*patches)[0])
+		}
+	})
+
+	t.Run("pod_default_serviceAccount_preserved_when_unspecified", func(t *testing.T) {
+		s, client, patches := newServerBackedSynk(t, false)
+		if _, err := s.Apply(ctx, "chart", opts, makeWorkload("v1", "Pod", "p", "", "", false)); err != nil {
+			t.Fatal(err)
+		}
+		*patches = nil
+		if _, err := s.Apply(ctx, "chart", opts, makeWorkload("v1", "Pod", "p", "", "", false)); err != nil {
+			t.Fatal(err)
+		}
+		var patchMap map[string]any
+		if err := json.Unmarshal([]byte((*patches)[0]), &patchMap); err != nil {
+			t.Fatal(err)
+		}
+		if _, hasSpec := patchMap["spec"]; hasSpec {
+			t.Errorf("Pod re-apply must not patch server-defaulted spec.serviceAccountName, got: %s", (*patches)[0])
+		}
+		pod, err := client.Resource(schema.GroupVersionResource{Version: "v1", Resource: "pods"}).Namespace("app-ns").Get(ctx, "p", metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertServiceAccountFields(t, pod, "default", "default")
+	})
+
+	t.Run("job_downgrade_triggers_replace_when_template_immutable", func(t *testing.T) {
+		legacyJob := makeWorkload("batch/v1", "Job", "j", "foo", "", false)
+		if err := setAppliedAnnotation(legacyJob); err != nil {
+			t.Fatal(err)
+		}
+		applyServerPodSpecDefaults(legacyJob)
+
+		s, client, _ := newServerBackedSynk(t, true, legacyJob)
+
+		// First re-apply unchanged Job: must NOT fail or replace.
+		if _, err := s.Apply(ctx, "chart", opts, makeWorkload("batch/v1", "Job", "j", "foo", "", false)); err != nil {
+			t.Fatalf("unchanged Job reapply failed: %v", err)
+		}
+		jobGVR := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
+		live, err := client.Resource(jobGVR).Namespace("app-ns").Get(ctx, "j", metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertServiceAccountFields(t, live, "foo", "foo")
+
+		// Now downgrade dropping serviceAccountName: triggers immutable error -> replace!
+		if _, err := s.Apply(ctx, "chart", opts, makeWorkload("batch/v1", "Job", "j", "", "", false)); err != nil {
+			t.Fatalf("Job downgrade replace failed: %v", err)
+		}
+		live, err = client.Resource(jobGVR).Namespace("app-ns").Get(ctx, "j", metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertServiceAccountFields(t, live, "", "")
+		assertLastAppliedSAFields(t, live, "", "", false)
+	})
+
+	t.Run("custom_resource_untouched", func(t *testing.T) {
+		f := newFixture(t)
+		rollout := newUnstructured("apps.cloudrobotics.com/v1alpha1", "AppRollout", "app-ns", "r1")
+		rollout.Object["spec"] = map[string]any{
+			"template": map[string]any{
+				"spec": map[string]any{
+					"serviceAccountName": "foo",
+				},
+			},
+		}
+		set := &apps.ResourceSet{}
+		set.Name = "test.v1"
+		set.UID = "deadbeef"
+		if _, err := f.newSynk().applyAll(ctx, set, opts, rollout.DeepCopy()); err != nil {
+			t.Fatal(err)
+		}
+		for _, a := range f.fake.Actions() {
+			if ca, ok := a.(k8stest.CreateAction); ok && ca.GetResource().Resource == "approllouts" {
+				u := ca.GetObject().(*unstructured.Unstructured)
+				_, found, _ := unstructured.NestedString(u.Object, "spec", "template", "spec", "serviceAccount")
+				if found {
+					t.Errorf("custom resource must not have serviceAccount injected")
+				}
+			}
+		}
+	})
 }

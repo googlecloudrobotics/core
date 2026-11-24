@@ -17,6 +17,7 @@
 package synk
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -786,6 +787,153 @@ func mustReplace(resource *unstructured.Unstructured, current *unstructured.Unst
 	return resource.GetKind() == "Service" && isHeadlessService(current) != isHeadlessService(resource)
 }
 
+// podSpecPath returns the JSON object path to the core/v1 PodSpec for built-in
+// Kubernetes kinds where kube-apiserver's SetDefaults_PodSpec mirrors
+// serviceAccountName and the deprecated serviceAccount alias.
+func podSpecPath(gk schema.GroupKind) []string {
+	switch gk {
+	case schema.GroupKind{Group: "", Kind: "Pod"}:
+		return []string{"spec"}
+	case schema.GroupKind{Group: "", Kind: "PodTemplate"}:
+		return []string{"template", "spec"}
+	case schema.GroupKind{Group: "", Kind: "ReplicationController"}:
+		return []string{"spec", "template", "spec"}
+	case schema.GroupKind{Group: "apps", Kind: "Deployment"},
+		schema.GroupKind{Group: "apps", Kind: "DaemonSet"},
+		schema.GroupKind{Group: "apps", Kind: "ReplicaSet"},
+		schema.GroupKind{Group: "apps", Kind: "StatefulSet"},
+		schema.GroupKind{Group: "extensions", Kind: "Deployment"},
+		schema.GroupKind{Group: "extensions", Kind: "DaemonSet"},
+		schema.GroupKind{Group: "extensions", Kind: "ReplicaSet"}:
+		return []string{"spec", "template", "spec"}
+	case schema.GroupKind{Group: "batch", Kind: "Job"}:
+		return []string{"spec", "template", "spec"}
+	case schema.GroupKind{Group: "batch", Kind: "CronJob"}:
+		return []string{"spec", "jobTemplate", "spec", "template", "spec"}
+	default:
+		return nil
+	}
+}
+
+func nestedMapRef(obj map[string]any, path []string) (map[string]any, bool) {
+	cur := obj
+	for _, k := range path {
+		next, ok := cur[k].(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		cur = next
+	}
+	return cur, true
+}
+
+// syncPodSpecServiceAccount mirrors serviceAccountName and the deprecated
+// serviceAccount alias inside a PodSpec map, matching kube-apiserver's
+// SetDefaults_PodSpec:
+//
+//	if len(obj.ServiceAccountName) == 0 {
+//	    obj.ServiceAccountName = obj.DeprecatedServiceAccount
+//	}
+//	obj.DeprecatedServiceAccount = obj.ServiceAccountName
+//
+// When a manifest sets only serviceAccountName, kube-apiserver silently populates
+// serviceAccount without recording it in last-applied-configuration. A subsequent
+// 3-way merge patch removing serviceAccountName then emits only
+// `serviceAccountName: null`, leaving `serviceAccount` set so kube-apiserver
+// restores serviceAccountName from it (pointing at a pruned ServiceAccount).
+// Symmetrically syncing both fields on the desired resource (before saving
+// last-applied-configuration) and on the previous last-applied-configuration
+// prevents that across upgrades, downgrades, renames, explicit clears, and
+// mixed old/new synk versions.
+//
+// See https://github.com/kubernetes/kubernetes/issues/133385.
+// If resource is non-nil, conflicting non-empty fields are logged as a warning.
+func syncPodSpecServiceAccount(podSpec map[string]any, resource *unstructured.Unstructured) bool {
+	rawSAName, hasSAName := podSpec["serviceAccountName"]
+	rawSA, hasSA := podSpec["serviceAccount"]
+	if !hasSAName && !hasSA {
+		return false
+	}
+
+	saName, saNameOK := rawSAName.(string)
+	sa, saOK := rawSA.(string)
+
+	// Leave non-string, non-nil values untouched so kube-apiserver reports the
+	// validation error directly.
+	if (hasSAName && rawSAName != nil && !saNameOK) || (hasSA && rawSA != nil && !saOK) {
+		return false
+	}
+
+	switch {
+	case saName != "":
+		if sa == saName {
+			return false
+		}
+		if sa != "" && resource != nil {
+			slog.Warn("Resource specifies conflicting serviceAccountName and deprecated serviceAccount; using serviceAccountName to match kube-apiserver defaulting",
+				slog.String("Resource", resourceKey(resource)),
+				slog.String("ServiceAccountName", saName),
+				slog.String("ServiceAccount", sa))
+		}
+		podSpec["serviceAccount"] = saName
+		return true
+	case sa != "":
+		podSpec["serviceAccountName"] = sa
+		return true
+	default:
+		// At least one key is present with "" or nil (and neither is non-empty).
+		// Ensure both keys exist so an explicit reset ("" or null) clears both
+		// fields on the server instead of being restored by SetDefaults_PodSpec.
+		if !hasSA {
+			podSpec["serviceAccount"] = rawSAName
+			return true
+		}
+		if !hasSAName {
+			podSpec["serviceAccountName"] = rawSA
+			return true
+		}
+		return false
+	}
+}
+
+func normalizePodSpecServiceAccount(u *unstructured.Unstructured, gk schema.GroupKind) {
+	path := podSpecPath(gk)
+	if len(path) == 0 {
+		return
+	}
+	podSpec, ok := nestedMapRef(u.Object, path)
+	if !ok {
+		return
+	}
+	syncPodSpecServiceAccount(podSpec, u)
+}
+
+func normalizeOriginalPodSpecServiceAccount(raw []byte, gk schema.GroupKind) []byte {
+	path := podSpecPath(gk)
+	if len(path) == 0 || len(raw) == 0 {
+		return raw
+	}
+	// Fast path: avoid JSON decoding when the annotation cannot reference either field.
+	if !bytes.Contains(raw, []byte("serviceAccount")) && !bytes.Contains(raw, []byte(`\u`)) {
+		return raw
+	}
+	var obj map[string]any
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	if err := dec.Decode(&obj); err != nil || obj == nil {
+		return raw
+	}
+	podSpec, ok := nestedMapRef(obj, path)
+	if !ok || !syncPodSpecServiceAccount(podSpec, nil) {
+		return raw
+	}
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return raw
+	}
+	return out
+}
+
 type resourceGroupKey struct {
 	gvr       schema.GroupVersionResource
 	namespace string
@@ -943,6 +1091,8 @@ func (s *Synk) applyOne(
 		ns = resource.GetNamespace()
 		client = s.client.Resource(mapping.Resource).Namespace(ns)
 	}
+	gk := mapping.GroupVersionKind.GroupKind()
+	normalizePodSpecServiceAccount(resource, gk)
 	resetAppliedAnnotation := false
 	if err := setAppliedAnnotation(resource); err != nil {
 		slog.Warn("Storing Applied Annotation failed", ilog.Err(err))
@@ -1030,6 +1180,7 @@ func (s *Synk) applyOne(
 
 	var patchErr error
 	if len(originalRaw) > 0 {
+		originalRaw = normalizeOriginalPodSpecServiceAccount(originalRaw, gk)
 		// Try to patch it.
 		var (
 			patchType types.PatchType
