@@ -112,7 +112,7 @@ spec:
         function envoy_on_request(request_handle)
           local path = request_handle:headers():get(":path")
           if path then
-            local server = path:match("^/{{ . }}/client/([^/?#]+)")
+            local server = path:match("^/apis/core.kubernetes-relay/client/([^/?#]+)")
             if server then
               request_handle:headers():replace("X-Server-Name", server)
             else
