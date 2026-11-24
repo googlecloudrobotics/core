@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -107,9 +108,13 @@ type InMemoryRelayEnv struct {
 	RelayURL string
 }
 
+type SetupRelayOptions struct {
+	SetupHTTPClients func(relayHTTPClient, backendHTTPClient *http.Client)
+}
+
 // SetupInMemoryRelay creates an in-memory relay environment using httptest.NewTestServer,
 // suitable for use with testing/synctest.
-func SetupInMemoryRelay(t testing.TB, config client.ClientConfig, backendHandler http.Handler) *InMemoryRelayEnv {
+func SetupInMemoryRelay(t testing.TB, config client.ClientConfig, backendHandler http.Handler, opts SetupRelayOptions) *InMemoryRelayEnv {
 	t.Helper()
 
 	relayServer := server.NewServer(server.Config{
@@ -123,6 +128,9 @@ func SetupInMemoryRelay(t testing.TB, config client.ClientConfig, backendHandler
 	backendHTTPClient := *backendTS.Client()
 	backendHTTPClient.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
+	}
+	if opts.SetupHTTPClients != nil {
+		opts.SetupHTTPClients(relayHTTPClient, &backendHTTPClient)
 	}
 
 	relayClient := client.NewClient(config)
@@ -185,15 +193,19 @@ type MockTransport struct {
 	t          *testing.T
 	impl       http.RoundTripper
 	expectReqs []func(req *http.Request)
+	m          sync.Mutex
 }
 
 func (m *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	m.m.Lock()
 	if len(m.expectReqs) == 0 {
+		m.m.Unlock()
 		m.t.Errorf("unexpected request %s %s", req.Method, req.URL)
 		return m.impl.RoundTrip(req)
 	}
 	expect := m.expectReqs[0]
 	m.expectReqs = m.expectReqs[1:]
+	m.m.Unlock()
 	expect(req)
 	return m.impl.RoundTrip(req)
 }
@@ -202,6 +214,34 @@ func (m *MockTransport) ExpectRequest(expect func(req *http.Request)) {
 	m.expectReqs = append(m.expectReqs, expect)
 }
 
-func NewMockTransport(t *testing.T, impl http.RoundTripper) MockTransport {
-	return MockTransport{t: t, impl: impl}
+func NewMockTransport(t *testing.T, impl http.RoundTripper) *MockTransport {
+	m := &MockTransport{t: t, impl: impl}
+	t.Cleanup(func() {
+		m.m.Lock()
+		defer m.m.Unlock()
+		if len(m.expectReqs) != 0 {
+			t.Errorf("%d expected requests were not received", len(m.expectReqs))
+		}
+	})
+	return m
+}
+
+// SwappableTransport is a concurrency-safe http.RoundTripper whose underlying
+// transport can be replaced at runtime without mutating http.Client.Transport.
+type SwappableTransport struct {
+	current atomic.Pointer[http.RoundTripper]
+}
+
+func NewSwappableTransport(backend http.RoundTripper) *SwappableTransport {
+	t := &SwappableTransport{}
+	t.current.Store(&backend)
+	return t
+}
+
+func (t *SwappableTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return (*t.current.Load()).RoundTrip(req)
+}
+
+func (t *SwappableTransport) SwapBackend(backend http.RoundTripper) {
+	t.current.Store(&backend)
 }

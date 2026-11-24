@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -19,7 +20,11 @@ func setupRelay(t *testing.T, serverName string, handler http.Handler) *rt.InMem
 	config := client.DefaultClientConfig()
 	config.ServerName = serverName
 
-	return rt.SetupInMemoryRelay(t, config, handler)
+	return rt.SetupInMemoryRelay(t, config, handler, rt.SetupRelayOptions{
+		SetupHTTPClients: func(relayHTTPClient, backendHTTPClient *http.Client) {
+			relayHTTPClient.Transport = rt.NewSwappableTransport(relayHTTPClient.Transport)
+		},
+	})
 }
 
 func expectServerRequest(t *testing.T, serverName string) func(req *http.Request) {
@@ -67,7 +72,7 @@ func TestMoveRelayServer(t *testing.T) {
 		// simulate a scale up event and the server is moved to a new pod
 		synctest.Wait()
 		mockTransport := rt.NewMockTransport(t, envB.Client.Transport)
-		envA.Client.Transport = &mockTransport
+		envA.Client.Transport.(*rt.SwappableTransport).SwapBackend(mockTransport)
 
 		// user clients should hit the new server, but receive 503 because relay client still on old server.
 		mockTransport.ExpectRequest(func(req *http.Request) {
@@ -90,14 +95,27 @@ func TestMoveRelayServer(t *testing.T) {
 		// wait until the relay client times out and reconnect to the new server
 		synctest.Sleep(30 * time.Second)
 
-		mockTransport.ExpectRequest(func(req *http.Request) {
-			expectedPath := "/client/serverA"
-			if expectedPath != req.URL.Path {
-				t.Errorf("expected request to %q, but got %q", expectedPath, req.URL.Path)
+		clientRequestCount := 0
+		serverRequestCount := 0
+		serverResponseCount := 0
+		expectServerOrClientRequest := func(req *http.Request) {
+			if strings.HasPrefix(req.URL.Path, "/client") {
+				clientRequestCount++
+				expectedPath := "/client/serverA"
+				if expectedPath != req.URL.Path {
+					t.Errorf("expected request to %q, but got %q", expectedPath, req.URL.Path)
+				}
+			} else if strings.HasPrefix(req.URL.Path, "/server/request") {
+				serverRequestCount++
+				expectServerRequest(t, "serverA")(req)
+			} else if strings.HasPrefix(req.URL.Path, "/server/response") {
+				serverResponseCount++
+				expectServerResponse(t, "serverA")(req)
 			}
-		})
-		mockTransport.ExpectRequest(expectServerRequest(t, "serverA"))
-		mockTransport.ExpectRequest(expectServerResponse(t, "serverA"))
+		}
+		mockTransport.ExpectRequest(expectServerOrClientRequest)
+		mockTransport.ExpectRequest(expectServerOrClientRequest)
+		mockTransport.ExpectRequest(expectServerOrClientRequest)
 
 		resp, err = envA.Client.Get(fmt.Sprint(envA.RelayURL, "/client/serverA"))
 		if err != nil {
@@ -113,6 +131,16 @@ func TestMoveRelayServer(t *testing.T) {
 		}
 		if !bytes.Equal(expectedResp, body) {
 			t.Errorf("expected to receive %q, but got %q", expectedResp, body)
+		}
+
+		if clientRequestCount != 1 {
+			t.Errorf("expected %d client requests, got %d", 1, clientRequestCount)
+		}
+		if serverRequestCount != 1 {
+			t.Errorf("expected %d server requests, got %d", 1, serverRequestCount)
+		}
+		if serverResponseCount != 1 {
+			t.Errorf("expected %d server responses, got %d", 1, serverResponseCount)
 		}
 	})
 }
@@ -185,7 +213,7 @@ func TestMoveRelayServerDuringUserRequest(t *testing.T) {
 		// simulate a scale up event and the server is moved to a new pod
 		synctest.Wait()
 		mockTransport := rt.NewMockTransport(t, envB.Client.Transport)
-		envA.Client.Transport = &mockTransport
+		envA.Client.Transport.(*rt.SwappableTransport).SwapBackend(mockTransport)
 
 		mockTransport.ExpectRequest(expectServerResponse(t, "serverA"))
 

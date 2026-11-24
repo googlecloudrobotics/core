@@ -21,7 +21,7 @@ func setupRelay(t *testing.T, handler http.Handler) *rt.InMemoryRelayEnv {
 	config.BackendScheme = "http"
 	config.DisableAuthForRemote = true
 
-	return rt.SetupInMemoryRelay(t, config, handler)
+	return rt.SetupInMemoryRelay(t, config, handler, rt.SetupRelayOptions{})
 }
 
 func TestHttpResponse(t *testing.T) {
