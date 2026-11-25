@@ -65,6 +65,8 @@ use_repo(
     "com_github_google_go_cmp",
     "com_github_google_nftables",
     "com_github_googlecloudrobotics_ilog",
+    "com_github_gorilla_websocket",
+    "com_github_hashicorp_yamux",
     "com_github_motemen_go_loghttp",
     "com_github_prometheus_client_golang",
     "com_github_spf13_cobra",
