@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -343,9 +344,9 @@ func (r *release) update(as *apps.ChartAssignment) {
 }
 
 func loadAndExpandChart(as *apps.ChartAssignment) ([]*unstructured.Unstructured, bool, error) {
-	c, values, err := loadChart(&as.Spec.Chart)
+	c, values, retry, err := loadChart(&as.Spec.Chart)
 	if err != nil {
-		return nil, true, err
+		return nil, retry, err
 	}
 
 	values, err = chartutil.ToRenderValues(c, values, chartutil.ReleaseOptions{
@@ -354,7 +355,7 @@ func loadAndExpandChart(as *apps.ChartAssignment) ([]*unstructured.Unstructured,
 		IsInstall: true,
 	}, chartutil.DefaultCapabilities)
 	if err != nil {
-		return nil, true, err
+		return nil, false, fmt.Errorf("prepare render values: %w", err)
 	}
 
 	// Expand chart.
@@ -373,29 +374,29 @@ func loadAndExpandChart(as *apps.ChartAssignment) ([]*unstructured.Unstructured,
 }
 
 // loadChart loads an assigned chart.
-// Returns the chart and user values from the chart assignment.
-func loadChart(cspec *apps.AssignedChart) (*chart.Chart, chartutil.Values, error) {
+// Returns the chart, user values, whether an error is retriable, and any error.
+func loadChart(cspec *apps.AssignedChart) (*chart.Chart, chartutil.Values, bool, error) {
 	var archive io.Reader
-	var err error
-
 	if cspec.Inline != "" {
 		archive = base64.NewDecoder(base64.StdEncoding, strings.NewReader(cspec.Inline))
 	} else {
-		archive, err = fetchChartTar(cspec.Repository, cspec.Name, cspec.Version)
+		var retry bool
+		var err error
+		archive, retry, err = fetchChartTar(cspec.Repository, cspec.Name, cspec.Version)
 		if err != nil {
-			return nil, nil, fmt.Errorf("retrieve chart: %w", err)
+			return nil, nil, retry, fmt.Errorf("retrieve chart: %w", err)
 		}
 	}
 	// loader.LoadArchive supports both apiVersion: v1 (Helm 2, including requirements.yaml)
 	// and apiVersion: v2 (Helm 3, including Chart.yaml dependencies and crds/).
 	c, err := loader.LoadArchive(archive)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load chart archive: %w", err)
+		return nil, nil, false, fmt.Errorf("load chart archive: %w", err)
 	}
 
 	if req := c.Metadata.Dependencies; req != nil {
 		if err := action.CheckDependencies(c, req); err != nil {
-			return nil, nil, fmt.Errorf("check chart dependencies: %w", err)
+			return nil, nil, false, fmt.Errorf("check chart dependencies: %w", err)
 		}
 	}
 
@@ -410,10 +411,10 @@ func loadChart(cspec *apps.AssignedChart) (*chart.Chart, chartutil.Values, error
 	// from c) and apply `import-values` (merged into c.Values). Same as what
 	// `helm install` does (pkg/action/install.go).
 	if err := chartutil.ProcessDependenciesWithMerge(c, userVals); err != nil {
-		return nil, nil, fmt.Errorf("process chart dependencies: %w", err)
+		return nil, nil, false, fmt.Errorf("process chart dependencies: %w", err)
 	}
 
-	return c, userVals, nil
+	return c, userVals, false, nil
 }
 
 // httpStatusError records a non-200 HTTP response from a chart repository.
@@ -503,7 +504,16 @@ func (g *httpGetter) Get(href string, _ ...getter.Option) (*bytes.Buffer, error)
 	return buf, nil
 }
 
-func fetchChartTar(repoURL, name, version string) (io.Reader, error) {
+// isTransientFetchErr returns true if a download error may resolve on retry.
+func isTransientFetchErr(err error) bool {
+	var statusErr *httpStatusError
+	if errors.As(err, &statusErr) {
+		return statusErr.isTransient()
+	}
+	return true
+}
+
+func fetchChartTar(repoURL, name, version string) (io.Reader, bool, error) {
 	c := downloader.ChartDownloader{
 		Getters: getter.Providers{
 			{Schemes: []string{"http", "https"}, New: newHTTPGetter},
@@ -513,17 +523,15 @@ func fetchChartTar(repoURL, name, version string) (io.Reader, error) {
 		Verify:  downloader.VerifyIfPossible,
 	}
 
-	dir, err := os.MkdirTemp("", name)
+	dir, err := os.MkdirTemp("", "chart-*")
 	if err != nil {
-		return nil, err
+		return nil, true, err
 	}
 	defer os.RemoveAll(dir)
 
-	// This is only called when we fetch by repo URL rather than simply
-	// by e.g. stable/postgresql.
-	chartURL, err := repo.FindChartInRepoURL(repoURL, name, version, "", "", "", c.Getters)
+	chartURL, retry, err := findChartInRepoURL(repoURL, name, version, filepath.Join(dir, "cache"), c.Getters)
 	if err != nil {
-		return nil, err
+		return nil, retry, err
 	}
 	// NOTE(fabxc): Since we provide a full chartURL, DownloadTo will pull from exactly
 	// that URL. It will however check for repos in $HOME/.helm to determine
@@ -533,13 +541,51 @@ func fetchChartTar(repoURL, name, version string) (io.Reader, error) {
 	// strategies we want to support and how users can configure them.
 	filename, _, err := c.DownloadTo(chartURL, version, dir)
 	if err != nil {
-		return nil, err
+		return nil, isTransientFetchErr(err), err
 	}
 	b, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, err
+		return nil, true, err
 	}
-	return bytes.NewReader(b), nil
+	return bytes.NewReader(b), false, nil
+}
+
+func findChartInRepoURL(repoURL, name, version, cachePath string, getters getter.Providers) (string, bool, error) {
+	r, err := repo.NewChartRepository(&repo.Entry{
+		Name: "repo",
+		URL:  repoURL,
+	}, getters)
+	if err != nil {
+		return "", false, err
+	}
+	r.CachePath = cachePath
+
+	idx, err := r.DownloadIndexFile()
+	if err != nil {
+		return "", isTransientFetchErr(err), fmt.Errorf("looks like %q is not a valid chart repository or cannot be reached: %w", repoURL, err)
+	}
+
+	repoIndex, err := repo.LoadIndexFile(idx)
+	if err != nil {
+		return "", false, err
+	}
+
+	errMsg := fmt.Sprintf("chart %q", name)
+	if version != "" {
+		errMsg = fmt.Sprintf("%s version %q", errMsg, version)
+	}
+	cv, err := repoIndex.Get(name, version)
+	if err != nil {
+		return "", false, fmt.Errorf("%s not found in %s repository: %w", errMsg, repoURL, err)
+	}
+	if len(cv.URLs) == 0 {
+		return "", false, fmt.Errorf("%s has no downloadable URLs", errMsg)
+	}
+	chartURL, err := repo.ResolveReferenceURL(repoURL, cv.URLs[0])
+	if err != nil {
+		return "", false, fmt.Errorf("failed to make chart URL absolute: %w", err)
+	}
+	return chartURL, false, nil
 }
 
 func decodeManifests(manifests map[string]string) ([]*unstructured.Unstructured, error) {

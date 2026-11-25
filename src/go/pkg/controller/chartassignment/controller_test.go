@@ -16,6 +16,7 @@ package chartassignment
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -444,6 +445,73 @@ func TestReconciler_Reconcile(t *testing.T) {
 				}
 				if !strings.Contains(readyCond.Message, "1/2 pods are running") {
 					t.Errorf("Unexpected condition message: %q", readyCond.Message)
+				}
+			},
+		},
+		{
+			name:    "FailedChartLoad",
+			reqName: asName,
+			as: &apps.ChartAssignment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       asName,
+					Generation: 1,
+				},
+				Spec: apps.ChartAssignmentSpec{
+					NamespaceName: nsName,
+					Chart: apps.AssignedChart{
+						Repository: "https://kyverno.github.io/kyverno/",
+						Name:       "kyverno",
+						Version:    "1.12.1",
+					},
+				},
+			},
+			mockReleases: func(ctx context.Context, ctrl *gomock.Controller) *releases {
+				return &releases{
+					ctx: ctx,
+					m: map[string]*release{
+						asName: {
+							ctx: ctx,
+							status: releaseStatus{
+								phase: apps.ChartAssignmentPhaseFailed,
+								err:   fmt.Errorf(`retrieve chart: chart "kyverno" version "1.12.1" not found in https://kyverno.github.io/kyverno/ repository`),
+								retry: false,
+							},
+							gen: 1,
+						},
+					},
+				}
+			},
+			wantResult: reconcile.Result{Requeue: true, RequeueAfter: requeueSlow},
+			verify: func(t *testing.T, client kclient.Client) {
+				var updatedAs apps.ChartAssignment
+				err := client.Get(t.Context(), kclient.ObjectKey{Name: asName}, &updatedAs)
+				if err != nil {
+					t.Fatalf("Failed to get ChartAssignment: %v", err)
+				}
+				if updatedAs.Status.Phase != apps.ChartAssignmentPhaseFailed {
+					t.Errorf("Expected phase Failed, got %q", updatedAs.Status.Phase)
+				}
+				var settledCond, readyCond *apps.ChartAssignmentCondition
+				for i := range updatedAs.Status.Conditions {
+					c := &updatedAs.Status.Conditions[i]
+					switch c.Type {
+					case apps.ChartAssignmentConditionSettled:
+						settledCond = c
+					case apps.ChartAssignmentConditionReady:
+						readyCond = c
+					}
+				}
+				if settledCond == nil {
+					t.Fatal("Settled condition not found")
+				}
+				if settledCond.Status != corev1.ConditionFalse {
+					t.Errorf("Expected Settled condition False, got %v", settledCond.Status)
+				}
+				if !strings.Contains(settledCond.Message, `chart "kyverno" version "1.12.1" not found`) {
+					t.Errorf("Unexpected Settled condition message: %q", settledCond.Message)
+				}
+				if readyCond == nil || readyCond.Status != corev1.ConditionFalse {
+					t.Errorf("Expected Ready condition False, got %+v", readyCond)
 				}
 			},
 		},

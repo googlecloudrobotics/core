@@ -89,5 +89,6 @@ go_test(
         "@io_k8s_sigs_yaml//:go_default_library",
         "@io_opentelemetry_go_otel_trace//:go_default_library",
         "@sh_helm_helm_v3//pkg/chartutil:go_default_library",
+        "@sh_helm_helm_v3//pkg/repo:go_default_library",
     ],
 )
