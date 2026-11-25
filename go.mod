@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.10.0
 	cloud.google.com/go/storage v1.65.0
 	github.com/cenkalti/backoff/v4 v4.3.0
+	github.com/coder/websocket v1.8.15
 	github.com/envoyproxy/go-control-plane/envoy v1.40.0
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/getlantern/httptest v0.0.0-20161025015934-4b40f4c7e590
@@ -14,7 +15,6 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/nftables v0.3.0
 	github.com/googlecloudrobotics/ilog v0.0.0-20240112131211-2efd642f756e
-	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/hashicorp/yamux v0.1.2
 	github.com/motemen/go-loghttp v0.0.0-20170804080138-974ac5ceac27
 	github.com/prometheus/client_golang v1.25.0
