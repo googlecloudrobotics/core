@@ -290,14 +290,74 @@ func TestReleases_EnsureUpdated_Busy(t *testing.T) {
 
 		<-blockChan
 
-		// Now worker is busy. ensureUpdated should return false.
+		// Now worker is busy. ensureUpdated should return false without clobbering status.
 		started := rs.ensureUpdated(as)
 		if started {
 			t.Error("Expected ensureUpdated to return false because worker is busy")
 		}
+		if status, _ := rs.status(as.Name); status.phase != apps.ChartAssignmentPhaseAccepted {
+			t.Errorf("Expected phase to remain Accepted while worker is busy, got %q", status.phase)
+		}
 
 		close(unblockChan)
 	})
+}
+
+func TestReleases_EnsureUpdated_TransientErrorPreservesErrOnRetry(t *testing.T) {
+	transientErr := fmt.Errorf("temporary network error")
+	r := &release{
+		ctx:    t.Context(),
+		name:   "my-release",
+		actorc: make(chan func(), 1),
+		gen:    1,
+		status: releaseStatus{
+			phase: apps.ChartAssignmentPhaseLoadingChart,
+			err:   transientErr,
+			retry: true,
+		},
+	}
+	rs := &releases{
+		ctx: t.Context(),
+		m:   map[string]*release{"my-release": r},
+	}
+	as := &apps.ChartAssignment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "my-release",
+			Generation: 1,
+		},
+	}
+
+	// Retrying the same generation should preserve the previous error so setStatus can report it.
+	if !rs.ensureUpdated(as) {
+		t.Fatal("Expected ensureUpdated to start retry")
+	}
+	status, ok := rs.status(as.Name)
+	if !ok {
+		t.Fatal("Expected release status to exist")
+	}
+	if status.phase != apps.ChartAssignmentPhaseLoadingChart {
+		t.Errorf("Expected phase LoadingChart, got %q", status.phase)
+	}
+	if status.err != transientErr {
+		t.Errorf("Expected error %v to be preserved on retry, got %v", transientErr, status.err)
+	}
+	if status.retry {
+		t.Error("Expected retry flag to be cleared once retry started")
+	}
+
+	// Drain queued work and verify a new generation clears the old error.
+	<-r.actorc
+	as.Generation = 2
+	if !rs.ensureUpdated(as) {
+		t.Fatal("Expected ensureUpdated to start update for new generation")
+	}
+	status, _ = rs.status(as.Name)
+	if status.err != nil {
+		t.Errorf("Expected error to be cleared for new generation, got %v", status.err)
+	}
+	if r.generation() != 2 {
+		t.Errorf("Expected generation 2, got %d", r.generation())
+	}
 }
 
 func TestReleases_EnsureUpdated_TransientErrorRetry(t *testing.T) {

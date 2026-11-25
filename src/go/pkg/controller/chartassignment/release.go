@@ -168,25 +168,32 @@ func (rs *releases) add(name string) *release {
 // It returns true if it could initiate an update successfully.
 func (rs *releases) ensureUpdated(as *apps.ChartAssignment) bool {
 	r := rs.add(as.Name)
-	status, _ := rs.status(as.Name)
+	asCopy := as.DeepCopy()
+
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
 
 	// If the last generation we deployed matches the provided one, there's
 	// nothing to do. Unless the previous update set the retry flag due to
 	// a transient error.
 	// For a fresh release object, a first update will always happen as
-	// r.generation is 0 and resource generations start at 1.
-	if r.generation() == as.Generation && !status.retry {
+	// r.gen is 0 and resource generations start at 1.
+	if r.gen == as.Generation && !r.status.retry {
 		return true
 	}
-	// update() starts by loading the chart. Set this before returning so the
-	// caller sees the right phase.
-	r.setPhase(apps.ChartAssignmentPhaseLoadingChart)
-	asCopy := as.DeepCopy()
-	started := r.start(func() { r.update(asCopy) })
-	if started {
-		r.setGeneration(as.Generation)
+	if !r.start(func() { r.update(asCopy) }) {
+		return false
 	}
-	return started
+	// update() starts by loading the chart. Set this under the lock so the
+	// caller sees the right phase. Preserve any error when retrying the same
+	// generation so transient errors remain visible in ChartAssignment status.
+	if r.gen != as.Generation {
+		r.status.err = nil
+	}
+	r.status.phase = apps.ChartAssignmentPhaseLoadingChart
+	r.status.retry = false
+	r.gen = as.Generation
+	return true
 }
 
 // ensureDeleted ensures that deletion of the release is run.
