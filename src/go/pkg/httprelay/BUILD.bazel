@@ -1,25 +1,21 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
-package(default_visibility = ["//visibility:public"])
-
 go_library(
     name = "go_default_library",
-    srcs = ["wsconn.go"],
+    srcs = ["yamux.go"],
     importpath = "github.com/googlecloudrobotics/core/src/go/pkg/httprelay",
+    visibility = ["//visibility:public"],
     deps = [
-        "@com_github_gorilla_websocket//:go_default_library",
-        "@com_github_hashicorp_yamux//:go_default_library",
+        "@com_github_hashicorp_yamux//:yamux",
     ],
 )
 
 go_test(
     name = "go_default_test",
-    size = "small",
-    srcs = ["wsconn_test.go"],
+    srcs = ["yamux_test.go"],
     embed = [":go_default_library"],
-    visibility = ["//visibility:private"],
     deps = [
-        "@com_github_gorilla_websocket//:go_default_library",
-        "@com_github_hashicorp_yamux//:go_default_library",
+        "@com_github_coder_websocket//:websocket",
+        "@com_github_hashicorp_yamux//:yamux",
     ],
 )

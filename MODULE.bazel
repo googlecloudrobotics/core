@@ -57,6 +57,7 @@ go_deps.from_file(go_mod = "//:go.mod")
 use_repo(
     go_deps,
     "com_github_cenkalti_backoff_v4",
+    "com_github_coder_websocket",
     "com_github_envoyproxy_go_control_plane_envoy",
     "com_github_fsnotify_fsnotify",
     "com_github_getlantern_httptest",
@@ -65,7 +66,6 @@ use_repo(
     "com_github_google_go_cmp",
     "com_github_google_nftables",
     "com_github_googlecloudrobotics_ilog",
-    "com_github_gorilla_websocket",
     "com_github_hashicorp_yamux",
     "com_github_motemen_go_loghttp",
     "com_github_prometheus_client_golang",
