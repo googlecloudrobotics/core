@@ -279,7 +279,6 @@ func (c *Client) StartWithClients(ctx context.Context, remote, local *http.Clien
 		c.wg.Go(func() {
 			c.ws.run(ctx)
 		})
-		c.ws.waitReady(ctx)
 	}
 	for i := 0; i < c.config.NumPendingRequests; i++ {
 		c.wg.Go(func() {
@@ -816,9 +815,6 @@ func (c *Client) localProxyWorker(ctx context.Context, remote, local *http.Clien
 func (c *Client) buildRelayURL() string {
 	query := url.Values{}
 	query.Add("server", c.config.ServerName)
-	if c.ws != nil && c.ws.isConnected() {
-		query.Set(wsQueryParam, "1")
-	}
 	relayURL := url.URL{
 		Scheme:   c.config.RelayScheme,
 		Host:     c.config.RelayAddress,

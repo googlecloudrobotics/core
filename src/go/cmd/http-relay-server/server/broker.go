@@ -30,12 +30,12 @@ import (
 )
 
 var (
-	ErrMultipleClients  = errors.New("multiple clients trying to handle request ID")
-	ErrRelayTimeout     = errors.New("timeout waiting for relay client to accept request")
-	ErrNoRequest        = errors.New("no request received within timeout")
-	ErrServerRestarting = errors.New("server is restarting")
-	ErrInvalidRequestID = errors.New("duplicate or invalid request ID")
-	ErrClosedInactivity = errors.New("closed due to inactivity")
+	ErrMultipleClients   = errors.New("multiple clients trying to handle request ID")
+	ErrRelayTimeout      = errors.New("timeout waiting for relay client to accept request")
+	ErrNoRequest         = errors.New("no request received within timeout")
+	ErrServerRestarting  = errors.New("server is restarting")
+	ErrInvalidRequestID  = errors.New("duplicate or invalid request ID")
+	ErrClosedInactivity  = errors.New("closed due to inactivity")
 )
 
 var (
@@ -130,7 +130,6 @@ func (e *RelayClientUnavailableError) Error() string {
 type backendState struct {
 	reqChan      chan *pb.HttpRequest
 	lastActivity time.Time
-	ws           bool
 }
 
 type broker struct {
@@ -243,43 +242,6 @@ func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpR
 		return nil, ErrNoRequest
 	case <-ctx.Done():
 		return nil, ErrServerRestarting
-	}
-}
-
-// SetWS updates whether the named backend prefers the WebSocket yamux tunnel
-// and records backend activity.
-func (r *broker) SetWS(server string, enabled bool) {
-	r.m.Lock()
-	defer r.m.Unlock()
-	bs := r.req[server]
-	if bs == nil {
-		if !enabled {
-			return
-		}
-		bs = &backendState{
-			reqChan: make(chan *pb.HttpRequest),
-		}
-		r.req[server] = bs
-	}
-	bs.lastActivity = time.Now()
-	bs.ws = enabled
-}
-
-// PreferWS reports whether user-client requests for server should use the
-// WebSocket yamux tunnel.
-func (r *broker) PreferWS(server string) bool {
-	r.m.Lock()
-	defer r.m.Unlock()
-	bs := r.req[server]
-	return bs != nil && bs.ws
-}
-
-// TouchBackend updates lastActivity for an active backend so it is not reaped.
-func (r *broker) TouchBackend(server string) {
-	r.m.Lock()
-	defer r.m.Unlock()
-	if bs := r.req[server]; bs != nil {
-		bs.lastActivity = time.Now()
 	}
 }
 
@@ -461,3 +423,4 @@ func (r *broker) ReapInactiveBackends(threshold time.Time) {
 		brokerOverheadDurations.DeleteLabelValues("server_response", server)
 	}
 }
+

@@ -22,37 +22,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/coder/websocket"
 	"github.com/googlecloudrobotics/core/src/go/pkg/httprelay"
-	"github.com/gorilla/websocket"
 	"github.com/hashicorp/yamux"
 )
-
-func TestBrokerPreferWSTransitions(t *testing.T) {
-	s := NewServer(Config{})
-	if s.b.PreferWS("bot") {
-		t.Fatal("PreferWS(\"bot\") = true for unknown backend, want false")
-	}
-
-	s.b.SetWS("bot", true)
-	if !s.b.PreferWS("bot") {
-		t.Fatal("PreferWS(\"bot\") = false after SetWS(true), want true")
-	}
-
-	// A dual-wire client poll carrying ws=1 must preserve WebSocket preference.
-	dualReq := httptest.NewRequest(http.MethodGet, "/server/request?server=bot&ws=1", nil)
-	s.serverRequest(httptest.NewRecorder(), dualReq)
-	if !s.b.PreferWS("bot") {
-		t.Error("PreferWS(\"bot\") = false after /server/request?ws=1, want true")
-	}
-
-	// A legacy HTTP-only poll without ws=1 must clear WebSocket preference.
-	legacyReq := httptest.NewRequest(http.MethodGet, "/server/request?server=bot", nil)
-	s.serverRequest(httptest.NewRecorder(), legacyReq)
-	if s.b.PreferWS("bot") {
-		t.Error("PreferWS(\"bot\") = true after /server/request without ws=1, want false")
-	}
-}
 
 func TestWSRelayMissingServerParam(t *testing.T) {
 	s := NewServer(Config{})
@@ -64,22 +39,36 @@ func TestWSRelayMissingServerParam(t *testing.T) {
 	}
 }
 
+func TestWSRelayDisabledKillSwitch(t *testing.T) {
+	s := NewServer(Config{DisableWSWire: true})
+	req := httptest.NewRequest(http.MethodGet, wsPath+"?server=bot", nil)
+	rw := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rw, req)
+	if rw.Code != http.StatusNotFound {
+		t.Errorf("GET %s with DisableWSWire=true status = %d, want %d", wsPath, rw.Code, http.StatusNotFound)
+	}
+}
+
 func TestWSRelayProxiesHTTPRequestsOverYamux(t *testing.T) {
+	ctx := t.Context()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("net.Listen() failed: %v", err)
 	}
 	s := NewServer(Config{})
-	go s.StartOnListener(t.Context(), ln)
+	go s.StartOnListener(ctx, ln)
+
+	if s.ws.hasSession("bot") {
+		t.Fatal("hasSession(\"bot\") = true before connect, want false")
+	}
 
 	wsURL := fmt.Sprintf("ws://%s%s?server=bot", ln.Addr().String(), wsPath)
-	ws, _, err := websocket.DefaultDialer.DialContext(t.Context(), wsURL, nil)
+	ws, _, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
-		t.Fatalf("websocket.DialContext(%q) failed: %v", wsURL, err)
+		t.Fatalf("websocket.Dial(%q) failed: %v", wsURL, err)
 	}
-	sess, err := yamux.Server(httprelay.NewWSConn(ws), httprelay.YamuxConfig())
+	sess, err := yamux.Server(websocket.NetConn(ctx, ws, websocket.MessageBinary), httprelay.YamuxConfig())
 	if err != nil {
-		ws.Close()
 		t.Fatalf("yamux.Server() failed: %v", err)
 	}
 	defer sess.Close()
@@ -97,6 +86,15 @@ func TestWSRelayProxiesHTTPRequestsOverYamux(t *testing.T) {
 		_ = backendSrv.Serve(sess)
 	}()
 	defer backendSrv.Close()
+
+	// Wait until handleConnect finishes registering the yamux session.
+	deadline := time.Now().Add(2 * time.Second)
+	for !s.ws.hasSession("bot") {
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for server to register WebSocket session")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 
 	targetURL := fmt.Sprintf("http://%s/client/bot/hello/world", ln.Addr().String())
 	resp, err := http.Post(targetURL, "text/plain", strings.NewReader("payload"))
@@ -116,5 +114,8 @@ func TestWSRelayProxiesHTTPRequestsOverYamux(t *testing.T) {
 	}
 	if got, want := string(gotBody), "echo:/hello/world:payload"; got != want {
 		t.Errorf("POST %q body = %q, want %q", targetURL, got, want)
+	}
+	if !s.ws.hasSession("bot") {
+		t.Error("hasSession(\"bot\") = false while connected, want true")
 	}
 }

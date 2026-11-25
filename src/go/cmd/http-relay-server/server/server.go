@@ -79,6 +79,9 @@ type Config struct {
 	InactiveRequestTimeout time.Duration
 	// InactiveBackendTimeout is the timeout for inactive backends.
 	InactiveBackendTimeout time.Duration
+	// DisableWSWire disables the WebSocket yamux tunnel and forces legacy HTTP
+	// polling fallback.
+	DisableWSWire bool
 }
 
 type Server struct {
@@ -100,11 +103,10 @@ func NewServer(conf Config) *Server {
 	if conf.InactiveBackendTimeout == 0 {
 		conf.InactiveBackendTimeout = DefaultInactiveBackendTimeout
 	}
-	b := newBroker()
 	s := &Server{
 		conf: conf,
-		b:    b,
-		ws:   newWSRelay(b),
+		b:    newBroker(),
+		ws:   newWSRelay(),
 	}
 	return s
 }
@@ -387,9 +389,11 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.b.PreferWS(backendCtx.ServerName) {
-		s.ws.serveHTTP(ctx, w, r, *backendCtx)
-		return
+	if !s.conf.DisableWSWire {
+		if sess := s.ws.session(backendCtx.ServerName); sess != nil {
+			s.ws.serveHTTP(ctx, w, r, *backendCtx, sess)
+			return
+		}
 	}
 
 	body, err := s.readRequestBody(ctx, r)
@@ -498,9 +502,6 @@ func (s *Server) serverRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Info("Relay client connected", slog.String("ServerName", server))
-	if r.URL.Query().Get(wsQueryParam) != "1" {
-		s.b.SetWS(server, false)
-	}
 
 	// Get pending request from client and sent as a reply to the relay-client.
 	request, err := s.b.GetRequest(r.Context(), server, r.URL.Path)
@@ -573,6 +574,11 @@ func (s *Server) serverResponse(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Relay client sent response", slog.String("ID", *br.Id))
 }
 
+// HasWSSession reports whether server currently has an active WebSocket tunnel.
+func (s *Server) HasWSSession(server string) bool {
+	return !s.conf.DisableWSWire && s.ws.hasSession(server)
+}
+
 func (s *Server) Start(ctx context.Context) {
 	addr := fmt.Sprintf(":%d", s.conf.Port)
 	ln, err := net.Listen("tcp", addr)
@@ -590,7 +596,13 @@ func (s *Server) Handler() http.Handler {
 	h.HandleFunc("/server/request", s.serverRequest)
 	h.HandleFunc("/server/requeststream", s.serverRequestStream)
 	h.HandleFunc("/server/response", s.serverResponse)
-	h.HandleFunc(wsPath, s.ws.handleConnect)
+	if s.conf.DisableWSWire {
+		h.HandleFunc(wsPath, func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "WebSocket relay disabled", http.StatusNotFound)
+		})
+	} else {
+		h.HandleFunc(wsPath, s.ws.handleConnect)
+	}
 	h.Handle("/metrics", promhttp.Handler())
 
 	h2s := &http2.Server{}
@@ -642,7 +654,9 @@ func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 		<-gCtx.Done()
 		ctx, cancel := context.WithTimeout(context.Background(), cleanShutdownTimeout)
 		defer cancel()
-		return h1s.Shutdown(ctx)
+		err := h1s.Shutdown(ctx)
+		s.ws.closeAll()
+		return err
 	})
 
 	if err := g.Wait(); err != nil {
