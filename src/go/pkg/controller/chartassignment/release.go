@@ -21,10 +21,12 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
@@ -414,10 +416,97 @@ func loadChart(cspec *apps.AssignedChart) (*chart.Chart, chartutil.Values, error
 	return c, userVals, nil
 }
 
+// httpStatusError records a non-200 HTTP response from a chart repository.
+type httpStatusError struct {
+	url        string
+	statusCode int
+	status     string
+}
+
+// Error implements the error interface.
+func (e *httpStatusError) Error() string {
+	return fmt.Sprintf("failed to fetch %s : %s", e.url, e.status)
+}
+
+// isTransient reports whether the HTTP status code may succeed on retry
+// (408, 429, 500, 502, 503, 504).
+func (e *httpStatusError) isTransient() bool {
+	switch e.statusCode {
+	case http.StatusRequestTimeout,
+		http.StatusTooManyRequests,
+		http.StatusInternalServerError,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout:
+		return true
+	default:
+		return false
+	}
+}
+
+// httpGetter implements Helm's getter.Getter using net/http and returns a
+// typed httpStatusError on non-200 responses so callers can distinguish
+// permanent HTTP errors from transient failures.
+type httpGetter struct {
+	client *http.Client
+}
+
+// newHTTPGetter constructs an httpGetter for Helm's getter.Providers.
+// Options are ignored for the same reason as in httpGetter.Get.
+func newHTTPGetter(_ ...getter.Option) (getter.Getter, error) {
+	// Disable transparent gzip decompression (matching Helm's HTTPGetter) so
+	// .tgz chart archives served with Content-Encoding: gzip stay compressed
+	// for loader.LoadArchive.
+	var tr *http.Transport
+	if base, ok := http.DefaultTransport.(*http.Transport); ok {
+		tr = base.Clone()
+	} else {
+		tr = &http.Transport{Proxy: http.ProxyFromEnvironment}
+	}
+	tr.DisableCompression = true
+	return &httpGetter{
+		client: &http.Client{
+			Transport: tr,
+			Timeout:   getter.DefaultHTTPTimeout * time.Second,
+		},
+	}, nil
+}
+
+// Get implements Helm's getter.Getter by performing an HTTP GET for href and
+// returning the response body, or an *httpStatusError on non-200 responses.
+//
+// getter.Option arguments are intentionally ignored: Helm's getter.options
+// struct is unexported so external Getter implementations cannot inspect them,
+// and fetchChartTar only performs unauthenticated HTTP(S) fetches without
+// custom TLS or credential options.
+func (g *httpGetter) Get(href string, _ ...getter.Option) (*bytes.Buffer, error) {
+	req, err := http.NewRequest(http.MethodGet, href, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, &httpStatusError{
+			url:        href,
+			statusCode: resp.StatusCode,
+			status:     resp.Status,
+		}
+	}
+	buf := bytes.NewBuffer(nil)
+	if _, err := io.Copy(buf, resp.Body); err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
 func fetchChartTar(repoURL, name, version string) (io.Reader, error) {
 	c := downloader.ChartDownloader{
 		Getters: getter.Providers{
-			{Schemes: []string{"http", "https"}, New: getter.NewHTTPGetter},
+			{Schemes: []string{"http", "https"}, New: newHTTPGetter},
 		},
 		Out:     os.Stderr,
 		Keyring: os.ExpandEnv("$HOME/.gnupg/pubring.gpg"),

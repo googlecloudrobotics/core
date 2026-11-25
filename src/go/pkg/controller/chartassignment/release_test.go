@@ -15,7 +15,12 @@
 package chartassignment
 
 import (
+	"bytes"
+	"compress/gzip"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"testing/synctest"
 
@@ -495,4 +500,91 @@ func TestExtractParentSpanContext(t *testing.T) {
 			t.Errorf("Expected TraceID = 4bf92f3577b34da6a3ce929d0e0e4736, got %q", got)
 		}
 	})
+}
+
+func Test_httpGetter(t *testing.T) {
+	g, err := newHTTPGetter()
+	if err != nil {
+		t.Fatalf("newHTTPGetter() error = %v", err)
+	}
+
+	t.Run("200 OK", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("chart-bytes"))
+		}))
+		defer srv.Close()
+
+		buf, err := g.Get(srv.URL)
+		if err != nil {
+			t.Fatalf("Get() error = %v", err)
+		}
+		if got := buf.String(); got != "chart-bytes" {
+			t.Errorf("Get() = %q, want %q", got, "chart-bytes")
+		}
+	})
+
+	t.Run("preserves gzip body when Content-Encoding is gzip", func(t *testing.T) {
+		var gzBuf bytes.Buffer
+		zw := gzip.NewWriter(&gzBuf)
+		zw.Write([]byte("tar-content"))
+		zw.Close()
+		rawGzip := gzBuf.Bytes()
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Encoding", "gzip")
+			w.Write(rawGzip)
+		}))
+		defer srv.Close()
+
+		buf, err := g.Get(srv.URL)
+		if err != nil {
+			t.Fatalf("Get() error = %v", err)
+		}
+		if !bytes.Equal(buf.Bytes(), rawGzip) {
+			t.Errorf("Get() modified gzip payload; got %d bytes, want %d raw gzip bytes", buf.Len(), len(rawGzip))
+		}
+	})
+
+	statusCases := []struct {
+		code          int
+		wantTransient bool
+	}{
+		{http.StatusBadRequest, false},
+		{http.StatusUnauthorized, false},
+		{http.StatusForbidden, false},
+		{http.StatusNotFound, false},
+		{http.StatusGone, false},
+		{http.StatusRequestTimeout, true},
+		{http.StatusTooManyRequests, true},
+		{http.StatusInternalServerError, true},
+		{http.StatusNotImplemented, false},
+		{http.StatusBadGateway, true},
+		{http.StatusServiceUnavailable, true},
+		{http.StatusGatewayTimeout, true},
+		{http.StatusHTTPVersionNotSupported, false},
+		{http.StatusLoopDetected, false},
+	}
+	for _, tc := range statusCases {
+		t.Run(fmt.Sprintf("status_%d", tc.code), func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.Error(w, "fail", tc.code)
+			}))
+			defer srv.Close()
+
+			_, err := g.Get(srv.URL)
+			if err == nil {
+				t.Fatalf("Get() succeeded, want error for status %d", tc.code)
+			}
+			var statusErr *httpStatusError
+			if !errors.As(err, &statusErr) {
+				t.Fatalf("Get() error = %T (%v), want *httpStatusError", err, err)
+			}
+			if statusErr.statusCode != tc.code {
+				t.Errorf("statusErr.statusCode = %d, want %d", statusErr.statusCode, tc.code)
+			}
+			if got := statusErr.isTransient(); got != tc.wantTransient {
+				t.Errorf("statusErr.isTransient() = %v, want %v", got, tc.wantTransient)
+			}
+		})
+	}
 }
