@@ -85,6 +85,8 @@ func init() {
 		"Disable http2 protocol usage (e.g. for channels that use special streaming protocols such as SPDY).")
 	flag.BoolVar(&config.ForceHttp2, "force_http2", config.ForceHttp2,
 		"Force enable http2 protocol usage through the use of go's http2 transport (e.g. when relaying grpc).")
+	flag.BoolVar(&config.WSWire, "ws_wire", config.WSWire,
+		"Maintain a WebSocket yamux tunnel alongside HTTP polling.")
 	flag.BoolVar(&config.DisableAuthForRemote, "disable_auth_for_remote", config.DisableAuthForRemote,
 		"Disable auth when talking to the relay server for local testing.")
 
