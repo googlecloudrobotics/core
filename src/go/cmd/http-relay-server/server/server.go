@@ -84,6 +84,7 @@ type Config struct {
 type Server struct {
 	conf Config
 	b    *broker
+	ws   *wsRelay
 }
 
 func NewServer(conf Config) *Server {
@@ -99,9 +100,11 @@ func NewServer(conf Config) *Server {
 	if conf.InactiveBackendTimeout == 0 {
 		conf.InactiveBackendTimeout = DefaultInactiveBackendTimeout
 	}
+	b := newBroker()
 	s := &Server{
 		conf: conf,
-		b:    newBroker(),
+		b:    b,
+		ws:   newWSRelay(b),
 	}
 	return s
 }
@@ -384,6 +387,11 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.b.PreferWS(backendCtx.ServerName) {
+		s.ws.serveHTTP(ctx, w, r, *backendCtx)
+		return
+	}
+
 	body, err := s.readRequestBody(ctx, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -490,6 +498,9 @@ func (s *Server) serverRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Info("Relay client connected", slog.String("ServerName", server))
+	if r.URL.Query().Get(wsQueryParam) != "1" {
+		s.b.SetWS(server, false)
+	}
 
 	// Get pending request from client and sent as a reply to the relay-client.
 	request, err := s.b.GetRequest(r.Context(), server, r.URL.Path)
@@ -579,6 +590,7 @@ func (s *Server) Handler() http.Handler {
 	h.HandleFunc("/server/request", s.serverRequest)
 	h.HandleFunc("/server/requeststream", s.serverRequestStream)
 	h.HandleFunc("/server/response", s.serverResponse)
+	h.HandleFunc(wsPath, s.ws.handleConnect)
 	h.Handle("/metrics", promhttp.Handler())
 
 	h2s := &http2.Server{}
