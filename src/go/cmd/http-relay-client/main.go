@@ -81,6 +81,8 @@ func init() {
 		"Number of pending http requests to the relay")
 	flag.IntVar(&config.MaxIdleConnsPerHost, "max_idle_conns_per_host", config.MaxIdleConnsPerHost,
 		"The maximum number of idle (keep-alive) connections to keep per-host")
+	flag.BoolVar(&config.EnableRequestBatching, "enable_request_batching", config.EnableRequestBatching,
+		"Advertise support for batched /server/request responses from the relay server")
 	flag.BoolVar(&config.DisableHttp2, "disable_http2", config.DisableHttp2,
 		"Disable http2 protocol usage (e.g. for channels that use special streaming protocols such as SPDY).")
 	flag.BoolVar(&config.ForceHttp2, "force_http2", config.ForceHttp2,

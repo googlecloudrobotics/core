@@ -2,14 +2,19 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
 
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client"
+	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server/server"
 	rt "github.com/googlecloudrobotics/core/src/go/tests/relay"
 )
 
@@ -176,6 +181,129 @@ func TestHttpChunkedRequestBody(t *testing.T) {
 		}
 		if !bytes.Equal(observedResponse, expectedResponseBody) {
 			t.Errorf("received wrong response.\n\tExpected: %s\n\tObserved: %s", expectedResponseBody, observedResponse)
+		}
+	})
+}
+
+type delayedRoundTripper struct {
+	base      http.RoundTripper
+	halfRTT   time.Duration
+	pollCount atomic.Int64
+}
+
+func (d *delayedRoundTripper) sleep(ctx context.Context) error {
+	timer := time.NewTimer(d.halfRTT)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func (d *delayedRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.URL.Path == "/server/request" {
+		d.pollCount.Add(1)
+	}
+	if err := d.sleep(req.Context()); err != nil {
+		return nil, err
+	}
+	resp, err := d.base.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	if err := d.sleep(req.Context()); err != nil {
+		resp.Body.Close()
+		return nil, err
+	}
+	return resp, nil
+}
+
+// TestHttpBurstWithHighPollLatency verifies that with a single polling worker
+// (NumPendingRequests=1) and a 500ms RTT between relay client and server, a
+// burst of 25 concurrent requests completes within ~2 RTTs via batching instead
+// of timing out against relayTimeout (10s).
+func TestHttpBurstWithHighPollLatency(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		relayServer := server.NewServer(server.Config{
+			BlockSize: 10 * 1024,
+		})
+		relayTS := httptest.NewTestServer(t, relayServer.Handler())
+		backendTS := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, "echo:%s", r.URL.Path)
+		}))
+
+		userHTTPClient := relayTS.Client()
+		delayedRT := &delayedRoundTripper{
+			base:    relayTS.Client().Transport,
+			halfRTT: 250 * time.Millisecond, // 500ms RTT
+		}
+		relayHTTPClient := &http.Client{Transport: delayedRT}
+		backendHTTPClient := backendTS.Client()
+
+		config := client.DefaultClientConfig()
+		config.RelayScheme = "http"
+		config.BackendScheme = "http"
+		config.DisableAuthForRemote = true
+		config.NumPendingRequests = 1
+		config.EnableRequestBatching = true
+
+		relayClient := client.NewClient(config)
+		ctx, cancel := context.WithCancel(t.Context())
+		var clientWG sync.WaitGroup
+		clientWG.Go(func() {
+			relayClient.StartWithClients(ctx, relayHTTPClient, backendHTTPClient)
+		})
+		t.Cleanup(func() {
+			synctest.Wait()
+			cancel()
+			relayTS.CloseClientConnections()
+			backendTS.CloseClientConnections()
+			clientWG.Wait()
+		})
+
+		// Let the single worker finish its initial 250ms outbound leg and park on reqChan.
+		time.Sleep(300 * time.Millisecond)
+		synctest.Wait()
+
+		const burstSize = 25
+		start := time.Now()
+		var reqWG sync.WaitGroup
+		for i := range burstSize {
+			path := fmt.Sprintf("/item/%d", i)
+			reqWG.Go(func() {
+				res, err := userHTTPClient.Get(relayTS.URL + "/client/server_name" + path)
+				if err != nil {
+					t.Errorf("request %s failed: %v", path, err)
+					return
+				}
+				defer res.Body.Close()
+				body, err := io.ReadAll(res.Body)
+				if err != nil {
+					t.Errorf("request %s read body: %v", path, err)
+					return
+				}
+				if res.StatusCode != http.StatusOK {
+					t.Errorf("request %s status = %d, want 200 (body: %s)", path, res.StatusCode, body)
+					return
+				}
+				if want := "echo:" + path; string(body) != want {
+					t.Errorf("request %s body = %q, want %q", path, body, want)
+				}
+			})
+		}
+		reqWG.Wait()
+		elapsed := time.Since(start)
+
+		// Without batching, 25 requests at 500ms RTT would need 24*500ms = 12s and hit relayTimeout (10s).
+		// With batching, req #1 takes ~500ms and reqs #2..#25 drain in a single batch at ~1.0s.
+		if elapsed > 2*time.Second {
+			t.Errorf("burst of %d requests took %v, want <= 2s", burstSize, elapsed)
+		}
+		// Expect at most 3 polls (initial parked poll + 1 batch poll + next idle poll).
+		if polls := delayedRT.pollCount.Load(); polls > 3 {
+			t.Errorf("got %d /server/request polls for burst of %d, want <= 3", polls, burstSize)
 		}
 	})
 }

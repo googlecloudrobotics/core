@@ -27,6 +27,7 @@ import (
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -74,6 +75,14 @@ var (
 		},
 		[]string{"method", "backend"},
 	)
+	brokerRequestBatchSize = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "broker_request_batch_size",
+			Help:    "Number of requests delivered per /server/request poll",
+			Buckets: []float64{1, 2, 4, 8, 16, 32, 64, 100},
+		},
+		[]string{"backend"},
+	)
 )
 
 var (
@@ -88,6 +97,7 @@ func init() {
 	prometheus.MustRegister(brokerResponseDurations)
 	prometheus.MustRegister(brokerBackendResponseDurations)
 	prometheus.MustRegister(brokerOverheadDurations)
+	prometheus.MustRegister(brokerRequestBatchSize)
 }
 
 type pendingResponse struct {
@@ -215,9 +225,21 @@ func (r *broker) StopRelayRequest(requestId string) {
 	}
 }
 
-// GetRequest obtains a client's request for the server identifier. It blocks
-// until a client makes a request.
+// GetRequest obtains a single client's request for the server identifier. It
+// blocks until a client makes a request.
 func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpRequest, error) {
+	reqs, err := r.GetRequests(ctx, server, path, 1, 0)
+	if err != nil {
+		return nil, err
+	}
+	return reqs[0], nil
+}
+
+// GetRequests obtains up to maxBatchSize queued client requests for the server
+// identifier. It blocks until at least one request arrives, then drains any
+// additional already-queued requests without blocking until maxBatchSize or
+// maxBatchBytes (if positive) is reached.
+func (r *broker) GetRequests(ctx context.Context, server, path string, maxBatchSize, maxBatchBytes int) ([]*pb.HttpRequest, error) {
 	r.m.Lock()
 	bs := r.req[server]
 	if bs == nil {
@@ -233,16 +255,33 @@ func (r *broker) GetRequest(ctx context.Context, server, path string) (*pb.HttpR
 	r.m.Unlock()
 
 	brokerRequests.WithLabelValues("server_request", server).Inc()
+	var firstReq *pb.HttpRequest
 	select {
-	case req := <-reqChan:
+	case firstReq = <-reqChan:
 		brokerResponses.WithLabelValues("server_request", "ok", server).Inc()
-		return req, nil
 	case <-time.After(getRequestTimeout):
 		brokerResponses.WithLabelValues("server_request", "timeout", server).Inc()
 		return nil, ErrNoRequest
 	case <-ctx.Done():
 		return nil, ErrServerRestarting
 	}
+
+	reqs := []*pb.HttpRequest{firstReq}
+	if maxBatchSize > 1 {
+		totalBytes := proto.Size(firstReq)
+		for len(reqs) < maxBatchSize && (maxBatchBytes <= 0 || totalBytes < maxBatchBytes) && ctx.Err() == nil {
+			select {
+			case req := <-reqChan:
+				reqs = append(reqs, req)
+				totalBytes += proto.Size(req)
+			default:
+				goto done
+			}
+		}
+	}
+done:
+	brokerRequestBatchSize.WithLabelValues(server).Observe(float64(len(reqs)))
+	return reqs, nil
 }
 
 // GetRequestStream gets data from the stream that follows a client's HTTP
@@ -421,6 +460,7 @@ func (r *broker) ReapInactiveBackends(threshold time.Time) {
 		brokerResponseDurations.DeleteLabelValues("server_response", server)
 		brokerBackendResponseDurations.DeleteLabelValues("server_response", server)
 		brokerOverheadDurations.DeleteLabelValues("server_response", server)
+		brokerRequestBatchSize.DeleteLabelValues(server)
 	}
 }
 

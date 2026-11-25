@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"mime"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -68,6 +69,14 @@ const (
 	DefaultInactiveRequestTimeout = 60 * time.Second
 	// DefaultInactiveBackendTimeout is the default timeout for inactive backends.
 	DefaultInactiveBackendTimeout = 30 * time.Minute
+	// DefaultMaxBatchSize is the default maximum number of requests returned per /server/request poll when batching is negotiated.
+	DefaultMaxBatchSize = 100
+	// DefaultMaxBatchBytes is the default soft byte cap for a single /server/request batch response.
+	DefaultMaxBatchBytes = 1024 * 1024
+
+	contentTypeHttpRequest      = "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpRequest"
+	contentTypeHttpRequestBatch = "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpRequestBatch"
+	protoHttpRequestBatch       = "cloudrobotics.http_relay.v1alpha1.HttpRequestBatch"
 )
 
 type Config struct {
@@ -79,6 +88,13 @@ type Config struct {
 	InactiveRequestTimeout time.Duration
 	// InactiveBackendTimeout is the timeout for inactive backends.
 	InactiveBackendTimeout time.Duration
+	// MaxBatchSize is the maximum number of queued requests returned in a single
+	// /server/request response when the relay client advertises batch support.
+	// Set to 1 to disable batching.
+	MaxBatchSize int
+	// MaxBatchBytes is the soft size limit in bytes for a single /server/request
+	// batch response. At least one request is always returned regardless of size.
+	MaxBatchBytes int
 }
 
 type Server struct {
@@ -98,6 +114,12 @@ func NewServer(conf Config) *Server {
 	}
 	if conf.InactiveBackendTimeout == 0 {
 		conf.InactiveBackendTimeout = DefaultInactiveBackendTimeout
+	}
+	if conf.MaxBatchSize <= 0 {
+		conf.MaxBatchSize = DefaultMaxBatchSize
+	}
+	if conf.MaxBatchBytes <= 0 {
+		conf.MaxBatchBytes = DefaultMaxBatchBytes
 	}
 	s := &Server{
 		conf: conf,
@@ -482,7 +504,22 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Wrote response chunk to request", slog.String("ID", backendCtx.Id), slog.Int("Bytes", numBytes))
 }
 
-// relay-client pulls a request
+func acceptsBatch(r *http.Request) bool {
+	for _, h := range r.Header.Values("Accept") {
+		for _, part := range strings.Split(h, ",") {
+			mediaType, params, err := mime.ParseMediaType(part)
+			if err != nil {
+				continue
+			}
+			if mediaType == "application/vnd.google.protobuf" && params["proto"] == protoHttpRequestBatch {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// relay-client pulls one or more pending requests.
 func (s *Server) serverRequest(w http.ResponseWriter, r *http.Request) {
 	server := r.URL.Query().Get("server")
 	if server == "" {
@@ -491,7 +528,31 @@ func (s *Server) serverRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Info("Relay client connected", slog.String("ServerName", server))
 
-	// Get pending request from client and sent as a reply to the relay-client.
+	if acceptsBatch(r) && s.conf.MaxBatchSize > 1 {
+		requests, err := s.b.GetRequests(r.Context(), server, r.URL.Path, s.conf.MaxBatchSize, s.conf.MaxBatchBytes)
+		if err != nil {
+			// Expected if the relay is idle, or if the server is restarting.
+			slog.Debug("Relay client got no request", slog.String("ID", server), ilog.Err(err))
+			http.Error(w, err.Error(), http.StatusRequestTimeout)
+			return
+		}
+
+		body, err := proto.Marshal(&pb.HttpRequestBatch{Requests: requests})
+		if err != nil {
+			slog.Error("Failed to marshal request batch", slog.String("ServerName", server), ilog.Err(err))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", contentTypeHttpRequestBatch)
+		w.Write(body)
+		for _, req := range requests {
+			slog.Info("Relay client accepted request", slog.String("ID", *req.Id), slog.Int("BatchSize", len(requests)))
+		}
+		return
+	}
+
+	// Get pending request from client and send as a reply to the relay-client.
 	request, err := s.b.GetRequest(r.Context(), server, r.URL.Path)
 	if err != nil {
 		// Expected if the relay is idle, or if the server is restarting.
@@ -507,7 +568,7 @@ func (s *Server) serverRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpRequest")
+	w.Header().Set("Content-Type", contentTypeHttpRequest)
 	w.Write(body)
 	slog.Info("Relay client accepted request", slog.String("ID", *request.Id))
 }

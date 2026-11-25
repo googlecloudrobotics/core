@@ -35,6 +35,12 @@ message HttpRequest {
   optional bytes body = 5;
 }
 
+// A batch of HttpRequests delivered in a single /server/request response when
+// multiple requests are queued for the same backend.
+message HttpRequestBatch {
+  repeated HttpRequest requests = 1;
+}
+
 // Each HttpRequest may generate a stream of multiple HTTP responses with the
 // same id. The first response in the stream must contain status_code and
 // header, and only the last response in the stream must have eof set to true.

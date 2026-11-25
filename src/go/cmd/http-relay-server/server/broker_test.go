@@ -511,3 +511,117 @@ func TestReapInactiveBackends(t *testing.T) {
 		t.Error("Inactive backend was not reaped")
 	}
 }
+
+func TestGetRequestsBatchDrain(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		b := newBroker()
+		b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+
+		const numRequests = 5
+		var wg sync.WaitGroup
+		for i := range numRequests {
+			id := "req-" + string(rune('a'+i))
+			wg.Go(func() {
+				if _, err := b.RelayRequest("foo", &pb.HttpRequest{
+					Id:  proto.String(id),
+					Url: proto.String("http://example.com/" + id),
+				}); err != nil {
+					t.Errorf("RelayRequest(%s) failed: %v", id, err)
+				}
+			})
+		}
+		// Wait until all senders are blocked on reqChan.
+		synctest.Wait()
+
+		reqs, err := b.GetRequests(t.Context(), "foo", "/", 10, 1024*1024)
+		if err != nil {
+			t.Fatalf("GetRequests failed: %v", err)
+		}
+		if len(reqs) != numRequests {
+			t.Fatalf("got %d requests in batch, want %d", len(reqs), numRequests)
+		}
+		wg.Wait()
+	})
+}
+
+func TestGetRequestsRespectsMaxBatchSize(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		b := newBroker()
+		b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+
+		const numRequests = 5
+		var wg sync.WaitGroup
+		for i := range numRequests {
+			id := "req-" + string(rune('a'+i))
+			wg.Go(func() {
+				if _, err := b.RelayRequest("foo", &pb.HttpRequest{
+					Id:  proto.String(id),
+					Url: proto.String("http://example.com/" + id),
+				}); err != nil {
+					t.Errorf("RelayRequest(%s) failed: %v", id, err)
+				}
+			})
+		}
+		synctest.Wait()
+
+		firstBatch, err := b.GetRequests(t.Context(), "foo", "/", 3, 1024*1024)
+		if err != nil {
+			t.Fatalf("first GetRequests failed: %v", err)
+		}
+		if len(firstBatch) != 3 {
+			t.Fatalf("first batch got %d requests, want 3", len(firstBatch))
+		}
+
+		secondBatch, err := b.GetRequests(t.Context(), "foo", "/", 3, 1024*1024)
+		if err != nil {
+			t.Fatalf("second GetRequests failed: %v", err)
+		}
+		if len(secondBatch) != 2 {
+			t.Fatalf("second batch got %d requests, want 2", len(secondBatch))
+		}
+		wg.Wait()
+	})
+}
+
+func TestGetRequestsRespectsMaxBatchBytes(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		b := newBroker()
+		b.req["foo"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+
+		payload := bytes.Repeat([]byte("x"), 500)
+		var wg sync.WaitGroup
+		for i := range 3 {
+			id := "req-" + string(rune('a'+i))
+			wg.Go(func() {
+				if _, err := b.RelayRequest("foo", &pb.HttpRequest{
+					Id:   proto.String(id),
+					Url:  proto.String("http://example.com/" + id),
+					Body: payload,
+				}); err != nil {
+					t.Errorf("RelayRequest(%s) failed: %v", id, err)
+				}
+			})
+		}
+		synctest.Wait()
+
+		// First request alone is ~530 bytes (> 400 byte cap), so it must be returned alone.
+		singleBatch, err := b.GetRequests(t.Context(), "foo", "/", 10, 400)
+		if err != nil {
+			t.Fatalf("oversized single GetRequests failed: %v", err)
+		}
+		if len(singleBatch) != 1 {
+			t.Fatalf("got %d requests when first exceeds maxBatchBytes, want 1", len(singleBatch))
+		}
+
+		// With a 600 byte cap, draining stops after the 2nd request crosses 600 bytes.
+		// Remaining 2 requests are ~530 bytes each: 1st is < 600, so 2nd is drained and total > 600.
+		secondBatch, err := b.GetRequests(t.Context(), "foo", "/", 10, 600)
+		if err != nil {
+			t.Fatalf("second GetRequests failed: %v", err)
+		}
+		if len(secondBatch) != 2 {
+			t.Fatalf("second batch got %d requests, want 2", len(secondBatch))
+		}
+		wg.Wait()
+	})
+}

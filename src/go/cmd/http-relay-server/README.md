@@ -108,6 +108,8 @@ In limited cases (where the client closes the request body before reading the re
 - `--port`: Port number to listen on (default: 80).
 - `--block_size`: Size of i/o buffer in bytes (default: 10240).
 - `--inactive_request_timeout`: Timeout for inactive requests (default: 60s). In particular, this sets a limit on how long the backend can wait before writing headers and the response status.
+- `--max_batch_size`: Maximum number of queued requests returned in a single `/server/request` response when the relay client supports batching (default: `100`; set to `1` to disable batching).
+- `--max_batch_bytes`: Soft byte limit for a single `/server/request` batch response (default: `1048576` / 1 MiB).
 
 ## Configuration
 
