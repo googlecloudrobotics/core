@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"mime"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -60,6 +61,12 @@ var (
 	tracer            = otel.Tracer("github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client")
 )
 
+const (
+	contentTypeHttpRequest      = "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpRequest"
+	contentTypeHttpRequestBatch = "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpRequestBatch"
+	protoHttpRequestBatch       = "cloudrobotics.http_relay.v1alpha1.HttpRequestBatch"
+)
+
 // This is a package internal variable which we define to be able to overwrite
 // the measured time during unit tests. This is a light weight alternative
 // to mocking the entire time interface and passing it along all call paths.
@@ -86,8 +93,9 @@ type ClientConfig struct {
 
 	ServerName string
 
-	NumPendingRequests  int
-	MaxIdleConnsPerHost int
+	NumPendingRequests    int
+	MaxIdleConnsPerHost   int
+	EnableRequestBatching bool
 
 	MaxChunkSize int
 	BlockSize    int
@@ -136,8 +144,9 @@ func DefaultClientConfig() ClientConfig {
 
 		ServerName: "server_name",
 
-		NumPendingRequests:  1,
-		MaxIdleConnsPerHost: 100,
+		NumPendingRequests:    1,
+		MaxIdleConnsPerHost:   100,
+		EnableRequestBatching: true,
 
 		MaxChunkSize: 1024 * 1024, // 1MB. High throughput (e.g. 100MB/s) would otherwise trigger ~2000 POST requests/s at 50KB chunks.
 		BlockSize:    64 * 1024,   // 64KB. Controls the granularity of reads from the backend and internal channel pressure. Aligned with io.Copy.
@@ -276,7 +285,15 @@ func (c *Client) StartWithClients(ctx context.Context, remote, local *http.Clien
 	c.wg.Wait()
 }
 
-func (c *Client) getRequest(ctx context.Context, remote *http.Client, relayURL string) (*pb.HttpRequest, error) {
+func isBatchContentType(ct string) bool {
+	mediaType, params, err := mime.ParseMediaType(ct)
+	if err != nil {
+		return false
+	}
+	return mediaType == "application/vnd.google.protobuf" && params["proto"] == protoHttpRequestBatch
+}
+
+func (c *Client) getRequests(ctx context.Context, remote *http.Client, relayURL string) ([]*pb.HttpRequest, error) {
 	if debugLogs {
 		slog.Info("Connecting to relay server to get next request", slog.String("ServerName", c.config.ServerName))
 	}
@@ -284,6 +301,9 @@ func (c *Client) getRequest(ctx context.Context, remote *http.Client, relayURL s
 	req, err := http.NewRequestWithContext(ctx, "GET", relayURL, nil)
 	if err != nil {
 		return nil, err
+	}
+	if c.config.EnableRequestBatching {
+		req.Header.Set("Accept", contentTypeHttpRequestBatch+", "+contentTypeHttpRequest)
 	}
 
 	resp, err := remote.Do(req)
@@ -305,13 +325,22 @@ func (c *Client) getRequest(ctx context.Context, remote *http.Client, relayURL s
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("server status %s: %s", http.StatusText(resp.StatusCode), string(body))
 	}
+
+	if isBatchContentType(resp.Header.Get("Content-Type")) {
+		var batch pb.HttpRequestBatch
+		if err := proto.Unmarshal(body, &batch); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal request batch: %v. request was: %q", err, string(body))
+		}
+		return batch.Requests, nil
+	}
+
 	breq := pb.HttpRequest{}
 	err = proto.Unmarshal(body, &breq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal request: %v. request was: %q", err, string(body))
 	}
 
-	return &breq, nil
+	return []*pb.HttpRequest{&breq}, nil
 }
 
 func marshalHeader(h *http.Header) []*pb.HttpHeader {
@@ -729,10 +758,10 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 }
 
 func (c *Client) localProxy(ctx context.Context, remote, local *http.Client) error {
-	// Read pending request from the relay-server.
+	// Read pending requests from the relay-server.
 	relayURL := c.buildRelayURL()
 
-	var req *pb.HttpRequest = nil
+	var reqs []*pb.HttpRequest
 
 	exponentialBackoff := backoff.ExponentialBackOff{
 		InitialInterval:     100 * time.Millisecond,
@@ -745,7 +774,7 @@ func (c *Client) localProxy(ctx context.Context, remote, local *http.Client) err
 
 	err := backoff.RetryNotify(func() error {
 		var err error
-		req, err = c.getRequest(ctx, remote, relayURL)
+		reqs, err = c.getRequests(ctx, remote, relayURL)
 		if errors.Is(err, ErrTimeout) {
 			return backoff.Permanent(err)
 		}
@@ -766,10 +795,12 @@ func (c *Client) localProxy(ctx context.Context, remote, local *http.Client) err
 		return err
 	}
 
-	// Forward the request to the backend.
-	c.wg.Go(func() {
-		c.handleRequest(ctx, remote, local, req)
-	})
+	// Forward each request in the batch concurrently to the backend.
+	for _, req := range reqs {
+		c.wg.Go(func() {
+			c.handleRequest(ctx, remote, local, req)
+		})
+	}
 	return nil
 }
 

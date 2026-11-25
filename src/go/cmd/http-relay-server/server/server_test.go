@@ -26,6 +26,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	pb "github.com/googlecloudrobotics/core/src/proto/http-relay"
@@ -716,6 +717,12 @@ func TestNewServerConfig(t *testing.T) {
 		if s.conf.InactiveRequestTimeout != DefaultInactiveRequestTimeout {
 			t.Errorf("Expected InactiveRequestTimeout %v, got %v", DefaultInactiveRequestTimeout, s.conf.InactiveRequestTimeout)
 		}
+		if s.conf.MaxBatchSize != DefaultMaxBatchSize {
+			t.Errorf("Expected MaxBatchSize %d, got %d", DefaultMaxBatchSize, s.conf.MaxBatchSize)
+		}
+		if s.conf.MaxBatchBytes != DefaultMaxBatchBytes {
+			t.Errorf("Expected MaxBatchBytes %d, got %d", DefaultMaxBatchBytes, s.conf.MaxBatchBytes)
+		}
 	})
 
 	t.Run("custom config", func(t *testing.T) {
@@ -723,6 +730,8 @@ func TestNewServerConfig(t *testing.T) {
 			Port:                   8080,
 			BlockSize:              1024,
 			InactiveRequestTimeout: 10 * time.Second,
+			MaxBatchSize:           1,
+			MaxBatchBytes:          4096,
 		}
 		s := NewServer(conf)
 		if s.conf.Port != 8080 {
@@ -733,6 +742,12 @@ func TestNewServerConfig(t *testing.T) {
 		}
 		if s.conf.InactiveRequestTimeout != 10*time.Second {
 			t.Errorf("Expected InactiveRequestTimeout 10s, got %v", s.conf.InactiveRequestTimeout)
+		}
+		if s.conf.MaxBatchSize != 1 {
+			t.Errorf("Expected MaxBatchSize 1, got %d", s.conf.MaxBatchSize)
+		}
+		if s.conf.MaxBatchBytes != 4096 {
+			t.Errorf("Expected MaxBatchBytes 4096, got %d", s.conf.MaxBatchBytes)
 		}
 	})
 
@@ -837,4 +852,136 @@ func TestResponseFilterChunking(t *testing.T) {
 	if more {
 		t.Error("Expected chunks channel to be closed")
 	}
+}
+
+func TestServerRequestBatchNegotiation(t *testing.T) {
+	t.Run("batched when client accepts batch", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			s := NewServer(Config{MaxBatchSize: 10})
+			s.b.req["b"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+
+			var wg sync.WaitGroup
+			for i := range 3 {
+				id := fmt.Sprintf("b:%d", i)
+				wg.Go(func() {
+					if _, err := s.b.RelayRequest("b", &pb.HttpRequest{
+						Id:     proto.String(id),
+						Method: proto.String("GET"),
+						Url:    proto.String("http://invalid/" + id),
+					}); err != nil {
+						t.Errorf("RelayRequest(%s) failed: %v", id, err)
+					}
+				})
+			}
+			synctest.Wait()
+
+			req := httptest.NewRequest("GET", "/server/request?server=b", nil)
+			req.Header.Set("Accept", contentTypeHttpRequestBatch+", "+contentTypeHttpRequest)
+			rec := httptest.NewRecorder()
+			s.serverRequest(rec, req)
+			wg.Wait()
+
+			res := rec.Result()
+			if res.StatusCode != http.StatusOK {
+				t.Fatalf("status = %d, want 200", res.StatusCode)
+			}
+			if got := res.Header.Get("Content-Type"); got != contentTypeHttpRequestBatch {
+				t.Fatalf("Content-Type = %q, want %q", got, contentTypeHttpRequestBatch)
+			}
+			body, err := io.ReadAll(res.Body)
+			if err != nil {
+				t.Fatalf("ReadAll: %v", err)
+			}
+			var batch pb.HttpRequestBatch
+			if err := proto.Unmarshal(body, &batch); err != nil {
+				t.Fatalf("Unmarshal batch: %v", err)
+			}
+			if len(batch.Requests) != 3 {
+				t.Fatalf("got %d requests in batch, want 3", len(batch.Requests))
+			}
+		})
+	})
+
+	t.Run("single request when server disables batching", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			s := NewServer(Config{MaxBatchSize: 1})
+			s.b.req["b"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+
+			var wg sync.WaitGroup
+			for i := range 2 {
+				id := fmt.Sprintf("b:%d", i)
+				wg.Go(func() {
+					if _, err := s.b.RelayRequest("b", &pb.HttpRequest{
+						Id:     proto.String(id),
+						Method: proto.String("GET"),
+						Url:    proto.String("http://invalid/" + id),
+					}); err != nil {
+						t.Errorf("RelayRequest(%s) failed: %v", id, err)
+					}
+				})
+			}
+			synctest.Wait()
+
+			for range 2 {
+				req := httptest.NewRequest("GET", "/server/request?server=b", nil)
+				req.Header.Set("Accept", contentTypeHttpRequestBatch)
+				rec := httptest.NewRecorder()
+				s.serverRequest(rec, req)
+
+				res := rec.Result()
+				if res.StatusCode != http.StatusOK {
+					t.Fatalf("status = %d, want 200", res.StatusCode)
+				}
+				if got := res.Header.Get("Content-Type"); got != contentTypeHttpRequest {
+					t.Fatalf("Content-Type = %q, want %q", got, contentTypeHttpRequest)
+				}
+				body, _ := io.ReadAll(res.Body)
+				var single pb.HttpRequest
+				if err := proto.Unmarshal(body, &single); err != nil {
+					t.Fatalf("Unmarshal single request: %v", err)
+				}
+				if single.GetId() == "" {
+					t.Errorf("expected non-empty request ID")
+				}
+			}
+			wg.Wait()
+		})
+	})
+
+	t.Run("single request for legacy client without Accept header", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			s := NewServer(Config{MaxBatchSize: 10})
+			s.b.req["b"] = &backendState{reqChan: make(chan *pb.HttpRequest), lastActivity: time.Now()}
+
+			var wg sync.WaitGroup
+			for i := range 2 {
+				id := fmt.Sprintf("b:%d", i)
+				wg.Go(func() {
+					if _, err := s.b.RelayRequest("b", &pb.HttpRequest{
+						Id:     proto.String(id),
+						Method: proto.String("GET"),
+						Url:    proto.String("http://invalid/" + id),
+					}); err != nil {
+						t.Errorf("RelayRequest(%s) failed: %v", id, err)
+					}
+				})
+			}
+			synctest.Wait()
+
+			for range 2 {
+				req := httptest.NewRequest("GET", "/server/request?server=b", nil)
+				rec := httptest.NewRecorder()
+				s.serverRequest(rec, req)
+
+				res := rec.Result()
+				if res.StatusCode != http.StatusOK {
+					t.Fatalf("status = %d, want 200", res.StatusCode)
+				}
+				if got := res.Header.Get("Content-Type"); got != contentTypeHttpRequest {
+					t.Fatalf("Content-Type = %q, want %q", got, contentTypeHttpRequest)
+				}
+			}
+			wg.Wait()
+		})
+	})
 }

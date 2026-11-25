@@ -52,6 +52,10 @@ var (
 		"Timeout for inactive requests. In particular, this sets a limit on how long the backend can wait before writing headers and the response status.")
 	inactiveBackendTimeout = flag.Duration("inactive_backend_timeout", server.DefaultInactiveBackendTimeout,
 		"Timeout for inactive backends. Backends (robots) that have not shown any activity for this duration will be cleaned up along with their metrics.")
+	maxBatchSize = flag.Int("max_batch_size", server.DefaultMaxBatchSize,
+		"Maximum number of queued requests to return in a single /server/request response when the relay client supports batching. Set to 1 to disable batching.")
+	maxBatchBytes = flag.Int("max_batch_bytes", server.DefaultMaxBatchBytes,
+		"Soft byte limit for a single /server/request batch response.")
 	pprofPort = flag.Int("pprof_port", 0, "If non-zero, serves pprof endpoints on this port.")
 )
 
@@ -89,6 +93,8 @@ func main() {
 		BlockSize:              *blockSize,
 		InactiveRequestTimeout: *inactiveRequestTimeout,
 		InactiveBackendTimeout: *inactiveBackendTimeout,
+		MaxBatchSize:           *maxBatchSize,
+		MaxBatchBytes:          *maxBatchBytes,
 	})
 	server.Start(ctx)
 }

@@ -25,7 +25,8 @@ For the complete architecture, sequence diagrams, and scalability considerations
 - `--max_chunk_size`: Maximum size of data in bytes to accumulate before sending to the peer (default: `51200`).
 - `--block_size`: Size of I/O buffer in bytes (default: `10240`).
 - `--num_pending_requests`: Number of concurrent pending poll requests to maintain with the relay server (default: `1`).
-- `--max_idle_conns_per_host`: Maximum number of idle (keep-alive) connections to keep per host (default: `50`).
+- `--max_idle_conns_per_host`: Maximum number of idle (keep-alive) connections to keep per host (default: `100`).
+- `--enable_request_batching`: Advertise support for batched `/server/request` responses from the relay server (default: `true`).
 - `--disable_http2`: Disable HTTP/2 protocol usage (e.g. for channels that require HTTP/1.1 protocol upgrades such as SPDY) (default: `false`).
 - `--force_http2`: Force HTTP/2 transport usage (e.g. when relaying cleartext gRPC) (default: `false`).
 - `--disable_auth_for_remote`: Disable authentication when talking to the relay server for local testing (default: `false`).

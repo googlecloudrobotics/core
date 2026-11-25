@@ -20,6 +20,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -329,4 +330,158 @@ func TestBuildResponsesTimesOut(t *testing.T) {
 	if resp.Eof == nil || !*resp.Eof {
 		t.Errorf("resp.Eof = %v; want true", resp.Eof)
 	}
+}
+
+func TestLocalProxyBatch(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		timeSince = func(t time.Time) time.Duration { return 0 * time.Millisecond }
+
+		batchPayload, err := proto.Marshal(&pb.HttpRequestBatch{
+			Requests: []*pb.HttpRequest{
+				{
+					Id:     proto.String("1"),
+					Method: proto.String("GET"),
+					Url:    proto.String("http://invalid/first"),
+				},
+				{
+					Id:     proto.String("2"),
+					Method: proto.String("GET"),
+					Url:    proto.String("http://invalid/second"),
+				},
+				{
+					Id:     proto.String("3"),
+					Method: proto.String("GET"),
+					Url:    proto.String("http://invalid/third"),
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("marshal batch: %v", err)
+		}
+
+		var mu sync.Mutex
+		pollCount := 0
+		postedResponses := make(map[string]string)
+		relayTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				if req.Method == "GET" && req.URL.Path == "/server/request" {
+					mu.Lock()
+					pollCount++
+					mu.Unlock()
+					if !strings.Contains(req.Header.Get("Accept"), contentTypeHttpRequestBatch) {
+						t.Errorf("expected Accept header to advertise batch support, got %q", req.Header.Get("Accept"))
+					}
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Header:     http.Header{"Content-Type": []string{contentTypeHttpRequestBatch}},
+						Body:       io.NopCloser(bytes.NewReader(batchPayload)),
+					}, nil
+				}
+				if req.Method == "POST" && req.URL.Path == "/server/response" {
+					body, _ := io.ReadAll(req.Body)
+					var resp pb.HttpResponse
+					if err := proto.Unmarshal(body, &resp); err != nil {
+						t.Errorf("unmarshal response: %v", err)
+					}
+					mu.Lock()
+					postedResponses[resp.GetId()] = string(resp.Body)
+					mu.Unlock()
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader("ok")),
+					}, nil
+				}
+				t.Errorf("unexpected relay request: %s %s", req.Method, req.URL.Path)
+				return nil, fmt.Errorf("unexpected request")
+			},
+		}
+
+		backendTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("echo:" + req.URL.Path)),
+				}, nil
+			},
+		}
+
+		config := DefaultClientConfig()
+		config.ServerName = "foo"
+		c := NewClient(config)
+
+		err = c.localProxy(t.Context(), &http.Client{Transport: relayTransport}, &http.Client{Transport: backendTransport})
+		if err != nil {
+			t.Fatalf("localProxy failed: %v", err)
+		}
+
+		synctest.Wait()
+
+		mu.Lock()
+		defer mu.Unlock()
+		if pollCount != 1 {
+			t.Errorf("expected 1 poll request, got %d", pollCount)
+		}
+		want := map[string]string{
+			"1": "echo:/first",
+			"2": "echo:/second",
+			"3": "echo:/third",
+		}
+		if len(postedResponses) != len(want) {
+			t.Fatalf("got %d responses (%v), want %d", len(postedResponses), postedResponses, len(want))
+		}
+		for id, wantBody := range want {
+			if got := postedResponses[id]; got != wantBody {
+				t.Errorf("response[%s] = %q, want %q", id, got, wantBody)
+			}
+		}
+	})
+}
+
+func TestLocalProxyBatchDisabled(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		timeSince = func(t time.Time) time.Duration { return 0 * time.Millisecond }
+
+		reqPayload, _ := proto.Marshal(&pb.HttpRequest{
+			Id:     proto.String("1"),
+			Method: proto.String("GET"),
+			Url:    proto.String("http://invalid/single"),
+		})
+
+		relayTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				if req.Method == "GET" && req.URL.Path == "/server/request" {
+					if req.Header.Get("Accept") != "" {
+						t.Errorf("expected empty Accept header when batching disabled, got %q", req.Header.Get("Accept"))
+					}
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Header:     http.Header{"Content-Type": []string{contentTypeHttpRequest}},
+						Body:       io.NopCloser(bytes.NewReader(reqPayload)),
+					}, nil
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("ok")),
+				}, nil
+			},
+		}
+		backendTransport := &mockTransport{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("ok")),
+				}, nil
+			},
+		}
+
+		config := DefaultClientConfig()
+		config.ServerName = "foo"
+		config.EnableRequestBatching = false
+		c := NewClient(config)
+
+		if err := c.localProxy(t.Context(), &http.Client{Transport: relayTransport}, &http.Client{Transport: backendTransport}); err != nil {
+			t.Fatalf("localProxy failed: %v", err)
+		}
+		synctest.Wait()
+	})
 }
