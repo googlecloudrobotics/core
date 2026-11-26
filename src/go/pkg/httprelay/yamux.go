@@ -17,8 +17,10 @@
 package httprelay
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/yamux"
@@ -45,16 +47,27 @@ func YamuxConfig() *yamux.Config {
 	return cfg
 }
 
+// yamuxLogger forwards yamux log lines to slog. Lines yamux tags as errors,
+// such as a failed keepalive that tears down the session and all its streams,
+// are logged as warnings; everything else is debug output.
 type yamuxLogger struct{}
 
 func (yamuxLogger) Print(v ...any) {
-	slog.Debug("yamux", slog.String("msg", fmt.Sprint(v...)))
+	logYamux(fmt.Sprint(v...))
 }
 
 func (yamuxLogger) Printf(format string, v ...any) {
-	slog.Debug("yamux", slog.String("msg", fmt.Sprintf(format, v...)))
+	logYamux(fmt.Sprintf(format, v...))
 }
 
 func (yamuxLogger) Println(v ...any) {
-	slog.Debug("yamux", slog.String("msg", fmt.Sprintln(v...)))
+	logYamux(fmt.Sprint(v...))
+}
+
+func logYamux(msg string) {
+	level := slog.LevelDebug
+	if strings.HasPrefix(msg, "[ERR]") {
+		level = slog.LevelWarn
+	}
+	slog.Log(context.Background(), level, "yamux", slog.String("msg", msg))
 }
