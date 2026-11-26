@@ -88,6 +88,52 @@ sequenceDiagram
 
 The relay-client side implementation is in `../http-relay-client`.
 
+### WebSocket tunnel
+
+With polling, the relay-server reads the whole request body before the
+relay-client sees the request. Requests that keep their body open while they
+read the response (client-streaming and interactive bidirectional gRPC) do not
+work that way.
+
+With `--ws_wire` the relay-server also accepts one persistent WebSocket per
+relay-client on `/server/ws?server=$foo`. Both sides multiplex streams over it
+with [yamux](https://github.com/hashicorp/yamux). The relay-server opens one
+stream per user-client request and proxies the request over it as HTTP/1.1, so
+request and response bodies are streamed in both directions.
+
+The relay-client keeps polling as well. For each request, the relay-server uses
+the tunnel if the backend has one and polling otherwise, so relay-clients and
+relay-servers with and without the tunnel work together.
+
+#### What changes for requests that use the tunnel
+
+The tunnel trades some of the robustness of polling for streaming:
+
+- **Shared fate.** All requests of a backend share one TCP connection. When it
+  is cut (gateway restart, network change, missed keepalive), every in-flight
+  request of that backend fails, including long-lived ones such as
+  `kubectl logs -f`. With polling, each chunk is a separate HTTP request that
+  is retried, so such requests survive short interruptions.
+- **Silent fallback.** While the tunnel is down, requests use polling, and
+  streaming requests hang as they do without the tunnel. The relay-client
+  reconnects with a backoff of 1s to 1min.
+- **Shutdown.** When the relay-server shuts down, in-flight tunnel requests are
+  cancelled at once with `502`. Polling requests get up to 20s to finish.
+- **Timeouts and errors.** `--inactive_request_timeout` does not apply: a
+  request waits for the backend for as long as the user-client does. Tunnel
+  failures are reported as `502`, not `504`.
+- **Several relay-clients with one name.** The relay-client that connected last
+  gets all new requests. With polling they share them.
+- **Authentication.** The relay-client authenticates when it opens the tunnel,
+  not for each request.
+- **Metrics.** The `broker_*` metrics only count polling requests.
+- **Memory.** Each open request can buffer up to 4 MiB on the receiving side
+  when the reader is slower than the tunnel. The relay-client's
+  `--max_chunk_size` and `--block_size` do not apply.
+- **Proxies.** Proxies between relay-client and relay-server must allow
+  WebSocket upgrades on `/server/ws` and long-lived connections. The tunnel
+  sends a keepalive every 20s.
+
 ## Tested capabilities
 
 The http-relay-server was originally designed as a way to use kubectl against remote clusters.
@@ -106,6 +152,7 @@ It has been tested with the following traffic:
 - `--port`: Port number to listen on (default: 80).
 - `--block_size`: Size of i/o buffer in bytes (default: 10240).
 - `--inactive_request_timeout`: Timeout for inactive requests (default: 60s). In particular, this sets a limit on how long the backend can wait before writing headers and the response status.
+- `--ws_wire`: Accept WebSocket tunnels from relay clients (default: true). If false, relay clients fall back to polling. See [WebSocket tunnel](#websocket-tunnel).
 
 ## Configuration
 

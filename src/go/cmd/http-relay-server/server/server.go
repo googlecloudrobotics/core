@@ -79,11 +79,15 @@ type Config struct {
 	InactiveRequestTimeout time.Duration
 	// InactiveBackendTimeout is the timeout for inactive backends.
 	InactiveBackendTimeout time.Duration
+	// WSWire lets relay clients connect over a WebSocket yamux tunnel. Without
+	// it they fall back to HTTP polling.
+	WSWire bool
 }
 
 type Server struct {
 	conf Config
 	b    *broker
+	ws   *wsRelay
 }
 
 func NewServer(conf Config) *Server {
@@ -102,6 +106,7 @@ func NewServer(conf Config) *Server {
 	s := &Server{
 		conf: conf,
 		b:    newBroker(),
+		ws:   newWSRelay(),
 	}
 	return s
 }
@@ -384,6 +389,11 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if sess := s.ws.session(backendCtx.ServerName); sess != nil {
+		s.ws.serveHTTP(ctx, w, r, *backendCtx, sess)
+		return
+	}
+
 	body, err := s.readRequestBody(ctx, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -562,6 +572,11 @@ func (s *Server) serverResponse(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Relay client sent response", slog.String("ID", *br.Id))
 }
 
+// HasWSSession reports whether server currently has an active WebSocket tunnel.
+func (s *Server) HasWSSession(server string) bool {
+	return s.ws.session(server) != nil
+}
+
 func (s *Server) Start(ctx context.Context) {
 	addr := fmt.Sprintf(":%d", s.conf.Port)
 	ln, err := net.Listen("tcp", addr)
@@ -579,6 +594,13 @@ func (s *Server) Handler() http.Handler {
 	h.HandleFunc("/server/request", s.serverRequest)
 	h.HandleFunc("/server/requeststream", s.serverRequestStream)
 	h.HandleFunc("/server/response", s.serverResponse)
+	if s.conf.WSWire {
+		h.HandleFunc(wsPath, s.ws.handleConnect)
+	} else {
+		h.HandleFunc(wsPath, func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "WebSocket relay disabled", http.StatusNotFound)
+		})
+	}
 	h.Handle("/metrics", promhttp.Handler())
 
 	h2s := &http2.Server{}

@@ -7,12 +7,16 @@ go_library(
     srcs = [
         "broker.go",
         "server.go",
+        "ws.go",
     ],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server/server",
     deps = [
+        "//src/go/pkg/httprelay:go_default_library",
         "//src/go/pkg/telemetry:go_default_library",
         "//src/proto/http-relay:go_default_library",
+        "@com_github_coder_websocket//:websocket",
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
+        "@com_github_hashicorp_yamux//:yamux",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
         "@io_opentelemetry_go_contrib_instrumentation_net_http_otelhttp//:go_default_library",
@@ -32,12 +36,16 @@ go_test(
     srcs = [
         "broker_test.go",
         "server_test.go",
+        "ws_test.go",
     ],
     embed = [":go_default_library"],
     visibility = ["//visibility:private"],
     deps = [
+        "//src/go/pkg/httprelay:go_default_library",
         "//src/proto/http-relay:go_default_library",
+        "@com_github_coder_websocket//:websocket",
         "@com_github_getlantern_httptest//:go_default_library",
+        "@com_github_hashicorp_yamux//:yamux",
         "@org_golang_google_protobuf//proto:go_default_library",
     ],
 )
