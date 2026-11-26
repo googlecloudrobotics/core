@@ -94,6 +94,7 @@ type ClientConfig struct {
 
 	DisableHttp2 bool
 	ForceHttp2   bool
+	WSWire       bool
 }
 
 type RelayServerError struct {
@@ -144,12 +145,14 @@ func DefaultClientConfig() ClientConfig {
 
 		DisableHttp2: false,
 		ForceHttp2:   false,
+		WSWire:       true,
 	}
 }
 
 type Client struct {
 	config ClientConfig
 	wg     sync.WaitGroup
+	ws     *wsRelay
 }
 
 func NewClient(config ClientConfig) *Client {
@@ -260,10 +263,23 @@ func (c *Client) Start(ctx context.Context) {
 		),
 	}
 
+	if c.config.WSWire {
+		c.ws, err = newWSRelay(ctx, c.config, local.Transport)
+		if err != nil {
+			slog.Error("unable to set up WebSocket relay client", ilog.Err(err))
+			os.Exit(1)
+		}
+	}
+
 	c.StartWithClients(ctx, remote, local)
 }
 
 func (c *Client) StartWithClients(ctx context.Context, remote, local *http.Client) {
+	if c.ws != nil {
+		c.wg.Go(func() {
+			c.ws.run(ctx)
+		})
+	}
 	for i := 0; i < c.config.NumPendingRequests; i++ {
 		c.wg.Go(func() {
 			c.localProxyWorker(ctx, remote, local)

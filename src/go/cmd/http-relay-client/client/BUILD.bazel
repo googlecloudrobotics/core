@@ -4,13 +4,19 @@ package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "go_default_library",
-    srcs = ["client.go"],
+    srcs = [
+        "client.go",
+        "ws.go",
+    ],
     importpath = "github.com/googlecloudrobotics/core/src/go/cmd/http-relay-client/client",
     deps = [
+        "//src/go/pkg/httprelay:go_default_library",
         "//src/go/pkg/telemetry:go_default_library",
         "//src/proto/http-relay:go_default_library",
         "@com_github_cenkalti_backoff_v4//:go_default_library",
+        "@com_github_coder_websocket//:websocket",
         "@com_github_googlecloudrobotics_ilog//:go_default_library",
+        "@com_github_hashicorp_yamux//:yamux",
         "@io_opentelemetry_go_contrib_instrumentation_net_http_otelhttp//:go_default_library",
         "@io_opentelemetry_go_otel//:go_default_library",
         "@io_opentelemetry_go_otel//propagation:go_default_library",
@@ -24,7 +30,10 @@ go_library(
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = ["client_test.go"],
+    srcs = [
+        "client_test.go",
+        "ws_test.go",
+    ],
     embed = [":go_default_library"],
     visibility = ["//visibility:private"],
     deps = [

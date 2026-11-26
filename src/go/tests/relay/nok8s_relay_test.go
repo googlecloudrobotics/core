@@ -55,6 +55,7 @@ var (
 	}
 	RelayServerArgs = []string{
 		"--port=0",
+		"--ws_wire=false",
 	}
 	rsPortMatcher = regexp.MustCompile(`Relay server listening.*"Port":(\d+)`)
 )
