@@ -17,11 +17,13 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"sync"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/googlecloudrobotics/core/src/go/pkg/httprelay"
@@ -34,6 +36,13 @@ const (
 	// WebSocket upgrades to http-relay-server without config changes.
 	wsPath = "/server/ws"
 
+	// streamCloseTimeout is how long a stream that this side closed may wait
+	// for the relay client to close its side before it is reset. This side
+	// only closes a stream when it is done with it, so a short timeout frees
+	// the relay client's blocked writes and the buffered data of an abandoned
+	// request (yamux's default is 5 minutes).
+	streamCloseTimeout = 10 * time.Second
+
 	proxyReadBufferSize = 64 * 1024
 )
 
@@ -44,40 +53,19 @@ var preservedForwardHeaders = []string{
 	"X-Forwarded-Proto",
 }
 
+// grpcStatusHeaders carry the status of a gRPC Trailers-Only response.
+var grpcStatusHeaders = []string{
+	"Grpc-Status",
+	"Grpc-Message",
+	"Grpc-Status-Details-Bin",
+}
+
 type targetKey struct{}
 
 type proxyTarget struct {
 	server string
 	path   string
 	sess   *yamux.Session
-	state  *requestConnState
-}
-
-type requestConnState struct {
-	mu      sync.Mutex
-	aborted bool
-	conn    net.Conn
-}
-
-func (st *requestConnState) attach(conn net.Conn) bool {
-	st.mu.Lock()
-	defer st.mu.Unlock()
-	if st.aborted {
-		_ = conn.Close()
-		return false
-	}
-	st.conn = conn
-	return true
-}
-
-func (st *requestConnState) close() {
-	st.mu.Lock()
-	st.aborted = true
-	conn := st.conn
-	st.mu.Unlock()
-	if conn != nil {
-		_ = conn.Close()
-	}
 }
 
 // wsRelay accepts inbound WebSocket connections from http-relay-client, wraps
@@ -86,15 +74,13 @@ func (st *requestConnState) close() {
 type wsRelay struct {
 	proxy *httputil.ReverseProxy
 
-	mu          sync.Mutex
-	sessions    map[string]*yamux.Session
-	allSessions map[*yamux.Session]struct{}
+	mu       sync.Mutex
+	sessions map[string]*yamux.Session
 }
 
 func newWSRelay() *wsRelay {
 	w := &wsRelay{
-		sessions:    make(map[string]*yamux.Session),
-		allSessions: make(map[*yamux.Session]struct{}),
+		sessions: make(map[string]*yamux.Session),
 	}
 	transport := &http.Transport{
 		DialContext:        w.dialStream,
@@ -118,15 +104,41 @@ func newWSRelay() *wsRelay {
 			pr.Out.URL.RawPath = ""
 			pr.Out.Host = pr.In.Host
 		},
-		ErrorHandler: func(rw http.ResponseWriter, _ *http.Request, err error) {
-			if errors.Is(err, context.Canceled) {
-				return
+		ModifyResponse: moveGRPCStatusToTrailers,
+		ErrorHandler: func(rw http.ResponseWriter, r *http.Request, err error) {
+			if !errors.Is(err, context.Canceled) {
+				target, _ := r.Context().Value(targetKey{}).(proxyTarget)
+				slog.Error("WebSocket relay proxy error", slog.String("ServerName", target.server), ilog.Err(err))
 			}
-			slog.Error("WebSocket relay proxy error", ilog.Err(err))
+			// Always answer: the user client can still be connected when the
+			// request is cancelled, e.g. because this server is shutting down.
 			http.Error(rw, err.Error(), http.StatusBadGateway)
 		},
 	}
 	return w
+}
+
+// moveGRPCStatusToTrailers turns a gRPC Trailers-Only response (status in the
+// headers, no body) into headers followed by trailers. The proxy flushes the
+// headers before it knows that the body is empty, and the user client would
+// then get headers plus an empty DATA frame and report "server closed the
+// stream without sending trailers" instead of the real status.
+func moveGRPCStatusToTrailers(res *http.Response) error {
+	if res.Header.Get("Grpc-Status") == "" {
+		return nil
+	}
+	if res.Trailer == nil {
+		res.Trailer = http.Header{}
+	}
+	for _, h := range grpcStatusHeaders {
+		if v, ok := res.Header[h]; ok {
+			res.Trailer[h] = v
+			res.Header.Del(h)
+		}
+	}
+	// A response with a declared length cannot carry trailers over HTTP/1.1.
+	res.Header.Del("Content-Length")
+	return nil
 }
 
 func (w *wsRelay) handleConnect(rw http.ResponseWriter, r *http.Request) {
@@ -136,18 +148,17 @@ func (w *wsRelay) handleConnect(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ws, err := websocket.Accept(rw, r, &websocket.AcceptOptions{
-		InsecureSkipVerify: true,
-	})
+	ws, err := websocket.Accept(rw, r, nil)
 	if err != nil {
 		slog.Error("Failed to accept relay WebSocket", slog.String("ServerName", server), ilog.Err(err))
 		return
 	}
-	// Do not bind websocket.NetConn to r.Context(), which is invalid after
-	// Accept hijacks the underlying connection. Server shutdown closes sessions
-	// via closeAll() after active requests drain.
-	nc := websocket.NetConn(context.Background(), ws, websocket.MessageBinary)
-	sess, err := yamux.Client(nc, httprelay.YamuxConfig())
+	// The request context stays valid until this handler returns and ends when
+	// the server shuts down, which closes the tunnel.
+	nc := websocket.NetConn(r.Context(), ws, websocket.MessageBinary)
+	cfg := httprelay.YamuxConfig()
+	cfg.StreamCloseTimeout = streamCloseTimeout
+	sess, err := yamux.Client(nc, cfg)
 	if err != nil {
 		slog.Error("Failed to create yamux session", slog.String("ServerName", server), ilog.Err(err))
 		_ = nc.Close()
@@ -159,15 +170,17 @@ func (w *wsRelay) handleConnect(rw http.ResponseWriter, r *http.Request) {
 
 	<-sess.CloseChan()
 	w.unregisterSession(server, sess)
+	slog.Warn("Relay client WebSocket tunnel closed", slog.String("ServerName", server))
 }
 
 func (w *wsRelay) registerSession(server string, sess *yamux.Session) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	// Swap in the new session without closing any previous one so in-flight
-	// streams on an older session can finish draining during reconnects.
+	// A relay client closes its session before it reconnects, so a previous
+	// live session belongs to another relay client process with the same name
+	// (e.g. during a rolling restart). It is not closed here: it keeps serving
+	// its open streams while new requests go to the newest session.
 	w.sessions[server] = sess
-	w.allSessions[sess] = struct{}{}
 }
 
 func (w *wsRelay) unregisterSession(server string, sess *yamux.Session) {
@@ -176,13 +189,9 @@ func (w *wsRelay) unregisterSession(server string, sess *yamux.Session) {
 	if w.sessions[server] == sess {
 		delete(w.sessions, server)
 	}
-	delete(w.allSessions, sess)
 }
 
-func (w *wsRelay) hasSession(server string) bool {
-	return w.session(server) != nil
-}
-
+// session returns the live session for server, or nil if it has none.
 func (w *wsRelay) session(server string) *yamux.Session {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -193,21 +202,6 @@ func (w *wsRelay) session(server string) *yamux.Session {
 	return sess
 }
 
-func (w *wsRelay) closeAll() {
-	w.mu.Lock()
-	sessions := make([]*yamux.Session, 0, len(w.allSessions))
-	for sess := range w.allSessions {
-		sessions = append(sessions, sess)
-	}
-	clear(w.sessions)
-	clear(w.allSessions)
-	w.mu.Unlock()
-
-	for _, sess := range sessions {
-		_ = sess.Close()
-	}
-}
-
 func (w *wsRelay) dialStream(ctx context.Context, _, _ string) (net.Conn, error) {
 	target, ok := ctx.Value(targetKey{}).(proxyTarget)
 	if !ok {
@@ -216,19 +210,11 @@ func (w *wsRelay) dialStream(ctx context.Context, _, _ string) (net.Conn, error)
 
 	stream, err := target.sess.Open()
 	if err != nil {
-		w.unregisterSession(target.server, target.sess)
-		next := w.session(target.server)
-		if next == nil || next == target.sess {
-			return nil, err
-		}
-		stream, err = next.Open()
-		if err != nil {
-			w.unregisterSession(target.server, next)
-			return nil, err
-		}
-	}
-	if !target.state.attach(stream) {
-		return nil, ctx.Err()
+		// yamux can fail to open a stream and keep the session alive, e.g.
+		// after a write timeout. Close it so that the relay client reconnects
+		// instead of keeping a tunnel that is no longer used.
+		go target.sess.Close()
+		return nil, fmt.Errorf("opening stream to relay client %q: %w", target.server, err)
 	}
 	return stream, nil
 }
@@ -236,18 +222,10 @@ func (w *wsRelay) dialStream(ctx context.Context, _, _ string) (net.Conn, error)
 func (w *wsRelay) serveHTTP(ctx context.Context, rw http.ResponseWriter, r *http.Request, backendCtx backendContext, sess *yamux.Session) {
 	_ = http.NewResponseController(rw).EnableFullDuplex()
 
-	state := &requestConnState{}
-	stopAbort := context.AfterFunc(ctx, state.close)
-	defer func() {
-		stopAbort()
-		state.close()
-	}()
-
-	reqCtx := context.WithValue(ctx, targetKey{}, proxyTarget{
+	ctx = context.WithValue(ctx, targetKey{}, proxyTarget{
 		server: backendCtx.ServerName,
 		path:   backendCtx.Path,
 		sess:   sess,
-		state:  state,
 	})
-	w.proxy.ServeHTTP(rw, r.WithContext(reqCtx))
+	w.proxy.ServeHTTP(rw, r.WithContext(ctx))
 }

@@ -53,7 +53,7 @@ var (
 	inactiveBackendTimeout = flag.Duration("inactive_backend_timeout", server.DefaultInactiveBackendTimeout,
 		"Timeout for inactive backends. Backends (robots) that have not shown any activity for this duration will be cleaned up along with their metrics.")
 	pprofPort = flag.Int("pprof_port", 0, "If non-zero, serves pprof endpoints on this port.")
-	wsWire    = flag.Bool("ws_wire", true, "Enable WebSocket yamux tunnel for relay clients (set false to force HTTP polling fallback).")
+	wsWire    = flag.Bool("ws_wire", true, "Accept WebSocket yamux tunnels from relay clients. If false, relay clients fall back to HTTP polling.")
 )
 
 func main() {
@@ -90,7 +90,7 @@ func main() {
 		BlockSize:              *blockSize,
 		InactiveRequestTimeout: *inactiveRequestTimeout,
 		InactiveBackendTimeout: *inactiveBackendTimeout,
-		DisableWSWire:          !*wsWire,
+		WSWire:                 *wsWire,
 	})
 	server.Start(ctx)
 }
