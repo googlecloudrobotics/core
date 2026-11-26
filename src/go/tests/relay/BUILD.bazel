@@ -47,7 +47,9 @@ go_test(
         "//src/go/cmd/http-relay-client/client:go_default_library",
         "//src/go/cmd/http-relay-server/server:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//metadata:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
     ],
 )
 

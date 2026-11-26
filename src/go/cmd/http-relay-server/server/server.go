@@ -79,9 +79,9 @@ type Config struct {
 	InactiveRequestTimeout time.Duration
 	// InactiveBackendTimeout is the timeout for inactive backends.
 	InactiveBackendTimeout time.Duration
-	// DisableWSWire disables the WebSocket yamux tunnel and forces legacy HTTP
-	// polling fallback.
-	DisableWSWire bool
+	// WSWire lets relay clients connect over a WebSocket yamux tunnel. Without
+	// it they fall back to HTTP polling.
+	WSWire bool
 }
 
 type Server struct {
@@ -389,11 +389,9 @@ func (s *Server) userClientRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !s.conf.DisableWSWire {
-		if sess := s.ws.session(backendCtx.ServerName); sess != nil {
-			s.ws.serveHTTP(ctx, w, r, *backendCtx, sess)
-			return
-		}
+	if sess := s.ws.session(backendCtx.ServerName); sess != nil {
+		s.ws.serveHTTP(ctx, w, r, *backendCtx, sess)
+		return
 	}
 
 	body, err := s.readRequestBody(ctx, r)
@@ -576,7 +574,7 @@ func (s *Server) serverResponse(w http.ResponseWriter, r *http.Request) {
 
 // HasWSSession reports whether server currently has an active WebSocket tunnel.
 func (s *Server) HasWSSession(server string) bool {
-	return !s.conf.DisableWSWire && s.ws.hasSession(server)
+	return s.ws.session(server) != nil
 }
 
 func (s *Server) Start(ctx context.Context) {
@@ -596,12 +594,12 @@ func (s *Server) Handler() http.Handler {
 	h.HandleFunc("/server/request", s.serverRequest)
 	h.HandleFunc("/server/requeststream", s.serverRequestStream)
 	h.HandleFunc("/server/response", s.serverResponse)
-	if s.conf.DisableWSWire {
+	if s.conf.WSWire {
+		h.HandleFunc(wsPath, s.ws.handleConnect)
+	} else {
 		h.HandleFunc(wsPath, func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "WebSocket relay disabled", http.StatusNotFound)
 		})
-	} else {
-		h.HandleFunc(wsPath, s.ws.handleConnect)
 	}
 	h.Handle("/metrics", promhttp.Handler())
 
@@ -654,9 +652,7 @@ func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 		<-gCtx.Done()
 		ctx, cancel := context.WithTimeout(context.Background(), cleanShutdownTimeout)
 		defer cancel()
-		err := h1s.Shutdown(ctx)
-		s.ws.closeAll()
-		return err
+		return h1s.Shutdown(ctx)
 	})
 
 	if err := g.Wait(); err != nil {

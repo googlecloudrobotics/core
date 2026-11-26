@@ -46,7 +46,6 @@ const (
 	wsInitialReconnectDelay = time.Second
 	wsMaxReconnectDelay     = time.Minute
 	wsStableSessionDuration = 30 * time.Second
-	wsShutdownTimeout       = 5 * time.Second
 	wsMaxErrorBodyBytes     = 256
 )
 
@@ -76,7 +75,7 @@ func (e *wsHandshakeError) Unwrap() error {
 
 func (e *wsHandshakeError) isUnsupported() bool {
 	switch e.statusCode {
-	case http.StatusBadRequest, http.StatusNotFound, http.StatusMethodNotAllowed, http.StatusNotImplemented:
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusMethodNotAllowed, http.StatusUpgradeRequired, http.StatusNotImplemented:
 		return true
 	default:
 		return false
@@ -130,11 +129,10 @@ func newWSRelay(ctx context.Context, cfg ClientConfig, localTransport http.Round
 			}
 		},
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
-			if errors.Is(err, context.Canceled) {
-				return
-			}
 			msg := fmt.Sprintf("Backend request failed with error: %v", err)
-			slog.Error("BackendRequest", slog.String("Message", msg))
+			if !errors.Is(err, context.Canceled) {
+				slog.Error("BackendRequest", slog.String("Message", msg))
+			}
 			http.Error(w, msg, http.StatusInternalServerError)
 		},
 	}
@@ -297,24 +295,9 @@ func (w *wsRelay) connectAndServe(ctx context.Context) (time.Time, error) {
 		},
 	}
 
-	serveDone := make(chan struct{})
-	go func() {
-		select {
-		case <-ctx.Done():
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), wsShutdownTimeout)
-			_ = srv.Shutdown(shutdownCtx)
-			cancel()
-			_ = sess.Close()
-		case <-serveDone:
-		}
-	}()
-
-	err = srv.Serve(sess)
-	close(serveDone)
-	if errors.Is(err, http.ErrServerClosed) {
-		return connectedAt, nil
-	}
-	return connectedAt, err
+	// Serve returns when the session ends: the tunnel broke, or ctx was
+	// cancelled, which closes the WebSocket and cancels the handlers.
+	return connectedAt, srv.Serve(sess)
 }
 
 func formatHandshakeError(resp *http.Response, err error) error {

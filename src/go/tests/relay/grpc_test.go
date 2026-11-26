@@ -18,7 +18,9 @@ import (
 	"github.com/googlecloudrobotics/core/src/go/cmd/http-relay-server/server"
 	rt "github.com/googlecloudrobotics/core/src/go/tests/relay"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -289,6 +291,9 @@ func TestBiDiStreamingOverRelay(t *testing.T) {
 	wg.Wait()
 }
 
+// mustInitWSRelay starts a relay server and a relay client that are connected
+// over the WebSocket tunnel. It returns the relay port and the listener for
+// the backend.
 func mustInitWSRelay(t *testing.T) (int, net.Listener) {
 	t.Helper()
 
@@ -305,13 +310,17 @@ func mustInitWSRelay(t *testing.T) (int, net.Listener) {
 	}
 
 	ctx, cancel := context.WithCancel(t.Context())
+	var wg sync.WaitGroup
 	t.Cleanup(func() {
 		cancel()
 		backendLn.Close()
+		wg.Wait()
 	})
 
-	relayServer := server.NewServer(server.Config{BlockSize: 10 * 1024})
-	go relayServer.StartOnListener(ctx, relayLn)
+	relayServer := server.NewServer(server.Config{BlockSize: 10 * 1024, WSWire: true})
+	wg.Go(func() {
+		relayServer.StartOnListener(ctx, relayLn)
+	})
 
 	cfg := client.DefaultClientConfig()
 	cfg.RelayScheme = "http"
@@ -323,7 +332,9 @@ func mustInitWSRelay(t *testing.T) (int, net.Listener) {
 	cfg.NumPendingRequests = 5
 
 	relayClient := client.NewClient(cfg)
-	go relayClient.Start(ctx)
+	wg.Go(func() {
+		relayClient.Start(ctx)
+	})
 
 	deadline := time.Now().Add(5 * time.Second)
 	for !relayServer.HasWSSession("server_name") {
@@ -336,9 +347,26 @@ func mustInitWSRelay(t *testing.T) (int, net.Listener) {
 	return relayPort, backendLn
 }
 
-func TestInteractiveBiDiStreamingOverRelay(t *testing.T) {
+// mustDialRelay returns a gRPC client for the relay and a context that selects
+// the backend "server_name".
+func mustDialRelay(t *testing.T, relayPort int) (rt.TestServiceClient, context.Context) {
+	t.Helper()
+
+	relayAddr := fmt.Sprintf("127.0.0.1:%d", relayPort)
+	conn, err := grpc.Dial(relayAddr, grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Failed to create client connection: %v", err)
+	}
+	t.Cleanup(func() { conn.Close() })
+
+	ctx := metadata.AppendToOutgoingContext(t.Context(), "x-server-name", "server_name")
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	t.Cleanup(cancel)
+	return rt.NewTestServiceClient(conn), ctx
+}
+
+func TestGRPCCallsOverWebSocketTunnel(t *testing.T) {
 	relayPort, lis := mustInitWSRelay(t)
-	defer lis.Close()
 
 	grpcServer := grpc.NewServer()
 	rt.RegisterTestServiceServer(grpcServer, &testServer{})
@@ -347,17 +375,89 @@ func TestInteractiveBiDiStreamingOverRelay(t *testing.T) {
 	}()
 	defer grpcServer.Stop()
 
-	relayAddr := fmt.Sprintf("127.0.0.1:%d", relayPort)
-	conn, err := grpc.Dial(relayAddr, grpc.WithInsecure())
-	if err != nil {
-		t.Fatalf("Failed to create client connection: %v", err)
-	}
-	defer conn.Close()
+	grpcClient, ctx := mustDialRelay(t, relayPort)
 
-	grpcClient := rt.NewTestServiceClient(conn)
-	ctx := metadata.AppendToOutgoingContext(t.Context(), "x-server-name", "server_name")
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
+	t.Run("unary", func(t *testing.T) {
+		resp, err := grpcClient.Unary(ctx, &rt.StringMessage{Value: "hello"})
+		if err != nil {
+			t.Fatalf("Unary(\"hello\") failed: %v", err)
+		}
+		if got, want := resp.Value, "Echo: hello"; got != want {
+			t.Errorf("Unary(\"hello\") = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("server_streaming", func(t *testing.T) {
+		stream, err := grpcClient.ServerStream(ctx, &rt.StringMessage{Value: "hello"})
+		if err != nil {
+			t.Fatalf("ServerStream(\"hello\") failed: %v", err)
+		}
+		for i := 0; i < numServerStreamedMessages; i++ {
+			resp, err := stream.Recv()
+			if err != nil {
+				t.Fatalf("stream.Recv() of message %d failed: %v", i, err)
+			}
+			if got, want := resp.Value, fmt.Sprintf("Echo %d: hello", i); got != want {
+				t.Errorf("message %d = %q, want %q", i, got, want)
+			}
+		}
+		if _, err := stream.Recv(); err != io.EOF {
+			t.Errorf("stream.Recv() after the last message = %v, want %v", err, io.EOF)
+		}
+	})
+
+	t.Run("client_streaming", func(t *testing.T) {
+		stream, err := grpcClient.ClientStream(ctx)
+		if err != nil {
+			t.Fatalf("ClientStream() failed: %v", err)
+		}
+		messages := []string{"hello", "world"}
+		for _, msg := range messages {
+			if err := stream.Send(&rt.StringMessage{Value: msg}); err != nil {
+				t.Fatalf("stream.Send(%q) failed: %v", msg, err)
+			}
+		}
+		resp, err := stream.CloseAndRecv()
+		if err != nil {
+			t.Fatalf("stream.CloseAndRecv() failed: %v", err)
+		}
+		if got, want := resp.Value, fmt.Sprintf("Echo: %v", messages); got != want {
+			t.Errorf("ClientStream() = %q, want %q", got, want)
+		}
+	})
+}
+
+func TestGRPCErrorStatusOverWebSocketTunnel(t *testing.T) {
+	relayPort, lis := mustInitWSRelay(t)
+
+	// The backend answers every call with Unimplemented and no messages, which
+	// gRPC sends as a Trailers-Only response.
+	grpcServer := grpc.NewServer()
+	rt.RegisterTestServiceServer(grpcServer, &rt.UnimplementedTestServiceServer{})
+	go func() {
+		_ = grpcServer.Serve(lis)
+	}()
+	defer grpcServer.Stop()
+
+	grpcClient, ctx := mustDialRelay(t, relayPort)
+
+	_, err := grpcClient.Unary(ctx, &rt.StringMessage{Value: "hello"})
+	if got, want := status.Code(err), codes.Unimplemented; got != want {
+		t.Errorf("Unary(\"hello\") returned code %v (%v), want %v", got, err, want)
+	}
+}
+
+func TestInteractiveBiDiStreamingOverRelay(t *testing.T) {
+	relayPort, lis := mustInitWSRelay(t)
+
+	grpcServer := grpc.NewServer()
+	rt.RegisterTestServiceServer(grpcServer, &testServer{})
+	go func() {
+		_ = grpcServer.Serve(lis)
+	}()
+	defer grpcServer.Stop()
+
+	grpcClient, ctx := mustDialRelay(t, relayPort)
 
 	stream, err := grpcClient.BiDiStream(ctx)
 	if err != nil {
@@ -386,7 +486,6 @@ func TestInteractiveBiDiStreamingOverRelay(t *testing.T) {
 
 func TestUserClientCancelReachesBackend(t *testing.T) {
 	relayPort, lis := mustInitWSRelay(t)
-	defer lis.Close()
 
 	backendDone := make(chan struct{})
 	backend := &http.Server{
@@ -434,19 +533,21 @@ func TestFallbackToHTTPWhenWebSocketBlocked(t *testing.T) {
 		t.Fatalf("net.Listen(relay) failed: %v", err)
 	}
 	relayPort := relayLn.Addr().(*net.TCPAddr).Port
-	relayServer := server.NewServer(server.Config{BlockSize: 10 * 1024})
+	relayServer := server.NewServer(server.Config{BlockSize: 10 * 1024, WSWire: true})
 	go relayServer.StartOnListener(t.Context(), relayLn)
 
-	// Simulate an older relay server or gateway that rejects /server/ws while
-	// allowing legacy HTTP polling.
+	// Simulate a gateway that rejects /server/ws while allowing HTTP polling.
 	relayTarget, err := url.Parse(fmt.Sprintf("http://127.0.0.1:%d", relayPort))
 	if err != nil {
 		t.Fatalf("url.Parse() failed: %v", err)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(relayTarget)
+	wsRejected := make(chan struct{})
+	var wsRejectedOnce sync.Once
 	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/server/ws" {
 			http.Error(w, "websocket relay disabled", http.StatusNotFound)
+			wsRejectedOnce.Do(func() { close(wsRejected) })
 			return
 		}
 		proxy.ServeHTTP(w, r)
@@ -483,19 +584,14 @@ func TestFallbackToHTTPWhenWebSocketBlocked(t *testing.T) {
 	relayClient := client.NewClient(cfg)
 	go relayClient.Start(clientCtx)
 
+	select {
+	case <-wsRejected:
+	case <-time.After(5 * time.Second):
+		t.Fatal("relay client did not try to open a WebSocket tunnel within 5s")
+	}
 	rt.WaitForClient(t, relayPort, "server_name")
 
-	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", relayPort), grpc.WithInsecure())
-	if err != nil {
-		t.Fatalf("grpc.Dial() failed: %v", err)
-	}
-	defer conn.Close()
-
-	grpcClient := rt.NewTestServiceClient(conn)
-	ctx := metadata.AppendToOutgoingContext(t.Context(), "x-server-name", "server_name")
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
+	grpcClient, ctx := mustDialRelay(t, relayPort)
 	resp, err := grpcClient.Unary(ctx, &rt.StringMessage{Value: "fallback"})
 	if err != nil {
 		t.Fatalf("Unary(\"fallback\") over HTTP fallback failed: %v", err)
@@ -503,69 +599,7 @@ func TestFallbackToHTTPWhenWebSocketBlocked(t *testing.T) {
 	if got, want := resp.Value, "Echo: fallback"; got != want {
 		t.Errorf("Unary(\"fallback\") = %q, want %q", got, want)
 	}
-}
-
-func TestFallbackToHTTPWhenServerDisablesWS(t *testing.T) {
-	relayLn, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("net.Listen(relay) failed: %v", err)
-	}
-	relayPort := relayLn.Addr().(*net.TCPAddr).Port
-	relayServer := server.NewServer(server.Config{
-		BlockSize:     10 * 1024,
-		DisableWSWire: true,
-	})
-	go relayServer.StartOnListener(t.Context(), relayLn)
-
-	backendLn, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("net.Listen(backend) failed: %v", err)
-	}
-	defer backendLn.Close()
-
-	grpcServer := grpc.NewServer()
-	rt.RegisterTestServiceServer(grpcServer, &testServer{})
-	go func() {
-		_ = grpcServer.Serve(backendLn)
-	}()
-	defer grpcServer.Stop()
-
-	cfg := client.DefaultClientConfig()
-	cfg.RelayScheme = "http"
-	cfg.RelayAddress = fmt.Sprintf("127.0.0.1:%d", relayPort)
-	cfg.BackendScheme = "http"
-	cfg.BackendAddress = backendLn.Addr().String()
-	cfg.DisableAuthForRemote = true
-	cfg.ForceHttp2 = true
-	cfg.NumPendingRequests = 2
-
-	clientCtx, stopClient := context.WithCancel(t.Context())
-	defer stopClient()
-	relayClient := client.NewClient(cfg)
-	go relayClient.Start(clientCtx)
-
-	rt.WaitForClient(t, relayPort, "server_name")
-
 	if relayServer.HasWSSession("server_name") {
-		t.Fatal("HasWSSession(\"server_name\") = true with DisableWSWire=true, want false")
-	}
-
-	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", relayPort), grpc.WithInsecure())
-	if err != nil {
-		t.Fatalf("grpc.Dial() failed: %v", err)
-	}
-	defer conn.Close()
-
-	grpcClient := rt.NewTestServiceClient(conn)
-	ctx := metadata.AppendToOutgoingContext(t.Context(), "x-server-name", "server_name")
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	resp, err := grpcClient.Unary(ctx, &rt.StringMessage{Value: "killswitch"})
-	if err != nil {
-		t.Fatalf("Unary(\"killswitch\") over HTTP fallback failed: %v", err)
-	}
-	if got, want := resp.Value, "Echo: killswitch"; got != want {
-		t.Errorf("Unary(\"killswitch\") = %q, want %q", got, want)
+		t.Error("HasWSSession(\"server_name\") = true although the gateway rejects WebSocket tunnels")
 	}
 }
