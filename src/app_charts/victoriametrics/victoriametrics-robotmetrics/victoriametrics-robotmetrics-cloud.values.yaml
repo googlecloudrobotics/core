@@ -2,81 +2,33 @@
 # Reference:
 # https://github.com/VictoriaMetrics/helm-charts/blob/victoria-metrics-k8s-stack-0.91.0/charts/victoria-metrics-k8s-stack/values.yaml
 #
-# This chart deploys the vmcluster (storage/query) and the vmagent (acting as the remoteWrite ingestion proxy)
-# for metrics streaming in from physical robots.
+# This chart deploys the central aggregation vmagent (`vmagent-vmr`).
 #
 # WARNING: If you edit this file, run the following command to generate
 # the output with `helm template`, and verify that your changes have
 # the expected effect.
 #
-#   bazel build src/app_charts/victoriametrics/victoriametrics-robotmetrics:victoriametrics-robotmetrics-chart.cloud.yaml
+#   bazel build src/app_charts/victoriametrics/victoriametrics-robotmetrics:victoriametrics-robotmetrics-chart.cloud
 
 fullnameOverride: "vmr"
 
-vmalert:
-  spec:
-    port: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_PORT}"
-    nodeSelector:
-      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_NODE_SELECTOR_OBJECT: REMOVE_ME
-    tolerations:
-      - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_TOLERATIONS_OBJECT: REMOVE_ME
-    notifiers:
-      - url: "${CR_VICTORIAMETRICS_ROBOTMETRICS_NOTIFIERS_OBJECT}"
-    extraArgs:
-      http.pathPrefix: "/victoriametrics/robots/vmalert"
-      $CR_VICTORIAMETRICS_ROBOTMETRICS_VMALERT_EXTRA_ARGS_OBJECT: REMOVE_ME
-
 vmsingle:
+  enabled: false
+
+vmcluster:
+  enabled: false
+
+vmalert:
+  enabled: false
+
+vmalertmanager:
   enabled: false
 
 alertmanager:
   enabled: false
 
-vmcluster:
-  enabled: true
-  spec:
-    retentionPeriod: "${VMCLUSTER_RETENTION_TIME}"
-    vmstorage:
-      replicaCount: "${VMSTORAGE_REPLICA_COUNT}"
-      nodeSelector:
-        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_NODE_SELECTOR_OBJECT: REMOVE_ME
-      tolerations:
-        - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_TOLERATIONS_OBJECT: REMOVE_ME
-      resources:
-        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSTORAGE_RESOURCES_OBJECT: REMOVE_ME
-      storage:
-        volumeClaimTemplate:
-          spec:
-            storageClassName: victoriametrics-robotmetrics-cloud-ssd
-            accessModes:
-              - ReadWriteOnce
-            resources:
-              requests:
-                storage: "${VMSTORAGE_REQUESTS_STORAGE}"
-    vminsert:
-      replicaCount: "${VMINSERT_REPLICA_COUNT}"
-      port: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_PORT}"
-      nodeSelector:
-        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_NODE_SELECTOR_OBJECT: REMOVE_ME
-      tolerations:
-        - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_TOLERATIONS_OBJECT: REMOVE_ME
-      resources:
-        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_RESOURCES_OBJECT: REMOVE_ME
-      extraArgs:
-        replicationFactor: "${VMINSERT_REPLICATION_FACTOR}"
-        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMINSERT_EXTRA_ARGS_OBJECT: REMOVE_ME
-    vmselect:
-      replicaCount: "${VMSELECT_REPLICA_COUNT}"
-      port: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_PORT}"
-      nodeSelector:
-        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_NODE_SELECTOR_OBJECT: REMOVE_ME
-      tolerations:
-        - $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_TOLERATIONS_OBJECT: REMOVE_ME
-      resources:
-        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_RESOURCES_OBJECT: REMOVE_ME
-      extraArgs:
-        http.pathPrefix: "/victoriametrics/robots"
-        $CR_VICTORIAMETRICS_ROBOTMETRICS_VMSELECT_EXTRA_ARGS_OBJECT: REMOVE_ME
+defaultRules:
+  create: false
 
 vmagent:
   enabled: true
@@ -84,8 +36,17 @@ vmagent:
     - $CR_VICTORIAMETRICS_ROBOTMETRICS_ADDITIONAL_REMOTE_WRITES_OBJECT: REMOVE_ME
   spec:
     port: "${CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_PORT}"
-    # Cloud ingestion proxy doesn't dynamically scrape cloud pods (that's what cloudmetrics is for)
+    # Always one replica: stream aggregation needs every sample of a series on one instance.
+    replicaCount: 1
+    # The central aggregator only receives remote writes from robot vmagents and the cloud vmagent.
     selectAllByDefault: false
+    # Primary destination (the single vmcluster's vminsert), replaced at deploy time.
+    remoteWrite:
+      - $CR_VICTORIAMETRICS_ROBOTMETRICS_REMOTE_WRITE_OBJECT: REMOVE_ME
+    # Global stream aggregation applied to all incoming samples before they are
+    # forwarded to every remoteWrite destination. Replaced (or removed) at deploy time.
+    streamAggrConfig:
+      $CR_VICTORIAMETRICS_ROBOTMETRICS_STREAM_AGGR_CONFIG_OBJECT: REMOVE_ME
     externalLabels:
       $CR_VICTORIAMETRICS_ROBOTMETRICS_EXTERNAL_LABELS_OBJECT: REMOVE_ME
     nodeSelector:
@@ -112,11 +73,11 @@ vmagent:
       $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_SELECTOR_OBJECT: REMOVE_ME
     staticScrapeNamespaceSelector:
       $CR_VICTORIAMETRICS_ROBOTMETRICS_STATIC_SCRAPE_NAMESPACE_SELECTOR_OBJECT: REMOVE_ME
-    
+
     extraArgs:
       http.pathPrefix: "/victoriametrics/robots/vmagent"
       $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_EXTRA_ARGS_OBJECT: REMOVE_ME
-    
+
     resources:
       $CR_VICTORIAMETRICS_ROBOTMETRICS_VMAGENT_RESOURCES_OBJECT: REMOVE_ME
 
@@ -131,7 +92,7 @@ serviceAccount:
   annotations:
     "${CR_VICTORIAMETRICS_ROBOTMETRICS_SA_ANNOTATIONS}": ""
 
-# Disable extra exporters as they are not needed on the robotmetrics proxy
+# Disable extra exporters as they are not needed on the central aggregator
 victoria-metrics-operator:
   enabled: false
 

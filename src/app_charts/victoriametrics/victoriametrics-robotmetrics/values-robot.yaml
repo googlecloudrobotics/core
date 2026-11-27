@@ -8,6 +8,11 @@ fullnameOverride: "vmr"
 vmagent:
   spec:
     port: 8429
+    # Baseline relabeling (VMAgent spec.inlineRelabelConfig =
+    # -remoteWrite.relabelConfig), applied to everything the scraper sends.
+    # Note: the VMAgent field for per-URL relabeling is inlineUrlRelabelConfig;
+    # `writeRelabelConfigs` (Prometheus naming) is silently ignored.
+    inlineRelabelConfig: []
     serviceScrapeSelector: {}
     serviceScrapeNamespaceSelector: {}
     podScrapeSelector: {}
@@ -23,4 +28,3 @@ vmagent:
   allowed_bytes: "200MB"
   memory_request: "512Mi"
   memory_limit: "512Mi"
-

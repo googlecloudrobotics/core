@@ -1,70 +1,21 @@
 # App-chart-level values consumed by cloud/victoriametrics-robotmetrics-operator.yaml's
 # pseudo-variable replace chain.
-# Mirrors src/app_charts/prometheus/values-cloud.yaml's pattern.
 #
-# The default requests/limits are sufficient for a small test
-# deployment (single project, testing scope). Should be revisited for
-# any larger/production rollout.
+# The cloud side of this chart is only the central aggregation vmagent
+# (`vmagent-vmr`). Storage, querying and alerting live in the single per-project
+# vmcluster owned by the victoriametrics-cloudmetrics chart (`vmc`).
 
 fullnameOverride: "vmr"
 
-limits:
-  cpu: "2000m"
-  memory: "12Gi"
-requests:
-  storage: "100Gi"
-retention:
-  time: "90d"
-
-vmcluster:
-  spec:
-    retentionPeriod: "90d"
-    replicationFactor: 2
-    vmstorage:
-      replicaCount: 2
-      nodeSelector: {}
-      tolerations: []
-      resources:
-        requests:
-          cpu: "1000m"
-          memory: "4Gi"
-        limits:
-          cpu: "2000m"
-          memory: "12Gi"
-      storage:
-        volumeClaimTemplate:
-          spec:
-            resources:
-              requests:
-                storage: "100Gi"
-    vminsert:
-      replicaCount: 2
-      port: 8480
-      nodeSelector: {}
-      tolerations: []
-      resources:
-        requests:
-          cpu: 1000m
-          memory: 2Gi
-        limits:
-          cpu: 2000m
-          memory: 4Gi
-    vmselect:
-      replicaCount: 2
-      port: 8481
-      nodeSelector: {}
-      tolerations: []
-      resources:
-        requests:
-          cpu: 1000m
-          memory: 2Gi
-        limits:
-          cpu: 2000m
-          memory: 4Gi
+# Primary remoteWrite destination of the central aggregator: the single
+# per-project vmcluster. Ignored if vmagent.spec.remoteWrite is set explicitly.
+victoriametrics_robotmetrics_central_remote_write_url: "http://vminsert-vmc.app-victoriametrics-cloudmetrics.svc.cluster.local:8480/insert/0/prometheus/api/v1/write"
 
 vmagent:
   spec:
     port: 8429
+    # Always a single replica (not configurable): stream aggregation is only
+    # correct if every sample of a series reaches the same vmagent instance.
     externalLabels: {}
     nodeSelector: {}
     tolerations: []
@@ -72,18 +23,78 @@ vmagent:
     serviceScrapeNamespaceSelector: {}
     podScrapeSelector: {}
     podScrapeNamespaceSelector: {}
-  max_disk_usage: "5GB"
-  # These scalars map to explicit command-line extraArgs for the agent.
-  allowed_bytes: "200MB"
-  memory_request: "512Mi"
-  memory_limit: "512Mi"
+    # Global stream aggregation config (VMAgent spec.streamAggrConfig), applied to
+    # samples from all robots and the cloud vmagent before they are written to
+    # EVERY destination (vmcluster, additionalRemoteWrites and externalRemoteWrite).
+    # Empty = disabled (pass-through). To aggregate only what goes to the external
+    # endpoint and keep full resolution in the vmcluster, use
+    # externalRemoteWrite.streamAggrConfig instead.
+    # See https://docs.victoriametrics.com/victoriametrics/stream-aggregation/
+    # Example:
+    #   streamAggrConfig:
+    #     keepInput: true
+    #     rules:
+    #     - match: '{__name__=~"container_cpu_usage_seconds_total"}'
+    #       interval: 1m
+    #       without: [pod, container, id]
+    #       outputs: [total]
+    streamAggrConfig: {}
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "512Mi"
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+  # Additional generic destinations receiving the same (globally aggregated)
+  # stream. For an external endpoint with its own tenant header, bearer token
+  # file, relabeling or aggregation, use the `externalRemoteWrite` block below.
+  additionalRemoteWrites: []
 
-vmalert:
-  spec:
-    port: 8080
-    notifiers: []
-    nodeSelector: {}
-    tolerations: []
+# Optional external Prometheus remote-write compatible endpoint. When enabled,
+# the central vmagent also remote-writes to it (after the vmcluster and any
+# additionalRemoteWrites). vmagent keeps a separate on-disk queue per
+# destination, so an outage of the external endpoint does not block
+# writes to the vmcluster (bound it with vmagent.spec.extraArgs
+# remoteWrite.maxDiskUsagePerURL).
+externalRemoteWrite:
+  enabled: false
+  # Remote-write URL, e.g. https://<host>/api/v1/write
+  url: ""
+  # Tenant ID for multi-tenant backends, sent as the X-Scope-OrgID header.
+  # Defaults to .Values.project when empty.
+  tenant: ""
+  # Extra headers, "Name: value" each.
+  headers: []
+  # Bearer token read from a file on every request (vmagent reloads it), e.g. a
+  # short-lived token kept fresh by a sidecar injected through
+  # vmagent.spec.containers, .volumes and .volumeMounts. Applied to this
+  # destination only.
+  bearerTokenFile: ""
+  # Alternatives to bearerTokenFile, passed through to the VMAgent remoteWrite entry:
+  # bearerTokenSecret: {name: ..., key: ...}
+  # basicAuth: {...}
+  # oauth2: {...}
+  # tlsConfig: {...}
+  # sendTimeout: 1m
+  # Per-URL relabeling for this destination only (-remoteWrite.urlRelabelConfig),
+  # e.g. drop series that should stay local:
+  #   inlineUrlRelabelConfig:
+  #   - action: drop
+  #     source_labels: [__name__]
+  #     regex: "go_.*|node_.*"
+  inlineUrlRelabelConfig: []
+  # Per-URL stream aggregation for this destination only
+  # (-remoteWrite.streamAggr.config). Same format as vmagent.spec.streamAggrConfig.
+  # Example: send per-robot CPU totals instead of per-container series:
+  #   streamAggrConfig:
+  #     keepInput: false
+  #     rules:
+  #     - match: 'container_cpu_usage_seconds_total'
+  #       interval: 1m
+  #       without: [pod, container, id, instance]
+  #       outputs: [total_prometheus]
+  streamAggrConfig: {}
 
 victoriametrics_robotmetrics_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
 victoriametrics_robotmetrics_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"

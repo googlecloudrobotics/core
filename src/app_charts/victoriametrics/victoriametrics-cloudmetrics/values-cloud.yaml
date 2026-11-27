@@ -100,6 +100,11 @@ vmalert:
     nodeSelector: {}
     tolerations: []
 
+# Where vmagent-vmc remote-writes scraped cloud metrics. Defaults to the central
+# aggregator vmagent (vmagent-vmr, victoriametrics-robotmetrics app), which also
+# receives robot metrics, applies stream aggregation and forwards everything to
+# vminsert-vmc. 
+victoriametrics_cloudmetrics_remote_write_url: "http://vmagent-vmr.app-victoriametrics-robotmetrics.svc.cluster.local:8429/victoriametrics/robots/vmagent/api/v1/write"
 victoriametrics_cloudmetrics_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
 victoriametrics_cloudmetrics_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
 victoriametrics_cloudmetrics_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"

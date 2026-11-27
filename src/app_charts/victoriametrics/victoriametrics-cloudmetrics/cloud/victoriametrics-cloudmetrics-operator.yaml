@@ -55,6 +55,16 @@
 {{- $data = $data | replace "port: ${CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_PORT}" (printf "port: \"%s\"" (toString $vmalertPort)) -}}
 {{- $data = $data | replace "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_PORT}" (toString $vmalertPort) -}}
 
+# Primary vmagent remoteWrite URL: the central aggregator vmagent by default
+# (victoriametrics_cloudmetrics_remote_write_url); falls back to writing
+# directly to vminsert-vmc when the value is unset or empty.
+{{- $remoteWriteURL := printf "http://vminsert-vmc.%s.svc.cluster.local:%s/insert/0/prometheus/api/v1/write" .Release.Namespace (toString $vminsertPort) -}}
+{{- if .Values.victoriametrics_cloudmetrics_remote_write_url -}}
+  {{- $remoteWriteURL = toString .Values.victoriametrics_cloudmetrics_remote_write_url -}}
+{{- end -}}
+{{- $data = $data | replace "\"${CR_VICTORIAMETRICS_CLOUDMETRICS_REMOTE_WRITE_URL}\"" (quote $remoteWriteURL) -}}
+{{- $data = $data | replace "${CR_VICTORIAMETRICS_CLOUDMETRICS_REMOTE_WRITE_URL}" (quote $remoteWriteURL) -}}
+
 {{- $nodeExporterPort := 9111 -}}
 {{- if index .Values "prometheus-node-exporter" -}}
   {{- if index (index .Values "prometheus-node-exporter") "service" -}}

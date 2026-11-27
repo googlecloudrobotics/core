@@ -6,6 +6,38 @@
 # Scalar Replacements
 {{- $data = $data | replace "${RELEASE_NAME}" .Release.Name -}}
 
+{{- $vmagentValues := .Values.vmagent | default dict -}}
+{{- $vmagentSpec := $vmagentValues.spec | default dict -}}
+
+{{- /*
+  Exactly one vmagent per robot. It scrapes everything on the robot and
+  remote-writes it to the central aggregation vmagent (vmagent-vmr) in the cloud,
+  which owns stream aggregation and the fan-out to the vmcluster and any external remote-write endpoints.
+*/ -}}
+{{- if and $vmagentSpec.replicaCount (gt (int $vmagentSpec.replicaCount) 1) }}
+  {{- fail "victoriametrics-robotmetrics: the robot runs exactly one vmagent; vmagent.spec.replicaCount > 1 would make every replica scrape every target (duplicated series)." }}
+{{- end }}
+{{- if $vmagentSpec.shardCount }}
+  {{- fail "victoriametrics-robotmetrics: the robot runs exactly one vmagent; vmagent.spec.shardCount is not supported." }}
+{{- end }}
+{{- if $vmagentSpec.streamAggrConfig }}
+  {{- fail "victoriametrics-robotmetrics: stream aggregation runs on the central cloud vmagent (vmagent-vmr), not on robots. Set vmagent.spec.streamAggrConfig or externalRemoteWrite.streamAggrConfig in the cloud values." }}
+{{- end }}
+{{- range $k, $v := ($vmagentSpec.extraArgs | default dict) }}
+  {{- if contains "streamAggr" $k }}
+    {{- fail (printf "victoriametrics-robotmetrics: vmagent.spec.extraArgs.%s is not allowed on robots; stream aggregation runs on the central cloud vmagent (vmagent-vmr)." $k) }}
+  {{- end }}
+{{- end }}
+
+{{- /* Baseline relabeling on the scraper (-remoteWrite.relabelConfig). */ -}}
+{{- $inlineRelabelList := $vmagentSpec.inlineRelabelConfig | default list -}}
+{{- if $inlineRelabelList }}
+  {{- $formattedInlineRelabel := toYaml $inlineRelabelList | nindent 2 -}}
+  {{- $data = $data | replace "- $CR_VICTORIAMETRICS_ROBOTMETRICS_INLINE_RELABEL_CONFIG_OBJECT: REMOVE_ME" (trimPrefix "  " (trimPrefix "\n" $formattedInlineRelabel)) -}}
+{{- else }}
+  {{- $data = $data | replace "  inlineRelabelConfig:\n  - $CR_VICTORIAMETRICS_ROBOTMETRICS_INLINE_RELABEL_CONFIG_OBJECT: REMOVE_ME\n" "" -}}
+{{- end }}
+
 {{- $vmagentPort := 8429 -}}
 {{- if .Values.vmagent -}}
   {{- if .Values.vmagent.spec -}}

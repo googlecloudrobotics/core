@@ -1,26 +1,8 @@
-{{- $vmselectPort := 8481 -}}
 {{- $vmagentPort := 8429 -}}
-{{- $vmalertPort := 8080 -}}
-{{- if .Values.vmcluster }}
-  {{- if .Values.vmcluster.spec }}
-    {{- if .Values.vmcluster.spec.vmselect }}
-      {{- if .Values.vmcluster.spec.vmselect.port }}
-        {{- $vmselectPort = .Values.vmcluster.spec.vmselect.port -}}
-      {{- end }}
-    {{- end }}
-  {{- end }}
-{{- end }}
 {{- if .Values.vmagent }}
   {{- if .Values.vmagent.spec }}
     {{- if .Values.vmagent.spec.port }}
       {{- $vmagentPort = .Values.vmagent.spec.port -}}
-    {{- end }}
-  {{- end }}
-{{- end }}
-{{- if .Values.vmalert }}
-  {{- if .Values.vmalert.spec }}
-    {{- if .Values.vmalert.spec.port }}
-      {{- $vmalertPort = .Values.vmalert.spec.port -}}
     {{- end }}
   {{- end }}
 {{- end }}
@@ -42,13 +24,6 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /victoriametrics/robots/vmalert
-    backendRefs:
-    - name: vmalert-vmr
-      port: {{ $vmalertPort }}
-  - matches:
-    - path:
-        type: PathPrefix
         value: /victoriametrics/robots/vmagent
     backendRefs:
     - name: vmagent-vmr
@@ -56,10 +31,36 @@ spec:
   - matches:
     - path:
         type: PathPrefix
+        value: /victoriametrics/robots/vmalert
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        statusCode: 302
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /victoriametrics/cloud/vmalert
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /victoriametrics/robots/select
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        statusCode: 302
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /victoriametrics/cloud/select
+  - matches:
+    - path:
+        type: PathPrefix
         value: /victoriametrics/robots
-    backendRefs:
-    - name: vmselect-vmr
-      port: {{ $vmselectPort }}
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        statusCode: 302
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /victoriametrics/cloud/select/0/prometheus/vmui/
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy

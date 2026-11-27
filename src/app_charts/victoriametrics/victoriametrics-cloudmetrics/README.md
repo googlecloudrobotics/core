@@ -2,9 +2,14 @@
 
 ## Overview
 
-`victoriametrics-cloudmetrics` is the observability app chart dedicated exclusively to **Cloud Service and Infrastructure Telemetry** (metrics originating within the cloud platform and Kubernetes control plane).
+`victoriametrics-cloudmetrics` deploys the **single per-project VictoriaMetrics cluster** (`vmc`) that stores both:
 
-Unlike `victoriametrics-robotmetrics`, this chart is **cloud-only** and has no edge or robot component.
+* **Cloud Service and Infrastructure Telemetry** (metrics originating within the cloud platform and Kubernetes control plane), scraped by the cloud vmagent `vmagent-vmc`.
+* **Robot Telemetry**, remote-written by the robot vmagents of the `victoriametrics-robotmetrics` app.
+
+All writes go through the **central aggregator vmagent** (`vmagent-vmr`, deployed by `victoriametrics-robotmetrics` in namespace `app-victoriametrics-robotmetrics`), which applies stream aggregation and forwards everything to `vminsert-vmc`. `vmalert-vmc` evaluates all alerting/recording rules (cloud and robot) against `vmselect-vmc`.
+
+This chart is **cloud-only** and has no edge or robot component; the robot-side vmagent and the central aggregator live in `victoriametrics-robotmetrics`.
 
 ---
 
@@ -12,23 +17,43 @@ Unlike `victoriametrics-robotmetrics`, this chart is **cloud-only** and has no e
 
 ```mermaid
 flowchart TD
+    subgraph Robots[Robots]
+        RA[vmagent - Robot Agent]
+    end
     subgraph CloudCluster[Cloud Platform - Deployment Target: cloud]
-        KSM[kube-state-metrics] -->|Scraped by| CA[vmagent - Cloud Agent]
+        KSM[kube-state-metrics] -->|Scraped by| CA[vmagent-vmc - Cloud Agent]
         CS[Cloud Microservices] -->|Scraped by| CA
         K8S[Kubernetes Control Plane] -->|Scraped by| CA
 
-        CA -->|Writes| VMI[vminsert - Ingestion Layer]
-        VMI --> VMS[vmstorage - Storage Layer]
-        VMQ[vmselect - Query Engine] --> VMS
-        VMA[vmalert - Alert Manager] --> VMQ
+        AGG["vmagent-vmr - Central Aggregator (victoriametrics-robotmetrics)"]
+        CA -->|remoteWrite| AGG
+        AGG -->|remoteWrite| VMI[vminsert-vmc - Ingestion Layer]
+        VMI --> VMS[vmstorage-vmc - Storage Layer]
+        VMQ[vmselect-vmc - Query Engine] --> VMS
+        VMA[vmalert-vmc - cloud and robot rules] --> VMQ
     end
+    RA -->|"Authenticated remoteWrite"| AGG
 ```
+
+### Remote write target
+
+`vmagent-vmc` writes to the URL in `victoriametrics_cloudmetrics_remote_write_url` (see `values-cloud.yaml`), which defaults to the central aggregator:
+`http://vmagent-vmr.app-victoriametrics-robotmetrics.svc.cluster.local:8429/victoriametrics/robots/vmagent/api/v1/write`.
+Setting it to `""` makes `vmagent-vmc` write directly to `vminsert-vmc` (useful if `victoriametrics-robotmetrics` is not deployed). Entries in `vmagent.additionalRemoteWrites` are added on top of this primary target.
+
+### Rule selection
+
+`vmalert-vmc` is rendered with `selectAllByDefault: true`, `ruleSelector: {}` and `ruleNamespaceSelector: {}` (unless overridden in `values-cloud.yaml`). With the VictoriaMetrics operator watching all namespaces, an empty (non-nil) namespace selector matches every namespace, so `VMRule`s (and `PrometheusRule`s, which the operator converts to `VMRule`s) from all namespaces, including `app-victoriametrics-robotmetrics`, are evaluated.
+
+### Sizing
+
+Because `vmc` now also stores robot metrics, the storage, retention and resource defaults in `values-cloud.yaml` (originally sized for cloud-only data) should be revisited.
 
 ---
 
 ## Key Terminology
 
-* **Telemetry Domain**: `cloudmetrics` (What is measured: metrics originating from cloud services and Kubernetes infrastructure).
+* **Telemetry Domain**: `cloudmetrics` (metrics originating from cloud services and Kubernetes infrastructure). The `vmc` cluster additionally stores the `robotmetrics` domain.
 * **Deployment Target**: `cloud` (Cloud-only deployment; no robot edge agent).
 
 ---

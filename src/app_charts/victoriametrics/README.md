@@ -4,14 +4,16 @@
 
 VictoriaMetrics in this repository is split into two distinct observability domains to isolate high-cardinality, potentially unstable network edge telemetry from internal cloud infrastructure telemetry.
 
+Each project runs a **single vmcluster** (`vmc`). Each robot runs exactly **one** `vmagent`. All samples, from robots and from the cloud, pass through one **central aggregation vmagent** (`vmagent-vmr`, always one replica). It applies stream aggregation centrally and writes to the vmcluster and, optionally, to other remote-write compatible endpoints.
+
 Both components live under this directory:
 
-1. **`victoriametrics-robotmetrics`**: 
-   * **Domain**: Robot telemetry (data originating from physical edge robots).
-   * **Deployment Targets**: Deploys `vmagent` on edge robots, and a complete `vmcluster` in the cloud to receive, store, and alert on robot data.
+1. **`victoriametrics-robotmetrics`**:
+   * **Domain**: Robot telemetry (data originating from physical edge robots) and central aggregation.
+   * **Deployment Targets**: Deploys one small `vmagent` on each robot, and the central aggregation `vmagent` (`vmagent-vmr`) in the cloud. No storage.
 2. **`victoriametrics-cloudmetrics`**:
-   * **Domain**: Cloud telemetry (data originating from cloud microservices and Kubernetes infrastructure).
-   * **Deployment Target**: Cloud-only. Scrapes `kube-state-metrics`, node exporters, and cloud services into a dedicated internal `vmcluster`.
+   * **Domain**: Cloud telemetry (cloud microservices and Kubernetes infrastructure). It also provides **storage, query, and alerting for all metrics**.
+   * **Deployment Target**: Cloud-only. Its `vmagent-vmc` scrapes `kube-state-metrics`, node exporters, and cloud services, and writes to the central aggregator. It owns the single `vmcluster` (`vminsert`/`vmstorage`/`vmselect`) and `vmalert`.
 
 ---
 
@@ -19,55 +21,38 @@ Both components live under this directory:
 
 ```mermaid
 flowchart TD
-    subgraph Edge[Edge Environment]
+    subgraph Edge[Edge Environment - per robot]
         RA[vmagent - Robot Agent] -->|Scrapes| RT[Robot Local Services]
     end
-    
-    subgraph LegacyEdge[Legacy / Dangling Edge]
-        LP[Prometheus - Legacy Agent]
-    end
 
-    subgraph CloudEnv[Cloud Platform Environment]
+    subgraph CloudEnv[Cloud Platform Environment - per project]
         subgraph RobotMetrics[victoriametrics-robotmetrics]
-            ING[Ingress / Auth Proxy]
-            VMA_PROXY[vmagent - Cloud Ingestion Proxy]
-            VMI_R[vminsert - Robot]
-            VMS_R[vmstorage - Robot]
-            VMQ_R[vmselect - Robot]
-            VMA_R[vmalert - Robot]
-            
-            ING --> VMA_PROXY
-            VMA_PROXY --> VMI_R
-            VMA_PROXY -.->|Optional Upstream Relay| UpstreamTSDB[Upstream Time-Series Database]
-            VMI_R --> VMS_R
-            VMQ_R --> VMS_R
-            VMA_R --> VMQ_R
+            ING[Write Ingress / HTTPRoute - token-vendor auth]
+            AGG[vmagent-vmr - Central Aggregator]
+            ING --> AGG
         end
-        
+
         subgraph CloudMetrics[victoriametrics-cloudmetrics]
             KSM[kube-state-metrics]
-            CA[vmagent - Cloud Agent]
-            VMI_C[vminsert - Cloud]
-            VMS_C[vmstorage - Cloud]
-            VMQ_C[vmselect - Cloud]
-            VMA_C[vmalert - Cloud]
-            
+            CA[vmagent-vmc - Cloud Scraper]
+            VMI_C[vminsert-vmc]
+            VMS_C[vmstorage-vmc]
+            VMQ_C[vmselect-vmc]
+            VMA_C[vmalert-vmc]
+
             KSM -->|Scraped by| CA
-            CA --> VMI_C
             VMI_C --> VMS_C
             VMQ_C --> VMS_C
             VMA_C --> VMQ_C
         end
-        
-        CP[Cloud Prometheus Relay]
+
         AM[Central Alertmanager]
     end
 
-    %% Data Flow
     RA -->|TLS remoteWrite| ING
-    LP -->|Scraped by Cloud Prom| CP
-    CP -->|remoteWrite Relay| VMI_R
-    VMA_R -->|Alerts| AM
+    CA -->|remoteWrite| AGG
+    AGG -->|stream aggregation, then remoteWrite| VMI_C
+    AGG -.->|"Optional: externalRemoteWrite.* (tenant header, per-URL relabel + stream aggregation)"| EXT["External remote-write endpoint (optional)"]
     VMA_C -->|Alerts| AM
 ```
 
