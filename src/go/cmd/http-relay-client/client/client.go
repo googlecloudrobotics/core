@@ -43,7 +43,6 @@ import (
 	"github.com/googlecloudrobotics/ilog"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
@@ -51,6 +50,8 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/googlecloudrobotics/core/src/go/pkg/telemetry"
 )
 
 var (
@@ -418,9 +419,10 @@ func (c *Client) postResponse(remote *http.Client, br *pb.HttpResponse) error {
 	}
 
 	responseUrl := url.URL{
-		Scheme: c.config.RelayScheme,
-		Host:   c.config.RelayAddress,
-		Path:   c.config.RelayPrefix + "/server/response",
+		Scheme:   c.config.RelayScheme,
+		Host:     c.config.RelayAddress,
+		Path:     c.config.RelayPrefix + "/server/response",
+		RawQuery: url.Values{"server": {c.config.ServerName}}.Encode(),
 	}
 
 	resp, err := remote.Post(responseUrl.String(), "application/vnd.google.protobuf;proto=cloudrobotics.http_relay.v1alpha1.HttpResponse", bytes.NewReader(body))
@@ -564,7 +566,7 @@ func (c *Client) streamToBackend(remote *http.Client, id string, backendWriter i
 		Scheme:   c.config.RelayScheme,
 		Host:     c.config.RelayAddress,
 		Path:     c.config.RelayPrefix + "/server/requeststream",
-		RawQuery: "id=" + id,
+		RawQuery: url.Values{"id": {id}, "server": {c.config.ServerName}}.Encode(),
 	}).String()
 	for {
 		// Get data from the "request stream", then copy it to the backend.
@@ -622,7 +624,10 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 	ctx, span := tracer.Start(extractedCtx, "Recv."+req.URL.Path)
 	defer span.End()
 
-	resp, hresp, err := makeBackendRequest(ctx, local, req, id)
+	backendCtx, cancelBackend := context.WithCancel(ctx)
+	defer cancelBackend()
+
+	resp, hresp, err := makeBackendRequest(backendCtx, local, req, id)
 	if err != nil {
 		// Even if we couldn't handle the backend request, send an
 		// answer to the relay that signals the error.
@@ -633,7 +638,7 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 		return
 	}
 
-	if *resp.StatusCode == http.StatusSwitchingProtocols {
+	if hresp.StatusCode == http.StatusSwitchingProtocols {
 		// A 101 Switching Protocols response means that the request will be
 		// used for bidirectional streaming, so start a goroutine to stream
 		// from client to backend.
@@ -715,9 +720,16 @@ func (c *Client) handleRequest(ctx context.Context, remote *http.Client, local *
 		if err != nil {
 			slog.Error("Closing backend connection",
 				slog.String("ID", *resp.Id), ilog.Err(err))
-			// This is also closed in streamToBackend.
-			// Closing here too to ensure the disconnect propagates faster.
-			hresp.Body.Close()
+			if hresp.StatusCode == http.StatusSwitchingProtocols {
+				// For 101 Switching Protocols, hresp.Body wraps the hijacked net.Conn
+				// and is no longer tied to backendCtx.
+				hresp.Body.Close()
+			} else {
+				// Cancel the request context rather than calling hresp.Body.Close()
+				// concurrently with streamBytes's Read; defer hresp.Body.Close() will
+				// run once responseChannel finishes draining.
+				cancelBackend()
+			}
 			// Drain the response channel to avoid blocking buildResponses.
 			for range responseChannel {
 			}

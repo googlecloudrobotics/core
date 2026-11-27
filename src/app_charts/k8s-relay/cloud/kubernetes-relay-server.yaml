@@ -10,7 +10,7 @@ kind: Deployment
 metadata:
   name: kubernetes-relay-server
 spec:
-  replicas: 1
+  replicas: {{ .Values.kubernetes_relay_server.replicas }}
   selector:
     matchLabels:
       app: kubernetes-relay-server

@@ -592,6 +592,22 @@ func (s *Server) Handler() http.Handler {
 	)
 }
 
+// StartReaper periodically reaps inactive requests and backends until ctx is cancelled.
+func (s *Server) StartReaper(ctx context.Context) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case t := <-ticker.C:
+			s.b.ReapInactiveRequests(t.Add(-1 * s.conf.InactiveRequestTimeout))
+			// Reap backends that have been inactive for InactiveBackendTimeout.
+			s.b.ReapInactiveBackends(t.Add(-1 * s.conf.InactiveBackendTimeout))
+		}
+	}
+}
+
 func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 	h1s := &http.Server{
 		Handler: s.Handler(),
@@ -605,18 +621,8 @@ func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
 	slog.Info("Relay server listening", slog.Int("Port", ln.Addr().(*net.TCPAddr).Port))
 
 	g.Go(func() error {
-		ticker := time.NewTicker(10 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-gCtx.Done():
-				return nil
-			case t := <-ticker.C:
-				s.b.ReapInactiveRequests(t.Add(-1 * s.conf.InactiveRequestTimeout))
-				// Reap backends that have been inactive for InactiveBackendTimeout.
-				s.b.ReapInactiveBackends(t.Add(-1 * s.conf.InactiveBackendTimeout))
-			}
-		}
+		s.StartReaper(gCtx)
+		return nil
 	})
 
 	g.Go(func() error {

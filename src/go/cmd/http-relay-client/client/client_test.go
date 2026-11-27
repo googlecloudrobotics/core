@@ -48,7 +48,8 @@ func TestLocalProxy(t *testing.T) {
 			Url:    proto.String("http://invalid/foo/bar?a=b"),
 			Header: []*pb.HttpHeader{{
 				Name:  proto.String("X-GFE"),
-				Value: proto.String("google.com")}},
+				Value: proto.String("google.com"),
+			}},
 			Body: []byte("thebody"),
 		})
 		respPayload, _ := proto.Marshal(&pb.HttpResponse{
@@ -84,6 +85,9 @@ func TestLocalProxy(t *testing.T) {
 				case 2:
 					if req.Method != "POST" || req.URL.Path != "/server/response" {
 						t.Errorf("Relay Req 2: expected POST /server/response, got %s %s", req.Method, req.URL.Path)
+					}
+					if req.URL.Query().Get("server") != "foo" {
+						t.Errorf("Relay Req 2: expected query server=foo, got %q", req.URL.RawQuery)
 					}
 					body, _ := io.ReadAll(req.Body)
 					if !bytes.Equal(body, respPayload) {
@@ -159,7 +163,8 @@ func TestBackendError(t *testing.T) {
 			Url:    proto.String("http://invalid/foo/bar?a=b"),
 			Header: []*pb.HttpHeader{{
 				Name:  proto.String("X-GFE"),
-				Value: proto.String("google.com")}},
+				Value: proto.String("google.com"),
+			}},
 			Body: []byte("thebody"),
 		})
 
@@ -328,5 +333,67 @@ func TestBuildResponsesTimesOut(t *testing.T) {
 	}
 	if resp.Eof == nil || !*resp.Eof {
 		t.Errorf("resp.Eof = %v; want true", resp.Eof)
+	}
+}
+
+type mockWriteCloser struct {
+	bytes.Buffer
+	closed bool
+}
+
+func (m *mockWriteCloser) Close() error {
+	m.closed = true
+	return nil
+}
+
+func TestStreamToBackend(t *testing.T) {
+	relayRequests := 0
+	relayTransport := &mockTransport{
+		roundTrip: func(req *http.Request) (*http.Response, error) {
+			relayRequests++
+			if req.Method != http.MethodPost || req.URL.Path != "/server/requeststream" {
+				t.Errorf("Relay Req %d: expected POST /server/requeststream, got %s %s", relayRequests, req.Method, req.URL.Path)
+			}
+			if got := req.URL.Query().Get("id"); got != "15" {
+				t.Errorf("Relay Req %d: expected query id=15, got %q", relayRequests, req.URL.RawQuery)
+			}
+			if got := req.URL.Query().Get("server"); got != "foo" {
+				t.Errorf("Relay Req %d: expected query server=foo, got %q", relayRequests, req.URL.RawQuery)
+			}
+			switch relayRequests {
+			case 1:
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("streamdata")),
+				}, nil
+			case 2:
+				return &http.Response{
+					StatusCode: http.StatusGone,
+					Body:       io.NopCloser(strings.NewReader("")),
+				}, nil
+			default:
+				t.Errorf("Unexpected extra request to relay: %s %s", req.Method, req.URL.Path)
+				return nil, fmt.Errorf("unexpected request")
+			}
+		},
+	}
+
+	config := DefaultClientConfig()
+	config.ServerName = "foo"
+	client := NewClient(config)
+
+	relayClient := &http.Client{Transport: relayTransport}
+	backendWriter := &mockWriteCloser{}
+
+	client.streamToBackend(relayClient, "15", backendWriter)
+
+	if relayRequests != 2 {
+		t.Errorf("Expected 2 requests to relay, got %d", relayRequests)
+	}
+	if got := backendWriter.String(); got != "streamdata" {
+		t.Errorf("Expected backend to receive %q, got %q", "streamdata", got)
+	}
+	if !backendWriter.closed {
+		t.Errorf("Expected backendWriter to be closed")
 	}
 }

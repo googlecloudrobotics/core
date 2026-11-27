@@ -83,3 +83,13 @@ go_library(
         "//src/go/cmd/http-relay-server/server:go_default_library",
     ],
 )
+
+go_test(
+    name = "scaling_test",
+    size = "small",
+    srcs = ["scaling_test.go"],
+    deps = [
+        ":go_default_library",
+        "//src/go/cmd/http-relay-client/client:go_default_library",
+    ],
+)
