@@ -15,19 +15,25 @@
 package chartassignment
 
 import (
+	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"go.opentelemetry.io/otel/trace"
 	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/repo"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -586,5 +592,428 @@ func Test_httpGetter(t *testing.T) {
 				t.Errorf("statusErr.isTransient() = %v, want %v", got, tc.wantTransient)
 			}
 		})
+	}
+}
+
+func buildTestChartTarball(t *testing.T, name string, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(zw)
+	for path, content := range files {
+		if err := tw.WriteHeader(&tar.Header{
+			Name: name + "/" + path,
+			Mode: 0644,
+			Size: int64(len(content)),
+		}); err != nil {
+			t.Fatalf("WriteHeader(%s): %v", path, err)
+		}
+		if _, err := tw.Write([]byte(content)); err != nil {
+			t.Fatalf("Write(%s): %v", path, err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("tar Close: %v", err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("gzip Close: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func Test_loadAndExpandChart_RemoteRepo(t *testing.T) {
+	chartTgz, err := base64.StdEncoding.DecodeString(kubetest.BuildInlineChart(t, "kyverno", `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kyverno-cfg
+data:
+  key: val
+`, ""))
+	if err != nil {
+		t.Fatalf("decode test chart: %v", err)
+	}
+
+	const indexYAML = `apiVersion: v1
+entries:
+  kyverno:
+    - name: kyverno
+      version: 3.2.1
+      urls:
+        - charts/kyverno-3.2.1.tgz
+    - name: kyverno
+      version: 3.2.2
+      urls:
+        - charts/missing-404.tgz
+    - name: kyverno
+      version: 3.2.3
+      urls:
+        - charts/transient-503.tgz
+    - name: kyverno
+      version: 3.2.4
+      urls:
+        - charts/gzipped-3.2.4.tgz
+  no-urls:
+    - name: no-urls
+      version: 1.0.0
+      urls: []
+`
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/index.yaml":
+			w.Write([]byte(indexYAML))
+		case "/charts/kyverno-3.2.1.tgz":
+			w.Write(chartTgz)
+		case "/charts/missing-404.tgz":
+			http.Error(w, "not found", http.StatusNotFound)
+		case "/charts/transient-503.tgz":
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+		case "/charts/gzipped-3.2.4.tgz":
+			w.Header().Set("Content-Encoding", "gzip")
+			w.Write(chartTgz)
+		case "/status-404/index.yaml":
+			http.Error(w, "not found", http.StatusNotFound)
+		case "/status-403/index.yaml":
+			http.Error(w, "forbidden", http.StatusForbidden)
+		case "/status-408/index.yaml":
+			http.Error(w, "timeout", http.StatusRequestTimeout)
+		case "/status-429/index.yaml":
+			http.Error(w, "rate limited", http.StatusTooManyRequests)
+		case "/status-503/index.yaml":
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	tests := []struct {
+		name            string
+		repoURL         string
+		chartName       string
+		version         string
+		wantErr         bool
+		wantRetry       bool
+		wantErrContains string
+		wantErrTarget   error
+	}{
+		{
+			name:      "valid chart and version",
+			repoURL:   srv.URL,
+			chartName: "kyverno",
+			version:   "3.2.1",
+		},
+		{
+			name:      "valid chart served with Content-Encoding gzip",
+			repoURL:   srv.URL,
+			chartName: "kyverno",
+			version:   "3.2.4",
+		},
+		{
+			name:            "missing chart version is permanent",
+			repoURL:         srv.URL,
+			chartName:       "kyverno",
+			version:         "1.12.1",
+			wantErr:         true,
+			wantRetry:       false,
+			wantErrContains: `chart "kyverno" version "1.12.1" not found in`,
+		},
+		{
+			name:          "missing chart name is permanent",
+			repoURL:       srv.URL,
+			chartName:     "nonexistent",
+			version:       "1.0.0",
+			wantErr:       true,
+			wantRetry:     false,
+			wantErrTarget: repo.ErrNoChartName,
+		},
+		{
+			name:            "invalid semver version is permanent",
+			repoURL:         srv.URL,
+			chartName:       "kyverno",
+			version:         "not-a-semver",
+			wantErr:         true,
+			wantRetry:       false,
+			wantErrContains: `chart "kyverno" version "not-a-semver" not found in`,
+		},
+		{
+			name:            "chart with empty urls is permanent",
+			repoURL:         srv.URL,
+			chartName:       "no-urls",
+			version:         "1.0.0",
+			wantErr:         true,
+			wantRetry:       false,
+			wantErrContains: "has no downloadable URLs",
+		},
+		{
+			name:      "invalid repo URL is permanent",
+			repoURL:   "://bad-url",
+			chartName: "kyverno",
+			version:   "3.2.1",
+			wantErr:   true,
+			wantRetry: false,
+		},
+		{
+			name:      "unsupported repo scheme is permanent",
+			repoURL:   "ftp://example.com/charts",
+			chartName: "kyverno",
+			version:   "3.2.1",
+			wantErr:   true,
+			wantRetry: false,
+		},
+		{
+			name:            "index.yaml 404 is permanent",
+			repoURL:         srv.URL + "/status-404",
+			chartName:       "kyverno",
+			version:         "3.2.1",
+			wantErr:         true,
+			wantRetry:       false,
+			wantErrContains: "404 Not Found",
+		},
+		{
+			name:            "index.yaml 403 is permanent",
+			repoURL:         srv.URL + "/status-403",
+			chartName:       "kyverno",
+			version:         "3.2.1",
+			wantErr:         true,
+			wantRetry:       false,
+			wantErrContains: "403 Forbidden",
+		},
+		{
+			name:            "index.yaml 408 is transient",
+			repoURL:         srv.URL + "/status-408",
+			chartName:       "kyverno",
+			version:         "3.2.1",
+			wantErr:         true,
+			wantRetry:       true,
+			wantErrContains: "408 Request Timeout",
+		},
+		{
+			name:            "index.yaml 429 is transient",
+			repoURL:         srv.URL + "/status-429",
+			chartName:       "kyverno",
+			version:         "3.2.1",
+			wantErr:         true,
+			wantRetry:       true,
+			wantErrContains: "429 Too Many Requests",
+		},
+		{
+			name:            "index.yaml 503 is transient",
+			repoURL:         srv.URL + "/status-503",
+			chartName:       "kyverno",
+			version:         "3.2.1",
+			wantErr:         true,
+			wantRetry:       true,
+			wantErrContains: "503 Service Unavailable",
+		},
+		{
+			name:            "chart tarball 404 is permanent",
+			repoURL:         srv.URL,
+			chartName:       "kyverno",
+			version:         "3.2.2",
+			wantErr:         true,
+			wantRetry:       false,
+			wantErrContains: "404 Not Found",
+		},
+		{
+			name:            "chart tarball 503 is transient",
+			repoURL:         srv.URL,
+			chartName:       "kyverno",
+			version:         "3.2.3",
+			wantErr:         true,
+			wantRetry:       true,
+			wantErrContains: "503 Service Unavailable",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			as := &apps.ChartAssignment{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-assignment"},
+				Spec: apps.ChartAssignmentSpec{
+					NamespaceName: "ns1",
+					Chart: apps.AssignedChart{
+						Repository: tc.repoURL,
+						Name:       tc.chartName,
+						Version:    tc.version,
+					},
+				},
+			}
+			resources, retry, err := loadAndExpandChart(as)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("loadAndExpandChart() succeeded, want error")
+				}
+				if retry != tc.wantRetry {
+					t.Errorf("loadAndExpandChart() retry = %v, want %v (err: %v)", retry, tc.wantRetry, err)
+				}
+				if tc.wantErrContains != "" && !strings.Contains(err.Error(), tc.wantErrContains) {
+					t.Errorf("loadAndExpandChart() err = %q, want substring %q", err.Error(), tc.wantErrContains)
+				}
+				if tc.wantErrTarget != nil && !errors.Is(err, tc.wantErrTarget) {
+					t.Errorf("loadAndExpandChart() err = %v, want errors.Is(_, %v)", err, tc.wantErrTarget)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("loadAndExpandChart() unexpected error: %v", err)
+			}
+			if len(resources) != 1 {
+				t.Errorf("loadAndExpandChart() returned %d resources, want 1", len(resources))
+			}
+		})
+	}
+}
+
+func Test_loadAndExpandChart_InvalidInlineArchive(t *testing.T) {
+	as := &apps.ChartAssignment{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-assignment"},
+		Spec: apps.ChartAssignmentSpec{
+			NamespaceName: "ns1",
+			Chart: apps.AssignedChart{
+				Inline: base64.StdEncoding.EncodeToString([]byte("not-a-valid-gzip-archive")),
+			},
+		},
+	}
+	_, retry, err := loadAndExpandChart(as)
+	if err == nil {
+		t.Fatal("Expected error for invalid inline archive")
+	}
+	if retry {
+		t.Errorf("Expected retry=false for invalid inline archive, got true (err: %v)", err)
+	}
+}
+
+func Test_loadAndExpandChart_InvalidValuesSchema(t *testing.T) {
+	tgz := buildTestChartTarball(t, "schemachart", map[string]string{
+		"Chart.yaml":         `apiVersion: v2` + "\n" + `name: schemachart` + "\n" + `version: 0.1.0`,
+		"values.yaml":        `replicas: 1`,
+		"values.schema.json": `{"type":"object","properties":{"replicas":{"type":"integer"}}}`,
+		"templates/cm.yaml":  "",
+	})
+	as := &apps.ChartAssignment{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-assignment"},
+		Spec: apps.ChartAssignmentSpec{
+			NamespaceName: "ns1",
+			Chart: apps.AssignedChart{
+				Inline: base64.StdEncoding.EncodeToString(tgz),
+				Values: apps.ConfigValues{"replicas": "not-an-int"},
+			},
+		},
+	}
+	_, retry, err := loadAndExpandChart(as)
+	if err == nil {
+		t.Fatal("Expected error for values violating values.schema.json")
+	}
+	if retry {
+		t.Errorf("Expected retry=false for values schema validation error, got true (err: %v)", err)
+	}
+}
+
+func TestReleases_EnsureUpdated_PermanentChartVersionError(t *testing.T) {
+	chartTgz, err := base64.StdEncoding.DecodeString(kubetest.BuildInlineChart(t, "kyverno", "", ""))
+	if err != nil {
+		t.Fatalf("decode test chart: %v", err)
+	}
+	const indexYAML = `apiVersion: v1
+entries:
+  kyverno:
+    - name: kyverno
+      version: 3.2.1
+      urls:
+        - charts/kyverno-3.2.1.tgz
+`
+	var indexFetches atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/index.yaml":
+			indexFetches.Add(1)
+			w.Write([]byte(indexYAML))
+		case "/charts/kyverno-3.2.1.tgz":
+			w.Write(chartTgz)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockSynk := NewMockInterface(ctrl)
+	rs := &releases{
+		ctx:      t.Context(),
+		recorder: &record.FakeRecorder{Events: make(chan string, 10)},
+		m:        map[string]*release{},
+		synk:     mockSynk,
+	}
+
+	as := &apps.ChartAssignment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "my-release",
+			Generation: 1,
+		},
+		Spec: apps.ChartAssignmentSpec{
+			NamespaceName: "ns1",
+			Chart: apps.AssignedChart{
+				Repository: srv.URL,
+				Name:       "kyverno",
+				Version:    "1.12.1",
+			},
+		},
+	}
+
+	waitStatus := func(check func(releaseStatus) bool) releaseStatus {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			if status, ok := rs.status(as.Name); ok && check(status) {
+				return status
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		status, _ := rs.status(as.Name)
+		t.Fatalf("Timed out waiting for status; last status: %+v", status)
+		return releaseStatus{}
+	}
+
+	// Start update with bad version.
+	for !rs.ensureUpdated(as) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	status := waitStatus(func(s releaseStatus) bool {
+		return s.phase == apps.ChartAssignmentPhaseFailed
+	})
+	if status.retry {
+		t.Error("Expected retry=false for missing chart version")
+	}
+	if status.err == nil || !strings.Contains(status.err.Error(), `version "1.12.1" not found`) {
+		t.Errorf("Unexpected error: %v", status.err)
+	}
+	if got := indexFetches.Load(); got != 1 {
+		t.Errorf("Expected 1 index fetch, got %d", got)
+	}
+
+	// Calling ensureUpdated again with the same generation must not retry.
+	if !rs.ensureUpdated(as) {
+		t.Fatal("Expected ensureUpdated to return true for already-failed generation")
+	}
+	if got := indexFetches.Load(); got != 1 {
+		t.Errorf("Expected no additional index fetches on same generation, got %d", got)
+	}
+
+	// Updating to a valid version on the next generation should recover and settle.
+	as.Generation = 2
+	as.Spec.Chart.Version = "3.2.1"
+	mockSynk.EXPECT().Apply(gomock.Any(), "my-release", gomock.Any(), gomock.Any()).Return(&apps.ResourceSet{}, nil).Times(1)
+	for !rs.ensureUpdated(as) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	status = waitStatus(func(s releaseStatus) bool {
+		return s.phase == apps.ChartAssignmentPhaseSettled
+	})
+	if status.err != nil {
+		t.Errorf("Expected nil error after recovery, got %v", status.err)
 	}
 }
