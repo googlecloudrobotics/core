@@ -8,6 +8,7 @@ fullnameOverride: "vmr"
 vmagent:
   spec:
     port: 8429
+    inlineRelabelConfig: []
     serviceScrapeSelector: {}
     serviceScrapeNamespaceSelector: {}
     podScrapeSelector: {}
@@ -23,4 +24,3 @@ vmagent:
   allowed_bytes: "200MB"
   memory_request: "512Mi"
   memory_limit: "512Mi"
-

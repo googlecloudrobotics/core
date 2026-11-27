@@ -100,6 +100,62 @@ vmalert:
     nodeSelector: {}
     tolerations: []
 
+# Where vmagent-vmc remote-writes scraped cloud metrics. Empty (default) means
+# vmagent-central when it is enabled, otherwise vminsert-vmc. To bypass
+# vmagent-central, set it to the vminsert-vmc write URL:
+#   http://vminsert-vmc.<namespace>.svc.cluster.local:8480/insert/0/prometheus/api/v1/write
+victoriametrics_cloudmetrics_remote_write_url: ""
+
+# Central aggregation vmagent (vmagent-central). Receives all writes (robot
+# vmagents, vmagent-vmc, in-cluster Prometheus), applies stream aggregation and
+# writes to vminsert-vmc and to every externalRemoteWrites entry.
+# In-cluster write URL:
+#   http://vmagent-central.<namespace>.svc.cluster.local:8429/victoriametrics/cloud/vmagent-central/api/v1/write
+# It always runs exactly one replica: stream aggregation needs every sample of a
+# series on the same instance, so do not scale it horizontally.
+vmagentCentral:
+  # When false, vmagent-central is not deployed; vmagent-vmc and the robot write
+  # route send to vminsert-vmc directly.
+  enabled: true
+  port: 8429
+  # image.tag defaults to the vmagent-vmc version.
+  image: {}
+  # Labels set on every series vmagent-central forwards (-remoteWrite.label),
+  # overriding the value the writer sent, if any.
+  externalLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  extraArgs:
+    # Disk budget of each per-destination queue. The persistent volume below must
+    # hold maxDiskUsagePerURL x (1 + len(externalRemoteWrites)).
+    remoteWrite.maxDiskUsagePerURL: "5GB"
+  # Persistent remote-write queue, so buffered data survives pod restarts.
+  statefulMode: true
+  statefulStorage:
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: "20Gi"
+  # Global stream aggregation, applied before writing to every destination
+  # (including vminsert-vmc). keepInput defaults to true so raw samples are kept.
+  streamAggrConfig: {}
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  containers: []
+  volumes: []
+  volumeMounts: []
+  serviceAccount:
+    annotations: {}
+  externalRemoteWrites: []
+
 victoriametrics_cloudmetrics_ingress_auth_url: "http://oauth2-proxy.default.svc.cluster.local/apis/core.token-vendor/v1/token.verify"
 victoriametrics_cloudmetrics_ingress_auth_signin: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"
 victoriametrics_cloudmetrics_ingress_error_page_403: "https://{{ .Values.domain }}/oauth2/start?rd=$escaped_request_uri"

@@ -13,6 +13,11 @@
     {{- $vmagentPort = .Values.vmagent.spec.port | default 8429 -}}
   {{- end -}}
 {{- end -}}
+{{- /* vmagent-central settings; keep in sync with victoriametrics-cloudmetrics-operator.yaml. */ -}}
+{{- $central := .Values.vmagentCentral | default dict -}}
+{{- $centralEnabled := or (not (hasKey $central "enabled")) $central.enabled -}}
+{{- $centralPort := toString ($central.port | default 8429) -}}
+{{- $centralPathPrefix := "/victoriametrics/cloud/vmagent-central" -}}
 {{- if .Values.vmalert -}}
   {{- if .Values.vmalert.spec -}}
     {{- $vmalertPort = .Values.vmalert.spec.port | default 8080 -}}
@@ -32,6 +37,13 @@ metadata:
     nginx.ingress.kubernetes.io/configuration-snippet: |
       error_page 403 = {{ tpl .Values.victoriametrics_cloudmetrics_ingress_error_page_403 . }};
       rewrite ^/victoriametrics/cloud/?$ /victoriametrics/cloud/select/0/prometheus/vmui redirect;
+      # Legacy robotmetrics URLs (robot metrics now live in this vmcluster).
+      # Keep in sync with the redirects in victoriametrics-cloudmetrics-read-http-route.yaml.
+      {{- if $centralEnabled }}
+      rewrite ^/victoriametrics/robots/vmagent(.*)$ {{ $centralPathPrefix }}$1 redirect;
+      {{- end }}
+      rewrite ^/victoriametrics/robots/(select|vmalert)(.*)$ /victoriametrics/cloud/$1$2 redirect;
+      rewrite ^/victoriametrics/robots(/.*)?$ /victoriametrics/cloud/select/0/prometheus/vmui/ redirect;
 spec:
   ingressClassName: nginx
   rules:
@@ -62,3 +74,21 @@ spec:
             name: vmagent-vmc
             port:
               number: {{ $vmagentPort }}
+      {{- if $centralEnabled }}
+      # Central aggregation vmagent status / stream aggregation UI
+      - path: {{ $centralPathPrefix }}
+        pathType: Prefix
+        backend:
+          service:
+            name: vmagent-central
+            port:
+              number: {{ $centralPort }}
+      {{- end }}
+      # Legacy robotmetrics URLs: redirected by the rewrites above.
+      - path: /victoriametrics/robots
+        pathType: Prefix
+        backend:
+          service:
+            name: vmselect-vmc
+            port:
+              number: {{ $vmselectPort }}

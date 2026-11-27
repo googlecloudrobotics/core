@@ -55,6 +55,36 @@
 {{- $data = $data | replace "port: ${CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_PORT}" (printf "port: \"%s\"" (toString $vmalertPort)) -}}
 {{- $data = $data | replace "${CR_VICTORIAMETRICS_CLOUDMETRICS_VMALERT_PORT}" (toString $vmalertPort) -}}
 
+{{- /*
+  Central aggregation vmagent (vmagent-central). Robot vmagents, vmagent-vmc and
+  in-cluster Prometheus all write to it; it writes to vminsert-vmc and to every
+  vmagentCentral.externalRemoteWrites entry.
+*/ -}}
+{{- $central := .Values.vmagentCentral | default dict -}}
+{{- /* The path prefix is fixed: the ingress and HTTPRoutes depend on it. */ -}}
+{{- $centralEnabled := or (not (hasKey $central "enabled")) $central.enabled -}}
+{{- $centralPort := toString ($central.port | default 8429) -}}
+{{- $centralPathPrefix := "/victoriametrics/cloud/vmagent-central" -}}
+{{- if not (kindIs "invalid" $central.replicaCount) }}
+  {{- if ne (int $central.replicaCount) 1 }}
+    {{- fail "victoriametrics-cloudmetrics: vmagent-central runs exactly one replica (stream aggregation needs every sample of a series on one instance); unset vmagentCentral.replicaCount" }}
+  {{- end }}
+{{- end }}
+{{- $vminsertWriteURL := printf "http://vminsert-vmc.%s.svc.cluster.local:%s/insert/0/prometheus/api/v1/write" .Release.Namespace (toString $vminsertPort) -}}
+
+{{- /*
+  Primary vmagent-vmc remoteWrite URL: victoriametrics_cloudmetrics_remote_write_url
+  if set, else the central vmagent when enabled, else vminsert-vmc directly.
+*/ -}}
+{{- $remoteWriteURL := $vminsertWriteURL -}}
+{{- if .Values.victoriametrics_cloudmetrics_remote_write_url -}}
+  {{- $remoteWriteURL = toString .Values.victoriametrics_cloudmetrics_remote_write_url -}}
+{{- else if $centralEnabled -}}
+  {{- $remoteWriteURL = printf "http://vmagent-central.%s.svc.cluster.local:%s%s/api/v1/write" .Release.Namespace $centralPort $centralPathPrefix -}}
+{{- end -}}
+{{- $data = $data | replace "\"${CR_VICTORIAMETRICS_CLOUDMETRICS_REMOTE_WRITE_URL}\"" (quote $remoteWriteURL) -}}
+{{- $data = $data | replace "${CR_VICTORIAMETRICS_CLOUDMETRICS_REMOTE_WRITE_URL}" (quote $remoteWriteURL) -}}
+
 {{- $nodeExporterPort := 9111 -}}
 {{- if index .Values "prometheus-node-exporter" -}}
   {{- if index (index .Values "prometheus-node-exporter") "service" -}}
@@ -785,3 +815,142 @@
 {{- end }}
 
 {{ $data }}
+
+{{- if $centralEnabled }}
+{{- /* Remote-write destinations: vminsert-vmc first, then externalRemoteWrites. */ -}}
+{{- $centralRW := list (dict "url" $vminsertWriteURL) -}}
+{{- $tokenFiles := list "" -}}
+{{- $hasTokenFile := false -}}
+{{- $hasTokenSecret := false -}}
+{{- range $i, $e := ($central.externalRemoteWrites | default list) }}
+  {{- if not $e.url }}
+    {{- fail (printf "victoriametrics-cloudmetrics: vmagentCentral.externalRemoteWrites[%d] needs a url" $i) }}
+  {{- end }}
+  {{- $rw := dict "url" $e.url -}}
+  {{- $headers := list -}}
+  {{- if $e.tenant }}
+    {{- $headers = append $headers (printf "X-Scope-OrgID: %s" $e.tenant) -}}
+  {{- end }}
+  {{- range ($e.headers | default list) }}
+    {{- $headers = append $headers . -}}
+  {{- end }}
+  {{- if $headers }}
+    {{- $_ := set $rw "headers" $headers -}}
+  {{- end }}
+  {{- range $key := list "inlineUrlRelabelConfig" "streamAggrConfig" "sendTimeout" "tlsConfig" "basicAuth" "bearerTokenSecret" "oauth2" }}
+    {{- with index $e $key }}
+      {{- $_ := set $rw $key . -}}
+    {{- end }}
+  {{- end }}
+  {{- if $e.bearerTokenFile }}
+    {{- if or $e.bearerTokenSecret $e.basicAuth $e.oauth2 }}
+      {{- fail (printf "victoriametrics-cloudmetrics: vmagentCentral.externalRemoteWrites[%d]: set only one of bearerTokenFile, bearerTokenSecret, basicAuth or oauth2" $i) }}
+    {{- end }}
+    {{- $hasTokenFile = true -}}
+  {{- end }}
+  {{- if $e.bearerTokenSecret }}
+    {{- $hasTokenSecret = true -}}
+  {{- end }}
+  {{- $tokenFiles = append $tokenFiles ($e.bearerTokenFile | default "") -}}
+  {{- $centralRW = append $centralRW $rw -}}
+{{- end }}
+
+{{- /* Fixed flags win over user extraArgs: the routes depend on the path prefix. */ -}}
+{{- $centralArgs := deepCopy ($central.extraArgs | default dict) -}}
+{{- if $hasTokenFile }}
+  {{- if $hasTokenSecret }}
+    {{- fail "victoriametrics-cloudmetrics: vmagentCentral.externalRemoteWrites cannot mix bearerTokenFile and bearerTokenSecret (both map to the per-URL -remoteWrite.bearerTokenFile flag)" }}
+  {{- end }}
+  {{- if hasKey $centralArgs "remoteWrite.bearerTokenFile" }}
+    {{- fail "victoriametrics-cloudmetrics: do not set vmagentCentral.extraArgs.remoteWrite.bearerTokenFile; use externalRemoteWrites[].bearerTokenFile" }}
+  {{- end }}
+  {{- /* -remoteWrite.bearerTokenFile is a per-URL list: one entry per destination. */ -}}
+  {{- $_ := set $centralArgs "remoteWrite.bearerTokenFile" (join "," $tokenFiles) -}}
+{{- end }}
+{{- $_ := set $centralArgs "http.pathPrefix" $centralPathPrefix -}}
+
+{{- /*
+  Image: vmagentCentral.image, with the tag defaulting to the vmagent-vmc version
+  (read from the pre-rendered VMAgent "vmc").
+*/ -}}
+{{- $centralImage := deepCopy ($central.image | default dict) -}}
+{{- if not $centralImage.tag }}
+  {{- range $part := splitList "\n---\n" $data }}
+    {{- if and (not $centralImage.tag) (contains "kind: VMAgent" $part) }}
+      {{- $doc := fromYaml $part -}}
+      {{- if and (eq (toString $doc.kind) "VMAgent") (eq (toString (dig "metadata" "name" "" $doc)) "vmc") }}
+        {{- $_ := set $centralImage "tag" (toString (dig "spec" "image" "tag" "" $doc)) -}}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if not $centralImage.tag }}
+  {{- fail "victoriametrics-cloudmetrics: cannot determine the vmagent-central image tag from the vmagent-vmc VMAgent; set vmagentCentral.image.tag" }}
+{{- end }}
+
+{{- $centralSpec := dict "replicaCount" 1 "ingestOnlyMode" true "selectAllByDefault" false "port" $centralPort "remoteWrite" $centralRW "extraArgs" $centralArgs "image" $centralImage "serviceAccountName" "vmagent-central" -}}
+{{- range $key := list "resources" "nodeSelector" "tolerations" "containers" "volumes" "volumeMounts" }}
+  {{- with index $central $key }}
+    {{- $_ := set $centralSpec $key . -}}
+  {{- end }}
+{{- end }}
+
+{{- /*
+  externalLabels: spec.externalLabels only applies to scraped series, and
+  vmagent-central scrapes nothing (ingestOnlyMode). Render them as
+  -remoteWrite.label instead, which sets the labels on every series it forwards.
+*/ -}}
+{{- with $central.externalLabels }}
+  {{- $_ := set $centralSpec "remoteWriteSettings" (dict "label" .) -}}
+{{- end }}
+
+{{- /*
+  Persistent remote-write queue (default on): data buffered for an unavailable
+  destination survives pod restarts. Size statefulStorage for
+  remoteWrite.maxDiskUsagePerURL x (1 + len(externalRemoteWrites)).
+*/ -}}
+{{- if or (not (hasKey $central "statefulMode")) $central.statefulMode }}
+  {{- $_ := set $centralSpec "statefulMode" true -}}
+  {{- with $central.statefulStorage }}
+    {{- $_ := set $centralSpec "statefulStorage" . -}}
+  {{- end }}
+{{- end }}
+
+{{- /*
+  Global stream aggregation applies to every destination, including vminsert-vmc.
+  Keep the raw input samples unless keepInput is set explicitly, so that the
+  vmcluster never silently loses the series matched by an aggregation rule.
+*/ -}}
+{{- with $central.streamAggrConfig }}
+  {{- $streamAggr := deepCopy . -}}
+  {{- if not (hasKey $streamAggr "keepInput") }}
+    {{- $_ := set $streamAggr "keepInput" true -}}
+  {{- end }}
+  {{- $_ := set $centralSpec "streamAggrConfig" $streamAggr -}}
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vmagent-central
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/component: central-aggregator
+  {{- with ($central.serviceAccount | default dict).annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+---
+# Central aggregation vmagent: single replica, ingest only (no scraping).
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAgent
+metadata:
+  name: central
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/component: central-aggregator
+spec:
+  {{- toYaml $centralSpec | nindent 2 }}
+{{- end }}

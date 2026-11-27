@@ -1,15 +1,16 @@
-{{- $vmagentPort := 8429 -}}
-{{- if .Values.vmagent }}
-  {{- if .Values.vmagent.spec }}
-    {{- if .Values.vmagent.spec.port }}
-      {{- $vmagentPort = .Values.vmagent.spec.port -}}
-    {{- end }}
-  {{- end }}
-{{- end }}
+{{- /* Backend: vmagent-central when enabled (default), otherwise vminsert-vmc. */ -}}
+{{- $central := .Values.vmagentCentral | default dict -}}
+{{- $target := dict "service" "vminsert-vmc" "port" (dig "spec" "vminsert" "port" 8480 (.Values.vmcluster | default dict)) "pathPrefix" "/insert/0/prometheus/" -}}
+{{- if or (not (hasKey $central "enabled")) $central.enabled -}}
+  {{- $target = dict "service" "vmagent-central" "port" ($central.port | default 8429) "pathPrefix" "/victoriametrics/cloud/vmagent-central/" -}}
+{{- end -}}
+# Robot vmagent (vmagent-vmr) remote-write path. Forwards to vmagent-central, or
+# to vminsert-vmc when vmagentCentral.enabled is false. The public path is kept
+# for compatibility with existing robot configurations.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: victoriametrics-robotmetrics-write
+  name: victoriametrics-cloudmetrics-write
   namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
@@ -30,10 +31,10 @@ spec:
       urlRewrite:
         path:
           type: ReplacePrefixMatch
-          replacePrefixMatch: /victoriametrics/robots/vmagent/
+          replacePrefixMatch: {{ $target.pathPrefix }}
     backendRefs:
-    - name: vmagent-vmr
-      port: {{ $vmagentPort }}
+    - name: {{ $target.service }}
+      port: {{ $target.port }}
   - matches:
     - path:
         type: PathPrefix
@@ -43,10 +44,10 @@ spec:
       urlRewrite:
         path:
           type: ReplacePrefixMatch
-          replacePrefixMatch: /victoriametrics/robots/vmagent/
+          replacePrefixMatch: {{ $target.pathPrefix }}
     backendRefs:
-    - name: vmagent-vmr
-      port: {{ $vmagentPort }}
+    - name: {{ $target.service }}
+      port: {{ $target.port }}
   - matches:
     - path:
         type: Exact
@@ -56,15 +57,15 @@ spec:
       urlRewrite:
         path:
           type: ReplaceFullPath
-          replaceFullPath: /victoriametrics/robots/vmagent/
+          replaceFullPath: {{ $target.pathPrefix }}
     backendRefs:
-    - name: vmagent-vmr
-      port: {{ $vmagentPort }}
+    - name: {{ $target.service }}
+      port: {{ $target.port }}
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
-  name: victoriametrics-robotmetrics-write-auth
+  name: victoriametrics-cloudmetrics-write-auth
   namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
@@ -72,7 +73,7 @@ spec:
   targetRefs:
   - group: gateway.networking.k8s.io
     kind: HTTPRoute
-    name: victoriametrics-robotmetrics-write
+    name: victoriametrics-cloudmetrics-write
   extAuth:
     contextExtensions:
       - name: robot
