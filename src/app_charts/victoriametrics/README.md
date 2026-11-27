@@ -4,14 +4,15 @@
 
 VictoriaMetrics in this repository is split into two distinct observability domains to isolate high-cardinality, potentially unstable network edge telemetry from internal cloud infrastructure telemetry.
 
-Both components live under this directory:
+Each project runs a **single vmcluster** (`vmc`). Each robot runs exactly **one** vmagent (`vmagent-vmr`). Every writer (robot vmagents, the cloud scraper `vmagent-vmc` and in-cluster Prometheus) sends to one **central aggregation vmagent** (`vmagent-central`, always one replica) that runs next to the vmcluster. It applies stream aggregation and writes to `vminsert-vmc` and to any number of Prometheus remote-write compatible endpoints (for example a Grafana Mimir instance).
 
-1. **`victoriametrics-robotmetrics`**: 
-   * **Domain**: Robot telemetry (data originating from physical edge robots).
-   * **Deployment Targets**: Deploys `vmagent` on edge robots, and a complete `vmcluster` in the cloud to receive, store, and alert on robot data.
-2. **`victoriametrics-cloudmetrics`**:
-   * **Domain**: Cloud telemetry (data originating from cloud microservices and Kubernetes infrastructure).
-   * **Deployment Target**: Cloud-only. Scrapes `kube-state-metrics`, node exporters, and cloud services into a dedicated internal `vmcluster`.
+Both charts live under this directory:
+
+1. **`victoriametrics-robotmetrics`**: robot-only app. Deploys `vmagent-vmr` on each robot. It scrapes local targets, buffers on disk and remote-writes to the cloud write route.
+2. **`victoriametrics-cloudmetrics`**: cloud-only app, the metrics backend of the project:
+   * `vmagent-vmc`: scrapes `kube-state-metrics`, node exporters and cloud services.
+   * `vmagent-central`: the robot write route ends here, along with `vmagent-vmc` and Prometheus remote writes. Applies stream aggregation and fans out to the vmcluster and `vmagentCentral.externalRemoteWrites`.
+   * The single `vmcluster` (`vminsert`/`vmstorage`/`vmselect`) and `vmalert`.
 
 ---
 
@@ -19,56 +20,29 @@ Both components live under this directory:
 
 ```mermaid
 flowchart TD
-    subgraph Edge[Edge Environment]
-        RA[vmagent - Robot Agent] -->|Scrapes| RT[Robot Local Services]
-    end
-    
-    subgraph LegacyEdge[Legacy / Dangling Edge]
-        LP[Prometheus - Legacy Agent]
+    subgraph Edge[Edge - per robot: victoriametrics-robotmetrics]
+        RA[vmagent-vmr - one per robot] -->|Scrapes| RT[Robot local services]
     end
 
-    subgraph CloudEnv[Cloud Platform Environment]
-        subgraph RobotMetrics[victoriametrics-robotmetrics]
-            ING[Ingress / Auth Proxy]
-            VMA_PROXY[vmagent - Cloud Ingestion Proxy]
-            VMI_R[vminsert - Robot]
-            VMS_R[vmstorage - Robot]
-            VMQ_R[vmselect - Robot]
-            VMA_R[vmalert - Robot]
-            
-            ING --> VMA_PROXY
-            VMA_PROXY --> VMI_R
-            VMA_PROXY -.->|Optional Upstream Relay| UpstreamTSDB[Upstream Time-Series Database]
-            VMI_R --> VMS_R
-            VMQ_R --> VMS_R
-            VMA_R --> VMQ_R
-        end
-        
-        subgraph CloudMetrics[victoriametrics-cloudmetrics]
-            KSM[kube-state-metrics]
-            CA[vmagent - Cloud Agent]
-            VMI_C[vminsert - Cloud]
-            VMS_C[vmstorage - Cloud]
-            VMQ_C[vmselect - Cloud]
-            VMA_C[vmalert - Cloud]
-            
-            KSM -->|Scraped by| CA
-            CA --> VMI_C
-            VMI_C --> VMS_C
-            VMQ_C --> VMS_C
-            VMA_C --> VMQ_C
-        end
-        
-        CP[Cloud Prometheus Relay]
-        AM[Central Alertmanager]
+    subgraph CloudMetrics[Cloud - per project: victoriametrics-cloudmetrics]
+        ING[Write HTTPRoute /victoriametrics-robotmetrics-write - token-vendor auth]
+        CA[vmagent-vmc - cloud scraper]
+        CEN[vmagent-central - stream aggregation, 1 replica]
+        VMI[vminsert-vmc]
+        VMS[vmstorage-vmc]
+        VMQ[vmselect-vmc]
+        VMA[vmalert-vmc]
+        ING --> CEN
+        CA -->|remoteWrite| CEN
+        CEN -->|remoteWrite| VMI
+        VMI --> VMS
+        VMQ --> VMS
+        VMA --> VMQ
     end
 
-    %% Data Flow
+    PROM[In-cluster Prometheus - legacy relay] -.->|remoteWrite| CEN
     RA -->|TLS remoteWrite| ING
-    LP -->|Scraped by Cloud Prom| CP
-    CP -->|remoteWrite Relay| VMI_R
-    VMA_R -->|Alerts| AM
-    VMA_C -->|Alerts| AM
+    CEN -.->|"vmagentCentral.externalRemoteWrites (per-URL tenant, auth, relabel, stream aggregation)"| EXT["Any Prometheus remote-write endpoint, e.g. Mimir"]
 ```
 
 ## Extra Objects & Autoscaling

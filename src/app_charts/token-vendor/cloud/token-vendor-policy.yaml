@@ -44,7 +44,7 @@ spec:
     namespace: app-prometheus
   - group: gateway.envoyproxy.io
     kind: SecurityPolicy
-    namespace: app-victoriametrics-robotmetrics
+    namespace: app-victoriametrics-cloudmetrics
   to:
   - group: ""
     kind: Service

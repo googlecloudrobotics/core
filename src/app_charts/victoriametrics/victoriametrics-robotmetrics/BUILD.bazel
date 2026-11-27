@@ -2,33 +2,8 @@ load("@rules_helm//helm:defs.bzl", "helm_template")
 load("//bazel:app.bzl", "app")
 load("//bazel:app_chart.bzl", "app_chart")
 
-# --- Cloud side ---
-
-helm_template(
-    name = "victoriametrics-robotmetrics-chart.cloud",
-    chart = "//src/app_charts/victoriametrics:victoriametrics-chart",
-    opts = [
-        "--name-template",
-        "vmr",
-        # The namespace will later be replaced with the actual one.
-        "--namespace",
-        "HELM-NAMESPACE",
-        "--kube-version",
-        "1.29.0",
-    ],
-    values = ["victoriametrics-robotmetrics-cloud.values.yaml"],
-)
-
-app_chart(
-    name = "victoriametrics-robotmetrics-cloud",
-    extra_values = ["values-cloud.yaml"],
-    files = [
-        ":victoriametrics-robotmetrics-chart.cloud",
-    ],
-    images = {},
-)
-
-# --- Robot side ---
+# Robot-only app: one vmagent (vmagent-vmr) per robot. Its cloud-side counterpart
+# (write route + central aggregation vmagent) lives in victoriametrics-cloudmetrics.
 
 helm_template(
     name = "victoriametrics-robotmetrics-chart.robot",
@@ -56,7 +31,6 @@ app_chart(
 app(
     name = "victoriametrics-robotmetrics",
     charts = [
-        ":victoriametrics-robotmetrics-cloud",
         ":victoriametrics-robotmetrics-robot",
     ],
     visibility = ["//visibility:public"],

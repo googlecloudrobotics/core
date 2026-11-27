@@ -17,6 +17,11 @@
     {{- end }}
   {{- end }}
 {{- end }}
+{{- /* vmagent-central settings; keep in sync with victoriametrics-cloudmetrics-operator.yaml. */ -}}
+{{- $central := .Values.vmagentCentral | default dict -}}
+{{- $centralEnabled := or (not (hasKey $central "enabled")) $central.enabled -}}
+{{- $centralPort := toString ($central.port | default 8429) -}}
+{{- $centralPathPrefix := "/victoriametrics/cloud/vmagent-central" -}}
 {{- if .Values.vmalert }}
   {{- if .Values.vmalert.spec }}
     {{- if .Values.vmalert.spec.port }}
@@ -60,6 +65,61 @@ spec:
     backendRefs:
     - name: vmselect-vmc
       port: {{ $vmselectPort }}
+  {{- if $centralEnabled }}
+  - matches:
+    - path:
+        type: PathPrefix
+        value: {{ $centralPathPrefix }}
+    backendRefs:
+    - name: vmagent-central
+      port: {{ $centralPort }}
+  # Legacy robotmetrics URLs (robot metrics now live in this vmcluster).
+  # Keep in sync with the rewrites in victoriametrics-cloudmetrics-ingress.yaml.
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /victoriametrics/robots/vmagent
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        statusCode: 302
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: {{ $centralPathPrefix }}
+  {{- end }}
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /victoriametrics/robots/vmalert
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        statusCode: 302
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /victoriametrics/cloud/vmalert
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /victoriametrics/robots/select
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        statusCode: 302
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /victoriametrics/cloud/select
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /victoriametrics/robots
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        statusCode: 302
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /victoriametrics/cloud/select/0/prometheus/vmui/
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
