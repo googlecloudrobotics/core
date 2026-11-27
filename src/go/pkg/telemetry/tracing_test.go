@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"testing"
 
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -120,5 +121,32 @@ func TestIgnoreHealthAndMetrics(t *testing.T) {
 		if got := IgnoreHealthAndMetrics(req); got != tc.want {
 			t.Errorf("IgnoreHealthAndMetrics(%q) = %v, want %v", tc.path, got, tc.want)
 		}
+	}
+}
+
+func TestSetupOTLPTracing_EmptyEndpoint(t *testing.T) {
+	if _, err := SetupOTLPTracing(t.Context(), "", "test-service", 1.0); err == nil {
+		t.Fatal("SetupOTLPTracing with empty endpoint succeeded, want error")
+	}
+}
+
+func TestSetupOTLPTracing(t *testing.T) {
+	prev := otel.GetTracerProvider()
+	t.Cleanup(func() { otel.SetTracerProvider(prev) })
+
+	tp, err := SetupOTLPTracing(t.Context(), "127.0.0.1:4317", "test-service", 0.0)
+	if err != nil {
+		t.Fatalf("SetupOTLPTracing() failed: %v", err)
+	}
+	if got := otel.GetTracerProvider(); got != tp {
+		t.Errorf("otel.GetTracerProvider() = %v, want %v", got, tp)
+	}
+	_, span := tp.Tracer("test").Start(t.Context(), "unsampled")
+	if span.SpanContext().IsSampled() {
+		t.Errorf("span with probability 0.0 was sampled")
+	}
+	span.End()
+	if err := tp.Shutdown(t.Context()); err != nil {
+		t.Errorf("tp.Shutdown() failed: %v", err)
 	}
 }

@@ -65,6 +65,31 @@ func IgnoreHealthAndMetrics(r *http.Request) bool {
 	}
 }
 
+func initTracerProvider(ctx context.Context, exporter sdktrace.SpanExporter, serviceName string, traceProbability float64, extraResOpts ...resource.Option) *sdktrace.TracerProvider {
+	resOpts := append([]resource.Option{}, extraResOpts...)
+	resOpts = append(resOpts,
+		resource.WithTelemetrySDK(),
+		resource.WithHost(),
+		resource.WithFromEnv(),
+	)
+	if serviceName != "" {
+		resOpts = append(resOpts, resource.WithAttributes(semconv.ServiceName(serviceName)))
+	}
+	res, err := resource.New(ctx, resOpts...)
+	if err != nil {
+		// resource.New returns a partial resource on failure.
+		slog.WarnContext(ctx, "Failed to create telemetry resource", slog.String("error", err.Error()))
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(res),
+		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(traceProbability))),
+	)
+	otel.SetTracerProvider(tp)
+	return tp
+}
+
 // SetupCloudTracing initializes OpenTelemetry tracing exporting over OTLP gRPC
 // to the Google Cloud Telemetry API (telemetry.googleapis.com:443).
 func SetupCloudTracing(ctx context.Context, projectID, serviceName string, traceProbability float64) (*sdktrace.TracerProvider, error) {
@@ -83,29 +108,25 @@ func SetupCloudTracing(ctx context.Context, projectID, serviceName string, trace
 		return nil, fmt.Errorf("create trace exporter: %w", err)
 	}
 
-	resAttrs := []attribute.KeyValue{
-		gcpProjectKey.String(projectID),
-	}
-	if serviceName != "" {
-		resAttrs = append(resAttrs, semconv.ServiceName(serviceName))
-	}
-	res, err := resource.New(ctx,
+	return initTracerProvider(ctx, exporter, serviceName, traceProbability,
 		resource.WithDetectors(gcp.NewDetector()),
-		resource.WithTelemetrySDK(),
-		resource.WithHost(),
-		resource.WithFromEnv(),
-		resource.WithAttributes(resAttrs...),
+		resource.WithAttributes(gcpProjectKey.String(projectID)),
+	), nil
+}
+
+// SetupOTLPTracing initializes OpenTelemetry tracing exporting over insecure
+// OTLP gRPC to a collector endpoint (e.g. an in-cluster OpenTelemetry collector).
+func SetupOTLPTracing(ctx context.Context, endpoint, serviceName string, traceProbability float64) (*sdktrace.TracerProvider, error) {
+	if endpoint == "" {
+		return nil, fmt.Errorf("endpoint must be specified")
+	}
+	exporter, err := otlptracegrpc.New(ctx,
+		otlptracegrpc.WithEndpoint(endpoint),
+		otlptracegrpc.WithInsecure(),
 	)
 	if err != nil {
-		// resource.New returns a partial resource on failure.
-		slog.WarnContext(ctx, "Failed to create telemetry resource", slog.String("error", err.Error()))
+		return nil, fmt.Errorf("create trace exporter: %w", err)
 	}
 
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(res),
-		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(traceProbability))),
-	)
-	otel.SetTracerProvider(tp)
-	return tp, nil
+	return initTracerProvider(ctx, exporter, serviceName, traceProbability), nil
 }
