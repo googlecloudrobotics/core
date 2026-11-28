@@ -27,6 +27,7 @@ go_test(
     srcs = ["tracing_test.go"],
     embed = [":go_default_library"],
     deps = [
+        "@io_opentelemetry_go_otel//:go_default_library",
         "@io_opentelemetry_go_otel//propagation:go_default_library",
         "@io_opentelemetry_go_otel_trace//:go_default_library",
     ],

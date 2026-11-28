@@ -40,6 +40,7 @@ var (
 	config client.ClientConfig
 
 	stackdriverProjectID string
+	otlpEndpoint         string
 	traceProbability     float64
 	logLevel             int
 	pprofPort            int
@@ -88,15 +89,37 @@ func init() {
 	flag.BoolVar(&config.DisableAuthForRemote, "disable_auth_for_remote", config.DisableAuthForRemote,
 		"Disable auth when talking to the relay server for local testing.")
 
-	// The stackdriver project ID is a client independent variable and so we
-	// initialize it independently.
+	// Tracing flags are client-independent variables and initialized independently.
 	flag.StringVar(&stackdriverProjectID, "trace-stackdriver-project-id", "",
-		"If not empty, traces will be uploaded to this Google Cloud Project.")
+		"If not empty, traces will be uploaded to this Google Cloud Project. Mutually exclusive with --trace-otlp-endpoint.")
+	flag.StringVar(&otlpEndpoint, "trace-otlp-endpoint", "",
+		"If not empty, traces will be exported over insecure OTLP gRPC to this endpoint (e.g. oc-agent:4317). Mutually exclusive with --trace-stackdriver-project-id.")
 	flag.Float64Var(&traceProbability, "trace-probability", 1e-4,
 		"Probability of sampling a root trace span (0.0 to 1.0).")
 	flag.IntVar(&logLevel, "log_level", int(slog.LevelInfo),
 		"the log message level required to be logged")
 	flag.IntVar(&pprofPort, "pprof_port", 0, "If non-zero, serves pprof endpoints on this port.")
+}
+
+func setupTracing(ctx context.Context, stackdriverProjectID, otlpEndpoint string, traceProbability float64) (func(context.Context) error, error) {
+	if stackdriverProjectID != "" && otlpEndpoint != "" {
+		return nil, fmt.Errorf("--trace-stackdriver-project-id and --trace-otlp-endpoint are mutually exclusive")
+	}
+	if otlpEndpoint != "" {
+		tp, err := telemetry.SetupOTLPTracing(ctx, otlpEndpoint, "http-relay-client", traceProbability)
+		if err != nil {
+			return nil, fmt.Errorf("setup OTLP tracing (endpoint %q): %w", otlpEndpoint, err)
+		}
+		return tp.Shutdown, nil
+	}
+	if stackdriverProjectID != "" {
+		tp, err := telemetry.SetupCloudTracing(ctx, stackdriverProjectID, "http-relay-client", traceProbability)
+		if err != nil {
+			return nil, fmt.Errorf("setup Cloud Tracing (project %q): %w", stackdriverProjectID, err)
+		}
+		return tp.Shutdown, nil
+	}
+	return nil, nil
 }
 
 func main() {
@@ -114,17 +137,13 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if stackdriverProjectID != "" {
-		tp, err := telemetry.SetupCloudTracing(ctx,
-			stackdriverProjectID,
-			"http-relay-client",
-			traceProbability,
-		)
-		if err != nil {
-			slog.Error("Failed to setup Cloud Tracing", slog.String("Project", stackdriverProjectID), ilog.Err(err))
-			os.Exit(1)
-		}
-		defer tp.Shutdown(context.Background())
+	shutdownTracing, err := setupTracing(ctx, stackdriverProjectID, otlpEndpoint, traceProbability)
+	if err != nil {
+		slog.Error("Failed to setup tracing", ilog.Err(err))
+		os.Exit(1)
+	}
+	if shutdownTracing != nil {
+		defer shutdownTracing(context.Background())
 	}
 
 	client := client.NewClient(config)

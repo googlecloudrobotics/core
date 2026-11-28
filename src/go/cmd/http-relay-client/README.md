@@ -29,6 +29,8 @@ For the complete architecture, sequence diagrams, and scalability considerations
 - `--disable_http2`: Disable HTTP/2 protocol usage (e.g. for channels that require HTTP/1.1 protocol upgrades such as SPDY) (default: `false`).
 - `--force_http2`: Force HTTP/2 transport usage (e.g. when relaying cleartext gRPC) (default: `false`).
 - `--disable_auth_for_remote`: Disable authentication when talking to the relay server for local testing (default: `false`).
-- `--trace-stackdriver-project-id`: If non-empty, uploads OpenTelemetry traces to this Google Cloud Project (default: `""`).
+- `--trace-stackdriver-project-id`: If non-empty, uploads OpenTelemetry traces directly to this Google Cloud Project (default: `""`; mutually exclusive with `--trace-otlp-endpoint`).
+- `--trace-otlp-endpoint`: If non-empty, exports OpenTelemetry traces over insecure OTLP gRPC to this collector endpoint, e.g. `oc-agent.app-intrinsic-base.svc.cluster.local:4317` (default: `""`; mutually exclusive with `--trace-stackdriver-project-id`).
+- `--trace-probability`: Probability of sampling a root trace span from `0.0` to `1.0` (default: `1e-4`).
 - `--log_level`: Minimum log message level required to be logged (default: `0` / `INFO`).
 - `--pprof_port`: If non-zero, serves Go `pprof` profiling endpoints on this port (default: `0`).
